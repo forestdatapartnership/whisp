@@ -40,3 +40,14 @@ def reduceStatsIC (featureCollection,imageCollection,reducer_choice):
 # df_combined["test"]=np.where((df_combined["sum"]>0) & (df_combined["dataset_name"].str.contains("overlap")),"True","False")
 # df_combined 
 # df_combined.to_csv(path_or_buf=out_file_long,header=True,index=False)
+# df_wide_format = df_combined.pivot_table(index=[geo_id_column,geometry_area_column], 
+#                                             columns='dataset_name', 
+#                                             values="sum")
+
+# #tidy_dataframe_after_pivot(df_wide_format) #tidys in place
+
+# df_wide_format.to_csv(path_or_buf=out_file_wide,header=True)
+
+# print ("output csv: ", out_file_wide)
+
+# df_wide_format
