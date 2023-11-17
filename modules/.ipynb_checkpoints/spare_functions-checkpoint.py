@@ -40,3 +40,34 @@ def reduceStatsIC (featureCollection,imageCollection,reducer_choice):
 # df_combined["test"]=np.where((df_combined["sum"]>0) & (df_combined["dataset_name"].str.contains("overlap")),"True","False")
 # df_combined 
 # df_combined.to_csv(path_or_buf=out_file_long,header=True,index=False)
+# df_wide_format = df_combined.pivot_table(index=[geo_id_column,geometry_area_column], 
+#                                             columns='dataset_name', 
+#                                             values="sum")
+
+# #tidy_dataframe_after_pivot(df_wide_format) #tidys in place
+
+# df_wide_format.to_csv(path_or_buf=out_file_wide,header=True)
+
+# print ("output csv: ", out_file_wide)
+
+# df_wide_format
+
+
+
+
+## kernels insrtead of buffer
+latest_radd_alert_confirmed_recent_area_km2_kernel = latest_radd_alert_confirmed_recent_area_km2.float().unmask().reduceNeighborhood(
+    reducer=ee.Reducer.sum(),
+  kernel=ee.Kernel.circle(radius= ee.Number(50), 
+                            units= 'pixels', 
+                            normalize= False)).reproject(radd.first().select(0).projection())
+
+latest_radd_alert_confirmed_recent_area_km2_kernel = area_stats.set_scale_property_from_image(latest_radd_alert_confirmed_recent_area_km2_kernel,radd.first(),0,verbose=True)
+
+
+Map.addLayer(latest_radd_alert_confirmed_recent_area_km2_kernel,
+    {'min': 0, 'max': 20, 'palette': ['blue', 'orange']},
+    'latest_radd_alert_confirmed_recent_area_km2_kernel - recent (i.e., filtered by date)', 1, 1)
+
+latest_radd_alert_confirmed_recent_area_km2_kernel = latest_radd_alert_confirmed_recent_area_km2_kernel.setMulti(
+    {"presence_only_flag":1})
