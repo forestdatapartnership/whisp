@@ -33,24 +33,24 @@ def get_scale_from_image(image,band_index=0):
     return image.select(band_index).projection().nominalScale().getInfo()
 
     
-def binary_to_area_km2(image,to_pixel_area=True):
-    """get pixel area in km2 for image"""
+def binary_to_area_hectares(image,to_pixel_area=True):
+    """get pixel area in hectares for image"""
     if to_pixel_area:
-        out_image = image.multiply(ee.Image.pixelArea()).divide(1e6) 
+        out_image = image.multiply(ee.Image.pixelArea()).divide(1e4) 
     else:
         out_image = image
     return out_image
 
 
-def add_area_km2_property_to_feature_collection(fc,geometry_area_column):
-    def add_area_km2_property_to_feature (feature):
-        feature = feature.set(geometry_area_column,feature.area().divide(1e6))#add area
+def add_area_hectares_property_to_feature_collection(fc,geometry_area_column):
+    def add_area_hectares_property_to_feature (feature):
+        feature = feature.set(geometry_area_column,feature.area().divide(1e4))#add area
         return feature
-    outFC = fc.map(add_area_km2_property_to_feature)
+    outFC = fc.map(add_area_hectares_property_to_feature)
     return outFC
 
-# # add area property in km2 for input feature (ROI)
-# def add_area_km2_property_to_feature (feature):
+# # add area property in hectares for input feature (ROI)
+# def add_area_hectares_property_to_feature (feature):
 #     feature = feature.set(geometry_area_column,feature.area().divide(1e6))#add area
 #     # if verbose:
 #     #     print(feature.get(geometry_area_column).getInfo())
