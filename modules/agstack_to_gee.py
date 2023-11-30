@@ -24,9 +24,9 @@ def geo_id_to_feature(geo_id, geo_id_column, session, asset_registry_base):
     return feature
 
 
-# def json_to_feature_with_id(poly_json,geo_id,geo_id_column):
-#     """converts json into a feature with a specified id column"""
-#     return ee.Feature(ee.Geometry.Polygon(poly_json),ee.Dictionary([geo_id_column,geo_id]))
+def json_to_feature_with_id(poly_json,geo_id,geo_id_column):
+    """converts json into a feature with a specified id column"""
+    return ee.Feature(ee.Geometry.Polygon(poly_json),ee.Dictionary([geo_id_column,geo_id]))
 
 
 
