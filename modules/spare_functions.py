@@ -35,26 +35,6 @@ def reduceStatsIC (featureCollection,imageCollection,reducer_choice):
 
 
 
-##.map(lambda image: image.clip(roi_alerts_buffer.bounds()))
-
-# df_combined["test"]=np.where((df_combined["sum"]>0) & (df_combined["dataset_name"].str.contains("overlap")),"True","False")
-# df_combined 
-# df_combined.to_csv(path_or_buf=out_file_long,header=True,index=False)
-# df_wide_format = df_combined.pivot_table(index=[geo_id_column,geometry_area_column], 
-#                                             columns='dataset_name', 
-#                                             values="sum")
-
-# #tidy_dataframe_after_pivot(df_wide_format) #tidys in place
-
-# df_wide_format.to_csv(path_or_buf=out_file_wide,header=True)
-
-# print ("output csv: ", out_file_wide)
-
-# df_wide_format
-
-
-
-
 ## kernels insrtead of buffer
 latest_radd_alert_confirmed_recent_area_km2_kernel = latest_radd_alert_confirmed_recent_area_km2.float().unmask().reduceNeighborhood(
     reducer=ee.Reducer.sum(),
