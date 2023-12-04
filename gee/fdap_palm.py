@@ -10,5 +10,5 @@ FDaP_palm_2020_model_raw = ee.ImageCollection("projects/forestdatapartnership/as
 FDaP_palm_2020_model = FDaP_palm_2020_model_raw.mosaic().gt(0.9).selfMask()
 
 FDaP_palm_2020_model_area_hectares = area_stats.binary_to_area_hectares(FDaP_palm_2020_model)
-FDaP_palm_2020_model_area_hectares = area_stats.set_scale_property_from_image(FDaP_palm_2020_model_area_hectares,FDaP_palm_2020_model_raw.first(),0,verbose=True)
+FDaP_palm_2020_model_area_hectares = area_stats.set_scale_property_from_image(FDaP_palm_2020_model_area_hectares,FDaP_palm_2020_model_raw.first(),0,debug=True)
 

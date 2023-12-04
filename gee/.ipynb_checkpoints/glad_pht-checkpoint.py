@@ -3,6 +3,7 @@ import ee
 
 import modules.image_prep as image_prep
 import modules.area_stats as area_stats
+from gee.glad_gfc import *
 
 ee.Initialize()
 

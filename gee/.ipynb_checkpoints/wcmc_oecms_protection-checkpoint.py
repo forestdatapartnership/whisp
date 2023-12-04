@@ -3,6 +3,7 @@ import ee
 
 import modules.image_prep as image_prep
 import modules.area_stats as area_stats
+from gee.template_images import gfc
 
 ee.Initialize()
 
@@ -26,5 +27,5 @@ OECM_2023_binary_reproj = OECM_2023_binary.reproject(
 
 OECM_2023_area_hectares = area_stats.binary_to_area_hectares(OECM_2023_binary_reproj)
 
-OECM_2023_area_hectares = area_stats.set_scale_property_from_image(OECM_2023_area_hectares,gfc,0,verbose=True)
+OECM_2023_area_hectares = area_stats.set_scale_property_from_image(OECM_2023_area_hectares,gfc,0,debug=True)
 

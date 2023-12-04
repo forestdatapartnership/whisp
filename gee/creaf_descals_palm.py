@@ -21,4 +21,4 @@ oil_palm_descals_binary = oil_palm_descals_mosaic.lte(2) #choosing to ignore
 
 oil_palm_descals_binary_area_hectares = area_stats.binary_to_area_hectares(oil_palm_descals_binary)
 
-oil_palm_descals_binary_area_hectares = area_stats.set_scale_property_from_image(oil_palm_descals_binary_area_hectares,oil_palm_descals_raw.first(),0,verbose=True)
+oil_palm_descals_binary_area_hectares = area_stats.set_scale_property_from_image(oil_palm_descals_binary_area_hectares,oil_palm_descals_raw.first(),0,debug=True)
