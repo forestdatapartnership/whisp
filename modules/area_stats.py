@@ -1,5 +1,7 @@
 import ee
 
+from parameters.config_output_naming import debug
+
 def reduceStatsIC (featureCollection,imageCollection,reducer_choice):
     "Calculating summary statistics for each image in collection, within each feature in a collection""" 
   
@@ -15,14 +17,12 @@ def reduceStatsIC (featureCollection,imageCollection,reducer_choice):
     
     return fc_out
 
-
-
-def set_scale_property_from_image(target_image,template_image,template_band_index=0,verbose=False):
+def set_scale_property_from_image(target_image,template_image,template_band_index=0,debug=False):
     """Gets nominal scale from template image and sets it as "scale" property in target image. 
 Template images are used for when target image scale property has been lost (e.g. after using '.mosaic()') """
     out_scale = get_scale_from_image(template_image,band_index=template_band_index)
-    if verbose:
-        print("template_band_index: ",template_band_index)
+    if debug:
+        # print("template_band_index: ",template_band_index)
         print("scale (m): ",out_scale)
     output_image = target_image.set("scale",out_scale)
     return output_image
@@ -52,6 +52,6 @@ def add_area_hectares_property_to_feature_collection(fc,geometry_area_column):
 # # add area property in hectares for input feature (ROI)
 # def add_area_hectares_property_to_feature (feature):
 #     feature = feature.set(geometry_area_column,feature.area().divide(1e6))#add area
-#     # if verbose:
+#     # if debug:
 #     #     print(feature.get(geometry_area_column).getInfo())
 #     return feature

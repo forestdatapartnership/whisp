@@ -3,11 +3,11 @@ import ee
 
 import modules.image_prep as image_prep
 import modules.area_stats as area_stats
+from gee.glad_gfc import *
 
 ee.Initialize()
 
-
-gfc = ee.Image("UMD/hansen/global_forest_change_2022_v1_10")
+from gee.template_images import gfc
 
 gfc_treecover_2000 = gfc.select(['treecover2000']) #get tree cover in 2000
 
@@ -19,4 +19,4 @@ gfc_treecover_2020_binary= gfc_treecover_2020.gt(10) #FAO 10% definition...
 
 gfc_treecover_2020_area_hectares = area_stats.binary_to_area_hectares(gfc_treecover_2020_binary)
 
-gfc_treecover_2020_area_hectares = area_stats.set_scale_property_from_image(gfc_treecover_2020_area_hectares,gfc)
+gfc_treecover_2020_area_hectares = area_stats.set_scale_property_from_image(gfc_treecover_2020_area_hectares,gfc,debug=True)

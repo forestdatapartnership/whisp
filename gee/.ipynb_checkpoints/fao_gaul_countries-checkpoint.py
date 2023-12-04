@@ -3,14 +3,19 @@ import ee
 
 import modules.image_prep as image_prep
 import modules.area_stats as area_stats
+from gee.template_images import gfc
 
 ee.Initialize()
 
+path_lookup_country_codes_to_names = "parameters/lookup_GAUL_country_codes_to_names.csv"
+
 GAUL_boundaries_poly = ee.FeatureCollection("FAO/GAUL/2015/level0");
+
+GAUL_code_column = "ADM0_CODE"
 
 template = ee.Image("UMD/hansen/global_forest_change_2022_v1_10");
 
-GAUL_boundaries_adm0_code = GAUL_boundaries_poly.reduceToImage(["ADM0_CODE"],ee.Reducer.mode())  #make into image with the admn0 country code as the value
+GAUL_boundaries_adm0_code = GAUL_boundaries_poly.reduceToImage([GAUL_code_column],ee.Reducer.mode())  #make into image with the admn0 country code as the value
 
 crs_template = gfc.select(0).projection().crs().getInfo()
 

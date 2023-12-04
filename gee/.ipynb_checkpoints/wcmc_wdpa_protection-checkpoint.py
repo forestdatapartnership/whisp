@@ -1,7 +1,13 @@
 import os
 import ee
 
+import modules.image_prep as image_prep
+import modules.area_stats as area_stats
 import modules.WDPA_prep as WDPA_prep
+from gee.template_images import gfc
+
+ee.Initialize()
+
 
 ee.Initialize()
 
@@ -28,4 +34,4 @@ wdpa_binary_reproj = wdpa_binary.reproject(
 
 protected_areas_WDPA_area_hectares = area_stats.binary_to_area_hectares(wdpa_binary_reproj)
 
-protected_areas_WDPA_area_hectares = area_stats.set_scale_property_from_image(protected_areas_WDPA_area_hectares,gfc,0,verbose=True)
+protected_areas_WDPA_area_hectares = area_stats.set_scale_property_from_image(protected_areas_WDPA_area_hectares,gfc,0,debug=True)

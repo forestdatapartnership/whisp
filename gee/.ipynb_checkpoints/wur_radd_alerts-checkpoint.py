@@ -3,7 +3,9 @@ import ee
 
 import modules.image_prep as image_prep
 import modules.area_stats as area_stats
+
 from datetime import datetime
+from parameters.config_radd_alerts import how_many_days_back
 
 ee.Initialize()
 
@@ -16,8 +18,6 @@ start_date = ee_now.advance(how_many_days_back, "day")
 
 # Needs to be in yyDDD format and needs to be a number, so need to parse too
 start_date_yyDDD = ee.Number.parse(start_date.format('yyDDD'))
-
-if debug: print ("start_date_yyDDD", start_date_yyDDD.getInfo())
 
 # Define the Image Collection
 radd = ee.ImageCollection('projects/radar-wur/raddalert/v1')
@@ -43,4 +43,4 @@ latest_radd_alert_confirmed_recent
 
 latest_radd_alert_confirmed_recent_area_hectares = area_stats.binary_to_area_hectares(latest_radd_alert_confirmed_recent)
 
-latest_radd_alert_confirmed_recent_area_hectares = area_stats.set_scale_property_from_image(latest_radd_alert_confirmed_recent_area_hectares,radd.first(),0,verbose=True)
+latest_radd_alert_confirmed_recent_area_hectares = area_stats.set_scale_property_from_image(latest_radd_alert_confirmed_recent_area_hectares,radd.first(),debug=True)

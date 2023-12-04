@@ -12,4 +12,4 @@ cocoa_map_kalischek_threshold = ee.Image('projects/ee-nk-cocoa/assets/cocoa_map_
 
 cocoa_map_kalischek_threshold_area_hectares = area_stats.binary_to_area_hectares(cocoa_map_kalischek_threshold)
 
-cocoa_map_kalischek_threshold_area_hectares = area_stats.set_scale_property_from_image(cocoa_map_kalischek_threshold_area_hectares,cocoa_map_kalischek_threshold,0,verbose=True)
+cocoa_map_kalischek_threshold_area_hectares = area_stats.set_scale_property_from_image(cocoa_map_kalischek_threshold_area_hectares,cocoa_map_kalischek_threshold,0,debug=True)

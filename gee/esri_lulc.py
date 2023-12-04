@@ -20,4 +20,4 @@ esri_trees_2020_area_hectares = area_stats.binary_to_area_hectares(
     esri_trees_2020)
 
 esri_trees_2020_area_hectares = area_stats.set_scale_property_from_image(
-    esri_trees_2020_area_hectares,esri_lulc10.first(),0,verbose=True)
+    esri_trees_2020_area_hectares,esri_lulc10.first(),0,debug=True)

@@ -13,10 +13,6 @@ JAXA_forestNonForest_2020 =  JAXA_forestNonForest_raw.filterDate('2020-01-01', '
 #select all trees (i.e. both dense and non-dense forest classes)
 JAXA_forestNonForest_2020_binary = JAXA_forestNonForest_2020.lte(2)
 
-#define buffer distance (m)
-local_alerts_buffer_radius = 2000 
+JAXA_forestNonForest_2020_area_hectares = area_stats.binary_to_area_hectares(JAXA_forestNonForest_2020_binary)
 
-# Define how many days back for alerts
-how_many_days_back = -(365*2)  # must be negative
-
-
+JAXA_forestNonForest_2020_area_hectares = area_stats.set_scale_property_from_image(JAXA_forestNonForest_2020_area_hectares,JAXA_forestNonForest_raw.first(),0,debug=True)

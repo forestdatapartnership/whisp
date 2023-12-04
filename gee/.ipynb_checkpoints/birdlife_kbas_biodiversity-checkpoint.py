@@ -3,6 +3,7 @@ import ee
 
 import modules.image_prep as image_prep
 import modules.area_stats as area_stats
+from gee.template_images import gfc
 
 ee.Initialize()
 
@@ -22,5 +23,5 @@ kba_2023_binary_reproj = kba_2023_binary.reproject(
 
 kba_2023_area_hectares = area_stats.binary_to_area_hectares(kba_2023_binary_reproj)
 
-kba_2023_area_hectares = area_stats.set_scale_property_from_image(kba_2023_area_hectares,gfc,0,verbose=True)
+kba_2023_area_hectares = area_stats.set_scale_property_from_image(kba_2023_area_hectares,gfc,0,debug=True)
 
