@@ -2,7 +2,6 @@ import os
 import ee
 ee.Initialize()
 
-
 debug = True # True or False: get print messages or not (e.g. for debugging code) - could go in a generag config file
 
 targetImageCollId = "users/andyarnell10/fdap_dpi/imageCol_trial"
