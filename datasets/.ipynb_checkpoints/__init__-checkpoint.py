@@ -1,0 +1,22 @@
+"""
+Module to gather all scripts.
+
+If you use a module import all the functions here you only have 1 call to make
+"""
+
+from datasets.glad_gfc_10pc import gfc_treecover_2020_area_hectares
+from datasets.glad_lulc_stable import glad_stable_tree_2020_area_hectares 
+from datasets.glad_pht import primary_HT_forests_2020_area_hectares
+from datasets.creaf_descals_palm import oil_palm_descals_binary_area_hectares
+from datasets.esri_lulc_trees import esri_trees_2020_area_hectares
+from datasets.eth_kalischek_cocoa import cocoa_map_kalischek_threshold_area_hectares
+from datasets.fao_gaul_countries import GAUL_boundaries_adm0_code_reproj
+from datasets.fdap_palm import FDaP_palm_2020_model_area_hectares
+from datasets.jaxa_forest import JAXA_forestNonForest_2020_area_hectares
+from datasets.jrc_tmf_undisturbed import JRC_TMF_undisturbed_2020_area_hectares
+from datasets.jrc_tmf_disturbed import JRC_TMF_disturbed_2020_area_hectares
+from datasets.jrc_tmf_plantations import JRC_TMF_plantation_area_hectares
+from datasets.wcmc_oecms_protection import OECM_2023_area_hectares
+from datasets.wcmc_wdpa_protection import protected_areas_WDPA_area_hectares
+from datasets.birdlife_kbas_biodiversity import kba_2023_area_hectares
+from datasets.wur_radd_alerts import latest_radd_alert_confirmed_recent_area_hectares
