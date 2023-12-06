@@ -1,6 +1,5 @@
 import ee
 
-from parameters.config_output_naming import debug
 
 def reduceStatsIC (featureCollection,imageCollection,reducer_choice):
     "Calculating summary statistics for each image in collection, within each feature in a collection""" 

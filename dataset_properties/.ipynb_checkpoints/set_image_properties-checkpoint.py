@@ -1,22 +1,46 @@
-# #### Create dictionary of images and image names
-# - prep for reduceRegions statistics so name of datasets/image is added to area stats
-# - sets "system:index" property of each image
-# - result is an image collection with 
+# ### Create image collection and set properties 
+# - set special properties for images 
+# - create image collection
+# - name of image is added 
+# - in preparation for reduceRegions (i.e., zonal) statistics 
+# - sets "system:index" property of each image with output name
+# - result is an image collection with a set of properties (i.e. attributes) used in subsequent calculations
 
-#temp code - ideal use a lookup table
 import os
 import ee
-import pandas as pd 
+import time
+from datetime import datetime
 
-from datasets import *
+from parameters.config_runtime import debug
 
-from parameters.config_output_naming import debug
 from parameters.config_lookups import lookup_gee_datasets
 
 ee.Initialize()
 
-# dict_list = lookup_gee_datasets.to_dict('records')
-# dict_list
+if debug: print ("starting image prep. This can take a minute")
+
+st = time.time()
+
+
+from datasets import *
+
+#deforestation alerts
+# set property so run stats for a buffer around site; 
+# and show presence only as output 
+latest_radd_alert_confirmed_recent_area_hectares = latest_radd_alert_confirmed_recent_area_hectares.setMulti(
+    {"alerts_buffer":1,"presence_only_flag":1})
+
+#important sites: 1) protected areas and 2) KBAs (likely future protectred areas) 
+# show presence only as output 
+protected_areas_WDPA_area_hectares = protected_areas_WDPA_area_hectares.set("presence_only_flag",1)
+
+OECM_2023_area_hectares = OECM_2023_area_hectares.set("presence_only_flag",1)
+
+kba_2023_area_hectares = kba_2023_area_hectares.set("presence_only_flag",1)
+
+# turn into an image collection
+
+#NB temp code - ideal use a dictionary from a lookup table csv or similar 
 
 image_names_dict0 = {
                 "GFC_Tree_Cover_2020":gfc_treecover_2020_area_hectares,
@@ -54,7 +78,7 @@ del image_names_dict0 # remove old dictionary
 images_IC = ee.ImageCollection(list(image_names_dict.values()))
                       
 ##checks
-if debug: print ("number of images: ",len(image_names_dict))
+if debug: print ("number of images: ",images_IC.size().getInfo())
 
-images_IC
-
+# get the execution time
+if debug: print ('Total execution time:', time.time() - st, 'seconds')
