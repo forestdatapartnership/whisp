@@ -11,7 +11,7 @@ dataset_id,datasets_order,country_allocation_stats_only,local_buffer,presence_on
 10,10,0,0,0,Oil_palm_Descals,datasets/creaf_descals_palm.py,oil_palm_descals_binary_area_hectares,ee.ImageCollection('BIOPAMA/GlobalOilPalm/v1');
 11,11,0,0,0,FDaP_palm_plantations,datasets/fdap_palm.py,FDaP_palm_2020_model_area_hectares,"ee.ImageCollection(""projects/forestdatapartnership/assets/palm/palm_2020_model_20231026"");"
 12,12,0,0,0,Cocoa_plantations_Kalischek,datasets/eth_kalischek_cocoa.py,cocoa_map_kalischek_threshold_area_hectares,ee.Image('projects/ee-nk-cocoa/assets/cocoa_map_threshold_065');
-13,13,0,0,0,Protected_area,datasets/wcmc_wdpa_protection.py,protected_areas_WDPA_area_hectares,"ee.FeatureCollection(""WCMC/WDPA/current/polygons"");"
+13,13,0,0,1,Protected_area,datasets/wcmc_wdpa_protection.py,protected_areas_WDPA_area_hectares,"ee.FeatureCollection(""WCMC/WDPA/current/polygons"");"
 14,14,0,0,1,Other_Effective_area_based_Conservation_Measure,datasets/wcmc_oecms_protection.py,OECM_2023_area_hectares,"ee.FeatureCollection([ee.FeatureCollection(""projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/raw/WDPA_OECM_polygons1""),ee.FeatureCollection(""projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/raw/WDPA_OECM_polygons2""),ee.FeatureCollection(""projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/raw/WDPA_OECM_polygons3"")]).flatten();"
 15,15,0,0,1,Key_Biodiversity_Area,datasets/birdlife_kbas_biodiversity.py,kba_2023_area_hectares,"ee.FeatureCollection(""projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/raw/KBAsGlobal_2023_March_01_POL"");"
 16,16,1,0,0,GAUL_boundaries_adm0_code_reproj,datasets/fao_gaul_countries.py,GAUL_boundaries_adm0_code_reproj,"ee.FeatureCollection(""FAO/GAUL/2015/level0"");"
