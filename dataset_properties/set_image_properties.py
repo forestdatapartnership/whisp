@@ -17,10 +17,9 @@ from parameters.config_lookups import lookup_gee_datasets
 
 ee.Initialize()
 
-if debug: print ("starting image prep. This can take a minute")
+if debug: print ("Starting image prep. This can take a minute")
 
 st = time.time()
-
 
 from datasets import *
 
@@ -37,6 +36,8 @@ protected_areas_WDPA_area_hectares = protected_areas_WDPA_area_hectares.set("pre
 OECM_2023_area_hectares = OECM_2023_area_hectares.set("presence_only_flag",1)
 
 kba_2023_area_hectares = kba_2023_area_hectares.set("presence_only_flag",1)
+
+print (kba_2023_area_hectares.get("presence_only_flag").getInfo())
 
 # turn into an image collection
 
