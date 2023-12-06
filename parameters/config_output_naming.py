@@ -2,9 +2,8 @@ import os
 import ee
 ee.Initialize()
 
-debug = True # True or False: get print messages or not (e.g. for debugging code) - could go in a generag config file
-
-targetImageCollId = "users/andyarnell10/fdap_dpi/imageCol_trial"
+#if exporting to an image collection
+targetImageCollId = "users/andyarnell10/fdap_dpi/imageCol_trial_2"
 
 out_path = os.path.join('/home/sepal-user/fdap/')
 

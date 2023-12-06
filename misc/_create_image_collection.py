@@ -5,22 +5,15 @@ import ee
 
 ee.Initialize()
 
-export_image_collection_to_asset =True # NB shift to parameters if code is kept in this script
-
+from parameters.config_output_naming import targetImageCollId
+from parameters.config_runtime import * # make explicit
 
 if export_image_collection_to_asset:
-
-    targetImageCollId = "users/andyarnell10/fdap_dpi/imageCol_trial_2"
-
-    createNewImageColl = True # if true then code will add outputImageColl if it doesn't exist already. Code at end of cell/section.
-
-    skipExportIfAssetExists = True # if image with the same name exists avoid exporting
 
     exportRegion = ee.FeatureCollection("FAO/GAUL_SIMPLIFIED_500m/2015/level0").filter(
         ee.Filter.inList("ADM0_NAME",["Côte d'Ivoire", "Indonesia","Malaysia","Ghana"])).geometry()
 
-
-    if createNewImageColl == True:
+    if make_empty_image_coll == True:
         try:
             getAssetInfo = ee.data.getAsset(targetImageCollId)
             if debug: print ("Target image collection exists: ",targetImageCollId)
