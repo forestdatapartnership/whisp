@@ -5,7 +5,6 @@ use_existing_image_collection = True  # use existing image collection (faster if
 debug = True  # get print messages or not (e.g. for debugging code etc) (True or False)
 
 
-
 ## export to image collection asset
 
 export_image_collection_to_asset =False  # choose to export datasets to an image collection asset (makes faster data loading times). Set to True or False.
