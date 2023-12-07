@@ -42,7 +42,8 @@ image_names_dict0 = {
                 "Protected_area":protected_areas_WDPA_area_hectares,
                 "Other_Effective_area_based_Conservation_Measure":OECM_2023_area_hectares,
                 "Key_Biodiversity_Area": kba_2023_area_hectares,
-                "GAUL_boundaries_adm0_code_reproj":GAUL_boundaries_adm0_code_reproj
+                "GAUL_boundaries_adm0_code_reproj":GAUL_boundaries_adm0_code_reproj,
+                "JRC_GFC_2020":JRC_GFC_2020_area_hectares
               }
 
 #create empty dictionary to be populated
