@@ -54,3 +54,4 @@ def add_area_hectares_property_to_feature_collection(fc,geometry_area_column):
 #     # if debug:
 #     #     print(feature.get(geometry_area_column).getInfo())
 #     return feature
+
