@@ -1,6 +1,6 @@
 ### general runtime parameters
 
-use_existing_image_collection = False  # use existing image collection (faster if exists), or create one on the fly in GEE (takes longer) (True or False)
+use_existing_image_collection = True  # use existing image collection (faster if exists), or create one on the fly in GEE (takes longer) (True or False)
 
 debug = True  # get print messages or not (e.g. for debugging code etc) (True or False)
 
