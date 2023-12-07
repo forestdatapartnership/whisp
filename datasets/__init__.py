@@ -1,7 +1,5 @@
 """
-Module to gather all scripts.
-
-If you use a module import all the functions here you only have 1 call to make
+Module to gather all scripts. Those in l
 """
 
 from datasets.glad_gfc_10pc import gfc_treecover_2020_area_hectares
@@ -20,3 +18,4 @@ from datasets.wcmc_oecms_protection import OECM_2023_area_hectares
 from datasets.wcmc_wdpa_protection import protected_areas_WDPA_area_hectares
 from datasets.birdlife_kbas_biodiversity import kba_2023_area_hectares
 from datasets.wur_radd_alerts import latest_radd_alert_confirmed_recent_area_hectares
+from datasets.jrc_gfc_2020 import JRC_GFC_2020_area_hectares
