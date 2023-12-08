@@ -27,12 +27,13 @@ from datasets import *
 #NB temp code - ideal use a dictionary from a lookup table csv or similar 
 
 image_names_dict0 = {
-                "GFC_Tree_Cover_2020":gfc_treecover_2020_area_hectares,
-                "ESRI_Trees_2020":esri_trees_2020_area_hectares,
-                "JAXA_Forest_non_forest_2020":JAXA_forestNonForest_2020_area_hectares,
-                "GLAD_LULC_Stable_Tree_2020":glad_stable_tree_2020_area_hectares,
-                "TMF_undisturbed_forest_2020":JRC_TMF_undisturbed_2020_area_hectares,
+                "JRC_GFC_2020":JRC_GFC_2020_area_hectares,
                 "Primary_Humid_Tropical_Forest_2020": primary_HT_forests_2020_area_hectares,
+                "TMF_undisturbed_forest_2020":JRC_TMF_undisturbed_2020_area_hectares,
+                "JAXA_Forest_non_forest_2020":JAXA_forestNonForest_2020_area_hectares,
+                "GFC_Tree_Cover_2020":gfc_treecover_2020_area_hectares,
+                "GLAD_LULC_Stable_Tree_2020":glad_stable_tree_2020_area_hectares,
+                "ESRI_Trees_2020":esri_trees_2020_area_hectares,
                 "TMF_disturbed_forest_2020": JRC_TMF_disturbed_2020_area_hectares,
                 "Local_RADD_alerts":latest_radd_alert_confirmed_recent_area_hectares,
                 "TMF_plantation":JRC_TMF_plantation_area_hectares,
@@ -42,8 +43,8 @@ image_names_dict0 = {
                 "Protected_area":protected_areas_WDPA_area_hectares,
                 "Other_Effective_area_based_Conservation_Measure":OECM_2023_area_hectares,
                 "Key_Biodiversity_Area": kba_2023_area_hectares,
-                "GAUL_boundaries_adm0_code_reproj":GAUL_boundaries_adm0_code_reproj,
-                "JRC_GFC_2020":JRC_GFC_2020_area_hectares
+                "GAUL_boundaries_adm0_code_reproj":GAUL_boundaries_adm0_code_reproj
+
               }
 
 #create empty dictionary to be populated
