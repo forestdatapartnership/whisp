@@ -67,7 +67,7 @@ def build_and_send_project_data(file_path):
         return None
 
     # Login to get cookie
-    cookie = login("", "", "https://app.collect.earth/login")
+    cookie = login("remi.dannunzio@fao.org", "unre00R@mi", "https://app.collect.earth/login")
     if cookie is None:
         print("Login failed.")
         return None
