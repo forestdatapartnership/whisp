@@ -2,6 +2,14 @@ import base64
 import io
 import json
 import requests
+from datetime import datetime
+import sys
+import os
+
+# Assuming file_to_ceo.py is in the modules directory, we add the parameters directory to the path
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'parameters'))
+
+from config_ceo import ceo_email, ceo_password
 
 def file_to_base64(file_path):
     # Ensure the path is to a valid file
@@ -67,10 +75,13 @@ def build_and_send_project_data(file_path):
         return None
 
     # Login to get cookie
-    cookie = login("remi.dannunzio@fao.org", "unre00R@mi", "https://app.collect.earth/login")
+    cookie = login(ceo_email, ceo_password, "https://app.collect.earth/login")
     if cookie is None:
         print("Login failed.")
         return None
+
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    project_name = f"dpi_{timestamp}"
 
     # Build the data object
     data = {
@@ -85,11 +96,11 @@ def build_and_send_project_data(file_path):
     "aoiFeatures": [],
     "aoiFileName": "",
     "description": "",
-    "name": "dpi test",
+    "name": project_name,
     "privacyLevel": "users",
     "projectOptions": {
         "showGEEScript": False,
-        "showPlotInformation": False,
+        "showPlotInformation": True,
         "collectConfidence": False,
         "autoLaunchGeoDash": True
     },
