@@ -31,6 +31,17 @@ def get_scale_from_image(image,band_index=0):
     """gets nominal scale from image (NB this should not be from a composite/mosaic or incorrrect value returned)"""
     return image.select(band_index).projection().nominalScale().getInfo()
 
+
+def binary_to_area_w_properties(image,to_pixel_area=True,copy_properties=True,debug=True):
+    """get pixel area in hectares for image and copyn properties to new image (defaultes to true)"""
+    image_area = binary_to_area_hectares(image,to_pixel_area)
+    if copy_properties:
+        out_image = image_area.copyProperties(image)
+        if debug: print ("copying properties") 
+    else:
+        out_image = image_area
+        if debug: print ("not copying properties") 
+    return out_image
     
 def binary_to_area_hectares(image,to_pixel_area=True):
     """get pixel area in hectares for image"""
