@@ -21,7 +21,7 @@ out_file_wide = out_path+out_wide_csv_name #set full path for output csv
 
 
 #output column names 
-geometry_area_column = "Shape_area_hectares"
+geometry_area_column = "Area_ha"
 
 geo_id_column = "Geo_id"
 

@@ -31,6 +31,17 @@ def get_scale_from_image(image,band_index=0):
     """gets nominal scale from image (NB this should not be from a composite/mosaic or incorrrect value returned)"""
     return image.select(band_index).projection().nominalScale().getInfo()
 
+
+def binary_to_area_w_properties(image,to_pixel_area=True,copy_properties=True,debug=True):
+    """get pixel area in hectares for image and copyn properties to new image (defaultes to true)"""
+    image_area = binary_to_area_hectares(image,to_pixel_area)
+    if copy_properties:
+        out_image = image_area.copyProperties(image)
+        if debug: print ("copying properties") 
+    else:
+        out_image = image_area
+        if debug: print ("not copying properties") 
+    return out_image
     
 def binary_to_area_hectares(image,to_pixel_area=True):
     """get pixel area in hectares for image"""
@@ -55,33 +66,3 @@ def add_area_hectares_property_to_feature_collection(fc,geometry_area_column):
 #     #     print(feature.get(geometry_area_column).getInfo())
 #     return feature
 
-def make_processing_lists_from_gee_datasets_lookup(lookup_gee_datasets):
-    # global all_dataset_list
-    global local_buffer_stats_list
-    global flag_list
-    global country_allocation_stats_only_list
-    global normal_poly_stats_list
-    global decimal_place_column_list
-    
-    all_dataset_list = list(lookup_gee_datasets["dataset_name"])
-    
-    local_buffer_stats_list = list(lookup_gee_datasets["dataset_name"][(lookup_gee_datasets["local_buffer"]==1)])
-    
-    flag_list = list(lookup_gee_datasets["dataset_name"][(lookup_gee_datasets["presence_only_flag"]==1)])
-    
-    country_allocation_stats_only_list = list(lookup_gee_datasets["dataset_name"]     
-                                              [(lookup_gee_datasets["country_allocation_stats_only"]==1)])
-    
-    # for regular stat calculation in ploygon 
-    # remove country stats (as modal only) and remove buffer stats (assuming buffer only - NB this may change)
-    normal_poly_stats_list = [i for i in all_dataset_list if i not in 
-                              country_allocation_stats_only_list+local_buffer_stats_list] 
-    
-    decimal_place_column_list =  [i for i in all_dataset_list if i not in flag_list + country_allocation_stats_only_list]
-    
-    return 
-    local_buffer_stats_list, 
-    flag_list, 
-    country_allocation_stats_only_list, 
-    normal_poly_stats_list, 
-    decimal_place_column_list

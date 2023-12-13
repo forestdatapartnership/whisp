@@ -1,21 +1,27 @@
 """
 Module to gather all scripts. Those in l
 """
+from datasets.glad_gfc_10pc import glad_gfc_10pc_prep
+from datasets.glad_lulc_stable import glad_lulc_stable_prep 
+from datasets.glad_pht import glad_pht_prep
+from datasets.creaf_descals_palm import creaf_descals_palm_prep 
+from datasets.esri_lulc_trees import esri_lulc_trees_prep 
+from datasets.eth_kalischek_cocoa import eth_kalischek_cocoa_prep
+from datasets.fao_gaul_countries import fao_gaul_countries_prep
+from datasets.fdap_palm import fdap_palm_prep
+from datasets.jaxa_forest import jaxa_forest_prep
+from datasets.jrc_tmf_undisturbed import jrc_tmf_undisturbed_prep
+from datasets.jrc_tmf_disturbed import jrc_tmf_disturbed_prep
+from datasets.jrc_tmf_plantations import jrc_tmf_plantations_prep
+from datasets.wcmc_oecms_protection import wcmc_oecms_protection_prep
+from datasets.wcmc_wdpa_protection import wcmc_wdpa_protection_prep
+from datasets.birdlife_kbas_biodiversity import birdlife_kbas_biodiversity_prep
+from datasets.wur_radd_alerts import wur_radd_alerts_prep
+from datasets.jrc_gfc_2020 import jrc_gfc_2020_prep
 
-from datasets.glad_gfc_10pc import gfc_treecover_2020_area_hectares
-from datasets.glad_lulc_stable import glad_stable_tree_2020_area_hectares 
-from datasets.glad_pht import primary_HT_forests_2020_area_hectares
-from datasets.creaf_descals_palm import oil_palm_descals_binary_area_hectares
-from datasets.esri_lulc_trees import esri_trees_2020_area_hectares
-from datasets.eth_kalischek_cocoa import cocoa_map_kalischek_threshold_area_hectares
-from datasets.fao_gaul_countries import GAUL_boundaries_adm0_code_reproj
-from datasets.fdap_palm import FDaP_palm_2020_model_area_hectares
-from datasets.jaxa_forest import JAXA_forestNonForest_2020_area_hectares
-from datasets.jrc_tmf_undisturbed import JRC_TMF_undisturbed_2020_area_hectares
-from datasets.jrc_tmf_disturbed import JRC_TMF_disturbed_2020_area_hectares
-from datasets.jrc_tmf_plantations import JRC_TMF_plantation_area_hectares
-from datasets.wcmc_oecms_protection import OECM_2023_area_hectares
-from datasets.wcmc_wdpa_protection import protected_areas_WDPA_area_hectares
-from datasets.birdlife_kbas_biodiversity import kba_2023_area_hectares
-from datasets.wur_radd_alerts import latest_radd_alert_confirmed_recent_area_hectares
-from datasets.jrc_gfc_2020 import JRC_GFC_2020_area_hectares
+#reproject function
+from datasets.reproject_to_template import reproject_to_template
+
+#variable
+from datasets.template_images import template_image_1
+
