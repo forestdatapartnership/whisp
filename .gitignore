@@ -1,3 +1,8 @@
 /parameters/config_ceo.py
 __pycache__/
 .ipynb_checkpoints/
+*.shp
+*.shx
+*.dbf
+*.cpfg
+*.zip
