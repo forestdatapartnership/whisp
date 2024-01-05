@@ -1,16 +1,6 @@
 import ee
 import pandas as pd
 
-def remap_image_from_csv_cols (image,csv_path,from_col,to_col,default_value):
-    df =pd.read_csv(csv_path)
-    image_out= remap_image_from_dataframe_cols(image,df,from_col,to_col,default_value)
-    return image_out
-
-def remap_image_from_dataframe_cols (image,df,from_col,to_col,default_value):
-    from_list= df[from_col].values.tolist()
-    to_list= df[to_col].values.tolist()
-    image_out = (image.remap(from_list,to_list,default_value))
-    return image_out
 
 def add_lookup_property_to_image_collection(image_collection, collection_join_column, 
                                             lookup_dataframe, df_join_column, 
@@ -36,3 +26,15 @@ def add_lookup_property_to_image_collection(image_collection, collection_join_co
         new_list = ee.List(new_list).add(ee.List(image_w_new_property))
         
     return ee.ImageCollection(new_list) #turn list into output image collection
+
+def remap_image_from_csv_cols (image,csv_path,from_col,to_col,default_value):
+    df =pd.read_csv(csv_path)
+    image_out= remap_image_from_dataframe_cols(image,df,from_col,to_col,default_value)
+    return image_out
+
+def remap_image_from_dataframe_cols (image,df,from_col,to_col,default_value):
+    from_list= df[from_col].values.tolist()
+    to_list= df[to_col].values.tolist()
+    image_out = (image.remap(from_list,to_list,default_value))
+    return image_out
+

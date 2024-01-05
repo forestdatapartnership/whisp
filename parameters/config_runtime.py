@@ -12,4 +12,4 @@ export_image_collection_to_asset =False  # choose to export datasets to an image
 
 make_empty_image_coll = True # if true then code will add an empty image collection (see parmaters.output_naming), if one doesn't exist already. Set to True or False.
 
-skipExportIfAssetExists = True # if image with same name exists in image collection avoid exporting. Set to True or False.
+skip_export_if_asset_exists = True # if image with same name exists in image collection avoid exporting. Set to True or False.
