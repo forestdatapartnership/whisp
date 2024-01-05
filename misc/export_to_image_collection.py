@@ -20,7 +20,7 @@ if export_image_collection_to_asset:
         except:
             ee.data.createAsset({'type': 'ImageCollection'}, targetImageCollId)#make a new image collection
             print ("New (empty) image collection created: ",targetImageCollId)
-            skipExportIfAssetExists = True# as it sounds like. Saves possibility of lots of red errors in Tasks list in code editor
+            skip_export_if_asset_exists = True# as it sounds like. Saves possibility of lots of red errors in Tasks list in code editor
 
         def imageNames (imageCollection):##list existing images in collection (if any)
             return imageCollection.aggregate_array("system:id").getInfo()
@@ -45,7 +45,7 @@ if export_image_collection_to_asset:
                                          maxPixels=1e13,\
                                          region=exportRegion)
 
-        if ((skipExportIfAssetExists==True) and (out_name in imageCollectionImageList)):
+        if ((skip_export_if_asset_exists==True) and (out_name in imageCollectionImageList)):
             if debug: print ("testing - not exporting NB asset exists")
         else:
             task.start()###code out if testing and dont want to export assets
