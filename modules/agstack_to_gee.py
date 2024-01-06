@@ -1,6 +1,7 @@
 import requests
 import json
 import ee
+import geopandas as gpd
 
 
 def geo_id_or_ids_to_feature_collection (all_geo_ids,geo_id_column, session,asset_registry_base,debug=False):
@@ -66,6 +67,7 @@ def geo_id_to_feature(geo_id, geo_id_column, session, asset_registry_base):
     # feature = json_to_feature_with_id(poly_json,geo_id,geo_id_column)
     feature = ee.Feature(ee.Geometry.Polygon(poly_json),ee.Dictionary([geo_id_column,geo_id]))
     return feature
+
 
 
 # def json_to_feature_with_id(poly_json,geo_id,geo_id_column):

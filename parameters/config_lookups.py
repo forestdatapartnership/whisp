@@ -1,14 +1,41 @@
 #paths for lookup tables
 import os
 import pandas as pd
+from parameters.config_runtime import exclusion_list_dataset_ids, path_lookup_country_codes_to_names, path_lookup_country_codes_to_iso3
 
-path_lookup_country_codes_to_names = "parameters/lookup_GAUL_country_codes_to_names.csv" 
+### main lookup table
+path_lookup_gee_datasets = "parameters/lookup_gee_datasets.csv"
 
-lookup_country_codes_to_names = pd.read_csv(path_lookup_country_codes_to_names)
+lookup_gee_datasets = pd.read_csv(path_lookup_gee_datasets)
 
 
-path_lookup_country_codes_to_ISO3 = "parameters/lookup_GAUL_country_codes_to_ISO3.csv" 
-lookup_country_codes_to_ISO3 = pd.read_csv(path_lookup_country_codes_to_ISO3) # NB TEMP fix onkly: some missing - small island states and source not ideal (had to add in GAUk code for South Sudan!)
+# filter out datasets using an exclusion list 
+lookup_gee_datasets = lookup_gee_datasets[~lookup_gee_datasets['dataset_id'].isin(exclusion_list_dataset_ids)]
+
+try: 
+    lookup_country_codes_to_names = pd.read_csv(path_lookup_country_codes_to_names)
+except:
+    print(path_lookup_country_codes_to_names, "does not exist")
+
+
+try: 
+    lookup_country_codes_to_iso3 = pd.read_csv(path_lookup_country_codes_to_iso3)
+except:
+    print(path_lookup_country_codes_to_iso3, "does not exist")    
+
+
+#dataset specific LUT (could be shifted)
+path_lookup_recoding_jrc_tmf_product = "parameters/lookup_recoding_jrc_tmf_product.csv"
+
+lookup_recoding_jrc_tmf_product = pd.read_csv(path_lookup_recoding_jrc_tmf_product)
+
+#########################################3
+#gaul
+# path_lookup_country_codes_to_names = "parameters/lookup_gaul_country_codes_to_names.csv" 
+
+# path_lookup_country_codes_to_iso3 = "parameters/lookup_gaul_country_codes_to_iso3.csv" 
+
+# lookup_country_codes_to_iso3 = pd.read_csv(path_lookup_country_codes_to_iso3) # NB TEMP fix only: some missing - small island states and source not ideal (had to add in GAUk code for South Sudan!)
 # CUW		CuraÃ§ao
 # BLM		Saint BarthÃ©lemy
 # MAF		Saint Martin (French Part)
@@ -16,17 +43,12 @@ lookup_country_codes_to_ISO3 = pd.read_csv(path_lookup_country_codes_to_ISO3) # 
 # SXM		Sint Maarten (Dutch part)
 # UMI		United States Minor Outlying Islands
 
+#gadm
+# path_lookup_country_codes_to_iso3 = "parameters/lookup_gadm_country_codes_to_iso3.csv" 
 
-
-path_lookup_gee_datasets = "parameters/lookup_gee_datasets.csv"
-
-lookup_gee_datasets = pd.read_csv(path_lookup_gee_datasets)
-
+# lookup_country_codes_to_iso3 = pd.read_csv(path_lookup_country_codes_to_iso3)
 
 
 
-path_lookup_recoding_JRC_TMF_product = "parameters/lookup_recoding_JRC_TMF_product.csv"
-
-lookup_recoding_JRC_TMF_product = pd.read_csv(path_lookup_recoding_JRC_TMF_product)
 
 
