@@ -1,0 +1,264 @@
+fid,Country
+105,Indonesia
+113,British Indian Ocean Territory
+118,Israel
+119,Italy
+122,Jordan
+125,Kenya
+127,Cambodia
+133,Lebanon
+134,Liberia
+135,Libya
+139,Lesotho
+144,Morocco
+145,Monaco
+147,Madagascar
+148,Maldives
+151,North Macedonia
+152,Mali
+153,Malta
+155,Montenegro
+158,Mozambique
+159,Mauritania
+162,Mauritius
+163,Malawi
+165,Mayotte
+166,Namibia
+168,Niger
+170,Nigeria
+190,Portugal
+192,Palestine
+48,Côte d'Ivoire
+49,Cameroon
+50,Democratic Republic of the Congo
+51,Republic of the Congo
+54,Comoros
+55,Cabo Verde
+59,Christmas Island
+61,Cyprus
+64,Djibouti
+68,Algeria
+70,Egypt
+71,Eritrea
+72,Western Sahara
+73,Spain
+75,Ethiopia
+79,France
+82,Gabon
+86,Ghana
+87,Gibraltar
+88,Guinea
+90,Gambia
+91,Guinea-Bissau
+92,Equatorial Guinea
+93,Greece
+102,Croatia
+195,Réunion
+198,Rwanda
+200,Sudan
+201,Senegal
+204,"Saint Helena, Ascension and Tris"
+207,Sierra Leone
+209,San Marino
+210,Somalia
+212,Serbia
+213,South Sudan
+214,São Tomé and Príncipe
+219,Swaziland
+221,Seychelles
+224,Chad
+225,Togo
+226,Thailand
+230,Timor-Leste
+233,Tunisia
+237,Tanzania
+238,Uganda
+244,Vatican City
+253,Akrotiri and Dhekelia
+256,Kosovo
+260,South Africa
+261,Zambia
+262,Northern Cyprus
+263,Zimbabwe
+3,Angola
+6,Albania
+7,Andorra
+13,French Southern Territories
+15,Australia
+18,Burundi
+20,Benin
+22,Burkina Faso
+24,Bulgaria
+27,Bosnia and Herzegovina
+33,Brazil
+38,Botswana
+39,Central African Republic
+41,Cocos Islands
+107,India
+108,India
+109,India
+110,India
+111,India
+112,India
+115,Iran
+116,Iraq
+124,Kazakhstan
+126,Kyrgyzstan
+130,South Korea
+131,Kuwait
+132,Laos
+138,Sri Lanka
+140,Lithuania
+142,Latvia
+146,Moldova
+154,Myanmar
+156,Mongolia
+164,Malaysia
+174,Norway
+175,Nepal
+178,Oman
+179,Pakistan
+180,Pakistan
+184,Philippines
+185,Palau
+44,China
+45,China
+46,China
+47,China
+66,Denmark
+74,Estonia
+76,Finland
+84,Georgia
+194,Qatar
+196,Romania
+197,Russia
+199,Saudi Arabia
+202,Singapore
+205,Svalbard and Jan Mayen
+218,Sweden
+222,Syria
+227,Tajikistan
+229,Turkmenistan
+234,Turkey
+236,Taiwan
+239,Ukraine
+243,Uzbekistan
+249,Vietnam
+254,Caspian Sea
+257,Paracel Islands
+258,Spratly Islands
+259,Yemen
+2,Afghanistan
+5,Åland
+8,United Arab Emirates
+10,Armenia
+17,Azerbaijan
+23,Bangladesh
+25,Bahrain
+29,Belarus
+35,Brunei
+36,Bhutan
+104,Hungary
+106,Isle of Man
+114,Ireland
+117,Iceland
+121,Jersey
+137,Liechtenstein
+141,Luxembourg
+173,Netherlands
+187,Poland
+62,Czechia
+63,Germany
+80,Faroe Islands
+83,United Kingdom
+85,Guernsey
+95,Greenland
+211,Saint Pierre and Miquelon
+216,Slovakia
+217,Slovenia
+16,Austria
+19,Belgium
+40,Canada
+42,Switzerland
+123,Japan
+150,Marshall Islands
+157,Northern Mariana Islands
+186,Papua New Guinea
+189,North Korea
+81,Micronesia
+98,Guam
+242,United States
+103,Haiti
+120,Jamaica
+128,Kiribati
+129,Saint Kitts and Nevis
+136,Saint Lucia
+143,Saint-Martin
+149,México
+160,Montserrat
+161,Martinique
+167,New Caledonia
+169,Norfolk Island
+171,Nicaragua
+172,Niue
+176,Nauru
+177,New Zealand
+181,Panama
+183,Peru
+188,Puerto Rico
+193,French Polynesia
+52,Cook Islands
+53,Colombia
+56,Costa Rica
+57,Cuba
+58,Curaçao
+60,Cayman Islands
+65,Dominica
+67,Dominican Republic
+69,Ecuador
+77,Fiji
+89,Guadeloupe
+94,Grenada
+96,Guatemala
+97,French Guiana
+99,Guyana
+101,Honduras
+206,Solomon Islands
+208,El Salvador
+215,Suriname
+220,Sint Maarten
+223,Turks and Caicos Islands
+228,Tokelau
+231,Tonga
+232,Trinidad and Tobago
+235,Tuvalu
+240,United States Minor Outlying Isl
+245,Saint Vincent and the Grenadines
+246,Venezuela
+247,British Virgin Islands
+248,"Virgin Islands, U.S."
+250,Vanuatu
+251,Wallis and Futuna
+252,Samoa
+255,Clipperton Island
+1,Aruba
+4,Anguilla
+11,American Samoa
+14,Antigua and Barbuda
+21,"Bonaire, Sint Eustatius and Saba"
+26,Bahamas
+28,Saint-Barthélemy
+30,Belize
+31,Bermuda
+34,Barbados
+43,Chile
+182,Pitcairn Islands
+191,Paraguay
+78,Falkland Islands
+100,Heard Island and McDonald Island
+203,South Georgia and the South Sand
+241,Uruguay
+9,Argentina
+12,Antarctica
+32,Bolivia
+37,Bouvet Island
