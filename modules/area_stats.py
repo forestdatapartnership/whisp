@@ -108,6 +108,24 @@ def add_area_hectares_property_to_feature_collection(fc,geometry_area_column):
 
 
 
+def buffer_point_to_required_area(feature,area,area_unit):
+    """buffers feature to get a given area (needs math library); area unit in 'ha' or 'km2' (the default)"""
+    area = feature.get('REP_AREA')
+    
+    # buffer_size = get_radius_m_to_buffer_for_given_area(area,"km2")# should work but untested in this function
+    
+    buffer_size = (ee.Number(feature.get('REP_AREA')).divide(math.pi)).sqrt().multiply(1000) #calculating radius in metres from REP_AREA in km2
+    
+    return ee.Feature(feature).buffer(buffer_size,1);  ### buffering (incl., max error parameter should be 0m. But put as 1m anyhow - doesn't seem to make too much of a difference for speed)
+
+
+def get_radius_m_to_buffer_to_required_area(area,area_unit="km2"):
+    """gets radius in metres to buffer to get an area (needs math library); area unit ha or km2 (the default)"""
+    if area_unit=="km2": unit_fix_factor =1000
+    elif area_unit=="ha": unit_fix_factor =100
+    radius = ee.Number(area).divide(math.pi).sqrt().multiply(unit_fix_factor)
+    return radius
+
 
  
 
