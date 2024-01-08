@@ -19,7 +19,6 @@ def wur_radd_alerts_prep(dataset_id):
 
     # Getting today's date
     ee_now =ee.Date(datetime.now())#.format()
-    # if debug: print (ee_now.getInfo())
 
     # Calculate the start date
     start_date = ee_now.advance(how_many_days_back, "day")

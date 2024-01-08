@@ -1,9 +1,11 @@
 import os
 import ee
+
 ee.Initialize()
 
+
 #if exporting to an image collection
-targetImageCollId = "users/andyarnell10/fdap_dpi/imageCol_trial_2"
+target_image_col_id = "projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/work_in_progress/whisp_image_col_v0"
 
 out_path = os.path.join('/home/sepal-user/whisp/')
 
