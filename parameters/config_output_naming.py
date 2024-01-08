@@ -5,7 +5,7 @@ ee.Initialize()
 #if exporting to an image collection
 targetImageCollId = "users/andyarnell10/fdap_dpi/imageCol_trial_2"
 
-out_path = os.path.join('/home/sepal-user/fdap/')
+out_path = os.path.join('/home/sepal-user/whisp/')
 
 #long csv (temporary format)
 out_long_csv_name = 'temp_stats_long_format.csv' 
