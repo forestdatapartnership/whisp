@@ -1,8 +1,14 @@
-### general runtime parameters
+### general runtime parameters 
+# (for naming of outputs see also parameters/config_output_naming.py)
+
+import ee
 
 use_existing_image_collection = False  # faster (if one exists), else creates on the fly in GEE. Set to True or False.
 
 debug = True  # get print messages or not (e.g. for debugging code etc) (True or False)
+
+
+
 
 # what datasets to exclude from results
 exclusion_list_dataset_ids = []
@@ -12,8 +18,12 @@ country_dataset_id = 18   ##### for referenece: 18 = GADM, 16 = GAUL
 
 ##### country_name_iso3_or_both = "iso3" # to add in at some point?
 
+
+
+
 ## export to image collection asset parameters
-export_image_collection_to_asset = False  # choose to export datasets to an image collection asset (makes faster data loading times). Set to True or False.
+
+export_icol = False  # choose to export datasets to an image collection asset (makes faster data loading times). Set to True or False.
 
 make_empty_image_coll = True # if true then code will add an empty image collection (see parmaters.output_naming), if one doesn't exist already. Set to True or False.
 
@@ -24,6 +34,7 @@ skip_export_if_asset_exists = True # if image with same dataset_id exists in ima
 # for extent of image collection
 exportRegion = ee.FeatureCollection("FAO/GAUL_SIMPLIFIED_500m/2015/level0").filter(
         ee.Filter.inList("ADM0_NAME",["Côte d'Ivoire", "Indonesia","Malaysia","Ghana"])).geometry()
+
 ####################################################place elsewhere if time
 
 if country_dataset_id == 16:

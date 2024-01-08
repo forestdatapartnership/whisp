@@ -47,3 +47,7 @@ def make_lookup_from_feature_col(feature_col,join_column,lookup_column,join_colu
         lookup_table.rename(columns={lookup_column:lookup_column_new_name},inplace=True)
         
     return lookup_table
+
+def truncate_strings_in_list(input_list, max_length):
+    """as name suggests, useful for exporting to shapefiles fort instance where col name length is limited"""
+    return [string[:max_length] for string in input_list]
