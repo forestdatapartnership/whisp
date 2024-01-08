@@ -8,10 +8,10 @@ ee.Initialize()
 from parameters.config_output_naming import targetImageCollId
 from parameters.config_runtime import * # make explicit
 
-if export_image_collection_to_asset:
+#TO DO make into a function
+# images_IC,targetImageCollId, property_for_asset_exists, debug=True
 
-    exportRegion = ee.FeatureCollection("FAO/GAUL_SIMPLIFIED_500m/2015/level0").filter(
-        ee.Filter.inList("ADM0_NAME",["Côte d'Ivoire", "Indonesia","Malaysia","Ghana"])).geometry()
+if export_image_collection_to_asset:
 
     if make_empty_image_coll == True:
         try:
@@ -23,7 +23,7 @@ if export_image_collection_to_asset:
             skip_export_if_asset_exists = True# as it sounds like. Saves possibility of lots of red errors in Tasks list in code editor
 
         def imageNames (imageCollection):##list existing images in collection (if any)
-            return imageCollection.aggregate_array("system:id").getInfo()
+            return imageCollection.aggregate_array("dataset_id").getInfo()
 
     imageCollectionImageList = (imageNames(ee.ImageCollection(targetImageCollId)))
 
@@ -32,7 +32,7 @@ if export_image_collection_to_asset:
 
         image_new = ee.Image(images_IC.toList(100,0).get(i))
 
-        dataset_name = image_new.get("system:index").getInfo()
+        dataset_name = image_new.get("dataset_id").getInfo()
 
         output_scale = image_new.get("scale").getInfo()
 

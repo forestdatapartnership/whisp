@@ -17,9 +17,13 @@ export_image_collection_to_asset = False  # choose to export datasets to an imag
 
 make_empty_image_coll = True # if true then code will add an empty image collection (see parmaters.output_naming), if one doesn't exist already. Set to True or False.
 
-skip_export_if_asset_exists = True # if image with same name exists in image collection avoid exporting. Set to True or False.
+skip_export_if_asset_exists = True # if image with same dataset_id exists in image collection, avoid exporting. Default: True
 
+# exportRegion = ee.Geometry.Rectangle([-180, -90, 180, 90], null, false) # if want global
 
+# for extent of image collection
+exportRegion = ee.FeatureCollection("FAO/GAUL_SIMPLIFIED_500m/2015/level0").filter(
+        ee.Filter.inList("ADM0_NAME",["Côte d'Ivoire", "Indonesia","Malaysia","Ghana"])).geometry()
 ####################################################place elsewhere if time
 
 if country_dataset_id == 16:
@@ -36,5 +40,5 @@ if country_dataset_id == 18:
     path_lookup_country_codes_to_names = "parameters/lookup_gadm_country_codes_to_iso3.csv"
     country_dataset_to_exclude = 16 # could make more flexible if more country datasets included
     
-exclusion_list_dataset_ids = exclusion_list_dataset_ids + [country_dataset_to_exclude] # could make more flexible if more country datasets included
+exclusion_list_dataset_ids = exclusion_list_dataset_ids + [country_dataset_to_exclude] # could make it more flexible if more country datasets included
 
