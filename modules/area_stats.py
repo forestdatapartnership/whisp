@@ -2,33 +2,41 @@ import ee
 import geemap
 # import area_stats
 
-def zonal_stats_plot_w_buffer (roi, roi_buffer, images_iCol, plot_stats_list, buffer_stats_list, reducer_choice):
-    """combines zonal_stats_iCol for plot with (alert) stats for buffer zone around it"""                       
+def zonal_stats_plot_w_buffer (roi, roi_buffer,images_iCol, plot_stats_list, buffer_stats_list, reducer_choice, debug=False):
+    """combines zonal_stats_iCol for plot with (alert) stats for buffer zone around it"""   
+    
     ## get stats for roi (not including deforestation alerts)
     zonal_stats_plot = zonal_stats_iCol(roi,images_iCol.filter(ee.Filter.inList("system:index",plot_stats_list)),
                                                                       reducer_choice)# all but alerts
-    ## get stats for buffer (alerts only)
-    zonal_stats_buffer = zonal_stats_iCol(roi_buffer,images_iCol.filter(ee.Filter.inList(
-                                                        "system:index",buffer_stats_list)),
-                                                        reducer_choice) #alerts only
+    if len(buffer_stats_list)>=1:
     
-    #combine stats from roi and buffer into one feature collection
-    zonal_stats_plot_w_buffer = zonal_stats_plot.merge(zonal_stats_buffer) 
-    return zonal_stats_plot_w_buffer
+        ## get stats for buffer (alerts only)
+        zonal_stats_buffer = zonal_stats_iCol(roi_buffer,images_iCol.filter(ee.Filter.inList(
+                                                            "system:index",buffer_stats_list)),
+                                                            reducer_choice) #alerts only
+        
+        #combine stats from roi and buffer into one feature collection
+        zonal_stats_out= zonal_stats_plot.merge(zonal_stats_buffer)
+        
+    else:       
+        zonal_stats_out = zonal_stats_plot
+        if debug: print ("no buffer stats required") 
+
+    return zonal_stats_out
 
 
-def zonal_stats_iCol (featureCollection,imageCollection,reducer_choice):
+def zonal_stats_iCol (feature_collection,image_collection,reducer_choice):
     "Calculating summary statistics for each image in collection, within each feature in a collection""" 
   
     def zonal_stats (image):
         scale=image.get("scale")
-        fc = ee.FeatureCollection(image.reduceRegions(collection=featureCollection,
+        fc = ee.FeatureCollection(image.reduceRegions(collection=feature_collection,
                                                       reducer=reducer_choice,
                                                       scale=scale))
         fc = fc.map(lambda feature: feature.set("dataset_name",image.get("system:index")))
         return fc
     
-    fc_out = imageCollection.map(zonal_stats).flatten()
+    fc_out = image_collection.map(zonal_stats).flatten()
     
     return fc_out
 
