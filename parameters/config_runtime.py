@@ -5,6 +5,8 @@ import ee
 
 use_existing_image_collection = True  # faster (if one exists), else creates on the fly in GEE. Set to True or False.
 
+update_iCol_properties = False # adds time so only put as True if need to update them based on changes to the lookup_gee_datasets.csv
+
 debug = True  # get print messages or not (e.g. for debugging code etc) (True or False)
 
 
