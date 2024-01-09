@@ -18,6 +18,7 @@ from datasets.wcmc_wdpa_protection import wcmc_wdpa_protection_prep
 from datasets.birdlife_kbas_biodiversity import birdlife_kbas_biodiversity_prep
 from datasets.wur_radd_alerts import wur_radd_alerts_prep
 from datasets.jrc_gfc_2020 import jrc_gfc_2020_prep
+from datasets.gadm_countries import gadm_countries_prep
 
 #reproject function
 from datasets.reproject_to_template import reproject_to_template
