@@ -1,8 +1,7 @@
 import os
 import ee
 
-dataset_id = 9
-
+# dataset_id = 9
 
 def jrc_tmf_plantations_prep(dataset_id):
     

@@ -8,7 +8,6 @@ path_lookup_gee_datasets = "parameters/lookup_gee_datasets.csv"
 
 lookup_gee_datasets = pd.read_csv(path_lookup_gee_datasets)
 
-
 # filter out datasets using an exclusion list 
 lookup_gee_datasets = lookup_gee_datasets[~lookup_gee_datasets['dataset_id'].isin(exclusion_list_dataset_ids)]
 
@@ -28,27 +27,3 @@ except:
 path_lookup_recoding_jrc_tmf_product = "parameters/lookup_recoding_jrc_tmf_product.csv"
 
 lookup_recoding_jrc_tmf_product = pd.read_csv(path_lookup_recoding_jrc_tmf_product)
-
-#########################################3
-#gaul
-# path_lookup_country_codes_to_names = "parameters/lookup_gaul_country_codes_to_names.csv" 
-
-# path_lookup_country_codes_to_iso3 = "parameters/lookup_gaul_country_codes_to_iso3.csv" 
-
-# lookup_country_codes_to_iso3 = pd.read_csv(path_lookup_country_codes_to_iso3) # NB TEMP fix only: some missing - small island states and source not ideal (had to add in GAUk code for South Sudan!)
-# CUW		CuraÃ§ao
-# BLM		Saint BarthÃ©lemy
-# MAF		Saint Martin (French Part)
-# 		Sark
-# SXM		Sint Maarten (Dutch part)
-# UMI		United States Minor Outlying Islands
-
-#gadm
-# path_lookup_country_codes_to_iso3 = "parameters/lookup_gadm_country_codes_to_iso3.csv" 
-
-# lookup_country_codes_to_iso3 = pd.read_csv(path_lookup_country_codes_to_iso3)
-
-
-
-
-
