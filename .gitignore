@@ -6,3 +6,5 @@ __pycache__/
 *.dbf
 *.cpfg
 *.zip
+
+output_stats_wide_format.csv
