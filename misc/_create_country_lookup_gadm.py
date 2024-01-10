@@ -1,7 +1,10 @@
 import os
 import ee
 
-ee.Initialize()
+from modules.gee_initialize import initialize_ee
+
+initialize_ee()
+
 import pandas as pd
 
 lookup_table = tidy_tables.make_lookup_from_feature_col(

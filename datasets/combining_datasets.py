@@ -1,7 +1,9 @@
 import ee
 import os
 
-ee.Initialize()
+from modules.gee_initialize import initialize_ee
+
+initialize_ee()
 
 import pandas as pd
 

@@ -3,7 +3,9 @@
 import os
 import ee
 
-ee.Initialize()
+from modules.gee_initialize import initialize_ee
+
+initialize_ee()
 
 from parameters.config_output_naming import target_image_col_id
 from parameters.config_runtime import * # make explicit

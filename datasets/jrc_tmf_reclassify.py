@@ -6,7 +6,9 @@ import ee
 #     from_class_column_name_jrc_tmf,
 #     to_class_column_name_jrc_tmf
 
-ee.Initialize()
+from modules.gee_initialize import initialize_ee
+
+initialize_ee()
     
 import modules.image_prep as image_prep # get recode function - maybe a better way to do this
 

@@ -27,3 +27,4 @@ geometry_area_column = "Area_ha"
 
 geo_id_column = "Geo_id"
 
+plot_id_column = "PLOTID"
