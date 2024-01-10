@@ -1,17 +1,12 @@
 import os
 import ee
 
-# import modules.image_prep as image_prep
-# import modules.area_stats as area_stats
-
 # from parameters.config_image_prep import 
 #     path_lookup_recoding_jrc_tmf_product,
 #     from_class_column_name_jrc_tmf,
 #     to_class_column_name_jrc_tmf
 
 ee.Initialize()
-
-# def jrc_tmf_prep(asset):
     
 import modules.image_prep as image_prep # get recode function - maybe a better way to do this
 

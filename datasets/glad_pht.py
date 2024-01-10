@@ -1,15 +1,7 @@
 import os
 import ee
 
-# import modules.image_prep as image_prep
-# import modules.area_stats as area_stats
-
-# from datasets.glad_gfc_raw import gfc
-
-ee.Initialize()
-
-dataset_id = 6
-
+# dataset_id = 6
 
 def glad_pht_prep(dataset_id):
     
