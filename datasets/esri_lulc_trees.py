@@ -1,12 +1,7 @@
 import os
 import ee
 
-# import modules.image_prep as image_prep
-# import modules.area_stats as area_stats
-
-dataset_id = 2
-
-ee.Initialize()
+# dataset_id = 2
 
 def esri_lulc_trees_prep(dataset_id):
     import modules.area_stats as area_stats

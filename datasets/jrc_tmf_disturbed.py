@@ -1,12 +1,7 @@
 import os
 import ee
 
-# import modules.image_prep as image_prep
-# import modules.area_stats as area_stats
-
-ee.Initialize()
-
-dataset_id = 7
+# dataset_id = 7
 
 ## 1) undisturbed forest, 2) disturbed forest and 3) plantation
 

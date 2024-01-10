@@ -1,8 +1,6 @@
 import os
 import ee
 
-ee.Initialize()
-
 # dataset_id = 4
 
 def glad_lulc_stable_prep(dataset_id):
