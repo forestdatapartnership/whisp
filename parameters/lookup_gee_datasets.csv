@@ -16,4 +16,4 @@ dataset_id,dataset_order,dataset_name,country_allocation_stats_only,local_buffer
 14,15,OECM,0,0,1,wcmc_oecms_protection.py,"ee.FeatureCollection([ee.FeatureCollection(""projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/raw/WDPA_OECM_polygons1""),ee.FeatureCollection(""projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/raw/WDPA_OECM_polygons2""),ee.FeatureCollection(""projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/raw/WDPA_OECM_polygons3"")]).flatten();",#a69d9d
 15,16,KBA,0,0,1,birdlife_kbas_biodiversity.py,"ee.FeatureCollection(""projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/raw/KBAsGlobal_2023_March_01_POL"");",#a69d9d
 16,17,GAUL_adm0_code,1,0,0,fao_gaul_countries.py,"ee.FeatureCollection(""FAO/GAUL/2015/level0"");",#a69d9d
-18,18,GADM_fid_code,1,0,0,gadm_countries.py,"ee.FeatureCollection(""projects/ee-andyarnellgee/assets/gadm_41_level_1"");",#a69d9d
+18,18,GADM_fid_code,1,0,0,gadm_countries.py,"ee.FeatureCollection(""projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/raw/gadm_41_level_1"");",#a69d9d
