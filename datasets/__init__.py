@@ -6,6 +6,7 @@ from datasets.glad_lulc_stable import glad_lulc_stable_prep
 from datasets.glad_pht import glad_pht_prep
 from datasets.creaf_descals_palm import creaf_descals_palm_prep 
 from datasets.esri_lulc_trees import esri_lulc_trees_prep 
+from datasets.esa_worldcover_trees import esa_worldcover_trees_prep 
 from datasets.eth_kalischek_cocoa import eth_kalischek_cocoa_prep
 from datasets.fao_gaul_countries import fao_gaul_countries_prep
 from datasets.fdap_palm import fdap_palm_prep

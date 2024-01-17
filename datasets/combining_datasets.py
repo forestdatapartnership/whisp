@@ -25,6 +25,7 @@ image_function_list = ee.List([
          birdlife_kbas_biodiversity_prep(dataset_id=15, 
                                          template_image=template_image_1),
          creaf_descals_palm_prep(dataset_id=10),
+         esa_worldcover_trees_prep(dataset_id=19),
          esri_lulc_trees_prep(dataset_id=2),
          eth_kalischek_cocoa_prep(dataset_id=12),
          fao_gaul_countries_prep(dataset_id=16, 
