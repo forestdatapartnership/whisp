@@ -3,7 +3,7 @@
 
 import ee
 
-use_existing_image_collection = True  # faster (if one exists), else creates on the fly in GEE. Set to True or False.
+use_existing_image_collection = False  # faster (if one exists), else creates on the fly in GEE. Set to True or False.
 
 update_iCol_properties = False # adds time so only put as True if need to update them based on changes to the lookup_gee_datasets.csv
 
@@ -11,7 +11,7 @@ debug = True  # get print messages or not (e.g. for debugging code etc) (True or
 
 
 # what datasets to exclude from results
-exclusion_list_dataset_ids = [14,15]
+exclusion_list_dataset_ids = [2,14,15]
 
 # country dataset choice 
 country_dataset_id = 18   ##### for referenece: 18 = GADM, 16 = GAUL
@@ -23,7 +23,7 @@ country_dataset_id = 18   ##### for referenece: 18 = GADM, 16 = GAUL
 
 ## export to image collection asset parameters
 
-export_icol = False  # choose to export datasets to an image collection asset (makes faster data loading times). Set to True or False.
+export_icol = True  # choose to export datasets to an image collection asset (makes faster data loading times). Set to True or False.
 
 make_empty_image_coll = True # if true then code will add an empty image collection (see parmaters.output_naming), if one doesn't exist already. Set to True or False.
 

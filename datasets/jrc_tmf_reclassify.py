@@ -16,7 +16,7 @@ from parameters.config_lookups import path_lookup_recoding_jrc_tmf_product # may
 
 ## recoding/reclassifying JRC tropical moist forest classes to EUDR classes 
 ## i.e. representing undisturbed, disturbed and planatations
-jrc_tmf_transitions_raw = ee.ImageCollection('projects/JRC/TMF/v1_2021/TransitionMap_Subtypes') # raw data
+jrc_tmf_transitions_raw = ee.ImageCollection('projects/JRC/TMF/v1_2020/TransitionMap_Subtypes') # raw data
  
 jrc_tmf_transitions = jrc_tmf_transitions_raw.mosaic() ### NB check why 2021?  
    
