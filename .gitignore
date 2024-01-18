@@ -7,5 +7,5 @@ __pycache__/
 *.cpfg
 *.zip
 
-output_stats_wide_format.csv
+whisp_output_table.csv
 parameters/config_gee.py

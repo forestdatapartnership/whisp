@@ -15,8 +15,6 @@ def gadm_countries_prep(dataset_id,template_image):
 
     gadm_code_column = "fid"
 
-    template = ee.Image("UMD/hansen/global_forest_change_2022_v1_10");
-
     gadm_boundaries_adm0_code = gadm_boundaries_poly.reduceToImage([gadm_code_column],ee.Reducer.mode())  #make into image with the admn0 country code as the value
 
     #reproject based on template (tyically gfc data - approx 30m res)
