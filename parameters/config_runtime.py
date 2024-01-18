@@ -29,12 +29,8 @@ make_empty_image_coll = True # if true then code will add an empty image collect
 
 skip_export_if_asset_exists = True # if image with same dataset_id exists in image collection, avoid exporting. Default: True
 
-# exportRegion = ee.Geometry.Rectangle([-180, -90, 180, 90], null, false) # if want global
-
 # for extent of image collection
-exportRegion = ee.FeatureCollection("FAO/GAUL_SIMPLIFIED_500m/2015/level0").filter(
-        ee.Filter.inList("ADM0_NAME",["Côte d'Ivoire", "Indonesia","Malaysia","Ghana"])).geometry()
-
+exportRegion = ee.Geometry.Rectangle([-180, -90, 180, 90], None, False) 
 ####################################################place elsewhere if time
 
 if country_dataset_id == 16:

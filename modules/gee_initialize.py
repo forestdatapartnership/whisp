@@ -1,5 +1,6 @@
 import ee
-# import os
+import sys
+import os
 # from google.oauth2 import service_account
 
 #for sepal instance
@@ -9,7 +10,14 @@ def initialize_ee():
         # Check if EE is already initialized
         if not ee.data._initialized:
             # ee.Initialize()
-            ee.Initialize(project="ee-andyarnellgee") #cloud project update. Temp workaround for me (Andy)
+            try:
+                ee.Initialize() #cloud project update. Temp workaround for me (Andy)
+            except: 
+                print("searching for 'gee_cloud_project' in parameters/config_gee.py")
+                sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'parameters'))
+                from config_gee import gee_cloud_project
+                ee.Initialize(project="ee-andyarnellgee")
+
             print("Earth Engine has been initialized with the specified credentials.")
     except Exception as e:
         print("An error occurred during Earth Engine initialization:", e)
