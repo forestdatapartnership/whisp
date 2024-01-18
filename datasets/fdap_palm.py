@@ -1,12 +1,7 @@
 import os
 import ee
 
-# import modules.image_prep as image_prep
-# import modules.area_stats as area_stats
-
 dataset_id= 11
-
-ee.Initialize()
 
 def fdap_palm_prep(dataset_id):
     

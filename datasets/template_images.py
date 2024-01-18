@@ -1,7 +1,9 @@
 import os
 import ee
 
-ee.Initialize()
+from modules.gee_initialize import initialize_ee
+
+initialize_ee()
 
 from datasets.glad_gfc_raw import gfc 
 

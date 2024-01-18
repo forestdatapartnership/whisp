@@ -1,14 +1,7 @@
 import os
 import ee
 
-# import modules.image_prep as image_prep
-# import modules.area_stats as area_stats
-
-# from datasets.template_images import template_image_1
-
 # dataset_id = 16
-
-ee.Initialize()
 
 def fao_gaul_countries_prep(dataset_id,template_image):
     

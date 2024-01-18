@@ -1,7 +1,10 @@
 import os
 import ee
 
-ee.Initialize()
+from modules.gee_initialize import initialize_ee
+
+initialize_ee()
+
 import pandas as pd
     
 list_GAUL_boundaries_poly_admn0_code = GAUL_boundaries_poly.aggregate_array("ADM0_CODE").distinct().getInfo()

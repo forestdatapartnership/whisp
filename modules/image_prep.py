@@ -1,6 +1,35 @@
 import ee
 import pandas as pd
 
+def add_multi_lookup_properties_to_image_collection(image_collection,\
+                                                       collection_join_column, \
+                                                       lookup_dataframe, \
+                                                       df_join_column,\
+                                                       df_column_to_add1, \
+                                                       new_property_name1,\
+                                                       df_column_to_add2, \
+                                                       new_property_name2,\
+                                                       df_column_to_add3, \
+                                                       new_property_name3
+                                                      ):
+    """add multiple (3) columns to properties of image collection. NB join would be better  as slow but for image asset creation anyhow"""
+    
+    image_collection_w_properties = add_lookup_property_to_image_collection(image_collection,collection_join_column,
+                                                           lookup_dataframe, df_join_column,
+                                                           df_column_to_add1,new_property_name1)
+    
+    image_collection_w_properties2 = add_lookup_property_to_image_collection(image_collection_w_properties,collection_join_column,
+                                                           lookup_dataframe, df_join_column,
+                                                           df_column_to_add2,new_property_name2)
+    
+    image_collection_w_properties3 = add_lookup_property_to_image_collection(image_collection_w_properties2,collection_join_column,
+                                                           lookup_dataframe, df_join_column,
+                                                           df_column_to_add3,new_property_name3)
+    
+    
+    return image_collection_w_properties3
+    
+    
 
 def add_lookup_property_to_image_collection(image_collection, collection_join_column, 
                                             lookup_dataframe, df_join_column, 

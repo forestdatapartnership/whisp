@@ -1,17 +1,14 @@
 import os
 import ee
 
-# import modules.image_prep as image_prep
-# import modules.area_stats as area_stats
-
 # from parameters.config_image_prep import 
 #     path_lookup_recoding_jrc_tmf_product,
 #     from_class_column_name_jrc_tmf,
 #     to_class_column_name_jrc_tmf
 
-ee.Initialize()
+from modules.gee_initialize import initialize_ee
 
-# def jrc_tmf_prep(asset):
+initialize_ee()
     
 import modules.image_prep as image_prep # get recode function - maybe a better way to do this
 
@@ -19,7 +16,7 @@ from parameters.config_lookups import path_lookup_recoding_jrc_tmf_product # may
 
 ## recoding/reclassifying JRC tropical moist forest classes to EUDR classes 
 ## i.e. representing undisturbed, disturbed and planatations
-jrc_tmf_transitions_raw = ee.ImageCollection('projects/JRC/TMF/v1_2021/TransitionMap_Subtypes') # raw data
+jrc_tmf_transitions_raw = ee.ImageCollection('projects/JRC/TMF/v1_2020/TransitionMap_Subtypes') # raw data
  
 jrc_tmf_transitions = jrc_tmf_transitions_raw.mosaic() ### NB check why 2021?  
    

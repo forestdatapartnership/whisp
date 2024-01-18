@@ -1,8 +1,6 @@
 import os
 import ee
 
-ee.Initialize()
-
 # dataset_id = 13
 
 def wcmc_wdpa_protection_prep(dataset_id, template_image):

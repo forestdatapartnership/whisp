@@ -1,14 +1,7 @@
 import os
 import ee
 
-# import modules.image_prep as image_prep
-# import modules.area_stats as area_stats
-
-# from datasets.template_images import template_image_1
-
 # dataset_id = 18
-
-ee.Initialize()
 
 def gadm_countries_prep(dataset_id,template_image):
     
@@ -18,7 +11,7 @@ def gadm_countries_prep(dataset_id,template_image):
     
     # path_lookup_country_codes_to_names = "parameters/lookup_gadm_country_codes_to_names.csv"
 
-    gadm_boundaries_poly = ee.FeatureCollection("projects/ee-andyarnellgee/assets/gadm_41_level_1");
+    gadm_boundaries_poly = ee.FeatureCollection("projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/raw/gadm_41_level_1");
 
     gadm_code_column = "fid"
 

@@ -1,7 +1,10 @@
 import os
 import ee
 
-ee.Initialize()
+from modules.gee_initialize import initialize_ee
+
+initialize_ee()
+
 import pandas as pd
 
 def make_lookup_from_feature_col(feature_col,join_column,lookup_column,join_column_new_name=False,lookup_column_new_name=False):

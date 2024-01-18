@@ -6,8 +6,6 @@ import ee
 
 # from datasets.template_images import template_image_1
 
-ee.Initialize()
-
 # dataset_id= 15 
 
 def birdlife_kbas_biodiversity_prep(dataset_id,template_image):
