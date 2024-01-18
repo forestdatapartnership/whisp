@@ -57,9 +57,13 @@ def send_project_creation_request(data, cookie):
     # Convert the data to JSON, if it's not already a JSON string
     if not isinstance(data, str):
         data = json.dumps(data)
+        
 
     try:
         response = requests.post(url, headers=headers, data=data)
+        
+
+        
         response.raise_for_status()  # Raises an HTTPError if the HTTP request returned an unsuccessful status code
         return response.json()  # Return the JSON response if request is successful
     except requests.RequestException as e:
