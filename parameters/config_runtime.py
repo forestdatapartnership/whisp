@@ -3,6 +3,8 @@
 
 import ee
 
+use_geo_id_input= False # if True, uses 'all_geo_ids' list, if false uses 'example_feature_col_asset'
+
 use_existing_image_collection = False  # faster (if one exists), else creates on the fly in GEE. Set to True or False.
 
 update_iCol_properties = False # adds time so only put as True if need to update them based on changes to the lookup_gee_datasets.csv
@@ -23,7 +25,7 @@ country_dataset_id = 18   ##### for referenece: 18 = GADM, 16 = GAUL
 
 ## export to image collection asset parameters
 
-export_icol = True  # choose to export datasets to an image collection asset (makes faster data loading times). Set to True or False.
+export_icol = False  # choose to export datasets to an image collection asset (makes faster data loading times). Set to True or False.
 
 make_empty_image_coll = True # if true then code will add an empty image collection (see parmaters.output_naming), if one doesn't exist already. Set to True or False.
 
@@ -44,7 +46,7 @@ if country_dataset_id == 18:
     country_dataset_name = "GADM_fid_code" 
     admin_code_col_name = "fid" 
     path_lookup_country_codes_to_iso3 = "parameters/lookup_gadm_country_codes_to_iso3.csv"
-    path_lookup_country_codes_to_names = "parameters/lookup_gadm_country_codes_to_iso3.csv"
+    path_lookup_country_codes_to_names = "parameters/lookup_gadm_country_codes_to_iso3.csv" #for now
     country_dataset_to_exclude = 16 # could make more flexible if more country datasets included
     
 exclusion_list_dataset_ids = exclusion_list_dataset_ids + [country_dataset_to_exclude] # could make it more flexible if more country datasets included

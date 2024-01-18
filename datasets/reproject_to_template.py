@@ -8,6 +8,6 @@ def reproject_to_template(rasterised_vector,template_image):
     output_image = rasterised_vector.reproject(
       crs= crs_template,
       scale= get_scale_from_image(template_image),
-    ).int8()
+    ).int32()
     
     return output_image
