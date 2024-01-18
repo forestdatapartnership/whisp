@@ -1,46 +1,46 @@
-jrc_tmf_original_class_value,jrc_tmf_original_class_description,remap_simple_class_value,remap_simple_class_description,remap_eudr_value,remap_eudr_description,remap_comments
-10, Undisturbed Tropical Moist Forest (TMF) ,10, Undisturbed Tropical Moist Forest (TMF) ,1, Undisturbed Tropical Moist Forest (TMF) ,
-11, Bamboo-dominated forest,10, Undisturbed Tropical Moist Forest (TMF) ,1, Undisturbed Tropical Moist Forest (TMF) ,
-12, Undisturbed mangroves,10, Undisturbed Tropical Moist Forest (TMF) ,1, Undisturbed Tropical Moist Forest (TMF) ,
-21, Degraded forest with short-duration disturbance (started before 2012),20, Degraded TMF ,2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
-22, Degraded forest with short-duration disturbance (started in 2012-2020),20, Degraded TMF ,2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
-23, Degraded forest with long-duration disturbance (started before 2012),20, Degraded TMF ,2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
-24, Degraded forest with long-duration disturbance (started in 2012-2020),20, Degraded TMF ,2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
-25, Degraded forest with 2/3 degradation periods (last degradation started before 2012),20, Degraded TMF ,2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
-26, Degraded forest with 2/3 degradation periods (last degradation started in 2012-2020),20, Degraded TMF ,2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
-61, Degraded Mangroves (started before 2012),20, Degraded TMF ,2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
-62, Mangrove recently degraded (2012 -2020),20, Degraded TMF ,2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
-31, Old forest regrowth (disturbed before 2002),30, TMF regrowth ,2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
-32, Young forest regrowth (disturbed in 2002-2011),30, TMF regrowth ,2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
-33, Very young forest regrowth (disturbed in 2012-2018),30, TMF regrowth ,2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
-63, Mangrove regrowing (at least 10 years - 2012-2021),30, TMF regrowth ,2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
-64, Mangrove regrowing (at least 3 years - 2019-2021),30, TMF regrowth ,2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
-81, Old Plantation,41,Deforested land - Forest converted to tree plantations,3,plantations,"using a mix of verified classes in: 1) incl Descals and SDPT but only ‘Large industrial
-plantations’ and ‘Clearing/very young plantation not mosaic,’  2) Oil palm from Descals et al., and 3) additional classification of areas not in either. See SOM from main paper."
-82, Plantation regrowing (disturbed before 2012) ,41,Deforested land - Forest converted to tree plantations,3,plantations,"using a mix of verified classes in: 1) incl Descals and SDPT but only ‘Large industrial
-plantations’ and ‘Clearing/very young plantation not mosaic,’  2) Oil palm from Descals et al., and 3) additional classification of areas not in either. See SOM from main paper."
-83, Plantation regrowing (disturbed in 2012-2018)  ,41,Deforested land - Forest converted to tree plantations,3,plantations,"using a mix of verified classes in: 1) incl Descals and SDPT but only ‘Large industrial
-plantations’ and ‘Clearing/very young plantation not mosaic,’  2) Oil palm from Descals et al., and 3) additional classification of areas not in either. See SOM from main paper."
-84, Conversion to plantation (deforestation started before 2011),41,Deforested land - Forest converted to tree plantations,3,plantations,"using a mix of verified classes in: 1) incl Descals and SDPT but only ‘Large industrial
-plantations’ and ‘Clearing/very young plantation not mosaic,’  2) Oil palm from Descals et al., and 3) additional classification of areas not in either. See SOM from main paper."
-85, Conversion to plantation (deforestation started in 2012-2018),41,Deforested land - Forest converted to tree plantations,3,plantations,"using a mix of verified classes in: 1) incl Descals and SDPT but only ‘Large industrial
-plantations’ and ‘Clearing/very young plantation not mosaic,’  2) Oil palm from Descals et al., and 3) additional classification of areas not in either. See SOM from main paper."
-86, Recent Conversion to plantation (started in 2019-2021),41,Deforested land - Forest converted to tree plantations,3,plantations,"using a mix of verified classes in: 1) incl Descals and SDPT but only ‘Large industrial
-plantations’ and ‘Clearing/very young plantation not mosaic,’  2) Oil palm from Descals et al., and 3) additional classification of areas not in either. See SOM from main paper."
-73, Deforestation to permanent water ,42, Deforested Land - Forest converted to water,0,no_tree_cover,
-74, Deforestation to seasonal water ,42, Deforested Land - Forest converted to water,0,no_tree_cover,
-41, Deforestation started before 2011,43, Deforested Land - Forest converted to other LC,0,no_tree_cover,"NB onverted to mixed class of other land cover (not i.e. tropical moist forests): ""Other land cover: includes savanna, deciduous forest, agriculture, evergreen shrubland, and nonvegetated cover."""
-42, Deforestation started in 2011-2018,43, Deforested Land - Forest converted to other LC,0,no_tree_cover,"NB Mix but out of area of interest i.e. tropical moist forests: Other land cover: includes savanna, deciduous forest, agriculture, evergreen shrubland, and nonvegetated cover."
-51, Deforestation* started in 2019 ,50, Ongoing deforestation or degradation (2019-2021),2,Degraded_regrowth_or_ongoing_deforestation,
-52, Deforestation* started in 2020 ,50, Ongoing deforestation or degradation (2019-2021),2,Degraded_regrowth_or_ongoing_deforestation,
-53, Deforestation* started in 2021  ,50, Ongoing deforestation or degradation (2019-2021),2,Degraded_regrowth_or_ongoing_deforestation,
-54, Degradation* started in 2021 ,50, Ongoing deforestation or degradation (2019-2021),2,Degraded_regrowth_or_ongoing_deforestation,
-67, Mangrove recently disturbed (started in 2019-2021),50, Ongoing deforestation or degradation (2019-2021),2,Degraded_regrowth_or_ongoing_deforestation,
-65, Mangrove deforested (started before 2011),60, Permanent or Seasonal Water  (Pekel et al,0,no_tree_cover,water
-66, Mangrove deforested (started in 2012-2018),60, Permanent or Seasonal Water  (Pekel et al,0,no_tree_cover,water
-71, Permanent water (Pekel et al 2016 & updates for years 2015-2021)  ,60, Permanent or Seasonal Water  (Pekel et al,0,no_tree_cover,water
-72, Seasonal water  (Pekel et al 2016 & updates for years 2015-2021)  ,60, Permanent or Seasonal Water  (Pekel et al,0,no_tree_cover,water
-91,  Other land cover without afforestation  ,70, Other land cover (including afforestation),0,no_tree_cover,"NB Mix but out of area of interest i.e. tropical moist forests: Other land cover: includes savanna, deciduous forest, agriculture, evergreen shrubland, and nonvegetated cover."
-92,  Young afforestation (between 3 and 9 years of regrowth),70, Other land cover (including afforestation),2,degraded_regrowth_other,
-93,  Old afforestation (between 10 and 20 years of regrowth),70, Other land cover (including afforestation),2,degraded_regrowth_other,
-94,  Water converted recently into forest regrowth (at least 3 years),70, Other land cover (including afforestation),2,degraded_regrowth_other,
+jrc_tmf_original_class_value,jrc_tmf_original_class_description,remap_eudr_value,remap_eudr_description,remap_comments
+10, Undisturbed Tropical Moist Forest (TMF) ,1, Undisturbed Tropical Moist Forest (TMF) ,
+11, Bamboo-dominated forest,1, Undisturbed Tropical Moist Forest (TMF) ,
+12, Undisturbed mangroves,1, Undisturbed Tropical Moist Forest (TMF) ,
+21, Degraded forest with short-duration disturbance (started before 2012),2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
+22, Degraded forest with short-duration disturbance (started in 2012-2020),2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
+23, Degraded forest with long-duration disturbance (started before 2012),2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
+24, Degraded forest with long-duration disturbance (started in 2012-2020),2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
+25, Degraded forest with 2/3 degradation periods (last degradation started before 2012),2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
+26, Degraded forest with 2/3 degradation periods (last degradation started in 2012-2020),2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
+61, Degraded Mangroves (started before 2012),2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
+62, Mangrove recently degraded (2012 -2020),2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
+31, Old forest regrowth (disturbed before 2002),2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
+32, Young forest regrowth (disturbed in 2002-2011),2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
+33, Very young forest regrowth (disturbed in 2012-2018),2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
+63, Mangrove regrowing (at least 10 years - 2012-2021),2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
+64, Mangrove regrowing (at least 3 years - 2019-2021),2,Degraded_regrowth_or_ongoing_deforestation,Degraded_regrowth_or_ongoing_deforestation
+81, Old Plantation,3,plantations,"using a mix of verified classes in: 1) incl Descals and SDPT but only Large industrial
+plantations and ""Clearing/very young plantation not mosaic,  2) Oil palm from Descals et al., and 3) additional classification of areas not in either. See SOM from main paper."
+82, Plantation regrowing (disturbed before 2012) ,3,plantations,"using a mix of verified classes in: 1) incl Descals and SDPT but only Large industrial
+plantations and ""Clearing/very young plantation not mosaic,  2) Oil palm from Descals et al., and 3) additional classification of areas not in either. See SOM from main paper."
+83, Plantation regrowing (disturbed in 2012-2018)  ,3,plantations,"using a mix of verified classes in: 1) incl Descals and SDPT but only Large industrial
+plantations and ""Clearing/very young plantation not mosaic,  2) Oil palm from Descals et al., and 3) additional classification of areas not in either. See SOM from main paper."
+84, Conversion to plantation (deforestation started before 2011),3,plantations,"using a mix of verified classes in: 1) incl Descals and SDPT but only Large industrial
+plantations and ""Clearing/very young plantation not mosaic,  2) Oil palm from Descals et al., and 3) additional classification of areas not in either. See SOM from main paper."
+85, Conversion to plantation (deforestation started in 2012-2018),3,plantations,"using a mix of verified classes in: 1) incl Descals and SDPT but only Large industrial
+plantations and ""Clearing/very young plantation not mosaic,  2) Oil palm from Descals et al., and 3) additional classification of areas not in either. See SOM from main paper."
+86, Recent Conversion to plantation (started in 2019-2021),3,plantations,"using a mix of verified classes in: 1) incl Descals and SDPT but only Large industrial
+plantations and ""Clearing/very young plantation not mosaic,  2) Oil palm from Descals et al., and 3) additional classification of areas not in either. See SOM from main paper."
+73, Deforestation to permanent water ,0,no_tree_cover,
+74, Deforestation to seasonal water ,0,no_tree_cover,
+41, Deforestation started before 2011,0,no_tree_cover,"NB converted to mixed class of other land cover (not i.e. tropical moist forests): ""Other land cover: includes savanna, deciduous forest, agriculture, evergreen shrubland, and nonvegetated cover."""
+42, Deforestation started in 2011-2018,0,no_tree_cover,"NB Mix but out of area of interest i.e. tropical moist forests: Other land cover: includes savanna, deciduous forest, agriculture, evergreen shrubland, and nonvegetated cover."
+51, Deforestation* started in 2019 ,2,Degraded_regrowth_or_ongoing_deforestation,
+52, Deforestation* started in 2020 ,2,Degraded_regrowth_or_ongoing_deforestation,
+53, Deforestation* started in 2021  ,2,Degraded_regrowth_or_ongoing_deforestation,
+54, Degradation* started in 2021 ,2,Degraded_regrowth_or_ongoing_deforestation,
+67, Mangrove recently disturbed (started in 2019-2021),2,Degraded_regrowth_or_ongoing_deforestation,
+65, Mangrove deforested (started before 2011),0,no_tree_cover,water
+66, Mangrove deforested (started in 2012-2018),0,no_tree_cover,water
+71, Permanent water (Pekel et al 2016 & updates for years 2015-2021)  ,0,no_tree_cover,water
+72, Seasonal water  (Pekel et al 2016 & updates for years 2015-2021)  ,0,no_tree_cover,water
+91,  Other land cover without afforestation  ,0,no_tree_cover,"NB Mix but out of area of interest i.e. tropical moist forests: Other land cover: includes savanna, deciduous forest, agriculture, evergreen shrubland, and nonvegetated cover."
+92,  Young afforestation (between 3 and 9 years of regrowth),2,degraded_regrowth_other,
+93,  Old afforestation (between 10 and 20 years of regrowth),2,degraded_regrowth_other,
+94,  Water converted recently into forest regrowth (at least 3 years),2,degraded_regrowth_other,

@@ -1,11 +1,6 @@
 import os
 import ee
 
-# # import modules.image_prep as image_prep
-# # import modules.area_stats as area_stats
-
-# # from datasets.jrc_tmf_reclassify import jrc_tmf_transitions_remap,jrc_tmf_transitions_raw
-
 ee.Initialize()
 
 # dataset_id = 5

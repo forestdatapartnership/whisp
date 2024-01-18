@@ -1,7 +1,9 @@
 import os
 import ee
 
-ee.Initialize()
+from modules.gee_initialize import initialize_ee
+
+initialize_ee()
 
 ##### Alternative feature collection: create random polygons
 ####select random points inside administrative boundaries and buffer them 

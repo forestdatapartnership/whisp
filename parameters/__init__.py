@@ -16,6 +16,10 @@ from parameters.config_radd_alerts import *
 
 from parameters.config_lookups import *
 
+from parameters.config_ceo import *
+
+from parameters.config_gee import *
+
 from parameters.config_stats_calc import reducer_choice
 
 # from parameters.config_random_features  import *

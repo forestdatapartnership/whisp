@@ -1,14 +1,6 @@
 import os
 import ee
 
-# import modules.image_prep as image_prep
-# import modules.area_stats as area_stats
-
-# from datetime import datetime
-# from parameters.config_radd_alerts import how_many_days_back
-
-ee.Initialize()
-
 dataset_id = 8
 
 def wur_radd_alerts_prep(dataset_id):

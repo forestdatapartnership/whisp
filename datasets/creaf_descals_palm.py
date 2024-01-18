@@ -1,12 +1,8 @@
 import os
 import ee
 
-# import modules.image_prep as image_prep
-# import modules.area_stats as area_stats
-
 # dataset_id = 10
 
-ee.Initialize()
 
 def creaf_descals_palm_prep(dataset_id):
     import modules.area_stats as area_stats

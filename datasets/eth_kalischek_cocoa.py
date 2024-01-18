@@ -1,13 +1,8 @@
 import os
 import ee
 
-# import modules.image_prep as image_prep
-# import modules.area_stats as area_stats
+# dataset_id = 12
 
-dataset_id = 12
-
-ee.Initialize()
-    
 def eth_kalischek_cocoa_prep(dataset_id):
     import modules.area_stats as area_stats
     #keep as function incase some thresholds are used/recommended instead of 0.65 found online
