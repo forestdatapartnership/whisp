@@ -19,6 +19,9 @@ def glad_gfc_10pc_prep(dataset_id):
     gfc_treecover_2020_binary= gfc_treecover_2020.gt(10) #FAO 10% definition...
     
     gfc_treecover_2020_binary = area_stats.set_scale_property_from_image(gfc_treecover_2020_binary,gfc,debug=True)
+
+    # gfc_treecover_2020_binary = gfc_treecover_2020_binary.clip(gfc.geometry())
+    
     output_image = gfc_treecover_2020_binary
     
     return output_image.set("dataset_id",dataset_id)

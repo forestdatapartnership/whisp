@@ -1,7 +1,7 @@
 import os
 import ee
 
-dataset_id = 8
+# dataset_id = 8
 
 def wur_radd_alerts_prep(dataset_id):
     from datetime import datetime
@@ -38,11 +38,12 @@ def wur_radd_alerts_prep(dataset_id):
 
     # Update mask for confirmed alerts by date
     latest_radd_alert_confirmed_recent = latest_radd_alert.select('Date').gte(start_date_yyDDD).selfMask()
-    latest_radd_alert_confirmed_recent
 
     latest_radd_alert_confirmed_recent = area_stats.set_scale_property_from_image(
         latest_radd_alert_confirmed_recent,radd.first(),debug=True)
 
+    # latest_radd_alert_confirmed_recent = latest_radd_alert_confirmed_recent.clip(radd.geometry().bounds())
+    
     output_image = latest_radd_alert_confirmed_recent
     
     return output_image.set("dataset_id",dataset_id)

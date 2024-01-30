@@ -14,6 +14,8 @@ def jrc_gfc_2020_prep(dataset_id):
     JRC_GFC_2020 = area_stats.set_scale_property_from_image(
         JRC_GFC_2020,JRC_GFC_2020_raw.first(),debug=True)
 
+    # JRC_GFC_2020 = JRC_GFC_2020.clip(ee.Geometry.Rectangle([-180, -90, 180, 90], None, False))
+    
     output_image = JRC_GFC_2020
     
     return output_image.set("dataset_id",dataset_id)

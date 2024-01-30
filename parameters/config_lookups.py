@@ -8,8 +8,12 @@ path_lookup_gee_datasets = "parameters/lookup_gee_datasets.csv"
 
 lookup_gee_datasets = pd.read_csv(path_lookup_gee_datasets)
 
+
+
 # filter out datasets using an exclusion list 
 lookup_gee_datasets = lookup_gee_datasets[~lookup_gee_datasets['dataset_id'].isin(exclusion_list_dataset_ids)]
+
+
 
 try: 
     lookup_country_codes_to_names = pd.read_csv(path_lookup_country_codes_to_names)

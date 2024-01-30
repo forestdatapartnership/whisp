@@ -5,7 +5,7 @@ ee.Initialize()
 
 
 #if exporting to an image collection
-target_image_col_id = "projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/work_in_progress/whisp_image_col_v1"
+target_image_col_id = "projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/work_in_progress/whisp_image_col_v0"
 
 out_path = os.path.join('/home/sepal-user/whisp/')
 

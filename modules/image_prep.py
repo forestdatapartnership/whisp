@@ -70,8 +70,63 @@ def remap_image_from_dataframe_cols (image,df,from_col,to_col,default_value):
     return image_out
 
 
+# #make into a function
+# def export_image_collection_to_asset(make_empty_image_coll, image_col_to_export, target_image_col_id, export_region, skip_export_if_asset_exists, asset_exists_property="system:index",debug=True):
+
+#     if make_empty_image_coll == True:
+#         try:
+#             getAssetInfo = ee.data.getAsset(target_image_col_id)
+#             if debug: print ("Target image collection exists: ",target_image_col_id)
+#         except:
+#             ee.data.createAsset({'type': 'ImageCollection'}, target_image_col_id)#make a new image collection
+#             print ("New (empty) image collection created: ",target_image_col_id)
+#             skip_export_if_asset_exists = True# as it sounds like. Saves possibility of lots of red errors in Tasks list in code editor
+
+#         def imageNames (imageCollection):##list existing images in collection (if any)
+#             return imageCollection.aggregate_array(asset_exists_property).getInfo()
+
+#     imageCollectionImageList = (imageNames(ee.ImageCollection(target_image_col_id)))
+
+
+#     for i in range(image_col_to_export.size().getInfo()):
+
+#         image_new = ee.Image(image_col_to_export.toList(image_col_to_export.size().getInfo(),0).get(i))
+
+#         dataset_name = image_new.get(asset_exists_property).getInfo()
+
+#         output_scale = image_new.get("scale").getInfo()
+
+#         out_name = target_image_col_id+"/"+dataset_name,
+
+#         #if export_region is set as a geometry use that else use image extent
+#         type=ee.Algorithms.ObjectType(export_region).getInfo()
+        
+#         if type=="Geometry" or type == "Feature":
+#             if debug: print ("using 'export_region' geometry")
+#         else:
+#             export_region = image_new.geometry().bounds()
+#             if debug: print ("'export_region' not a GEE geometry or feature, so using extent from image metadata")
+            
+        
+#         task = ee.batch.Export.image.toAsset(image= image_new,\
+#                                          description= dataset_name,\
+#                                          assetId=out_name,\
+#                                          scale= output_scale,\
+#                                          maxPixels=1e13,\
+#                                          region=export_region)
+
+#         if ((skip_export_if_asset_exists==True) and (out_name in imageCollectionImageList)):
+#             if debug: print ("testing - not exporting NB asset exists")
+#         else:
+#             task.start()###code out if testing and dont want to export assets
+
+#             if debug: print ("exporting image: "+ out_name)
+
+
+#     if debug: print ("finished")
+ 
 #make into a function
-def export_image_collection_to_asset(make_empty_image_coll, image_col_to_export, target_image_col_id, exportRegion, skip_export_if_asset_exists, asset_exists_property="system:index", debug=True):
+def export_image_collection_to_asset(make_empty_image_coll, image_col_to_export, target_image_col_id, export_region, skip_export_if_asset_exists, asset_exists_property="system:index", debug=True):
 
     if make_empty_image_coll == True:
         try:
@@ -103,7 +158,7 @@ def export_image_collection_to_asset(make_empty_image_coll, image_col_to_export,
                                          assetId=out_name,\
                                          scale= output_scale,\
                                          maxPixels=1e13,\
-                                         region=exportRegion)
+                                         region=export_region)
 
         if ((skip_export_if_asset_exists==True) and (out_name in imageCollectionImageList)):
             if debug: print ("testing - not exporting NB asset exists")
@@ -113,5 +168,4 @@ def export_image_collection_to_asset(make_empty_image_coll, image_col_to_export,
             if debug: print ("exporting image: "+ out_name)
 
 
-    if debug: print ("finished")
-    
+    if debug: print ("finished")   

@@ -27,7 +27,9 @@ def wcmc_oecms_protection_prep(dataset_id, template_image):
     OECM_2023_binary_reproj = reproject_to_template(OECM_2023_binary,template_image)
     
     OECM_2023_binary_reproj = area_stats.set_scale_property_from_image(OECM_2023_binary_reproj,template_image,0,debug=True)
-
+    
+    # OECM_2023_binary_reproj= OECM_2023_binary_reproj.clip(ee.Geometry.Rectangle([-180, -90, 180, 90], None, False))
+    
     output_image = OECM_2023_binary_reproj
     
     return output_image.set("dataset_id",dataset_id)

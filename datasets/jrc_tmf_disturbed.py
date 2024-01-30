@@ -19,6 +19,8 @@ def jrc_tmf_disturbed_prep(dataset_id):
     jrc_tmf_disturbed_2020 = area_stats.set_scale_property_from_image(jrc_tmf_disturbed_2020,
                                                             jrc_tmf_transitions_raw.first(),debug=True)
 
+    # jrc_tmf_disturbed_2020 = jrc_tmf_disturbed_2020.clip(jrc_tmf_transitions_raw.geometry())
+
     output_image = jrc_tmf_disturbed_2020
     
     return output_image.set("dataset_id",dataset_id)
