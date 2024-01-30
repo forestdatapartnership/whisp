@@ -3,9 +3,11 @@
 
 import ee
 
-use_geo_id_input= False # if True, uses 'all_geo_ids' list, if false uses 'example_feature_col_asset'
+use_geo_id_input= True # if True, uses 'all_geo_ids' list, if false uses 'example_feature_col_asset'
 
-use_existing_image_collection = False  # faster (if one exists), else creates on the fly in GEE. Set to True or False.
+# get_geo_id_for_poly= True # 
+
+use_existing_image_collection = False  #if False creates one on the fly in GEE (slower spin up speed). If True faster. But one must have been created: see export parameters below and for asset name: parameters/config_output_naming.py). 
 
 update_iCol_properties = False # adds time so only put as True if need to update them based on changes to the lookup_gee_datasets.csv
 
@@ -21,9 +23,7 @@ country_dataset_id = 18   ##### for referenece: 18 = GADM, 16 = GAUL
 ##### country_name_iso3_or_both = "iso3" # to add in at some point?
 
 
-
-
-## export to image collection asset parameters
+### export to image collection asset parameters
 
 export_icol = False  # choose to export datasets to an image collection asset (makes faster data loading times). Set to True or False.
 
@@ -31,8 +31,9 @@ make_empty_image_coll = True # if true then code will add an empty image collect
 
 skip_export_if_asset_exists = True # if image with same dataset_id exists in image collection, avoid exporting. Default: True
 
-# for extent of image collection
-exportRegion = ee.Geometry.Rectangle([-180, -90, 180, 90], None, False) 
+# for extent of image collection if not or not an ee feature or ee geometry, attempts to use image extent
+export_region =  ee.Geometry.Rectangle([-180, -60, 180, 70], None, False)
+
 ####################################################place elsewhere if time
 
 if country_dataset_id == 16:

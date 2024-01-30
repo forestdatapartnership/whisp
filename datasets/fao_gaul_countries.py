@@ -26,6 +26,7 @@ def fao_gaul_countries_prep(dataset_id,template_image):
     gaul_boundaries_adm0_code_reproj = area_stats.set_scale_property_from_image(
         gaul_boundaries_adm0_code_reproj,template_image,0,debug=True)
 
+    # gaul_boundaries_adm0_code_reproj = gaul_boundaries_adm0_code_reproj.clip(ee.Geometry.Rectangle([-180, -90, 180, 90], None, False))
     output_image = gaul_boundaries_adm0_code_reproj
     
     return output_image.set("dataset_id",dataset_id)

@@ -22,6 +22,8 @@ def glad_pht_prep(dataset_id):
     primary_HT_forests_2020 = area_stats.set_scale_property_from_image(
         primary_HT_forests_2020,primary_HT_forests_2001_raw.first(),0,debug=True)
 
+    # primary_HT_forests_2020= primary_HT_forests_2020.clip(primary_HT_forests_2001_raw.geometry())
+    
     output_image = primary_HT_forests_2020
     
     return output_image.set("dataset_id",dataset_id)

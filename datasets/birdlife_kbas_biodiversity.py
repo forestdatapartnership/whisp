@@ -27,6 +27,8 @@ def birdlife_kbas_biodiversity_prep(dataset_id,template_image):
     kba_2023_binary_reproj = area_stats.set_scale_property_from_image(
          kba_2023_binary_reproj,template_image,0,debug=True)
     
+    # kba_2023_binary_reproj= kba_2023_binary_reproj.clip(ee.Geometry.Rectangle([-180, -90, 180, 90], None, False))
+    
     output_image = kba_2023_binary_reproj
     
     return output_image.set("dataset_id",dataset_id)

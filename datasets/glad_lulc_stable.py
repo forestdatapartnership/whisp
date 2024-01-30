@@ -20,6 +20,8 @@ def glad_lulc_stable_prep(dataset_id):
     glad_stable_tree_2020 = area_stats.set_scale_property_from_image(
         glad_stable_tree_2020,glad_landcover_2020,debug=True)
 
+    # glad_stable_tree_2020 = glad_stable_tree_2020.clip(glad_landcover_2020.geometry())
+    
     output_image = glad_stable_tree_2020
     
     return output_image.set("dataset_id",dataset_id)

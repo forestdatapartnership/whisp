@@ -16,7 +16,9 @@ def esri_lulc_trees_prep(dataset_id):
 
     esri_trees_2020 = area_stats.set_scale_property_from_image(
         esri_trees_2020,esri_lulc10.first(),0,debug=True)
-
+    
+    # esri_trees_2020 = esri_trees_2020.clip(esri_lulc10.geometry())
+    
     output_image = esri_trees_2020
     
     return output_image.set("dataset_id",dataset_id)

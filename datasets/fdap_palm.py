@@ -14,6 +14,8 @@ def fdap_palm_prep(dataset_id):
     FDaP_palm_2020_model = area_stats.set_scale_property_from_image(
         FDaP_palm_2020_model,FDaP_palm_2020_model_raw.first(),0,debug=True)
     
+    # FDaP_palm_2020_model = FDaP_palm_2020_model.clip(FDaP_palm_2020_model_raw.geometry())
+    
     output_image = FDaP_palm_2020_model
     
     return output_image.set("dataset_id",dataset_id)

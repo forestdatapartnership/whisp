@@ -22,6 +22,7 @@ def creaf_descals_palm_prep(dataset_id):
     oil_palm_descals_binary = area_stats.set_scale_property_from_image(
         oil_palm_descals_binary,oil_palm_descals_raw.first(),0,debug=True
     )
+    # oil_palm_descals_binary.clip(oil_palm_descals_raw.geometry())
     
     output_image = oil_palm_descals_binary
     

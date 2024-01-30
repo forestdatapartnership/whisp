@@ -5,6 +5,22 @@ import ee
 import geopandas as gpd
 from modules.area_stats import buffer_point_to_required_area # to handle point features
 
+# functions for setting up session based on usr credentials
+def start_agstack_session(email,password,user_registry_base,debug=False):
+    """using session to store cookies that are persistent"""
+    import requests
+    session = requests.session()
+    session.headers = headers = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+    }
+    req_body = {'email': email, 'password': password}
+    res = session.post(user_registry_base, json=req_body)
+    if debug: print ("Cookies",session.cookies)
+    if debug: print ("status code:", res.status_code)
+    return session
+
+
 def geo_id_or_ids_to_feature_collection (all_geo_ids,geo_id_column, session,asset_registry_base,required_area,area_unit,debug=False):
     """creates a feature collection from agstack with single (string) or multiple geo_ids (list) as input. /
     NB feature collection has one feature if single input""" 
@@ -97,7 +113,10 @@ def check_json_geometry_type(geojson_obj):
             return 'Unknown Geometry Type'
     else:
         return 'Not a Feature'
-        
+
+
+
+
 # def json_to_feature_with_id(geo_json,geo_id,geo_id_column):
 #     """converts json into a feature with a specified id column"""
 #     return ee.Feature(ee.Geometry.Polygon(geo_json),ee.Dictionary([geo_id_column,geo_id]))
