@@ -52,14 +52,28 @@ def get_agstack_token(email, password, asset_registry_base='https://api-ar.agsta
 
 
 
+# def register_fc_and_set_geo_id(feature_col,geo_id_column,token,session,asset_registry_base,debug=True):
+#     """mapped version of register_feature_and_set_geo_id, wokring on feature collections"""
+#     fc_w_geo_id = feature_col.map(lambda feature_col: 
+#                              register_feature_and_set_geo_id(
+#                                  feature_col,
+#                                  geo_id_column,
+#                                  token
+#                                  session,
+#                                  asset_registry_base,
+#                                  debug
+#                              )
+#                             )
+#     return fc_w_geo_id
+
 
 def register_feature_and_set_geo_id(feature,geo_id_column,token,session,asset_registry_base,debug=True):
 
     # Convert the polygon to WKT using the function
     geo_id = feature_to_geo_id(feature,token,session,asset_registry_base,debug=True)
     
-    feature_w_properties = feature.set(geo_id_column,geo_id)
-    return feature_w_properties
+    feature_w_geo_id_property = feature.set(geo_id_column,geo_id)
+    return feature_w_geo_id_property
     
 
 
