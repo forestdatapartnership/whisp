@@ -21,7 +21,7 @@ def find_country_from_modal_stats(
                                       reducer_choice)# all but alerts
     
 
-    df_stats_country_codes = geemap.ee_to_pandas(zonal_stats_country_codes) #NB limit of 5000 (i have code if this happens)
+    df_stats_country_codes = geemap.ee_to_df(zonal_stats_country_codes) #NB limit of 5000 (i have code if this happens)
 
     #get dataset name from lookup to use to select
 
