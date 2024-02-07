@@ -54,7 +54,7 @@ def get_agstack_token(email, password, asset_registry_base='https://api-ar.agsta
         return None  # Return None to indicate failure
 
 
-def register_fc_and_set_geo_id(feature_col, geo_id_column, token, session, asset_registry_base, debug=True):
+def register_fc_and_set_geo_id(feature_col, geo_id_column, token, session, asset_registry_base, debug=False):
     """Version for feature collection of register_feature_and_set_geo_id"""
     # Initialize an empty list to store features
     feature_list = []
@@ -87,7 +87,7 @@ def register_fc_and_set_geo_id(feature_col, geo_id_column, token, session, asset
 
 def register_feature_and_set_geo_id(feature,geo_id_column,token,session,asset_registry_base,debug=True):
     """Registers a field boundary with the ee geometry using the AgStack API"""
-    geo_id = feature_to_geo_id(feature,token,session,asset_registry_base,debug=True)
+    geo_id = feature_to_geo_id(feature,token,session,asset_registry_base,debug)
     
     feature_w_geo_id_property = feature.set(geo_id_column,geo_id)
     return feature_w_geo_id_property
@@ -180,7 +180,7 @@ def wkt_to_geo_id(wkt, token=None, session=None, asset_registry_base="https://ap
 
         if res: 
             # if debug: print("Warning:", json_response["message"])
-            if debug: print("Failed to register. Matched existing field. Status code:", response.status_code, "Using pre-existing geo id: ",res[0])
+            if debug: print("Matched existing field (failed to register). Status code:", response.status_code, "Using pre-existing geo id: ",res[0])
         else:
             print("Failed to register field boundary (no geo id returned). Status code:", response.status_code)
             print("Error message:", json_response)
