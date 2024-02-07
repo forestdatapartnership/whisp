@@ -6,9 +6,6 @@ import geopandas as gpd
 from modules.area_stats import buffer_point_to_required_area # to handle point features
 
 
-
-
-
 # functions for setting up session based on usr credentials
 def start_agstack_session(email,password,user_registry_base,debug=False):
     """using session to store cookies that are persistent"""

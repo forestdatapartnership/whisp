@@ -9,17 +9,14 @@ target_image_col_id = "projects/ee-andyarnellgee/assets/p0004_commodity_mapper_s
 
 out_path = os.path.join('/home/sepal-user/whisp/')
 
-#long csv (temporary format)
-out_long_csv_name = 'temp_stats_long_format.csv' 
-
-dataset_column_name = "dataset_name"
-
 #wide csv (main output format)
-out_file_long=out_path+out_long_csv_name
-
 out_wide_csv_name = 'whisp_output_table.csv' #set output name
 
 out_file_wide = out_path+out_wide_csv_name #set full path for output csv
+
+out_shapefile_name = "shapefile_for_ceo.shp.zip"
+
+out_shapefile = out_path + out_shapefile_name
 
 
 #output column names 
