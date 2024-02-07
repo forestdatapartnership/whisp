@@ -1,2 +1,2 @@
-ceo_email="fdapdpi@gmail.com"
-ceo_password="fdapdpifao" 
+ceo_email="whisp2024@gmail.com"
+ceo_password="Whisp2024"

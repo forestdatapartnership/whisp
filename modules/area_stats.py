@@ -53,7 +53,6 @@ Template images are used for when target image scale property has been lost (e.g
 
 
 
-
 def get_scale_from_image(image,band_index=0):
     """gets nominal scale from image (NB this should not be from a composite/mosaic or incorrrect value returned)"""
     return image.select(band_index).projection().nominalScale().getInfo()
