@@ -6,6 +6,9 @@ import geopandas as gpd
 from modules.area_stats import buffer_point_to_required_area # to handle point features
 
 
+
+
+
 # functions for setting up session based on usr credentials
 def start_agstack_session(email,password,user_registry_base,debug=False):
     """using session to store cookies that are persistent"""
@@ -51,25 +54,39 @@ def get_agstack_token(email, password, asset_registry_base='https://api-ar.agsta
         return None  # Return None to indicate failure
 
 
+def register_fc_and_set_geo_id(feature_col, geo_id_column, token, session, asset_registry_base, debug=True):
+    """Version for feature collection of register_feature_and_set_geo_id"""
+    # Initialize an empty list to store features
+    feature_list = []
 
-# def register_fc_and_set_geo_id(feature_col,geo_id_column,token,session,asset_registry_base,debug=True):
-#     """mapped version of register_feature_and_set_geo_id, wokring on feature collections"""
-#     fc_w_geo_id = feature_col.map(lambda feature_col: 
-#                              register_feature_and_set_geo_id(
-#                                  feature_col,
-#                                  geo_id_column,
-#                                  token
-#                                  session,
-#                                  asset_registry_base,
-#                                  debug
-#                              )
-#                             )
-#     return fc_w_geo_id
+    # Convert the FeatureCollection to a list
+    feature_collection_list = feature_col.toList(feature_col.size())
+
+    # loop over each feature in the list
+    for i in range(feature_collection_list.size().getInfo()):
+        feature = ee.Feature(feature_collection_list.get(i))
+        
+        # Apply register_feature_and_set_geo_id function to each feature
+        feature_with_geo_id = register_feature_and_set_geo_id(
+            feature,
+            geo_id_column,
+            token,
+            session,
+            asset_registry_base,
+            debug
+        )
+
+        # Append the feature to the list
+        feature_list.append(feature_with_geo_id)
+
+    # Create a new FeatureCollection from the list of features
+    fc_w_geo_id = ee.FeatureCollection(feature_list)
+
+    return fc_w_geo_id
 
 
 def register_feature_and_set_geo_id(feature,geo_id_column,token,session,asset_registry_base,debug=True):
-
-    # Convert the polygon to WKT using the function
+    """Registers a field boundary with the ee geometry using the AgStack API"""
     geo_id = feature_to_geo_id(feature,token,session,asset_registry_base,debug=True)
     
     feature_w_geo_id_property = feature.set(geo_id_column,geo_id)
@@ -79,10 +96,10 @@ def register_feature_and_set_geo_id(feature,geo_id_column,token,session,asset_re
 
 def feature_to_geo_id(feature, token=None, session=None, asset_registry_base="https://api-ar.agstack.org", debug=False):
     """
-    Registers a field boundary with the ee geometry using the AgStack API.
+    Registers a field boundary from ee.Feature using the AgStack API.
 
     Parameters:
-    - ee.Geometry(): earth engine geometry 
+    - ee.Feature(): earth engine geometry 
     - session: Optional parameter. If provided, the function will use the existing session for the request.
 
     Returns:
@@ -91,6 +108,7 @@ def feature_to_geo_id(feature, token=None, session=None, asset_registry_base="ht
     wkt = feature_to_wkt(feature)
     
     geo_id = wkt_to_geo_id(wkt, token,session, asset_registry_base, debug)
+    
     
     return geo_id
 
@@ -139,7 +157,6 @@ def wkt_to_geo_id(wkt, token=None, session=None, asset_registry_base="https://ap
 
     # Make the POST request
     url = asset_registry_base + f"/register-field-boundary"
-    if debug: print("url", url)
     
     headers = {'Authorization': f'Bearer {token}'} if token else None
 
@@ -155,71 +172,46 @@ def wkt_to_geo_id(wkt, token=None, session=None, asset_registry_base="https://ap
     if response.status_code == 200:
         print("Field boundary registered successfully!")
         json_response = response.json()
-        print("Response:", json_response)
+        print("Response:", json_response['Geo Id'])
         res = json_response['Geo Id']
     else:
         json_response = response.json()
-        res = json_response.get("matched geo ids", None)
+        res = json_response.get("matched geo ids", None) # if already matching use existing
 
-        if res: # if already matching use existing
-            if debug: print("Warning:", json_response["message"])
-            if debug: print("Failed to register field boundary. Status code:", response.status_code)
-            if debug: print("Returning existing (registered) geo id for field")
+        if res: 
+            # if debug: print("Warning:", json_response["message"])
+            if debug: print("Failed to register. Matched existing field. Status code:", response.status_code, "Using pre-existing geo id: ",res[0])
         else:
-            print("Failed to register field boundary. Status code:", response.status_code)
+            print("Failed to register field boundary (no geo id returned). Status code:", response.status_code)
             print("Error message:", json_response)
 
-    return res
-    
-# def wkt_to_geo_id(wkt, session=None,asset_registry_base="https://api-ar.agstack.org", debug=False):
-#     """
-#     Registers a field boundary with the given WKT using the AgStack API.
+    return res[0]
 
-#     Parameters:
-#     - wkt: The Well-Known Text (WKT) representation.
-#     - session: Optional parameter. If provided, the function will use the existing session for the request.
+def shapefile_to_ee_feature_collection(shapefile_path):
+    """
+    Convert a zipped shapefile to an Earth Engine FeatureCollection.
+    NB Making this as existing Geemap function shp_to_ee wouldnt work.
+    Args:
+    - shapefile_path (str): Path to the shapefile (.zip) to be converted.
+    - geo_id_column (str): Name of the column to be used as the GeoID.
 
-#     Returns:
-#     - res: The Geo Id or matched Geo Ids for the registered field boundary.
-#     """
+    Returns:
+    - ee.FeatureCollection: Earth Engine FeatureCollection created from the shapefile.
+    """
+    # Unzip the shapefile
+    # with zipfile.ZipFile(shapefile_path, "r") as zip_ref:
+    #     zip_ref.extractall("shapefile")
 
-#     # Define the request payload
-#     payload = {
-#         "wkt": wkt
-#     }
+    # Load the shapefile into a GeoDataFrame
+    gdf = gpd.read_file(shapefile_path)#"shapefile/test_ceo_all.shp")
 
-#     # Make the POST request
-#     # url = asset_registry_base + f"/register-field-boundary"
-#     url = "https://api-ar.agstack.org/register-field-boundary"
+    # Convert GeoDataFrame to GeoJSON
+    geo_json = gdf.to_json()
 
-#     if debug: print ("url",url)
-#     # Use provided session if available, otherwise create a new session
-#     if session:
-#         if debug: print ("using existing session")
-#         response = session.post(url, json=payload)
-#     else:
-#         if debug: print ("using individual request as no existing session set up, to set one up use: agstack_to_gee.start_agstack_session")
-#         response = requests.post(url, json=payload)
+    # Create a FeatureCollection from GeoJSON
+    roi = ee.FeatureCollection(json.loads(geo_json))
 
-#     # Process the response
-#     if response.status_code == 200:
-#         print("Field boundary registered successfully!")
-#         json = response.json()
-#         print("Response:", json)
-#         res = json['Geo Id']
-#     else:
-#         json = response.json()
-#         res = json.get("matched geo ids", None)
-
-#         if res: # if already matching use existing
-#             if debug: print("Warning:", json["message"])
-#             if debug: print("Failed to register field boundary. Status code:", response.status_code)
-#             if debug: print("Returning existing (registered) geo id for field")
-#         else:
-#             print("Failed to register field boundary. Status code:", response.status_code)
-#             print("Error message:", json)
-
-#     return res
+    return roi
 
 
 def feature_to_wkt(feature):
