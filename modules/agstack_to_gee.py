@@ -173,16 +173,18 @@ def wkt_to_geo_id(wkt, token=None, session=None, asset_registry_base="https://ap
         res = json_response['Geo Id']
     else:
         json_response = response.json()
-        res = json_response.get("matched geo ids", None) # if already matching use existing
-
+        res = json_response.get("matched geo ids", None)[0] # if already matching use existing
+        
         if res: 
             # if debug: print("Warning:", json_response["message"])
-            if debug: print("Matched existing field (failed to register). Status code:", response.status_code, "Using pre-existing geo id: ",res[0])
+            
+            if debug: print("Matched existing field (failed to register). Status code:", response.status_code, "Using pre-existing geo id: ",res)
+                
         else:
             print("Failed to register field boundary (no geo id returned). Status code:", response.status_code)
             print("Error message:", json_response)
+    return res
 
-    return res[0]
 
 def shapefile_to_ee_feature_collection(shapefile_path):
     """
