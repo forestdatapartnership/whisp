@@ -6,6 +6,6 @@ __pycache__/
 *.dbf
 *.cpfg
 *.zip
-
+temp*
 whisp_output_table.csv
 parameters/config_gee.py

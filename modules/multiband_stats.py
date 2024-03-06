@@ -3,6 +3,24 @@ import ee
 # from modules.gee_initialize import initialize_ee 
 # initialize_ee()
 # ee.Initialize(project="ee-andyarnellgee")
+from datetime import datetime
+
+def get_scale_from_image(image,band_index=0):
+    """gets nominal scale from image (NB this should not be from a composite/mosaic or incorrrect value returned)"""
+    return image.select(band_index).projection().nominalScale().getInfo()
+
+
+def reproject_to_template(rasterised_vector,template_image):
+    """takes an image that has been rasterised but without a scale (resolution) and reprojects to template image CRS and resolution"""
+    #reproject an image
+    crs_template = template_image.select(0).projection().crs().getInfo()
+    
+    output_image = rasterised_vector.reproject(
+      crs= crs_template,
+      scale= get_scale_from_image(template_image),
+    ).int8()
+    
+    return output_image
 
 def creaf_descals_palm_prep():
     oil_palm_descals_raw = ee.ImageCollection('BIOPAMA/GlobalOilPalm/v1')
@@ -73,7 +91,7 @@ def eth_kalischek_cocoa_prep():
     return ee.Image('projects/ee-nk-cocoa/assets/cocoa_map_threshold_065').rename("Cocoa_ETH")
 
 def wur_radd_alerts_prep():
-    from datetime import datetime
+    # from datetime import datetime
     how_many_days_back = -(365 * 2)
     now = ee.Date(datetime.now())
     start_date = now.advance(how_many_days_back, 'day')
@@ -104,18 +122,18 @@ def wcmc_wdpa_protection_prep():
     #make binary
     wdpa_binary = wdpa_overlap.lt(2070)#.unmask()
     
-    def reproject_to_template(rasterised_vector,template_image):
-        from modules.area_stats import get_scale_from_image
-        """takes an image that has been rasterised but without a scale (resolution) and reprojects to template image CRS and resolution"""
-        #reproject an image
-        crs_template = template_image.select(0).projection().crs().getInfo()
-    
-        output_image = rasterised_vector.reproject(
-          crs= crs_template,
-          scale= get_scale_from_image(template_image),
-        ).int8()
+    # def reproject_to_template(rasterised_vector,template_image):
+    #     from modules.utils import get_scale_from_image
+    #     """takes an image that has been rasterised but without a scale (resolution) and reprojects to template image CRS and resolution"""
+    #     #reproject an image
+    #     crs_template = template_image.select(0).projection().crs().getInfo()
         
-        return output_image
+    #     output_image = rasterised_vector.reproject(
+    #       crs= crs_template,
+    #       scale= get_scale_from_image(template_image),
+    #     ).int8()
+        
+    #     return output_image
     #reproject based on template (tyically gfc data - approx 30m res)
     wdpa_binary_reproj = reproject_to_template(wdpa_binary,template_image)
 
@@ -161,7 +179,8 @@ def get_stats(feature_or_feature_col):
     # Check if the input is a Feature or a FeatureCollection
     if isinstance(feature_or_feature_col, ee.Feature):
         # If the input is a Feature, call the server-side function for processing
-        output = get_stats_feature(feature_or_feature_col)
+        print("feature")
+        output = ee.FeatureCollection([get_stats_feature(feature_or_feature_col)])
     elif isinstance(feature_or_feature_col, ee.FeatureCollection):
         # If the input is a FeatureCollection, call the server-side function for processing
         output = get_stats_fc(feature_or_feature_col)
@@ -181,6 +200,8 @@ def get_stats(feature_or_feature_col):
 #         print ("Check inputs: not an ee.Feature or ee.FeatureCollection")
         
 #     return output
+
+# get_scale_from_image
 
 def get_stats_fc(feature_col):
     return ee.FeatureCollection(feature_col.map(get_stats_feature))
@@ -213,13 +234,14 @@ def get_stats_feature(feature):
         reducer=ee.Reducer.sum(), 
         geometry=feature.geometry(), 
         scale=10, 
-        maxPixels=1e10
+        maxPixels=1e10,
+        tileScale=4
     )
     
     # location = ee.Dictionary(get_gaul_info(feature.geometry()))
     
     # country = ee.Dictionary({'Country': location.get('ADM0_NAME')})
-
+    
     location = ee.Dictionary(get_gadm_info(feature.geometry()))
     
     country = ee.Dictionary({'Country': location.get('GID_0')})
@@ -233,14 +255,12 @@ def get_stats_feature(feature):
       ee.Number(val).divide(ee.Number(area_ha)).multiply(ee.Number(100)))
 
     percent_of_plot = percent_of_plot.set("Area_ha", area_ha.format('%.1f'))
-
-    percent_of_plot = percent_of_plot.set("RADD", area_ha.format('%.1f'))
     
     # properties = country.combine(ee.Dictionary(reduce_ha))
     
     properties = country.combine(ee.Dictionary(percent_of_plot))
-    
-    return feature.set(properties)
+        
+    return feature.set(properties).setGeometry(None) 
     
     # return geom.set(ee.Dictionary({
         # 'chartType': "WhispSummary",
@@ -248,3 +268,4 @@ def get_stats_feature(feature):
         # 'location': get_gaul_info(geom) 
         
     # }))
+                     
