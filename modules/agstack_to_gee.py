@@ -2,9 +2,14 @@ import requests
 import json
 import geojson
 import ee
+import geemap
+import os 
 import geopandas as gpd
-from modules.area_stats import buffer_point_to_required_area # to handle point features
+import shutil
+from datetime import datetime
+# from modules.utils import buffer_point_to_required_area # to handle point features
 
+# A lot of these could be done with decorators instead of building up functions etc
 
 # functions for setting up session based on usr credentials
 def start_agstack_session(email,password,user_registry_base,debug=False):
@@ -58,9 +63,11 @@ def register_fc_and_set_geo_id(feature_col, geo_id_column, token, session, asset
 
     # Convert the FeatureCollection to a list
     feature_collection_list = feature_col.toList(feature_col.size())
-
+    
+    total_iterations = feature_collection_list.size().getInfo()
+    
     # loop over each feature in the list
-    for i in range(feature_collection_list.size().getInfo()):
+    for i in range(total_iterations):
         feature = ee.Feature(feature_collection_list.get(i))
         
         # Apply register_feature_and_set_geo_id function to each feature
@@ -72,6 +79,13 @@ def register_fc_and_set_geo_id(feature_col, geo_id_column, token, session, asset
             asset_registry_base,
             debug
         )
+    
+        # Print the progress
+        if debug: 
+            # Calculate progress percentage
+            progress = (i + 1) / total_iterations * 100
+
+            print(f"Progress: {progress:.2f}% ({i + 1}/{total_iterations})", end='\r')
 
         # Append the feature to the list
         feature_list.append(feature_with_geo_id)
@@ -89,7 +103,15 @@ def register_feature_and_set_geo_id(feature,geo_id_column,token,session,asset_re
     feature_w_geo_id_property = feature.set(geo_id_column,geo_id)
     return feature_w_geo_id_property
     
+# def register_feature_and_append_to_csv(feature,geo_id_column,csv_path,csv_name,token,session,asset_registry_base,debug=True):
+#     """Registers a field boundary with the ee geometry using the AgStack API"""
+#     geo_id = feature_to_geo_id(feature,token,session,asset_registry_base,debug)
+#     system_index = feature.get('system:index').getInfo()
+    
+#     feature_w_geo_id_property = feature.set(geo_id_column,geo_id)
+#     return feature_w_geo_id_property
 
+# def write_to_csv_if_exists
 
 def feature_to_geo_id(feature, token=None, session=None, asset_registry_base="https://api-ar.agstack.org", debug=False):
     """
@@ -164,13 +186,13 @@ def wkt_to_geo_id(wkt, token=None, session=None, asset_registry_base="https://ap
     else:
         if debug: print("using individual request as no existing session set up, to set one up use: agstack_to_gee.start_agstack_session")
         response = requests.post(url, json=payload, headers=headers)
-
+    
     # Process the response
     if response.status_code == 200:
-        print("Field boundary registered successfully!")
         json_response = response.json()
-        print("Response:", json_response['Geo Id'])
+        print("Response:", json_response)#['Geo Id'])
         res = json_response['Geo Id']
+        print("Field boundary registered successfully!")
     else:
         json_response = response.json()
         res = json_response.get("matched geo ids", None)[0] # if already matching use existing
@@ -246,10 +268,17 @@ def geometry_to_wkt(geometry):
     coordinates = geometry.coordinates().getInfo()[0]
 
     # Construct the WKT string
-    wkt = 'POLYGON((' + ', '.join([f'{lon} {lat}' for lon, lat in coordinates]) + '))'
+    wkt = coordinates_to_wkt(coordinates) 
+    #'POLYGON((' + ', '.join([f'{lon} {lat}' for lon, lat in coordinates]) + '))'
 
     return wkt
     
+def coordinates_to_wkt(coordinates):
+    """client side coordinates list"""
+    wkt = 'POLYGON((' + ', '.join([f'{lon} {lat}' for lon, lat in coordinates]) + '))'
+    return wkt
+
+
 
 def geo_id_or_ids_to_feature_collection (all_geo_ids,
                                          geo_id_column, 
@@ -375,3 +404,252 @@ def check_json_geometry_type(geojson_obj):
 #     res = session.get(asset_registry_base + f"/fetch-field/{geo_id}?s2_index=") # s2 index are indexes for which we need S2 cell token
 #     geo_json = res.json()['Geo JSON']['geometry']['coordinates']
 #     return geo_json
+
+import pandas as pd
+
+def check_inputs_same_size(fc,df,override_checks=False):
+    """ Throws an error if differentb sizes and override_checks not True"""
+    # df = pd.read_csv(output_lookup_csv)
+    df_size = len(df)
+    
+    fc_size = fc.size().getInfo()
+    
+    if df_size == fc_size:
+        res= (f"Check passed: feature collection and table same size: {df_size} rows")
+    else:
+        print (f"Warning, different sized inputs: table rows ={df_size}, fc = {fc_size} \n Are they the same inputs? \n ")
+
+        if override_checks:
+            # print (message)
+            res = (f" 'override_checks' set to 'True'; continuing processing non-matching inputs")
+        else:     
+            # print (message)
+            raise ValueError (f" 'override_checks' set to 'False'; stopping processing with non-matching inputs")
+
+    return print (res)
+
+
+def create_csv_from_list(join_id_column,data_list, output_lookup_csv):
+    # Create a pandas DataFrame from the list
+    df = pd.DataFrame(data_list, columns=[join_id_column])
+
+    # Write DataFrame to CSV file
+    df.to_csv(output_lookup_csv, index=False)
+
+
+def get_system_index_vals_w_missing_geo_ids(df,geo_id_column,join_id_column):
+    """
+    Extracts system:index values where Geo_id is not present (NaN).
+
+    Args:
+    - data: Input data in the form of pandas dataframe
+
+    Returns:
+    - List of system:index / join_id_column values where no Geo_id is present.
+    """
+
+    # Extract system:index values where Geo_id is NaN
+    no_geo_id_values = df[df[geo_id_column].isna()][join_id_column].tolist()
+
+    return no_geo_id_values
+
+def filter_features_by_system_index(feature_col, system_indexes,join_id_column):
+    # Create a list of filters
+    filters = ee.Filter.inList(join_id_column, system_indexes)
+    
+    # Apply the filter to the feature collection
+    filtered_features = feature_col.filter(filters)
+    
+    return ee.FeatureCollection(filtered_features)
+
+def update_geo_id_in_csv(output_lookup_csv,system_index, geo_id_column,new_geo_id, join_id_column):
+    """updates rows in csv based on match to the individual input system_index string value. Uses an overwrite (slow as adds time for each but works ok...batch would be quicker)"""
+    # Read the CSV into a pandas DataFrame
+    df = pd.read_csv(output_lookup_csv)
+    # pd.dataframe(data)
+    # Update the Geo_id for the corresponding system_index
+    df.loc[df[join_id_column.replace(' ', '_')] == system_index, geo_id_column] = new_geo_id
+
+    # Write the updated DataFrame back to the CSV
+    df.to_csv(output_lookup_csv, index=False)
+
+
+def register_feature_and_append_to_csv(feature,geo_id_column,output_lookup_csv,join_id_column,token,session,asset_registry_base,debug=True):
+    """Registers a field boundary with the ee geometry using the AgStack API"""
+    new_geo_id = feature_to_geo_id(feature,token,session,asset_registry_base,debug)
+    
+    system_index = feature.get(join_id_column).getInfo()
+    
+    update_geo_id_in_csv(output_lookup_csv,system_index,geo_id_column, new_geo_id,join_id_column)
+    # feature_w_geo_id_property = feature.set(geo_id_column,geo_id)
+    
+    if debug: print(new_geo_id, "for" , join_id_column ," added to " ,output_lookup_csv, end='\r')
+        
+
+def copy_and_rename_csv(source_file, destination_folder,delete_source):
+    """"copies and auto renames csv but with option to delete original"""
+    # Get the base filename without extension
+    file_name, file_extension = os.path.splitext(source_file)
+
+    # Generate timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # New filename with timestamp suffix
+    new_file_name = f"{file_name}_{timestamp}{file_extension}"
+
+    # Destination path
+    destination_path = os.path.join(destination_folder, new_file_name)
+
+    try:
+        # Copy the file
+        shutil.copy(source_file, destination_path)
+        # os.system(cp source_file destination_path)
+        print(f"File copied successfully to: {destination_path}")
+
+        # Optionally, you may delete the original file
+        if delete_source:
+            
+            os.remove(source_file)
+            
+            print(f"Original csv file deleted: {source_file}")
+
+    except Exception as e:
+        print(f"Error: {e}")
+
+def csv_prep_and_fc_filtering(feature_col, geo_id_column, output_lookup_csv, join_id_column, override_checks=False, debug=False):
+    """If csv exists runs checks to compare size to feature_col (fc) input. Calculates geo ids left to run and filters accordingly. If csv doesnt exist makes one based on fc join_id_column""" 
+    if os.path.exists(output_lookup_csv):
+        # get list of system indexes 
+        df = pd.read_csv(output_lookup_csv)
+
+        check_inputs_same_size(fc=feature_col,df=df,override_checks=override_checks)       
+                
+        system_indexes = get_system_index_vals_w_missing_geo_ids(df,geo_id_column,join_id_column)
+        
+        filtered_features = filter_features_by_system_index(feature_col, system_indexes,join_id_column)
+
+        fc = ee.FeatureCollection(filtered_features)
+        
+    else:
+        data_list = feature_col.aggregate_array(join_id_column).getInfo()
+        
+        # make a csv with this list as first column
+        create_csv_from_list(join_id_column,data_list, output_lookup_csv)
+
+        fc = feature_col
+        
+    return fc
+        
+def register_fc_and_append_to_csv(feature_col, geo_id_column, output_lookup_csv, join_id_column, token, session, asset_registry_base, override_checks=False,remove_temp_csv=True, debug=False):
+    """feature collection to geo ids stored in a csv, either as a lookup table to add to other datasets (e.g. feature collections). 
+    If csv exists (e.g. a lookup or whisp results) this adds in missing geo ids (so if crashes can carry on where left)"""
+    # Initialize an empty list to store features
+    feature_list = []
+    
+    #checks and fc filtering
+    fc = csv_prep_and_fc_filtering(feature_col, geo_id_column, output_lookup_csv, join_id_column, override_checks=override_checks, debug=debug)
+    
+    # Convert the FeatureCollection to a list
+    feature_col_list = fc.toList(feature_col.size())
+
+    total_iterations = feature_col_list.size().getInfo()
+    
+    if debug: print (f"Number without geo ids:{total_iterations}. \n Processing started...")
+        
+    # loop over each feature in the list
+    for i in range(total_iterations):
+
+        feature = ee.Feature(feature_col_list.get(i))
+        
+        try: 
+            register_feature_and_append_to_csv(feature,geo_id_column,output_lookup_csv,join_id_column,token,session,asset_registry_base,debug)
+        except KeyboardInterrupt:
+            raise ValueError("KeyboardInterrupt")
+                       
+        except Exception as error:
+            # handle the exception
+            print("An exception occurred:", error) # An exception occurred: division by zero
+            print(f"Skipping feature {join_id_column} {str(feature.get(join_id_column).getInfo())}")
+        
+        # Calculate progress percentage         
+        progress = (i + 1) / total_iterations * 100
+
+        print(f"Progress: {progress:.2f}% ({i + 1}/{total_iterations})", end='\r')
+    
+    # back up copy in csvs folder (currently hard coded)
+    # option to delet original (e.g. if its a temp csv you want cleared)    
+    copy_and_rename_csv(source_file=output_lookup_csv, destination_folder="csvs",delete_source=remove_temp_csv)
+    
+    return print("Done")
+
+
+
+def add_geo_ids_to_feature_col_from_lookup_df(fc,df,join_id_column="system:index",geo_id_column="Geo_id",override_checks=False,debug=False):
+    
+    check_inputs_same_size(fc, df, override_checks) 
+    
+    df = df.loc[:, [join_id_column, geo_id_column]]
+    
+    df_cleaned =df.dropna().copy()
+
+    if debug: print (f"dropping rows without values (NaN etc) from input table. Before: {len(df)} After: {len(df_cleaned)} \n processing...")
+          
+    out_fc = geemap.ee_join_table(ee_object=fc, data=df_cleaned, src_key=join_id_column, dst_key=join_id_column)
+    
+    joined_not_null = out_fc.filter(ee.Filter.neq(geo_id_column, None)).aggregate_array(geo_id_column).size().getInfo()
+    
+    if debug: print (f"Finished. \n New count of {geo_id_column} values in feature collection: {joined_not_null} (from total of {out_fc.size().getInfo()} features)")
+    
+    return out_fc
+    
+
+def add_geo_ids_to_feature_col_from_lookup_csv(fc,csv,join_id_column,geo_id_column,override_checks=False,debug=False):
+    df = pd.read_csv(csv)
+    return add_geo_ids_to_feature_col_from_lookup_df(fc,df,join_id_column,geo_id_column,override_checks=override_checks,debug=debug)
+
+## to check - nb could to add checks in, currently doesnt export to a new csv: add overwrite option
+
+# def add_geo_ids_to_csv_from_lookup_df(input_csv,
+#     geo_id_lookup_df,
+#     join_id_column="system:index",
+#     geo_id_column="Geo_id",
+#     # override_checks=False, # needs implementing
+#     drop_geo=False
+#     debug=False
+#     ):
+    
+#     input_df = pd.read_csv(whisp_csv)
+       
+#     input_df_w_geo_ids = whisp_df.merge(geo_id_lookup_df,on=join_id_col,how="left")
+    
+#     if drop_geo:
+#         if debug: print ("Dropping geometry column ('drop_geo' set to True)")
+#         input_df_w_geo_ids = input_df_w_geo_ids.drop(".geo",axis=1)    
+        
+#     return input_df_w_geo_ids
+
+# def add_geo_ids_to_csv_from_lookup_csv(input_csv,
+#     geo_id_lookup_csv,
+#     join_id_column="system:index",
+#     geo_id_column="Geo_id",
+#     # override_checks=False, # needs implementing
+#     drop_geo=False
+#     debug=False
+#     ):
+
+#     geo_id_lookup_df = pd.read_csv(geo_id_lookup_csv)
+
+#     add_geo_ids_to_csv_from_lookup_df(
+#         input_csv,
+#         geo_id_lookup_df,
+#         join_id_column=join_id_column,
+#         geo_id_column=geo_id_column,
+#         # override_checks=False, # needs implementing
+#         drop_geo=drop_geo
+#         debug=debug
+#     )
+    
+        
+#     return input_csv_w_geo_ids    
+
+

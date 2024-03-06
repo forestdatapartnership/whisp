@@ -1,3 +1,44 @@
+feature_collection = fc
+
+# Convert feature collection to a list
+feature_list = feature_collection.toList(feature_collection.size())
+
+# Map each feature to its geometry coordinates
+coordinates_list = feature_list.map(lambda feature: ee.Feature(feature).geometry().coordinates())
+coordinates_list
+
+# first_poly_coords = coordinates_list.get(0)
+
+wkt_list=[]
+
+coordinates_list.get(1)
+for i in range(coordinates_list.size().getInfo()):
+    coords = (coordinates_list.get(i))
+    coords_client = coords.getInfo()[0]
+    wkt = coordinates_to_wkt(coords_client)
+    wkt_list.append(wkt)
+
+print (wkt_list)
+
+
+
+
+geo_id_list =[]
+
+for i in range(len(wkt_list)):
+
+    geo_id = wkt_to_geo_id(wkt_list[i],
+    token,
+    session,
+    asset_registry_base,
+    debug=False)
+    
+    geo_id_list.append(geo_id)
+
+print(geo_id_list)
+
+
+
 ## slows things down (unless use client side maybe)
 # if ee.Algorithms.ObjectType(roi).getInfo() == "FeatureCollection": 
 #     fc_stats_combined = reduceStatsIC(roi,images_IC)
@@ -5,6 +46,7 @@
 #     fc_stats_combined = reduceStatsIC(ee.FeatureCollection([roi]),images_IC)    
 
 #fc_stats_combined
+
 
 
 # def add_area_km2_property_to_feature_collection(fc,geometry_area_column):

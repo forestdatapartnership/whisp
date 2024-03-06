@@ -40,6 +40,6 @@ def find_country_from_modal_stats(
     lookup_geo_id_to_country_names = lookup_geo_id_to_country_codes.merge(
         lookup_country_codes_to_names,on=admin_code_col_name,how="inner").drop(admin_code_col_name,axis=1) # join geo id to the lookup_table countaining "Country_names"
 
-# lookup_geo_id_to_ISO3 = lookup_geo_id_to_GAUL_codes.merge(lookup_country_codes_to_ISO3,on="ADM0_CODE",how="inner").drop("ADM0_CODE",axis=1) # join geo id to the GAUL_lookup_table countaining "Country_names"
+    # lookup_geo_id_to_ISO3 = lookup_geo_id_to_GAUL_codes.merge(lookup_country_codes_to_ISO3,on="ADM0_CODE",how="inner").drop("ADM0_CODE",axis=1) # join geo id to the GAUL_lookup_table countaining "Country_names"
 
     return lookup_geo_id_to_country_names
