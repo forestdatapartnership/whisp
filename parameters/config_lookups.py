@@ -9,12 +9,11 @@ path_lookup_gee_datasets = "parameters/lookup_gee_datasets.csv"
 lookup_gee_datasets = pd.read_csv(path_lookup_gee_datasets)
 
 
-
 # filter out datasets using an exclusion list 
 lookup_gee_datasets = lookup_gee_datasets[~lookup_gee_datasets['dataset_id'].isin(exclusion_list_dataset_ids)]
 
 
-
+# Not used in new multiband implementation
 try: 
     lookup_country_codes_to_names = pd.read_csv(path_lookup_country_codes_to_names)
 except:
@@ -27,7 +26,7 @@ except:
     print(path_lookup_country_codes_to_iso3, "does not exist")    
 
 
-#dataset specific LUT (could be shifted)
+#dataset specific LUT (could be shifted) 
 path_lookup_recoding_jrc_tmf_product = "parameters/lookup_recoding_jrc_tmf_product.csv"
 
 lookup_recoding_jrc_tmf_product = pd.read_csv(path_lookup_recoding_jrc_tmf_product)

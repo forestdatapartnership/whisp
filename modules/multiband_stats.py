@@ -5,6 +5,8 @@ import ee
 # ee.Initialize(project="ee-andyarnellgee")
 from datetime import datetime
 
+import functools
+
 def get_scale_from_image(image,band_index=0):
     """gets nominal scale from image (NB this should not be from a composite/mosaic or incorrrect value returned)"""
     return image.select(band_index).projection().nominalScale().getInfo()
@@ -21,6 +23,45 @@ def reproject_to_template(rasterised_vector,template_image):
     ).int8()
     
     return output_image
+
+# Function to reorder properties
+def reorder_properties(feature, order):
+    properties = {key: feature.get(key) for key in order}
+    return ee.Feature(feature.geometry(), properties) 
+
+# Function to add ID to features
+def add_id_to_feature(feature, join):
+    index = feature.get('system:index')
+    return feature.set(id_name, index)
+
+# Function to flag positive values
+def flag_positive_values(feature,flag_positive):
+    for prop_name in flag_positive:
+        flag_value = ee.Algorithms.If(ee.Number(feature.get(prop_name)).gt(0), 'True', '-')
+        feature = feature.set(prop_name, flag_value)
+    return feature
+
+# Function to round properties to whole numbers
+def round_properties_to_whole_numbers(feature,round_properties):
+    for prop_name in round_properties:
+        prop_value = feature.get(prop_name)
+        prop_value_rounded = ee.Number(prop_value).round()
+        feature = feature.set(prop_name, prop_value_rounded)
+    return feature
+
+# Function to exclude properties
+def copy_properties_and_exclude(feature,exclude_properties):
+    return ee.Feature(feature.geometry()).copyProperties(source=feature, exclude=exclude_properties)
+
+# # Function to select and rename properties
+# def select_and_rename_properties(feature):
+#     first_feature = ee.Feature(feature_collection.first())
+#     property_names = first_feature.propertyNames().getInfo()
+#     new_property_names = [prop.replace('_', ' ') for prop in property_names]
+#     return feature.select(property_names, new_property_names)
+
+######################################
+
 
 def creaf_descals_palm_prep():
     oil_palm_descals_raw = ee.ImageCollection('BIOPAMA/GlobalOilPalm/v1')
@@ -109,12 +150,11 @@ def fdap_palm_prep():
 def wcmc_wdpa_protection_prep():
     wdpa_poly = ee.FeatureCollection("WCMC/WDPA/current/polygons")
     template_image = ee.Image("UMD/hansen/global_forest_change_2022_v1_10")
-    wdpa_filt = wdpa_poly
-    # .filter(
-    #     ee.Filter.And(ee.Filter.neq('STATUS','Proposed'), 
-    #                   ee.Filter.neq('STATUS', 'Not Reported'), 
-    #                   ee.Filter.neq('DESIG_ENG', 'UNESCO-MAB Biosphere Reserve'))
-                                # )
+    wdpa_filt = wdpa_poly.filter(
+        ee.Filter.And(ee.Filter.neq('STATUS','Proposed'), 
+                      ee.Filter.neq('STATUS', 'Not Reported'), 
+                      ee.Filter.neq('DESIG_ENG', 'UNESCO-MAB Biosphere Reserve'))
+                                )
 
     #turn into image (no crs etc set currently)
     wdpa_overlap = wdpa_filt.reduceToImage(['STATUS_YR'],'min');  #make into raster - remove mask if want 0s
@@ -122,30 +162,17 @@ def wcmc_wdpa_protection_prep():
     #make binary
     wdpa_binary = wdpa_overlap.lt(2070)#.unmask()
     
-    # def reproject_to_template(rasterised_vector,template_image):
-    #     from modules.utils import get_scale_from_image
-    #     """takes an image that has been rasterised but without a scale (resolution) and reprojects to template image CRS and resolution"""
-    #     #reproject an image
-    #     crs_template = template_image.select(0).projection().crs().getInfo()
-        
-    #     output_image = rasterised_vector.reproject(
-    #       crs= crs_template,
-    #       scale= get_scale_from_image(template_image),
-    #     ).int8()
-        
-    #     return output_image
-    #reproject based on template (tyically gfc data - approx 30m res)
     wdpa_binary_reproj = reproject_to_template(wdpa_binary,template_image)
 
     return wdpa_binary_reproj.rename("WDPA")
-    
+
+
 def esa_worldcover_trees_prep():
     esa_worldcover_2020_raw = ee.Image("ESA/WorldCover/v100/2020");
     
     esa_worldcover_trees_2020 = esa_worldcover_2020_raw.eq(95).Or(esa_worldcover_2020_raw.eq(10)) #get trees and mnangroves
     
     return esa_worldcover_trees_2020.rename('ESA_TC_2020') 
-
 
 
 def get_gaul_info(geometry):
@@ -156,24 +183,10 @@ def get_gaul_info(geometry):
 def get_gadm_info(geometry):
     gadm = ee.FeatureCollection("projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/raw/gadm_41_level_1")
     polygonsIntersectPoint = gadm.filterBounds(geometry);
-    return	ee.Algorithms.If( polygonsIntersectPoint.size().gt(0), polygonsIntersectPoint.first().toDictionary().select(["GID_0","COUNTRY"]) ,	None );
+    return	ee.Algorithms.If(polygonsIntersectPoint.size().gt(0), polygonsIntersectPoint.first().toDictionary().select(["GID_0","COUNTRY"]) ,	None );
 
 
-# def get_stats_feature(feature,geo_id_column):
-#     geom = feature.geometry()
-#     # geo_id = ee.String(feature.get(geo_id_column)).getInfo()
-#     return ee.Dictionary(get_stats_geom(geom)) #.combine(ee.Dictionary({"geo_id", geo_id})))
-    
-
-# def get_stats(feature_or_feature_col):
-#     type_test = ee.Algorithms.ObjectType(feature_or_feature_col)
-#     if  (type_test.getInfo() == "Feature"):
-#         output=  get_stats_feature(feature_or_feature_col)
-#     elif (type_test.getInfo() == "FeatureCollection"):
-#         output = get_stats_fc(feature_or_feature_col)
-#     else:
-#         output = print ("Check inputs: not an ee.Feature or ee.FeatureCollection") 
-#     return output
+###################
     
 def get_stats(feature_or_feature_col):
     # Check if the input is a Feature or a FeatureCollection
@@ -188,23 +201,12 @@ def get_stats(feature_or_feature_col):
         output = "Check inputs: not an ee.Feature or ee.FeatureCollection"
     return output
 
-# def get_stats(feature_or_feature_col):
-#     type_test = ee.Algorithms.ObjectType(feature_or_feature_col)
-#     if  (type_test.getInfo() == "Feature"):
-#         print ("feature, converting to a feature collection")
-#         output = get_stats_fc(ee.FeatureCollection([feature_or_feature_col]))
-#     elif (type_test.getInfo() == "FeatureCollection"):
-#         output = get_stats_fc(feature_or_feature_col)
-#         print ("feature col")
-#     else:
-#         print ("Check inputs: not an ee.Feature or ee.FeatureCollection")
-        
-#     return output
 
-# get_scale_from_image
 
 def get_stats_fc(feature_col):
     return ee.FeatureCollection(feature_col.map(get_stats_feature))
+
+
 
 def get_stats_feature(feature):
 
@@ -242,7 +244,7 @@ def get_stats_feature(feature):
     
     # country = ee.Dictionary({'Country': location.get('ADM0_NAME')})
     
-    location = ee.Dictionary(get_gadm_info(feature.geometry()))
+    location = ee.Dictionary(get_gadm_info(feature.geometry().centroid(1)))
     
     country = ee.Dictionary({'Country': location.get('GID_0')})
 
@@ -261,11 +263,141 @@ def get_stats_feature(feature):
     properties = country.combine(ee.Dictionary(percent_of_plot))
         
     return feature.set(properties).setGeometry(None) 
+
+
+def add_id_to_feature_collection(dataset,id_name="PLOTID"):
+    """
+    Adds an incremental (1,2,3 etc) 'id' property to each feature in the given FeatureCollection.
+
+    Args:
+    - dataset: ee.FeatureCollection, the FeatureCollection to operate on.
+
+    Returns:
+    - dataset_with_id: ee.FeatureCollection, the FeatureCollection with 'id' property added to each feature.
+    """
+    # Get the list of system:index values
+    indexes = dataset.aggregate_array('system:index')
     
-    # return geom.set(ee.Dictionary({
-        # 'chartType': "WhispSummary",
-        # 'data': reduce,
-        # 'location': get_gaul_info(geom) 
+    # Create a sequence of numbers starting from 1 to the size of indexes
+    ids = ee.List.sequence(1, indexes.size())
+    
+    # Create a dictionary mapping system:index to id
+    id_by_index = ee.Dictionary.fromLists(indexes, ids)
+    
+    # Function to add 'id' property to each feature
+    def add_id(feature):
+        # Get the system:index of the feature
+        system_index = feature.get('system:index')
         
-    # }))
-                     
+        # Get the id corresponding to the system:index
+        feature_id = id_by_index.get(system_index)
+        
+        # Set the 'id' property of the feature
+        return feature.set(id_name, feature_id)
+    
+    # Map the add_id function over the dataset
+    dataset_with_id = dataset.map(add_id)
+    
+    return dataset_with_id
+
+
+    
+def reformat_whisp_fc(feature_collection, 
+                                order=None, 
+                                id_name=None, 
+                                flag_positive=None, 
+                                round_properties=None, 
+                                exclude_properties=None,
+                                select_and_rename=None):
+    """
+    Process a FeatureCollection with various reformatting operations.
+
+    Args:
+    - feature_collection: ee.FeatureCollection, the FeatureCollection to operate on.
+    - order: list, optional. Desired order of properties.
+    - id_name: str, optional. Name of the ID property.
+    - flag_positive: list, optional. List of property names to flag positive values.
+    - round_properties: list, optional. List of property names to round to whole numbers.
+    - exclude_properties: list, optional. List of property names to exclude.
+    - select_and_rename: bool, optional. If True, select and rename properties.
+
+    Returns:
+    - processed_features: ee.FeatureCollection, FeatureCollection after processing.
+    """
+
+
+    # Reorder properties if specified
+    if order:
+        feature_collection = feature_collection.map(lambda feature: reorder_properties(feature, order))
+
+    if id_name:
+        feature_collection = add_id_to_feature_collection(feature_collection,id_name)
+
+    # Flag positive values if specified
+    if flag_positive:
+        feature_collection = feature_collection.map(lambda feature: flag_positive_values(feature, flag_positive))
+
+    # Round properties to whole numbers if specified
+    if round_properties:
+        feature_collection = feature_collection.map(lambda feature: round_properties_to_whole_numbers(feature, round_properties))
+
+    # Exclude properties if specified
+    if exclude_properties:
+        feature_collection = feature_collection.map(lambda feature: copy_properties_and_exclude(feature, exclude_properties))
+        
+    #Function to select and rename properties
+    def select_and_rename_properties(feature):
+        first_feature = ee.Feature(feature_collection.first())
+        property_names = first_feature.propertyNames().getInfo()
+        new_property_names = [prop.replace('_', ' ') for prop in property_names]
+        return feature.select(property_names, new_property_names)
+        
+    # Select and rename properties if specified
+    if select_and_rename:
+        
+        feature_collection = feature_collection.map(select_and_rename_properties)
+
+    
+    return feature_collection
+
+
+# def get_stats_formatted(feature_or_feature_col, 
+#                                 order=None, 
+#                                 id_name=None, 
+#                                 flag_positive=None, 
+#                                 round_properties=None, 
+#                                 exclude_properties=None,
+#                                 select_and_rename=None)
+
+#     fc = get_stats(feature_or_feature_col)
+    
+#     fc_formatted = reformat_whisp_fc(fc, 
+#                                     order=order, 
+#                                     id_name=id_name, 
+#                                     flag_positive=flag_positive, 
+#                                     round_properties=round_properties, 
+#                                     exclude_properties=exclude_properties,
+#                                     select_and_rename=select_and_rename)
+#     return fc_formatted
+
+def stats_formatter_decorator(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs) -> ee.FeatureCollection:
+        feature_or_feature_col = args[0]
+        fc = func(*args, **kwargs)
+        fc_formatted = reformat_whisp_fc(
+            fc,
+            order=kwargs.get('order'),
+            id_name=kwargs.get('id_name'),
+            flag_positive=kwargs.get('flag_positive'),
+            round_properties=kwargs.get('round_properties'),
+            exclude_properties=kwargs.get('exclude_properties'),
+            select_and_rename=kwargs.get('select_and_rename')
+        )
+        return fc_formatted
+    return wrapper
+
+@stats_formatter_decorator
+def get_stats_formatted(feature_or_feature_col, **kwargs) -> ee.FeatureCollection:
+    fc = get_stats(feature_or_feature_col)
+    return fc

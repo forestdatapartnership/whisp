@@ -484,7 +484,7 @@ def register_feature_and_append_to_csv(feature,geo_id_column,output_lookup_csv,j
     # feature_w_geo_id_property = feature.set(geo_id_column,geo_id)
     
     if debug: print(new_geo_id, "for" , join_id_column ," added to " ,output_lookup_csv, end='\r')
-        
+
 
 def copy_and_rename_csv(source_file, destination_folder,delete_source):
     """"copies and auto renames csv but with option to delete original"""
@@ -517,11 +517,12 @@ def copy_and_rename_csv(source_file, destination_folder,delete_source):
         print(f"Error: {e}")
 
 def csv_prep_and_fc_filtering(feature_col, geo_id_column, output_lookup_csv, join_id_column, override_checks=False, debug=False):
-    """If csv exists runs checks to compare size to feature_col (fc) input. Calculates geo ids left to run and filters accordingly. If csv doesnt exist makes one based on fc join_id_column""" 
+    """If csv exists, run checks to compare size to feature_col (fc) input. Then calculates geo ids left to run and filters accordingly. If csv doesnt exist makes one based on fc join_id_column""" 
+
     if os.path.exists(output_lookup_csv):
         # get list of system indexes 
         df = pd.read_csv(output_lookup_csv)
-
+            
         check_inputs_same_size(fc=feature_col,df=df,override_checks=override_checks)       
                 
         system_indexes = get_system_index_vals_w_missing_geo_ids(df,geo_id_column,join_id_column)
@@ -529,7 +530,7 @@ def csv_prep_and_fc_filtering(feature_col, geo_id_column, output_lookup_csv, joi
         filtered_features = filter_features_by_system_index(feature_col, system_indexes,join_id_column)
 
         fc = ee.FeatureCollection(filtered_features)
-        
+
     else:
         data_list = feature_col.aggregate_array(join_id_column).getInfo()
         
@@ -545,7 +546,7 @@ def register_fc_and_append_to_csv(feature_col, geo_id_column, output_lookup_csv,
     If csv exists (e.g. a lookup or whisp results) this adds in missing geo ids (so if crashes can carry on where left)"""
     # Initialize an empty list to store features
     feature_list = []
-    
+
     #checks and fc filtering
     fc = csv_prep_and_fc_filtering(feature_col, geo_id_column, output_lookup_csv, join_id_column, override_checks=override_checks, debug=debug)
     
@@ -578,13 +579,13 @@ def register_fc_and_append_to_csv(feature_col, geo_id_column, output_lookup_csv,
     
     # back up copy in csvs folder (currently hard coded)
     # option to delet original (e.g. if its a temp csv you want cleared)    
-    copy_and_rename_csv(source_file=output_lookup_csv, destination_folder="csvs",delete_source=remove_temp_csv)
+    copy_and_rename_csv(source_file=output_lookup_csv,add_ destination_folder="csvs",delete_source=remove_temp_csv)
     
     return print("Done")
 
 
-
-def add_geo_ids_to_feature_col_from_lookup_df(fc,df,join_id_column="system:index",geo_id_column="Geo_id",override_checks=False,debug=False):
+def add_geo_ids_to_feature_col_from_lookup_df(fc,df,join_id_column="system:index",geo_id_column="Geo_id",override_checks=False,remove_other_properties=False,
+                                              debug=False):
     
     check_inputs_same_size(fc, df, override_checks) 
     
@@ -597,19 +598,23 @@ def add_geo_ids_to_feature_col_from_lookup_df(fc,df,join_id_column="system:index
     out_fc = geemap.ee_join_table(ee_object=fc, data=df_cleaned, src_key=join_id_column, dst_key=join_id_column)
     
     joined_not_null = out_fc.filter(ee.Filter.neq(geo_id_column, None)).aggregate_array(geo_id_column).size().getInfo()
+
+    if remove_other_properties:
+        out_fc = out_fc.select([geo_id_column])
     
     if debug: print (f"Finished. \n New count of {geo_id_column} values in feature collection: {joined_not_null} (from total of {out_fc.size().getInfo()} features)")
     
     return out_fc
     
 
-def add_geo_ids_to_feature_col_from_lookup_csv(fc,csv,join_id_column,geo_id_column,override_checks=False,debug=False):
+def add_geo_ids_to_feature_col_from_lookup_csv(fc,csv,join_id_column="system:index",geo_id_column="Geo_id",override_checks=False,remove_other_properties=False,debug=False):
     df = pd.read_csv(csv)
-    return add_geo_ids_to_feature_col_from_lookup_df(fc,df,join_id_column,geo_id_column,override_checks=override_checks,debug=debug)
+    return add_geo_ids_to_feature_col_from_lookup_df(fc,df,join_id_column,geo_id_column,override_checks=override_checks,remove_other_properties=remove_other_properties,debug=debug)
 
-## to check - nb could to add checks in, currently doesnt export to a new csv: add overwrite option
 
-# def add_geo_ids_to_csv_from_lookup_df(input_csv,
+
+# def add_geo_ids_to_csv_from_lookup_df(
+#     input_csv,
 #     geo_id_lookup_df,
 #     join_id_column="system:index",
 #     geo_id_column="Geo_id",
@@ -618,15 +623,16 @@ def add_geo_ids_to_feature_col_from_lookup_csv(fc,csv,join_id_column,geo_id_colu
 #     debug=False
 #     ):
     
-#     input_df = pd.read_csv(whisp_csv)
+#     input_df = pd.read_csv(input_csv)
        
-#     input_df_w_geo_ids = whisp_df.merge(geo_id_lookup_df,on=join_id_col,how="left")
+#     input_df_w_geo_ids = input_df.merge(geo_id_lookup_df,on=join_id_col,how="left")
     
-#     if drop_geo:
-#         if debug: print ("Dropping geometry column ('drop_geo' set to True)")
-#         input_df_w_geo_ids = input_df_w_geo_ids.drop(".geo",axis=1)    
+#     # if drop_geo:
+#     #     if debug: print ("Dropping geometry column ('drop_geo' set to True)")
+#     #     input_df_w_geo_ids = input_df_w_geo_ids.drop(".geo",axis=1)    
         
 #     return input_df_w_geo_ids
+
 
 # def add_geo_ids_to_csv_from_lookup_csv(input_csv,
 #     geo_id_lookup_csv,
@@ -649,7 +655,6 @@ def add_geo_ids_to_feature_col_from_lookup_csv(fc,csv,join_id_column,geo_id_colu
 #         debug=debug
 #     )
     
-        
 #     return input_csv_w_geo_ids    
 
 
