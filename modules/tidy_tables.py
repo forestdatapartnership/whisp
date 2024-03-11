@@ -1,8 +1,6 @@
 import pandas as pd
 import ee
 
-
-
  
 def tidy_dataframe_after_pivot (df):
     """Tidying dataframe after long-to-wide reformatting, incl. removes unwanted levels, column names"""
@@ -13,16 +11,26 @@ def tidy_dataframe_after_pivot (df):
     df.columns = df.columns.get_level_values(0)
     return df
 
-
-def reorder_columns_by_lookup(df,lookup_df,dataset_order_column,dataset_name_column,prefix_columns_list=[]):    
-    """ reorder columns by creating an ordered list from a lookup_df containing column order and dataset names that match those in results dataframe"""
-
+def create_column_list_from_lookup(lookup_df,prefix_columns_list):
     ordered_dataset_df= lookup_df.sort_values(by=['dataset_order'])
     
     column_order_list = list(ordered_dataset_df["dataset_name"])
     
-    # adds in a list of columns to the start of the order list (i.e. the geo_id, geometry area column and country columns), if left blanmk nothing added
+    # adds in a list of columns to the start of the order list (i.e. the geo_id, geometry area column and country columns), if left blank nothing added
     column_order_list = prefix_columns_list + column_order_list
+
+    return column_order_list
+    
+                                   
+def reorder_columns_by_lookup(df,lookup_df,dataset_order_column,dataset_name_column,prefix_columns_list=[]):    
+    """ reorder columns by creating an ordered list from a lookup_df containing column order and dataset names that match those in results dataframe"""
+    column_order_list = create_column_list_from_lookup(lookup_df,prefix_columns_list)
+    # ordered_dataset_df= lookup_df.sort_values(by=['dataset_order'])
+    
+    # column_order_list = list(ordered_dataset_df["dataset_name"])
+    
+    # # adds in a list of columns to the start of the order list (i.e. the geo_id, geometry area column and country columns), if left blanmk nothing added
+    # column_order_list = prefix_columns_list + column_order_list
 
     df_reordered  = df.reindex(columns=column_order_list) # reorder by list
 
