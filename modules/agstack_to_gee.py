@@ -504,7 +504,7 @@ def copy_and_rename_csv(source_file, destination_folder,delete_source):
         # Copy the file
         shutil.copy(source_file, destination_path)
         # os.system(cp source_file destination_path)
-        print(f"File copied successfully to: {destination_path}")
+        print(f"Backup file copied successfully to: {destination_path}")
 
         # Optionally, you may delete the original file
         if delete_source:
@@ -611,50 +611,110 @@ def add_geo_ids_to_feature_col_from_lookup_csv(fc,csv,join_id_column="system:ind
     df = pd.read_csv(csv)
     return add_geo_ids_to_feature_col_from_lookup_df(fc,df,join_id_column,geo_id_column,override_checks=override_checks,remove_other_properties=remove_other_properties,debug=debug)
 
+def add_empty_column_to_csv(csv_file, column_name):
+    df = pd.read_csv(csv_file)
+
+    # Check if the column exists in the DataFrame
+    if column_name in df.columns:
+        print(f"Column '{column_name}' already exists")
+    else:
+        # if doesn't exist add it
+        df.insert(loc=1, column=column_name, value=None)
+        print(f"Column '{column_name}' not found, adding it.")
+
+    # Write the updated DataFrame back to the CSV file
+    df.to_csv(csv_file, index=False)
 
 
-# def add_geo_ids_to_csv_from_lookup_df(
-#     input_csv,
-#     geo_id_lookup_df,
-#     join_id_column="system:index",
-#     geo_id_column="Geo_id",
-#     # override_checks=False, # needs implementing
-#     drop_geo=False
-#     debug=False
-#     ):
+def remove_column_from_csv(csv_file, column_name):
+    # Read the CSV file into a DataFrame
+    df = pd.read_csv(csv_file)
+
+    # Check if the column exists in the DataFrame
+    if column_name in df.columns:
+        # Drop the specified column
+        df = df.drop(columns=[column_name])
+        print(f"Column '{column_name}' removed successfully from {csv_file}")
+    else:
+        print(f"Column '{column_name}' not found in {csv_file}.")
+
+    # Write the updated DataFrame back to the CSV file
+    df.to_csv(csv_file, index=False)
+    return None 
+
+def reorder_column(df, column_name, position):
+    # Pop the column to remove it from the DataFrame
+    column = df.pop(column_name)
+    # Insert the column at the specified position
+    df.insert(position, column_name, column)
+
+def add_geo_ids_to_csv_from_lookup_df(
+    input_csv,
+    geo_id_lookup_df,
+    join_id_column="system:index",
+    geo_id_column="Geo_id",
+    # override_checks=False, # needs implementing
+    overwrite=False,
+    drop_geo=False,
+    debug=False
+    ):
     
-#     input_df = pd.read_csv(input_csv)
-       
-#     input_df_w_geo_ids = input_df.merge(geo_id_lookup_df,on=join_id_col,how="left")
+    input_df = pd.read_csv(input_csv)
     
-#     # if drop_geo:
-#     #     if debug: print ("Dropping geometry column ('drop_geo' set to True)")
-#     #     input_df_w_geo_ids = input_df_w_geo_ids.drop(".geo",axis=1)    
-        
-#     return input_df_w_geo_ids
-
-
-# def add_geo_ids_to_csv_from_lookup_csv(input_csv,
-#     geo_id_lookup_csv,
-#     join_id_column="system:index",
-#     geo_id_column="Geo_id",
-#     # override_checks=False, # needs implementing
-#     drop_geo=False
-#     debug=False
-#     ):
-
-#     geo_id_lookup_df = pd.read_csv(geo_id_lookup_csv)
-
-#     add_geo_ids_to_csv_from_lookup_df(
-#         input_csv,
-#         geo_id_lookup_df,
-#         join_id_column=join_id_column,
-#         geo_id_column=geo_id_column,
-#         # override_checks=False, # needs implementing
-#         drop_geo=drop_geo
-#         debug=debug
-#     )
+    # Check if the column exists in the DataFrame
+    if geo_id_column in input_df.columns:
+        print(f"Column '{geo_id_column}' already exists. No join carried out")
+        sys.exit()
+    elif join_id_column not in input_df.columns:
+        print(f"Column '{join_id_column}' not present to carry out join")
+        sys.exit()  
+    else:
+        #carry out the join     
+        input_df_w_geo_ids = input_df.merge(geo_id_lookup_df,on=join_id_column,how="left")
     
-#     return input_csv_w_geo_ids    
+    reorder_column(df=input_df_w_geo_ids, column_name=geo_id_column, position=1)
+    
+    if drop_geo:
+        if debug: print ("Dropping geometry column ('drop_geo' set to True)")
+        input_df_w_geo_ids = input_df_w_geo_ids.drop(".geo",axis=1)   
+
+    if overwrite:
+        out_name = input_csv
+        print ("new csv: ",  out_name)
+    else:    
+        out_name = f'copy_{input_csv}'
+        print ("new csv: ",  out_name)
+    
+    
+    
+    input_df_w_geo_ids.to_csv(out_name,index=False)
+   
+    return None
+
+def add_geo_ids_to_csv_from_lookup_csv(input_csv,
+    geo_id_lookup_csv,
+    join_id_column="system:index",
+    geo_id_column="Geo_id",
+    # override_checks=False, # needs implementing
+    overwrite=False,
+    drop_geo=False,
+    debug=False
+    ):
+
+    #create a df from the csv 
+    geo_id_lookup_df = pd.read_csv(geo_id_lookup_csv)
+    #run preexisting function (NB could update with a decorator function)
+    add_geo_ids_to_csv_from_lookup_df(
+        input_csv,
+        geo_id_lookup_df,
+        join_id_column=join_id_column,
+        geo_id_column=geo_id_column,
+        # override_checks=False, # needs implementing
+        overwrite=overwrite,
+        drop_geo=drop_geo,
+        debug=debug
+    )
+
+    return None   
 
 
