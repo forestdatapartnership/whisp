@@ -182,9 +182,9 @@ def wkt_to_geo_id(wkt, token=None, session=None, asset_registry_base="https://ap
     # Use provided session if available, otherwise create a new session
     if session:
         response = session.post(url, json=payload, headers=headers)
-        if debug: print("using existing session")
+        # if debug: print("using existing session ")
     else:
-        if debug: print("using individual request as no existing session set up, to set one up use: agstack_to_gee.start_agstack_session")
+        # if debug: print("using individual request as no existing session set up, to set one up use: agstack_to_gee.start_agstack_session ")
         response = requests.post(url, json=payload, headers=headers)
     
     # Process the response
@@ -575,7 +575,7 @@ def register_fc_and_append_to_csv(feature_col, geo_id_column, output_lookup_csv,
         # Calculate progress percentage         
         progress = (i + 1) / total_iterations * 100
 
-        print(f"Progress: {progress:.2f}% ({i + 1}/{total_iterations})", end='\r')
+        print(f"Progress: {progress:.2f}% ({i + 1}/{total_iterations}) ", end='\r')
     
     # back up copy in csvs folder (currently hard coded)
     # option to delet original (e.g. if its a temp csv you want cleared)    
