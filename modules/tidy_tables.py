@@ -1,7 +1,7 @@
 import pandas as pd
 import ee
 
- 
+
 def tidy_dataframe_after_pivot (df):
     """Tidying dataframe after long-to-wide reformatting, incl. removes unwanted levels, column names"""
     # df.columns = df.columns.droplevel(0) #remove sum
