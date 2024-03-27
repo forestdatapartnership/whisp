@@ -579,7 +579,7 @@ def register_fc_and_append_to_csv(feature_col, geo_id_column, output_lookup_csv,
     
     # back up copy in csvs folder (currently hard coded)
     # option to delet original (e.g. if its a temp csv you want cleared)    
-    copy_and_rename_csv(source_file=output_lookup_csv,add_ destination_folder="csvs",delete_source=remove_temp_csv)
+    copy_and_rename_csv(source_file=output_lookup_csv,destination_folder="csvs",delete_source=remove_temp_csv)
     
     return print("Done")
 
