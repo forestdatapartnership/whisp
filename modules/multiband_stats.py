@@ -166,6 +166,22 @@ def wcmc_wdpa_protection_prep():
 
     return wdpa_binary_reproj.rename("WDPA")
 
+def birdlife_kbas_biodiversity_prep():
+    ##uploaded - may need rights    
+    template_image = ee.Image("UMD/hansen/global_forest_change_2022_v1_10")
+
+    ##uploaded data - Non-commercial. For queries with limited numbers of sites. Exact number to be confirmed. 
+    
+    kbas_2023_poly = ee.FeatureCollection("projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/raw/KBAsGlobal_2023_March_01_POL");
+
+    kba_2023_overlap = kbas_2023_poly.reduceToImage(['SitRecID'],'count').selfMask()  #make into raster - remove mask if want 0s
+
+    kba_2023_binary = kba_2023_overlap.gte(0)
+    
+    kba_2023_binary_reproj = reproject_to_template(kba_2023_binary,template_image)
+    
+    return kba_2023_binary_reproj.rename('KBA')
+
 
 def esa_worldcover_trees_prep():
     esa_worldcover_2020_raw = ee.Image("ESA/WorldCover/v100/2020");
@@ -228,6 +244,7 @@ def get_stats_feature(feature):
     img_combined = img_combined.addBands(eth_kalischek_cocoa_prep())
     img_combined = img_combined.addBands(wur_radd_alerts_prep())
     img_combined = img_combined.addBands(wcmc_wdpa_protection_prep())
+    img_combined = img_combined.addBands(birdlife_kbas_biodiversity_prep())
     img_combined = img_combined.addBands(esa_worldcover_trees_prep())
 
     img_combined = img_combined.multiply(ee.Image.pixelArea())

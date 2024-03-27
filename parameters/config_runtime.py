@@ -15,7 +15,7 @@ debug = True  # get print messages or not (e.g. for debugging code etc) (True or
 
 
 # what datasets to exclude from results
-exclusion_list_dataset_ids = [2,14,15]
+exclusion_list_dataset_ids = [2,14]
 
 # country dataset choice 
 country_dataset_id = 18   ##### for referenece: 18 = GADM, 16 = GAUL
