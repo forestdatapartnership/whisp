@@ -654,6 +654,7 @@ def add_geo_ids_to_csv_from_lookup_df(
     join_id_column="system:index",
     geo_id_column="Geo_id",
     # override_checks=False, # needs implementing
+    join_id_column_rename=True,
     overwrite=False,
     drop_geo=False,
     debug=False
@@ -666,7 +667,7 @@ def add_geo_ids_to_csv_from_lookup_df(
         print(f"Column '{geo_id_column}' already exists. No join carried out")
         sys.exit()
     elif join_id_column not in input_df.columns:
-        print(f"Column '{join_id_column}' not present to carry out join")
+        print(f"Column '{join_id_column}' not present to carry out join")      
         sys.exit()  
     else:
         #carry out the join     

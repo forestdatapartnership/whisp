@@ -1,54 +1,31 @@
-### general runtime parameters 
-# (for naming of outputs see also parameters/config_output_naming.py)
-
+import os
 import ee
-
-use_geo_id_input= True # if True, uses 'all_geo_ids' list, if false uses 'example_feature_col_asset'
-
-# get_geo_id_for_poly= True # 
-
-use_existing_image_collection = False  #if False creates one on the fly in GEE (slower spin up speed). If True faster. But one must have been created: see export parameters below and for asset name: parameters/config_output_naming.py). 
-
-update_iCol_properties = False # adds time so only put as True if need to update them based on changes to the lookup_gee_datasets.csv
+import pandas as pd
+ee.Initialize()
 
 debug = True  # get print messages or not (e.g. for debugging code etc) (True or False)
 
+out_path = os.path.join('/home/sepal-user/whisp/')
 
-# what datasets to exclude from results
-exclusion_list_dataset_ids = [2,14]
+#wide csv (main output format)
+out_wide_csv_name = 'whisp_output_table.csv' #set output name
 
-# country dataset choice 
-country_dataset_id = 18   ##### for referenece: 18 = GADM, 16 = GAUL
+out_file_wide = out_path+out_wide_csv_name #set full path for output csv
 
-##### country_name_iso3_or_both = "iso3" # to add in at some point?
+out_shapefile_name = "shapefile_for_ceo.shp.zip"
+
+out_shapefile = out_path + out_shapefile_name
 
 
-### export to image collection asset parameters
+#output column names 
+geometry_area_column = "Area_ha"
 
-export_icol = False  # choose to export datasets to an image collection asset (makes faster data loading times). Set to True or False.
+geo_id_column = "Geo_id"
 
-make_empty_image_coll = True # if true then code will add an empty image collection (see parmaters.output_naming), if one doesn't exist already. Set to True or False.
+plot_id_column = "PLOTID"
 
-skip_export_if_asset_exists = True # if image with same dataset_id exists in image collection, avoid exporting. Default: True
 
-# for extent of image collection if not or not an ee feature or ee geometry, attempts to use image extent
-export_region =  ee.Geometry.Rectangle([-180, -60, 180, 70], None, False)
+#lookup path
+path_lookup_gee_datasets_df = "parameters/lookup_gee_datasets.csv"
 
-####################################################place elsewhere if time
-
-if country_dataset_id == 16:
-    country_dataset_name = "GAUL_adm0_code" 
-    admin_code_col_name = "ADM0_CODE" 
-    path_lookup_country_codes_to_iso3 = "parameters/lookup_gaul_country_codes_to_iso3.csv" 
-    path_lookup_country_codes_to_names = "parameters/lookup_gaul_country_codes_to_names.csv" 
-    country_dataset_to_exclude = 18 # could make more flexible if more country datasets included
-    
-if country_dataset_id == 18:
-    country_dataset_name = "GADM_fid_code" 
-    admin_code_col_name = "fid" 
-    path_lookup_country_codes_to_iso3 = "parameters/lookup_gadm_country_codes_to_iso3.csv"
-    path_lookup_country_codes_to_names = "parameters/lookup_gadm_country_codes_to_iso3.csv" #for now
-    country_dataset_to_exclude = 16 # could make more flexible if more country datasets included
-    
-exclusion_list_dataset_ids = exclusion_list_dataset_ids + [country_dataset_to_exclude] # could make it more flexible if more country datasets included
-
+lookup_gee_datasets_df = pd.read_csv(path_lookup_gee_datasets_df)
