@@ -1,5 +1,3 @@
-# from modules.gee_initialize import initialize_ee 
-# initialize_ee()
 import ee
 import pandas as pd
 
@@ -15,6 +13,8 @@ def remove_geometry_from_feature_collection(feature_collection):
     # Apply the function to remove geometry to the feature collection
     feature_collection_no_geometry = feature_collection.map(remove_geometry)
     return feature_collection_no_geometry
+
+
     
 def collection_properties_to_df(collection, property_selection=None):
     """creates a pandas dataframe from feature collection properties. NB SLOW but functions >5000 rows (unlike geemap_to_df)"""
@@ -32,6 +32,8 @@ def collection_properties_to_df(collection, property_selection=None):
     
     return pd.DataFrame(data=nested_list_transposed, columns=collection_properties_list)
 
+
+
 # Compute centroids of each polygon
 def get_centroid(feature, geo_id_column="Geo_id"):
     keepProperties = [geo_id_column];
@@ -39,6 +41,7 @@ def get_centroid(feature, geo_id_column="Geo_id"):
     centroid = feature.geometry().centroid(1);
     #Return a new Feature, copying properties from the old Feature.
     return ee.Feature(centroid).copyProperties(feature, keepProperties);
+
 
 
 def buffer_point_to_required_area(feature,area,area_unit):
@@ -51,12 +54,16 @@ def buffer_point_to_required_area(feature,area,area_unit):
     
     return ee.Feature(feature).buffer(buffer_size,1);  ### buffering (incl., max error parameter should be 0m. But put as 1m anyhow - doesn't seem to make too much of a difference for speed)
 
+
+
 def get_radius_m_to_buffer_to_required_area(area,area_unit="km2"):
     """gets radius in metres to buffer to get an area (needs math library); area unit ha or km2 (the default)"""
     if area_unit=="km2": unit_fix_factor =1000
     elif area_unit=="ha": unit_fix_factor =100
     radius = ee.Number(area).divide(math.pi).sqrt().multiply(unit_fix_factor)
     return radius
+
+
 
 # def get_scale_from_image(image,band_index=0):
 #     """gets nominal scale from image (NB this should not be from a composite/mosaic or incorrrect value returned)"""

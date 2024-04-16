@@ -1,30 +1,27 @@
-
 import ee
-# ee.Initialize()
 # from modules.gee_initialize import initialize_ee 
 # initialize_ee()
-# ee.Initialize(project="ee-andyarnellgee")
+
 from datetime import datetime
 
 import functools
 
-# template_image = ee.Image("UMD/hansen/global_forest_change_2023_v1_11")
+def get_scale_from_image(image,band_index=0):
+    """gets nominal scale from image (NB this should not be from a composite/mosaic or incorrrect value returned)"""
+    return image.select(band_index).projection().nominalScale().getInfo()
 
-# def get_scale_from_image(image,band_index=0):
-#     """gets nominal scale from image (NB this should not be from a composite/mosaic or incorrrect value returned)"""
-#     return image.select(band_index).projection().nominalScale().getInfo()
 
-# def reproject_to_template(rasterised_vector,template_image):
-#     """takes an image that has been rasterised but without a scale (resolution) and reprojects to template image CRS and resolution"""
-#     #reproject an image
-#     crs_template = template_image.select(0).projection().crs().getInfo()
+def reproject_to_template(rasterised_vector,template_image):
+    """takes an image that has been rasterised but without a scale (resolution) and reprojects to template image CRS and resolution"""
+    #reproject an image
+    crs_template = template_image.select(0).projection().crs().getInfo()
     
-#     output_image = rasterised_vector.reproject(
-#       crs= crs_template,
-#       scale= get_scale_from_image(template_image),
-#     ).int8()
+    output_image = rasterised_vector.reproject(
+      crs= crs_template,
+      scale= get_scale_from_image(template_image),
+    ).int8()
     
-#     return output_image
+    return output_image
 
 # Function to reorder properties
 def reorder_properties(feature, order):
@@ -43,12 +40,39 @@ def flag_positive_values(feature,flag_positive):
         feature = feature.set(prop_name, flag_value)
     return feature
 
+# # Function to round properties to whole numbers
+# def round_properties_to_whole_numbers(feature,round_properties):
+#     for prop_name in round_properties:
+#         try:
+#             print(prop_name)
+#             prop_value = feature.get(prop_name)
+#             prop_value_rounded = ee.Number(prop_value).round()
+#             feature = feature.set(prop_name, prop_value_rounded)
+#         except Exception as e: 
+#             # print (e.message())
+#             # print (e.args())
+#             print (e)
+#             feature
+#     return feature
+
 # Function to round properties to whole numbers
-def round_properties_to_whole_numbers(feature,round_properties):
+def round_properties_to_whole_numbers(feature, round_properties):
     for prop_name in round_properties:
-        prop_value = feature.get(prop_name)
-        prop_value_rounded = ee.Number(prop_value).round()
-        feature = feature.set(prop_name, prop_value_rounded)
+        try:
+            # Retrieve the property value
+            prop_value = feature.get(prop_name)
+            
+            # Check if the property value is not None
+            if prop_value is not None:
+                # Round the property value to the nearest whole number
+                prop_value_rounded = ee.Number(prop_value).round()
+                
+                # Update the feature with the rounded property value
+                feature = feature.set(prop_name, prop_value_rounded)
+        except Exception as e:
+            # Print the error message
+            print(e)
+            
     return feature
 
 # Function to exclude properties
@@ -81,7 +105,7 @@ def esri_lulc_trees_prep():
     return esri_lulc10_2020.eq(2).rename("ESRI_TC_2020")	
 
 def glad_gfc_10pc_prep():
-    gfc = ee.Image("UMD/hansen/global_forest_change_2023_v1_11")
+    gfc = ee.Image("UMD/hansen/global_forest_change_2022_v1_10")
     gfc_treecover2000 = gfc.select(['treecover2000'])
     gfc_loss2001_2020 = gfc.select(['lossyear']).lte(20)
     gfc_treecover2020 = gfc_treecover2000.where(gfc_loss2001_2020.eq(1), 0)
@@ -95,7 +119,7 @@ def glad_lulc_stable_prep():
 def glad_pht_prep():
     primary_ht_forests2001_raw = ee.ImageCollection('UMD/GLAD/PRIMARY_HUMID_TROPICAL_FORESTS/v1')
     primary_ht_forests2001 = primary_ht_forests2001_raw.select("Primary_HT_forests").mosaic().selfMask()
-    gfc = ee.Image('UMD/hansen/global_forest_change_2023_v1_11')
+    gfc = ee.Image('UMD/hansen/global_forest_change_2022_v1_10')
     gfc_loss2001_2020 = gfc.select(['lossyear']).lte(20)
     return primary_ht_forests2001.where(gfc_loss2001_2020.eq(1), 0).rename("GLAD_Primary")
 
@@ -103,23 +127,32 @@ def jrc_gfc_2020_prep():
     jrc_gfc2020_raw = ee.ImageCollection("JRC/GFC2020/V1")
     return jrc_gfc2020_raw.mosaic().rename("EUFO_2020")
 
-def jrc_tmf_transition_prep():
+def jrc_tmf_disturbed_prep():
     jrc_tmf_transitions_raw = ee.ImageCollection('projects/JRC/TMF/v1_2020/TransitionMap_Subtypes')
     jrc_tmf_transitions = jrc_tmf_transitions_raw.mosaic()
+    in_list = [21, 22, 23, 24, 25, 26, 61, 62, 31, 32, 33, 63, 64, 51, 52, 53, 54, 67, 92, 93, 94]
+    out_list = [1] * 21
     default_value = 0
-    
-    in_list_dist = [21, 22, 23, 24, 25, 26, 61, 62, 31, 32, 33, 63, 64, 51, 52, 53, 54, 67, 92, 93, 94]
-    jrc_tmf_disturbed   = jrc_tmf_transitions.remap(in_list_dist, [1] * len(in_list_dist), default_value).rename("TMF_disturbed")
+    jrc_tmf_disturbed = jrc_tmf_transitions.remap(in_list, out_list, default_value)
+    return jrc_tmf_disturbed.rename("TMF_disturbed")
 
-    in_list_plnt = [81, 82, 83, 84, 85, 86]
-    jrc_tmf_plantations = jrc_tmf_transitions.remap(in_list_plnt, [1] * len(in_list_plnt), default_value).rename("TMF_plant")
+def jrc_tmf_plantations_prep():
+    jrc_tmf_transitions_raw = ee.ImageCollection('projects/JRC/TMF/v1_2020/TransitionMap_Subtypes')
+    jrc_tmf_transitions = jrc_tmf_transitions_raw.mosaic()
+    in_list = [81, 82, 83, 84, 85, 86]
+    out_list = [1] * 6
+    default_value = 0
+    jrc_tmf_plantations = jrc_tmf_transitions.remap(in_list, out_list, default_value)
+    return jrc_tmf_plantations.rename("TMF_plant")
 
-    in_list_udis = [10, 11, 12]
-    jrc_tmf_undisturbed = jrc_tmf_transitions.remap(in_list_udis, [1] * len(in_list_udis), default_value).rename("TMF_undist")
-    
-    jrc_tmf_transition = jrc_tmf_disturbed.addBands(jrc_tmf_plantations).addBands(jrc_tmf_undisturbed)
-    return jrc_tmf_transition
-    
+def jrc_tmf_undisturbed_prep():
+    jrc_tmf_transitions_raw = ee.ImageCollection('projects/JRC/TMF/v1_2020/TransitionMap_Subtypes')
+    jrc_tmf_transitions = jrc_tmf_transitions_raw.mosaic()
+    in_list = [10, 11, 12]
+    out_list = [1] * 3
+    default_value = 0
+    jrc_tmf_undisturbed = jrc_tmf_transitions.remap(in_list, out_list, default_value)
+    return jrc_tmf_undisturbed.rename("TMF_undist")
 
 def eth_kalischek_cocoa_prep():
     return ee.Image('projects/ee-nk-cocoa/assets/cocoa_map_threshold_065').rename("Cocoa_ETH")
@@ -135,26 +168,6 @@ def wur_radd_alerts_prep():
     latest_radd_alert_confirmed_recent = latest_radd_alert.select('Date').gte(start_date_yyddd).selfMask()
     return latest_radd_alert_confirmed_recent.rename("RADD_alerts")
 
-def radd_year_prep():
-    # from datetime import datetime
-    radd = ee.ImageCollection('projects/radar-wur/raddalert/v1')
-    radd_date = radd.filterMetadata('layer', 'contains', 'alert').select('Date').mosaic()
-    
-    img_stack = None
-    # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
-    for year in range(19, 24 +1 ):
-        #gfc_loss_year = gfc.select(['lossyear']).eq(i).And(gfc.select(['treecover2000']).gt(10))
-        start = year*1000
-        end   = year*1000+365
-        radd_year = radd_date.updateMask(radd_date.gte(start)).updateMask(radd_date.lte(end)).gt(0).rename("radd_year_" + str(year))
-        
-        if img_stack is None:
-            img_stack = radd_year
-        else:
-            img_stack = img_stack.addBands(radd_year)
-    return img_stack
-
-    
 def fdap_palm_prep():
     fdap_palm2020_model_raw = ee.ImageCollection("projects/forestdatapartnership/assets/palm/palm_2020_model_20231026")
     fdap_palm = fdap_palm2020_model_raw.mosaic().gt(0.9).selfMask()
@@ -162,22 +175,27 @@ def fdap_palm_prep():
 
 def wcmc_wdpa_protection_prep():
     wdpa_poly = ee.FeatureCollection("WCMC/WDPA/current/polygons")
-    
+    template_image = ee.Image("UMD/hansen/global_forest_change_2022_v1_10")
     wdpa_filt = wdpa_poly.filter(
         ee.Filter.And(ee.Filter.neq('STATUS','Proposed'), 
                       ee.Filter.neq('STATUS', 'Not Reported'), 
                       ee.Filter.neq('DESIG_ENG', 'UNESCO-MAB Biosphere Reserve'))
                                 )
+
     #turn into image (no crs etc set currently)
     wdpa_overlap = wdpa_filt.reduceToImage(['STATUS_YR'],'min');  #make into raster - remove mask if want 0s
 
     #make binary
     wdpa_binary = wdpa_overlap.lt(2070)#.unmask()
+    
+    wdpa_binary_reproj = reproject_to_template(wdpa_binary,template_image)
 
-    #return wdpa_binary_reproj.rename("WDPA")
-    return wdpa_binary.rename("WDPA")
+    return wdpa_binary_reproj.rename("WDPA")
 
 def birdlife_kbas_biodiversity_prep():
+    ##uploaded - may need rights    
+    template_image = ee.Image("UMD/hansen/global_forest_change_2022_v1_10")
+
     ##uploaded data - Non-commercial. For queries with limited numbers of sites. Exact number to be confirmed. 
     
     kbas_2023_poly = ee.FeatureCollection("projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/raw/KBAsGlobal_2023_March_01_POL");
@@ -186,68 +204,16 @@ def birdlife_kbas_biodiversity_prep():
 
     kba_2023_binary = kba_2023_overlap.gte(0)
     
-    return kba_2023_binary.rename('KBA')
-
-
-def feat_coll_prep(feats_name,attr_name, base_name):
-    ## feats_name    = ee.FeatureCollection("projects/ee-cocoacmr/assets/feature_data/Aires_protegees_de_faunes");
-    ## attr_name     = "desc_type"
-    ## base_name     = "cmr_apf"
-
-    ## Load FC
-    feats_poly    = ee.FeatureCollection(feats_name);
+    kba_2023_binary_reproj = reproject_to_template(kba_2023_binary,template_image)
     
-    ## Create unique list of values for selected attribute column
-    list_types    = feats_poly.distinct(attr_name).aggregate_array(attr_name)
-    list_length   = ee.Number(list_types.length()).toInt().getInfo()
-    
-    ## Initialize blank raster
-    img_stack = None
-
-    ## Add one band for each attribute values
-    for i in range(0, list_length ):
-        attr_type = list_types.get(i)
-       
-        feats_filter  = feats_poly.filter(ee.Filter.eq(attr_name,attr_type))
-        feats_overlap = ee.Image().paint(feats_filter,1)
-        feats_binary  = feats_overlap.gt(0).rename(base_name + "_" + str(i))
-
-        if img_stack is None:
-            img_stack = feats_binary
-        else:
-            img_stack = img_stack.addBands(feats_binary)
-    
-    return img_stack    #,list_types
-
-cmr_feat_prep_apf = feat_coll_prep("projects/ee-cocoacmr/assets/feature_data/Aires_protegees_de_faunes",
-                                   "desc_type",
-                                   "cmr_apf")
-
-cmr_feat_prep_rsf = feat_coll_prep("projects/ee-cocoacmr/assets/feature_data/Reserves_forestieres",
-                                   "desc_type",
-                                   "cmr_rsf")
-
-cmr_feat_prep_ufe = feat_coll_prep("projects/ee-cocoacmr/assets/feature_data/Unites_forestieres_exploitation",
-                                   "desc_type",
-                                   "cmr_ufe")
-
-cmr_feat_prep_vdc = feat_coll_prep("projects/ee-cocoacmr/assets/feature_data/Ventes_de_coupe",
-                                   "desc_type",
-                                   "cmr_vdc")
-
-cmr_feat_prep_zap = feat_coll_prep("projects/ee-cocoacmr/assets/feature_data/Zones_aire_protegees",
-                                   "desc_type",
-                                   "cmr_zap")
-
-cmr_feat_prep_foc = feat_coll_prep("projects/ee-cocoacmr/assets/feature_data/Forets_communautaires",
-                                   "desc_type",
-                                   "cmr_foc")
-
+    return kba_2023_binary_reproj.rename('KBA')
 
 
 def esa_worldcover_trees_prep():
     esa_worldcover_2020_raw = ee.Image("ESA/WorldCover/v100/2020");
+    
     esa_worldcover_trees_2020 = esa_worldcover_2020_raw.eq(95).Or(esa_worldcover_2020_raw.eq(10)) #get trees and mnangroves
+    
     return esa_worldcover_trees_2020.rename('ESA_TC_2020') 
 
 
@@ -261,90 +227,27 @@ def get_gadm_info(geometry):
     polygonsIntersectPoint = gadm.filterBounds(geometry);
     return	ee.Algorithms.If(polygonsIntersectPoint.size().gt(0), polygonsIntersectPoint.first().toDictionary().select(["GID_0","COUNTRY"]) ,	None );
 
-def civ_ocs2020_prep():
-    return ee.Image("projects/ee-bnetdcign2/assets/OCS_CI_2020vf").eq(9).rename("cocoa_bnetd")
-
-def tmf_loss_per_year():
-    # Load the TMF Deforestation annual product
-    tmf_def   = ee.ImageCollection('projects/JRC/TMF/v1_2022/DeforestationYear').mosaic()
-    img_stack = None
-    # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
-    for i in range(0, 22 +1):
-        tmf_def_year = tmf_def.eq(2000+i).rename("tmf_def_" + str(2000+i))
-        if img_stack is None:
-            img_stack = tmf_def_year
-        else:
-            img_stack = img_stack.addBands(tmf_def_year)
-    return img_stack
-
-def tmf_degr_per_year():
-    # Load the TMF Degradation annual product
-    tmf_def   = ee.ImageCollection('projects/JRC/TMF/v1_2022/DegradationYear').mosaic()
-    img_stack = None
-    # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
-    for i in range(0, 22 +1):
-        tmf_def_year = tmf_def.eq(2000+i).rename("tmf_deg_" + str(2000+i))
-        if img_stack is None:
-            img_stack = tmf_def_year
-        else:
-            img_stack = img_stack.addBands(tmf_def_year)
-    return img_stack
 
 
-def glad_gfc_loss_per_year():
+
+#############################################3
+
+def glad_gfc_loss_per_year_prep():
     # Load the Global Forest Change dataset
-    gfc = ee.Image("UMD/hansen/global_forest_change_2023_v1_11")
+    gfc = ee.Image("UMD/hansen/global_forest_change_2022_v1_10")
+    
     img_stack = None
+    
     # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
-    for i in range(1, 23 +1):
+    for i in range(1, 23):
         gfc_loss_year = gfc.select(['lossyear']).eq(i).And(gfc.select(['treecover2000']).gt(10))
         gfc_loss_year = gfc_loss_year.rename("GFC_Loss_Year_" + str(2000+i))
         if img_stack is None:
             img_stack = gfc_loss_year
         else:
             img_stack = img_stack.addBands(gfc_loss_year)
-    return img_stack
-
-def esa_biom_prep():
-    #ESA mean and std biomass - (projects/cafi_fao_congo/regional/ESA_Biomass)
-    esa_biom = ee.ImageCollection("projects/cafi_fao_congo/regional/ESA_Biomass").mosaic()
-    return esa_biom
-
-def modis_fire_prep():
-    modis_fire = ee.ImageCollection("MODIS/061/MCD64A1")
-    img_stack = None
     
-    for year in range(2000, 2024 +1):
-        date_st = str(year) + "-01-01"
-        date_ed = str(year) + "-12-31"
-        #print(date_st)
-        modis_year = modis_fire.filterDate(date_st,date_ed).mosaic().select(['BurnDate']).gte(0).rename("fire_" + str(year))
-        
-        if img_stack is None:
-            img_stack = modis_year
-        else:
-            img_stack = img_stack.addBands(modis_year)
     return img_stack
-
-
-# def esa_fire_prep():
-#     esa_fire = ee.ImageCollection("ESA/CCI/FireCCI/5_1")
-#     img_stack = None
-#     for year in range(2001, 2020 +1):
-#         date_st = str(year) + "-01-01"
-#         date_ed = str(year) + "-12-31"
-#         #print(date_st)
-#         esa_year = esa_fire.filterDate(date_st,date_ed).mosaic().select(['BurnDate']).gte(0).rename("fire_" + str(year))
-        
-#         if img_stack is None:
-#             img_stack = esa_year
-#         else:
-#             img_stack = img_stack.addBands(esa_year)
-#     return img_stack
-
-
-
-
 
 
 
@@ -364,7 +267,6 @@ def get_stats(feature_or_feature_col):
     return output
 
 
-
 def get_stats_fc(feature_col):
     return ee.FeatureCollection(feature_col.map(get_stats_feature))
 
@@ -378,35 +280,21 @@ def get_stats_feature(feature):
     # Add bands from each dataset
     img_combined = img_combined.addBands(creaf_descals_palm_prep())
     img_combined = img_combined.addBands(jaxa_forest_prep())
-    # img_combined = img_combined.addBands(esri_lulc_trees_prep())
+    img_combined = img_combined.addBands(esri_lulc_trees_prep())
     img_combined = img_combined.addBands(glad_gfc_10pc_prep())
     img_combined = img_combined.addBands(glad_lulc_stable_prep())
     img_combined = img_combined.addBands(glad_pht_prep())
     img_combined = img_combined.addBands(jrc_gfc_2020_prep())
     img_combined = img_combined.addBands(fdap_palm_prep())
-    img_combined = img_combined.addBands(jrc_tmf_transition_prep())
-    #img_combined = img_combined.addBands(jrc_tmf_disturbed_prep())
-    #img_combined = img_combined.addBands(jrc_tmf_plantations_prep())
-    #img_combined = img_combined.addBands(jrc_tmf_undisturbed_prep())
+    img_combined = img_combined.addBands(jrc_tmf_disturbed_prep())
+    img_combined = img_combined.addBands(jrc_tmf_plantations_prep())
+    img_combined = img_combined.addBands(jrc_tmf_undisturbed_prep())
     img_combined = img_combined.addBands(eth_kalischek_cocoa_prep())
     img_combined = img_combined.addBands(wur_radd_alerts_prep())
     img_combined = img_combined.addBands(wcmc_wdpa_protection_prep())
     img_combined = img_combined.addBands(birdlife_kbas_biodiversity_prep())
     img_combined = img_combined.addBands(esa_worldcover_trees_prep())
-    img_combined = img_combined.addBands(civ_ocs2020_prep())
-    img_combined = img_combined.addBands(tmf_loss_per_year())
-    img_combined = img_combined.addBands(tmf_degr_per_year())
-    img_combined = img_combined.addBands(glad_gfc_loss_per_year())
-    img_combined = img_combined.addBands(cmr_feat_prep_apf)
-    img_combined = img_combined.addBands(cmr_feat_prep_rsf)
-    img_combined = img_combined.addBands(cmr_feat_prep_ufe)
-    img_combined = img_combined.addBands(cmr_feat_prep_vdc)
-    img_combined = img_combined.addBands(cmr_feat_prep_zap)
-    img_combined = img_combined.addBands(cmr_feat_prep_foc)
-    img_combined = img_combined.addBands(radd_year_prep())
-    # img_combined = img_combined.addBands(esa_fire_prep())
-    img_combined = img_combined.addBands(modis_fire_prep())
-    
+    img_combined = img_combined.addBands(glad_gfc_loss_per_year_prep())
     img_combined = img_combined.multiply(ee.Image.pixelArea())
 
     reduce = img_combined.reduceRegion(
@@ -416,24 +304,7 @@ def get_stats_feature(feature):
         maxPixels=1e10,
         tileScale=4
     )
-
-    esa_biom_mean = esa_biom_prep().rename("esa_biom_mean").reduceRegion(
-        reducer=ee.Reducer.mean(), 
-        geometry=feature.geometry(), 
-        scale=10, 
-        maxPixels=1e10,
-        tileScale=4
-    )
-
-    esa_biom_std = esa_biom_prep().rename("esa_biom_std").reduceRegion(
-        reducer=ee.Reducer.stdDev(), 
-        geometry=feature.geometry(), 
-        scale=10, 
-        maxPixels=1e10,
-        tileScale=4
-    )
-
-    #print(cmr_feat_prep_afp[1])
+    
     # location = ee.Dictionary(get_gaul_info(feature.geometry()))
     
     # country = ee.Dictionary({'Country': location.get('ADM0_NAME')})
@@ -446,19 +317,15 @@ def get_stats_feature(feature):
       ee.Number(val).divide(ee.Number(1e4)));
     
     area_ha = ee.Number(ee.Dictionary(reduce_ha).get("Area_ha"))
-
-    # percent = True #something like this
     
-    # percent_of_plot = reduce_ha.map(lambda key, val:
-    #       ee.Number(val).divide(ee.Number(area_ha)).multiply(ee.Number(100)).round())
-    
-    # percent_of_plot = percent_of_plot.set("Area_ha", area_ha.format('%.1f'))
+    percent_of_plot = reduce_ha.map(lambda key, val:
+      ee.Number(val).divide(ee.Number(area_ha)).multiply(ee.Number(100)).round())
 
-    # reducer_stats = percent_of_plot
-
-    reducer_stats = reduce_ha.set("Area_ha", area_ha.format('%.1f'))
+    percent_of_plot = percent_of_plot.set("Area_ha", area_ha.format('%.1f'))      
     
-    properties = country.combine(ee.Dictionary(reducer_stats)).combine(ee.Dictionary(esa_biom_mean)).combine(ee.Dictionary(esa_biom_std))
+    # properties = country.combine(ee.Dictionary(reduce_ha))
+    
+    properties = country.combine(ee.Dictionary(percent_of_plot))
         
     return feature.set(properties).setGeometry(None) 
 
@@ -498,7 +365,6 @@ def add_id_to_feature_collection(dataset,id_name="PLOTID"):
     
     return dataset_with_id
 
-
     
 def reformat_whisp_fc(feature_collection, 
                                 order=None, 
@@ -523,7 +389,9 @@ def reformat_whisp_fc(feature_collection,
     - processed_features: ee.FeatureCollection, FeatureCollection after processing.
     """
 
-
+    if order or round_properties or select_and_rename:
+        property_list = feature_collection.first().propertyNames() #ee list of strings
+    
     # Reorder properties if specified
     if order:
         feature_collection = feature_collection.map(lambda feature: reorder_properties(feature, order))
