@@ -541,7 +541,7 @@ def csv_prep_and_fc_filtering(feature_col, geo_id_column, output_lookup_csv, joi
         
     return fc
         
-def register_fc_and_append_to_csv(feature_col, geo_id_column, output_lookup_csv, join_id_column, token, session, asset_registry_base, override_checks=False,remove_temp_csv=True, debug=False):
+def register_fc_and_append_to_csv(feature_col, geo_id_column, output_lookup_csv, join_id_column, token, session, asset_registry_base, override_checks=False,remove_temp_csv=True,backup_csv_folder="backup_csvs", debug=False):
     """feature collection to geo ids stored in a csv, either as a lookup table to add to other datasets (e.g. feature collections). 
     If csv exists (e.g. a lookup or whisp results) this adds in missing geo ids (so if crashes can carry on where left)"""
     # Initialize an empty list to store features
@@ -579,7 +579,7 @@ def register_fc_and_append_to_csv(feature_col, geo_id_column, output_lookup_csv,
     
     # back up copy in csvs folder (currently hard coded)
     # option to delet original (e.g. if its a temp csv you want cleared)    
-    copy_and_rename_csv(source_file=output_lookup_csv,destination_folder="csvs",delete_source=remove_temp_csv)
+    copy_and_rename_csv(source_file=output_lookup_csv,destination_folder=backup_csv_folder,delete_source=remove_temp_csv)
     
     return print("Done")
 
