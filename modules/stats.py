@@ -114,14 +114,27 @@ def get_stats_feature(feature):
 
     reduce_ha = reduce.map(lambda key, val:
       ee.Number(val).divide(ee.Number(1e4)));
+
+    # # Define a function to divide each value by 10,000 and format it with one decimal place
+    # def divide_and_format(val):
+    #     # Convert the image to an ee.Number, divide by 10,000, and format with one decimal place
+    #     formatted_value = ee.Number(val).divide(ee.Number(10000)).format("%.2f")
+    #     # Return the formatted value
+    #     return formatted_value
     
+    # # Apply the function to each image in the collection using map()
+    # reduce_ha = reduce.map(lambda key, val: divide_and_format(val))
+
+
     area_ha = ee.Number(ee.Dictionary(reduce_ha).get("Area_ha"))
+
+    reducer_stats = reduce_ha.set("Area_ha", area_ha.format('%.1f')) # area ha (to 1 decimal places) 
+
+    # percent_of_plot = reduce_ha.map(lambda key, val:
+    #       ee.Number(val).divide(ee.Number(area_ha)).multiply(ee.Number(100)).round()) #as percent (zero decimal places)
     
-    percent_of_plot = reduce_ha.map(lambda key, val:
-          ee.Number(val).divide(ee.Number(area_ha)).multiply(ee.Number(100)).round()) #as percent (zero decimal places)
-    
-    reducer_stats = percent_of_plot.set("Area_ha", area_ha.format('%.1f')) # area ha (to 1 decimal places)
-    
+    # reducer_stats = percent_of_plot.set("Area_ha", area_ha.format('%.1f')) # area ha (to 1 decimal places)
+  
     properties = country.combine(ee.Dictionary(reducer_stats))
     
     return feature.set(properties).setGeometry(None) 

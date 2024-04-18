@@ -6,6 +6,7 @@ import geemap
 import os 
 import geopandas as gpd
 import shutil
+import sys
 from datetime import datetime
 # from modules.utils import buffer_point_to_required_area # to handle point features
 
@@ -393,10 +394,10 @@ def check_json_geometry_type(geojson_obj):
         return 'Not a Feature'
 
 
+
 # def json_to_feature_with_id(geo_json,geo_id,geo_id_column):
 #     """converts json into a feature with a specified id column"""
 #     return ee.Feature(ee.Geometry.Polygon(geo_json),ee.Dictionary([geo_id_column,geo_id]))
-
 
 
 # def geo_id_to_json(geo_id,session,asset_registry_base):

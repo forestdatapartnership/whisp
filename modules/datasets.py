@@ -203,7 +203,7 @@ def modis_fire_prep():
     modis_fire = ee.ImageCollection("MODIS/061/MCD64A1")
     img_stack = None
     
-    start_year = 2021 ## (starts 2019 in Africa, then 2020 for S America and Asia: https://data.globalforestwatch.org/datasets/gfw::deforestation-alerts-radd/about
+    start_year = 2000 ## (starts 2019 in Africa, then 2020 for S America and Asia: https://data.globalforestwatch.org/datasets/gfw::deforestation-alerts-radd/about
     
     current_year = datetime.now().year
 
