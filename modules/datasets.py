@@ -87,7 +87,7 @@ def radd_year_prep():
         #gfc_loss_year = gfc.select(['lossyear']).eq(i).And(gfc.select(['treecover2000']).gt(10))
         start = year*1000
         end   = year*1000+365
-        radd_year = radd_date.updateMask(radd_date.gte(start)).updateMask(radd_date.lte(end)).gt(0).rename("radd_year_" + str(year))
+        radd_year = radd_date.updateMask(radd_date.gte(start)).updateMask(radd_date.lte(end)).gt(0).rename("RADD_year_" +"20"+ str(year))
         
         if img_stack is None:
             img_stack = radd_year
@@ -156,7 +156,8 @@ def esa_worldcover_trees_prep():
 
 
 def civ_ocs2020_prep():
-    return ee.Image("projects/ee-bnetdcign2/assets/OCS_CI_2020vf").eq(9).rename("cocoa_bnetd") 
+    return ee.Image("projects/ee-bnetdcign2/assets/OCS_CI_2020vf").eq(9).rename("Cocoa_bnetd") # NB ask Aurelie for info on this
+    
 
 def tmf_loss_per_year():
     # Load the TMF Deforestation annual product
@@ -164,7 +165,7 @@ def tmf_loss_per_year():
     img_stack = None
     # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
     for i in range(0, 22 +1):
-        tmf_def_year = tmf_def.eq(2000+i).rename("tmf_def_" + str(2000+i))
+        tmf_def_year = tmf_def.eq(2000+i).rename("TMF_def_" + str(2000+i))
         if img_stack is None:
             img_stack = tmf_def_year
         else:
@@ -177,7 +178,7 @@ def tmf_degr_per_year():
     img_stack = None
     # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
     for i in range(0, 22 +1):
-        tmf_def_year = tmf_def.eq(2000+i).rename("tmf_deg_" + str(2000+i))
+        tmf_def_year = tmf_def.eq(2000+i).rename("TMF_deg_" + str(2000+i))
         if img_stack is None:
             img_stack = tmf_def_year
         else:
@@ -192,12 +193,13 @@ def glad_gfc_loss_per_year():
     # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
     for i in range(1, 23 +1):
         gfc_loss_year = gfc.select(['lossyear']).eq(i).And(gfc.select(['treecover2000']).gt(10))
-        gfc_loss_year = gfc_loss_year.rename("GFC_Loss_Year_" + str(2000+i))
+        gfc_loss_year = gfc_loss_year.rename("GFC_loss_year_" + str(2000+i))
         if img_stack is None:
             img_stack = gfc_loss_year
         else:
             img_stack = img_stack.addBands(gfc_loss_year)
     return img_stack
+
 
 def modis_fire_prep():
     modis_fire = ee.ImageCollection("MODIS/061/MCD64A1")
@@ -211,7 +213,7 @@ def modis_fire_prep():
         date_st = str(year) + "-01-01"
         date_ed = str(year) + "-12-31"
         #print(date_st)
-        modis_year = modis_fire.filterDate(date_st,date_ed).mosaic().select(['BurnDate']).gte(0).rename("modis_fire_" + str(year))
+        modis_year = modis_fire.filterDate(date_st,date_ed).mosaic().select(['BurnDate']).gte(0).rename("MODIS_fire_" + str(year))
         
         if img_stack is None:
             img_stack = modis_year
@@ -227,7 +229,7 @@ def esa_fire_prep():
         date_st = str(year) + "-01-01"
         date_ed = str(year) + "-12-31"
         #print(date_st)
-        esa_year = esa_fire.filterDate(date_st,date_ed).mosaic().select(['BurnDate']).gte(0).rename("esa_fire_" + str(year))
+        esa_year = esa_fire.filterDate(date_st,date_ed).mosaic().select(['BurnDate']).gte(0).rename("ESA_fire_" + str(year))
         
         if img_stack is None:
             img_stack = esa_year
