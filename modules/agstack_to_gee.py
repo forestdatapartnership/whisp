@@ -563,7 +563,7 @@ def register_fc_and_append_to_csv(feature_col, geo_id_column, output_lookup_csv,
 
         feature = ee.Feature(feature_col_list.get(i))
         
-        try: 
+        try:
             register_feature_and_append_to_csv(feature,geo_id_column,output_lookup_csv,join_id_column,token,session,asset_registry_base,debug)
         except KeyboardInterrupt:
             raise ValueError("KeyboardInterrupt")
@@ -579,7 +579,7 @@ def register_fc_and_append_to_csv(feature_col, geo_id_column, output_lookup_csv,
         print(f"Progress: {progress:.2f}% ({i + 1}/{total_iterations}) ", end='\r')
     
     # back up copy in csvs folder (currently hard coded)
-    # option to delet original (e.g. if its a temp csv you want cleared)    
+    # option to delete original (e.g. if its a temp csv you want cleared)    
     copy_and_rename_csv(source_file=output_lookup_csv,destination_folder=backup_csv_folder,delete_source=remove_temp_csv)
     
     return print("Done")
