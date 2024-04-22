@@ -33,6 +33,19 @@ keep_system_index = True
 # do you keep other properties from input feature collection?
 keep_original_properties = True
 
+# #put in parameters
+# UNIT_TYPE = {
+# # type: [selector, name]
+# "area": [0, "area"],
+# "percent": [1, "percent"]
+# "proportion": [2, "proportion"]
+# }
+
+# UNIT = {
+# # acronym: [factor, name]
+# "ha": [10000, "hectares"],
+# "sqkm": [1000000, "square kilometers"]
+# }
 
 #lookup path
 path_lookup_gee_datasets_df = "parameters/lookup_gee_datasets.csv"
