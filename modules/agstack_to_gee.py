@@ -418,7 +418,7 @@ def check_inputs_same_size(fc,df,override_checks=False):
     if df_size == fc_size:
         res= (f"Check passed: feature collection and table same size: {df_size} rows")
     else:
-        print (f"Warning, different sized inputs: table rows ={df_size}, fc = {fc_size} \n Are they the same inputs? \n ")
+        print (f"Warning, different sized inputs: table rows ={df_size}, feature collection = {fc_size} \n Are they the same inputs? \n  The temp lookup csv created in this process may be left from a previous run with other data. Consider removing/renaming it. \n If you are sure they the same inputs, however, e.g. if registering a subset of the feature collection, then use 'Override_checks' parameter to attempt to continue.")
 
         if override_checks:
             # print (message)
@@ -468,8 +468,9 @@ def update_geo_id_in_csv(output_lookup_csv,system_index, geo_id_column,new_geo_i
     # Read the CSV into a pandas DataFrame
     df = pd.read_csv(output_lookup_csv)
     # pd.dataframe(data)
-    # Update the Geo_id for the corresponding system_index
-    df.loc[df[join_id_column.replace(' ', '_')] == system_index, geo_id_column] = new_geo_id
+    
+    # Update the Geo_id for the corresponding system_index (making sure both are strings for when system:index is a number e.g. when a shapefile)
+    df.loc[(df[join_id_column.replace(' ', '_')].astype(str)) == str(system_index), geo_id_column] = new_geo_id
 
     # Write the updated DataFrame back to the CSV
     df.to_csv(output_lookup_csv, index=False)
@@ -541,7 +542,8 @@ def csv_prep_and_fc_filtering(feature_col, geo_id_column, output_lookup_csv, joi
         fc = feature_col
         
     return fc
-        
+
+
 def register_fc_and_append_to_csv(feature_col, geo_id_column, output_lookup_csv, join_id_column, token, session, asset_registry_base, override_checks=False,remove_temp_csv=True,backup_csv_folder="backup_csvs", debug=False):
     """feature collection to geo ids stored in a csv, either as a lookup table to add to other datasets (e.g. feature collections). 
     If csv exists (e.g. a lookup or whisp results) this adds in missing geo ids (so if crashes can carry on where left)"""

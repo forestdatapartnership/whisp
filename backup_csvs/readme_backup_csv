@@ -1,0 +1,4 @@
+a place to store backup csvs, tpyically produced from the add_geo_ids_to_csv_from_lookup_csv function.
+This function can take a long time to run with multiple polygons.
+In case you delete the lookup table it produces before joining to the whisp outputs, you may be able to find the csv here. 
+These are date and time stamped to help find old runs if needed. NB Changes are stored locally and not tracked by github.
