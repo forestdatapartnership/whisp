@@ -2,6 +2,8 @@ import ee
 
 from modules.datasets import combine_datasets
 
+from parameters.config_runtime import percent_or_ha
+
 import functools
 
 ##
@@ -44,17 +46,19 @@ def copy_properties_and_exclude(feature,exclude_properties):
 #     return feature.select(property_names, new_property_names)
 
 ########################################
-
+### geoboundaries - freqently updated database, allows commercial use (CC BY 4.0 DEED) (disputed territories may need checking)
 def get_geoboundaries_info(geometry):
     gbounds_ADM0 = ee.FeatureCollection("WM/geoLab/geoBoundaries/600/ADM0");
     polygonsIntersectPoint = gbounds_ADM0.filterBounds(geometry)
     return ee.Algorithms.If( polygonsIntersectPoint.size().gt(0), polygonsIntersectPoint.first().toDictionary().select(["shapeGroup"]), None );
-    
+
+### gaul boundaries - dated and need a lookup to get iso3 codes, but moving towards open licence
 def get_gaul_info(geometry):
     gaul2 = ee.FeatureCollection("FAO/GAUL/2015/level2");
     polygonsIntersectPoint = gaul2.filterBounds(geometry);
     return	ee.Algorithms.If( polygonsIntersectPoint.size().gt(0), polygonsIntersectPoint.first().toDictionary().select(["ADM0_NAME","ADM1_NAME", "ADM2_NAME"]) ,	None );
-
+    
+### gadm - non-commercial use only
 def get_gadm_info(geometry):
     gadm = ee.FeatureCollection("projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/raw/gadm_41_level_1")
     polygonsIntersectPoint = gadm.filterBounds(geometry);
@@ -78,6 +82,22 @@ def get_stats(feature_or_feature_col):
 
 def get_stats_fc(feature_col):
     return ee.FeatureCollection(feature_col.map(get_stats_feature))
+
+
+
+# Define a function to divide each value by 10,000 and format it with one decimal place
+def divide_and_format(val,unit):
+    # Convert the image to an ee.Number, divide by 10,000, and format with one decimal place
+    formatted_value = ee.Number(ee.Number(val).divide(ee.Number(unit)))#.format("%.2f")
+    # Return the formatted value
+    return ee.Number(formatted_value)
+
+
+# Define a function to divide by total area of geometry and multiply by 100
+def percent_and_format(val,area_ha):
+    formatted_value = ee.Number(ee.Number(val).divide(area_ha).multiply(ee.Number(100))).round()
+    # Return the formatted value
+    return ee.Number(formatted_value)
 
 
 def get_stats_feature(feature):
@@ -112,32 +132,33 @@ def get_stats_feature(feature):
     
     country = ee.Dictionary({'Country': location.get('shapeGroup')})
 
-    reduce_ha = reduce.map(lambda key, val:
-      ee.Number(val).divide(ee.Number(1e4)));
+    # Apply the function (defined above) to each value in the dictionary using map()
 
-    # # Define a function to divide each value by 10,000 and format it with one decimal place
-    # def divide_and_format(val):
-    #     # Convert the image to an ee.Number, divide by 10,000, and format with one decimal place
-    #     formatted_value = ee.Number(val).divide(ee.Number(10000)).format("%.2f")
-    #     # Return the formatted value
-    #     return formatted_value
+
+    # Now, modified_dict contains all keys with the prefix added
+    reduce_ha = reduce.map(lambda key, val: divide_and_format(ee.Number(val),ee.Number(10000)))  
     
-    # # Apply the function to each image in the collection using map()
-    # reduce_ha = reduce.map(lambda key, val: divide_and_format(val))
-
-
+    # Get val for hectares
     area_ha = ee.Number(ee.Dictionary(reduce_ha).get("Area_ha"))
-
-    reducer_stats = reduce_ha.set("Area_ha", area_ha.format('%.1f')) # area ha (to 1 decimal places) 
-
-    # percent_of_plot = reduce_ha.map(lambda key, val:
-    #       ee.Number(val).divide(ee.Number(area_ha)).multiply(ee.Number(100)).round()) #as percent (zero decimal places)
     
-    # reducer_stats = percent_of_plot.set("Area_ha", area_ha.format('%.1f')) # area ha (to 1 decimal places)
-  
-    properties = country.combine(ee.Dictionary(reducer_stats))
+    # Apply the function (defined above) to each value in the dictionary using map()
+    reduce_percent = reduce_ha.map(lambda key, val: percent_and_format(ee.Number(val), area_ha)) 
+
+    # Reformat
+    reducer_stats_ha = reduce_ha.set("Area_ha", area_ha.format('%.1f'))  # area ha (to 1 decimal places) 
     
-    return feature.set(properties).setGeometry(None) 
+    reducer_stats_percent = reduce_percent.set("Area_ha", area_ha.format('%.1f'))  # area ha (to 1 decimal places) 
+
+    #add country on
+    properties_ha = country.combine(ee.Dictionary(reducer_stats_ha))
+
+    properties_percent = country.combine(ee.Dictionary(reducer_stats_percent))
+
+    out_feature = ee.Algorithms.If(percent_or_ha == "ha", 
+                                   feature.set(properties_ha).setGeometry(None), 
+                                   feature.set(properties_percent).setGeometry(None))
+    
+    return out_feature
 
 
 def add_id_to_feature_collection(dataset,id_name="PLOTID"):

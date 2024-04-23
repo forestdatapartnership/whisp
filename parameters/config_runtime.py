@@ -5,7 +5,7 @@ ee.Initialize()
 
 debug = True  # get print messages or not (e.g. for debugging code etc) (True or False)
 
-# output_units = "percent" # "percent" or "ha" 
+percent_or_ha = "ha" #units
 
 out_path = os.path.join('/home/sepal-user/whisp/')
 
@@ -33,7 +33,18 @@ keep_system_index = True
 # do you keep other properties from input feature collection?
 keep_original_properties = True
 
-# #put in parameters
+#lookup path
+path_lookup_gee_datasets_df = "parameters/lookup_gee_datasets.csv"
+
+lookup_gee_datasets_df = pd.read_csv(path_lookup_gee_datasets_df)
+
+#for stroing backup/temp csv files
+temp_csvs_folder_name = "backup_csvs"
+
+temp_csvs_folder_path = out_path + temp_csvs_folder_name
+
+######################
+# # if need to expand units in future
 # UNIT_TYPE = {
 # # type: [selector, name]
 # "area": [0, "area"],
@@ -46,13 +57,3 @@ keep_original_properties = True
 # "ha": [10000, "hectares"],
 # "sqkm": [1000000, "square kilometers"]
 # }
-
-#lookup path
-path_lookup_gee_datasets_df = "parameters/lookup_gee_datasets.csv"
-
-lookup_gee_datasets_df = pd.read_csv(path_lookup_gee_datasets_df)
-
-#for stroing backup/temp csv files
-temp_csvs_folder_name = "backup_csvs"
-
-temp_csvs_folder_path = out_path + temp_csvs_folder_name
