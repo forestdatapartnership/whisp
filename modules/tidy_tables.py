@@ -1,22 +1,41 @@
 import pandas as pd
 import ee
 
-def update_eudr_risk(df):
+
+def calculate_eudr_risk(df):
     for index, row in df.iterrows():
-        if row['Treecover_risk'] == "low":
+        if row['Treecover_indicator'] == "no":
             df.at[index, 'EUDR_risk'] = "low"
-        elif row['Commodities_risk'] == "high":
+        elif row['Commodities_indicator'] == "yes":
             df.at[index, 'EUDR_risk'] = "low"
-        elif row['Disturbance_pre_2020_risk'] == "high":
+        elif row['Disturbance_pre_2020_indicator'] == "yes":
             df.at[index, 'EUDR_risk'] = "low"
-        elif row['Disturbance_post_2020_risk'] == "low":
+        elif row['Disturbance_post_2020_indicator'] == "no":
             df.at[index, 'EUDR_risk'] = "more_info_needed"
         else:
             df.at[index, 'EUDR_risk'] = "high"
     return df
 
 
-def add_risk_column(df, columns_to_check, threshold, new_column_name, comparison_sign=None, low_name='low', high_name='high', sum_comparison=False):
+# If 'Treecover_indicator' is "no", or 'Commodities_indicator' is "yes", or 'Disturbance_pre_2020_indicator' is "yes", then set 'EUDR_risk' to "low".
+# If 'Disturbance_post_2020_indicator' is "yes", (and previous condition is not true), then set 'EUDR_risk' to "high".
+# If none of the above conditions are met, set 'EUDR_risk' to "more_info_needed".
+
+# def calculate_eudr_risk(df):
+#     for index, row in df.iterrows():
+#         if (row['Treecover_indicator'] == "no" or
+#             row['Commodities_indicator'] == "yes" or
+#             row['Disturbance_pre_2020_indicator'] == "yes"):
+#             df.at[index, 'EUDR_risk'] = "low"
+#         elif row['Disturbance_post_2020_indicator'] == "yes":
+#             df.at[index, 'EUDR_risk'] = "high"
+#         else:
+#             df.at[index, 'EUDR_risk'] = "more_info_needed"
+#     return df
+
+
+
+def add_indicator_column(df, columns_to_check, threshold, new_column_name, comparison_sign=None, low_name='low', high_name='high', sum_comparison=False):
     """
     Add a new column to the DataFrame based on the specified columns, threshold, and comparison sign.
 
@@ -73,7 +92,7 @@ def add_risk_column(df, columns_to_check, threshold, new_column_name, comparison
     return df
 
 
-def add_risk_column_from_csv(csv_file, columns_to_check, threshold, new_column_name, comparison_sign=None,low_name='low', high_name='high', sum_comparison=False, output_file=None):
+def add_indicator_column_from_csv(csv_file, columns_to_check, threshold, new_column_name, comparison_sign=None,low_name='low', high_name='high', sum_comparison=False, output_file=None):
     """
     Read a CSV file into a DataFrame, add a new column based on specified columns and threshold,
     and optionally export the DataFrame as a CSV file.
@@ -118,7 +137,9 @@ def create_wildcard_column_list(df, wildcard_patterns):
     """
     column_lists = [df.filter(like=pattern).columns.tolist() for pattern in wildcard_patterns]
     return [col for sublist in column_lists for col in sublist]
-    
+
+
+
 def select_years_in_range(string_list, min_year, max_year):
     """
     Select strings from the list where the last four characters, when turned into integers,

@@ -269,7 +269,7 @@ def combine_datasets():
     img_combined = img_combined.addBands(glad_gfc_10pc_prep())
     img_combined = img_combined.addBands(glad_lulc_stable_prep())
     img_combined = img_combined.addBands(glad_pht_prep())
-    # img_combined = img_combined.addBands(jrc_gfc_2020_prep())
+    img_combined = img_combined.addBands(jrc_gfc_2020_prep())
     img_combined = img_combined.addBands(fdap_palm_prep())
     img_combined = img_combined.addBands(jrc_tmf_transition_prep())
     img_combined = img_combined.addBands(eth_kalischek_cocoa_prep())
