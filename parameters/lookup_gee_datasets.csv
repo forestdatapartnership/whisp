@@ -1,5 +1,5 @@
 dataset_id,dataset_order,dataset_name,presence_only_flag,exclude,theme
-1,10,EUFO_2020,0,1,treecover
+1,10,EUFO_2020,0,0,treecover
 2,20,GLAD_Primary,0,0,treecover
 3,30,TMF_undist,0,0,treecover
 4,40,JAXA_FNF_2020,0,0,treecover
