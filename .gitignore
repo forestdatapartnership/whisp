@@ -1,4 +1,4 @@
-/parameters/config_ceo.py
+
 __pycache__/
 .ipynb_checkpoints/
 *.shp
@@ -6,6 +6,9 @@ __pycache__/
 *.dbf
 *.cpfg
 *.zip
-
-output_stats_wide_format.csv
+temp*
+whisp_output_table.csv
+temp_geo_id_lookup.csv
+copy_whisp_output_table.csv
+copy_whisp_output_table_w_risk.csv
 parameters/config_gee.py
