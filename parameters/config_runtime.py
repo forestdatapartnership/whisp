@@ -1,51 +1,59 @@
-### general runtime parameters 
-# (for naming of outputs see also parameters/config_output_naming.py)
-
+import os
 import ee
-
-use_existing_image_collection = False  # faster (if one exists), else creates on the fly in GEE. Set to True or False.
-
-update_iCol_properties = False # adds time so only put as True if need to update them based on changes to the lookup_gee_datasets.csv
+import pandas as pd
+ee.Initialize()
 
 debug = True  # get print messages or not (e.g. for debugging code etc) (True or False)
 
+percent_or_ha = "ha" #units
 
-# what datasets to exclude from results
-exclusion_list_dataset_ids = [2,14,15]
+out_path = os.path.join('/home/sepal-user/whisp/')
 
-# country dataset choice 
-country_dataset_id = 18   ##### for referenece: 18 = GADM, 16 = GAUL
+#wide csv (main output format)
+out_wide_csv_name = 'whisp_output_table.csv' #set output name
 
-##### country_name_iso3_or_both = "iso3" # to add in at some point?
+out_file_wide = out_path+out_wide_csv_name #set full path for output csv
 
+out_shapefile_name = "shapefile_for_ceo.shp.zip"
 
+out_shapefile = out_path + out_shapefile_name
 
+#output column names 
+geometry_area_column = "Area_ha"
 
-## export to image collection asset parameters
+geo_id_column = "Geo_id"
 
-export_icol = True  # choose to export datasets to an image collection asset (makes faster data loading times). Set to True or False.
+plot_id_column = "PLOTID"
 
-make_empty_image_coll = True # if true then code will add an empty image collection (see parmaters.output_naming), if one doesn't exist already. Set to True or False.
+#whisp outputs formatting
 
-skip_export_if_asset_exists = True # if image with same dataset_id exists in image collection, avoid exporting. Default: True
+#do you want to keep system:index from input feature collection? NB it's useful for making joins after processing
+keep_system_index = True
 
-# for extent of image collection
-exportRegion = ee.Geometry.Rectangle([-180, -90, 180, 90], None, False) 
-####################################################place elsewhere if time
+# do you keep other properties from input feature collection?
+keep_original_properties = True
 
-if country_dataset_id == 16:
-    country_dataset_name = "GAUL_adm0_code" 
-    admin_code_col_name = "ADM0_CODE" 
-    path_lookup_country_codes_to_iso3 = "parameters/lookup_gaul_country_codes_to_iso3.csv" 
-    path_lookup_country_codes_to_names = "parameters/lookup_gaul_country_codes_to_names.csv" 
-    country_dataset_to_exclude = 18 # could make more flexible if more country datasets included
-    
-if country_dataset_id == 18:
-    country_dataset_name = "GADM_fid_code" 
-    admin_code_col_name = "fid" 
-    path_lookup_country_codes_to_iso3 = "parameters/lookup_gadm_country_codes_to_iso3.csv"
-    path_lookup_country_codes_to_names = "parameters/lookup_gadm_country_codes_to_iso3.csv"
-    country_dataset_to_exclude = 16 # could make more flexible if more country datasets included
-    
-exclusion_list_dataset_ids = exclusion_list_dataset_ids + [country_dataset_to_exclude] # could make it more flexible if more country datasets included
+#lookup path
+path_lookup_gee_datasets_df = "parameters/lookup_gee_datasets.csv"
 
+lookup_gee_datasets_df = pd.read_csv(path_lookup_gee_datasets_df)
+
+#for stroing backup/temp csv files
+temp_csvs_folder_name = "backup_csvs"
+
+temp_csvs_folder_path = out_path + temp_csvs_folder_name
+
+######################
+# # if need to expand units in future
+# UNIT_TYPE = {
+# # type: [selector, name]
+# "area": [0, "area"],
+# "percent": [1, "percent"]
+# "proportion": [2, "proportion"]
+# }
+
+# UNIT = {
+# # acronym: [factor, name]
+# "ha": [10000, "hectares"],
+# "sqkm": [1000000, "square kilometers"]
+# }
