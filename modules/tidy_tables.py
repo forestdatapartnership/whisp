@@ -1,110 +1,242 @@
 import pandas as pd
 import ee
+from parameters.config_runtime import (
+    percent_or_ha, 
+    cols_ind_1_treecover,
+    cols_ind_2_commodities,
+    cols_ind_3_dist_before_2020,
+    cols_ind_4_dist_after_2020)
+
+def clamp(value, min_val, max_val):
+    """
+    Clamp a value or a Pandas Series within a specified range.
+
+    Args:
+        value (float, int, or pandas.Series): The value or series to be clamped.
+        min_val (float or int): The minimum value of the range.
+        max_val (float or int): The maximum value of the range.
+
+    Returns:
+        float, int, or pandas.Series: The clamped value or series within the range.
+    """
+    if isinstance(value, pd.Series):
+        return value.clip(lower=min_val, upper=max_val)
+    else:
+        return max(min_val, min(value, max_val))
+
+def check_range(value):
+    if not (0 <= value <= 100):
+        raise ValueError("Value must be between 0 and 100.")
+    # else:
+    #     print("Value is within the range.")
+
+def whisp_risk(
+    df,
+    ind_1_pcent_threshold,
+    ind_2_pcent_threshold,
+    ind_3_pcent_threshold,
+    ind_4_pcent_threshold,
+    ind_1_input_columns = cols_ind_1_treecover,
+    ind_2_input_columns = cols_ind_2_commodities,
+    ind_3_input_columns = cols_ind_3_dist_before_2020,
+    ind_4_input_columns = cols_ind_4_dist_after_2020,
+    ind_1_name="Indicator_1_treecover",
+    ind_2_name="Indicator_2_commodities",
+    ind_3_name="Indicator_3_disturbance_before_2020",
+    ind_4_name="Indicator_4_disturbance_after_2020",
+    low_name="no",
+    high_name="yes"
+   ):
+    """ Adds the EUDR (European Union Deforestation Risk) column to the DataFrame based on indicator values.
+
+    Args:
+        df (DataFrame): Input DataFrame.
+        ind_1_name (str, optional): Name of first indicator column. Defaults to "Indicator_1_treecover".
+        ind_2_name (str, optional): Name of second indicator column. Defaults to "Indicator_2_commodities".
+        ind_3_name (str, optional): Name of third indicator column. Defaults to "Indicator_3_disturbance_before_2020".
+        ind_4_name (str, optional): Name of fourth indicator column. Defaults to "Indicator_4_disturbance_after_2020".
+        low_name (str, optional): Value shown in table if less than or equal to threshold. Defualts to "no".
+        low_name (str, optional): Value shown in table if more than threshold. Defualts to "yes".
+    Returns:
+        DataFrame: DataFrame with added 'EUDR_risk' column.
+    """
+    
+    #check range of values
+    check_range(ind_1_pcent_threshold)
+    check_range(ind_2_pcent_threshold)
+    check_range(ind_3_pcent_threshold)
+    check_range(ind_4_pcent_threshold)
+
+    df_w_indicators = add_indicators(
+        df,
+        ind_1_pcent_threshold,
+        ind_2_pcent_threshold,
+        ind_3_pcent_threshold,
+        ind_4_pcent_threshold,
+        ind_1_input_columns,
+        ind_2_input_columns,
+        ind_3_input_columns,
+        ind_4_input_columns,
+        ind_1_name,
+        ind_2_name,
+        ind_3_name,
+        ind_4_name,
+        low_name,
+        high_name
+    )
+    
+    df_w_indicators_and_risk = add_eudr_risk_col(
+        df=df_w_indicators,
+        ind_1_name=ind_1_name, 
+        ind_2_name=ind_2_name, 
+        ind_3_name=ind_3_name, 
+        ind_4_name=ind_4_name)
+
+    return df_w_indicators_and_risk
 
 
-def calculate_eudr_risk(df):
+def add_eudr_risk_col(
+    df,
+    ind_1_name="Indicator_1_treecover",
+    ind_2_name="Indicator_2_commodities",
+    ind_3_name="Indicator_3_disturbance_before_2020",
+    ind_4_name="Indicator_4_disturbance_after_2020"
+    ):
+    """
+    Adds the EUDR (European Union Deforestation Risk) column to the DataFrame based on indicator values.
+
+    Args:
+        df (DataFrame): Input DataFrame.
+        ind_1_name (str, optional): Name of first indicator column. Defaults to "Indicator_1_treecover".
+        ind_2_name (str, optional): Name of second indicator column. Defaults to "Indicator_2_commodities".
+        ind_3_name (str, optional): Name of third indicator column. Defaults to "Indicator_3_disturbance_before_2020".
+        ind_4_name (str, optional): Name of fourth indicator column. Defaults to "Indicator_4_disturbance_after_2020".
+
+    Returns:
+        DataFrame: DataFrame with added 'EUDR_risk' column.
+    """
+
     for index, row in df.iterrows():
-        if row['Treecover_indicator'] == "no":
+        # If any of the first three indicators suggest low risk, set EUDR_risk to "low"
+        if row[ind_1_name] == "no" or row[ind_2_name] == "yes" or row[ind_3_name] == "yes":
             df.at[index, 'EUDR_risk'] = "low"
-        elif row['Commodities_indicator'] == "yes":
-            df.at[index, 'EUDR_risk'] = "low"
-        elif row['Disturbance_pre_2020_indicator'] == "yes":
-            df.at[index, 'EUDR_risk'] = "low"
-        elif row['Disturbance_post_2020_indicator'] == "no":
+        # If none of the first three indicators suggest low risk and Indicator 4 suggests no risk, set EUDR_risk to "more_info_needed"
+        elif row[ind_4_name] == "no":
             df.at[index, 'EUDR_risk'] = "more_info_needed"
+        # If none of the above conditions are met, set EUDR_risk to "high"
         else:
             df.at[index, 'EUDR_risk'] = "high"
+
     return df
 
 
-# If 'Treecover_indicator' is "no", or 'Commodities_indicator' is "yes", or 'Disturbance_pre_2020_indicator' is "yes", then set 'EUDR_risk' to "low".
-# If 'Disturbance_post_2020_indicator' is "yes", (and previous condition is not true), then set 'EUDR_risk' to "high".
-# If none of the above conditions are met, set 'EUDR_risk' to "more_info_needed".
+def add_indicators (df,
+                    ind_1_pcent_threshold,
+                    ind_2_pcent_threshold,
+                    ind_3_pcent_threshold,
+                    ind_4_pcent_threshold,
+                    ind_1_input_columns = cols_ind_1_treecover,
+                    ind_2_input_columns = cols_ind_2_commodities,
+                    ind_3_input_columns = cols_ind_3_dist_before_2020,
+                    ind_4_input_columns = cols_ind_4_dist_after_2020,
+                    ind_1_name="Indicator_1_treecover",
+                    ind_2_name="Indicator_2_commodities",
+                    ind_3_name="Indicator_3_disturbance_before_2020",
+                    ind_4_name="Indicator_4_disturbance_after_2020",
+                    low_name="no",
+                    high_name="yes"):
 
-# def calculate_eudr_risk(df):
-#     for index, row in df.iterrows():
-#         if (row['Treecover_indicator'] == "no" or
-#             row['Commodities_indicator'] == "yes" or
-#             row['Disturbance_pre_2020_indicator'] == "yes"):
-#             df.at[index, 'EUDR_risk'] = "low"
-#         elif row['Disturbance_post_2020_indicator'] == "yes":
-#             df.at[index, 'EUDR_risk'] = "high"
-#         else:
-#             df.at[index, 'EUDR_risk'] = "more_info_needed"
-#     return df
-
-
-
-def add_indicator_column(df, columns_to_check, threshold, new_column_name, comparison_sign=None, low_name='low', high_name='high', sum_comparison=False):
+                    # add presence indicators (default is for > threshold as yes/high)
+                    #Indicator_1_treecover
+                    df_w_indicators = add_indicator_column(df=df,
+                                            input_columns=ind_1_input_columns, 
+                                            threshold=ind_1_pcent_threshold,
+                                            new_column_name=ind_1_name,
+                                            low_name=low_name,
+                                            high_name=high_name)
+                    
+                    #Indicator_2_commodities
+                    df_w_indicators = add_indicator_column(df=df_w_indicators, 
+                                            input_columns=ind_2_input_columns, 
+                                            threshold=ind_2_pcent_threshold,
+                                            new_column_name=ind_2_name,
+                                            low_name=low_name,
+                                            high_name=high_name)
+                    
+                    #Indicator_3_disturbance_before_2020
+                    df_w_indicators = add_indicator_column(df=df_w_indicators, 
+                                            input_columns=ind_3_input_columns,
+                                            threshold=ind_3_pcent_threshold,
+                                            new_column_name=ind_3_name,
+                                            low_name=low_name,
+                                            high_name=high_name)
+                    
+                    #Indicator_4_disturbance_after_2020
+                    df_w_indicators = add_indicator_column(df=df_w_indicators,
+                                            input_columns=ind_4_input_columns,
+                                            threshold=ind_4_pcent_threshold,
+                                            new_column_name=ind_4_name,
+                                            low_name=low_name,
+                                            high_name=high_name)
+                    return df_w_indicators
+    
+def add_indicator_column(df, input_columns, threshold, new_column_name, low_name='yes', high_name='no', sum_comparison=False):
     """
     Add a new column to the DataFrame based on the specified columns, threshold, and comparison sign.
 
     Parameters:
         df (DataFrame): The pandas DataFrame to which the column will be added.
-        columns_to_check (list): List of column names to check for threshold.
+        input_columns (list): List of column names to check for threshold.
         threshold (float): The threshold value to compare against.
         new_column_name (str): The name of the new column to be added.
-        comparison_sign (str): The comparison sign to use ('>', '>=', '=', '<', '<=') (default is None).
-                               If None or unrecognized, default behavior is to use '>' for single column comparison
-                               and sum all values in columns_to_check for sum comparison.
-        low_name (str): The name for the value when below the threshold (default is 'low').
-        high_name (str): The name for the value when above the threshold (default is 'high').
-        sum_comparison (bool): If True, sum all values in columns_to_check and compare to threshold (default is False).
+        The '>' sign is used for comparisons.
+        When 'sum comparison' == True, then the threshold is compared to the sum of all those listed in 'input_columns', as opposed to when Flalse, when each column in the list is compared to the threshold individually
+        low_name (str): The name for the value when below or equal to threshold (default is 'no').
+        high_name (str): The name for the value when above threshold (default is 'yes').
+        sum_comparison (bool): If True, sum all values in input_columns and compare to threshold (default is False).
 
     Returns:
         DataFrame: The DataFrame with the new column added.
     """
     # Create a new column and initialize with low_name
     df[new_column_name] = low_name
-    
+
+    # if percent_or_ha == "ha": print ("output in hectares. Converting values to percent for indicator")
+        
+    # Default behavior: use '>' for single column comparison
     if sum_comparison:
         # Sum all values in specified columns and compare to threshold
-        sum_values = df[columns_to_check].sum(axis=1)
-        if comparison_sign == '>':
-            df.loc[sum_values > threshold, new_column_name] = high_name
-        elif comparison_sign == '>=':
-            df.loc[sum_values >= threshold, new_column_name] = high_name
-        elif comparison_sign == '=':
-            df.loc[sum_values == threshold, new_column_name] = high_name
-        elif comparison_sign == '<':
-            df.loc[sum_values < threshold, new_column_name] = high_name
-        elif comparison_sign == '<=':
-            df.loc[sum_values <= threshold, new_column_name] = high_name
-        else:
-            # Default behavior: use '>' for sum comparison
-            df.loc[sum_values > threshold, new_column_name] = high_name
+        sum_values = df[input_columns].sum(axis=1)
+        df.loc[sum_values > threshold, new_column_name] = high_name
     else:
         # Check if any values in specified columns are above the threshold and update the new column accordingly
-        for col in columns_to_check:
-            if comparison_sign == '>':
-                df.loc[df[col] > threshold, new_column_name] = high_name
-            elif comparison_sign == '>=':
-                df.loc[df[col] >= threshold, new_column_name] = high_name
-            elif comparison_sign == '=':
-                df.loc[df[col] == threshold, new_column_name] = high_name
-            elif comparison_sign == '<':
-                df.loc[df[col] < threshold, new_column_name] = high_name
-            elif comparison_sign == '<=':
-                df.loc[df[col] <= threshold, new_column_name] = high_name
+        for col in input_columns:
+            ## So that threshold is always in percent, if outputs are in ha, the code converts to percent (based on dividing by the "Area_ha" column. 
+            # Clamping is needed due to differences in decimal places (meaning input values may go just over 100)
+            if percent_or_ha == "ha": 
+                # if df["Area_ha"]<0.01: #to add in for when points, some warning message or similar
+
+                val_to_check = clamp(((df[col] / df["Area_ha"]) * 100),0,100)
             else:
-                # Default behavior: use '>' for single column comparison
-                df.loc[df[col] > threshold, new_column_name] = high_name
+                val_to_check = df[col]
+            df.loc[val_to_check > threshold, new_column_name] = high_name
     return df
 
+ 
 
-def add_indicator_column_from_csv(csv_file, columns_to_check, threshold, new_column_name, comparison_sign=None,low_name='low', high_name='high', sum_comparison=False, output_file=None):
+def add_indicator_column_from_csv(csv_file, input_columns, threshold, new_column_name,low_name='low', high_name='high', sum_comparison=False, output_file=None):
     """
     Read a CSV file into a DataFrame, add a new column based on specified columns and threshold,
     and optionally export the DataFrame as a CSV file.
 
     Parameters:
         csv_file (str): The path to the CSV file.
-        columns_to_check (list): List of column names to check for threshold.
+        input_columns (list): List of column names to check for threshold.
         threshold (float): The threshold value above which the new column will be set.
         new_column_name (str): The name of the new column to be added.
         low_name (str): The name for the value when below the threshold (default is 'low').
         high_name (str): The name for the value when above the threshold (default is 'high').
-        sum_comparison (bool): If True, sum all values in columns_to_check and compare to threshold (default is False).
+        sum_comparison (bool): If True, sum all values in input_columns and compare to threshold (default is False).
         output_file (str, optional): The name of the CSV file to export the DataFrame (default is None).
 
     Returns:
@@ -113,8 +245,8 @@ def add_indicator_column_from_csv(csv_file, columns_to_check, threshold, new_col
     # Read the CSV file into a DataFrame
     df = pd.read_csv(csv_file)
     
-    # Call the add_risk_column function
-    df = add_risk_column(df, columns_to_check, threshold, new_column_name, low_name, high_name, sum_comparison)
+    # Call the add_indicator_column function
+    df = add_indicator_column(df, input_columns, threshold, new_column_name, low_name, high_name, sum_comparison)
     
     # Export the DataFrame as a CSV file if output_file is provided
     if output_file:
@@ -122,6 +254,8 @@ def add_indicator_column_from_csv(csv_file, columns_to_check, threshold, new_col
         print(f'exported to {output_file}')
     else:
         return df
+
+
 
 
 def create_wildcard_column_list(df, wildcard_patterns):
@@ -137,6 +271,7 @@ def create_wildcard_column_list(df, wildcard_patterns):
     """
     column_lists = [df.filter(like=pattern).columns.tolist() for pattern in wildcard_patterns]
     return [col for sublist in column_lists for col in sublist]
+
 
 
 
@@ -222,5 +357,23 @@ def make_lookup_from_feature_col(feature_col,join_column,lookup_column,join_colu
 def truncate_strings_in_list(input_list, max_length):
     """as name suggests, useful for exporting to shapefiles fort instance where col name length is limited"""
     return [string[:max_length] for string in input_list]
+
+###alternative vedrsion for clarity
+# If 'Treecover_indicator' is "no", or 'Commodities_indicator' is "yes", or 'Disturbance_before_2020_indicator' is "yes", then set 'EUDR_risk' to "low".
+# If 'Disturbance_after_2020_indicator' is "yes", (and previous condition is not true), then set 'EUDR_risk' to "high".
+# If none of the above conditions are met, set 'EUDR_risk' to "more_info_needed".
+
+# def calculate_eudr_risk(df):
+#     for index, row in df.iterrows():
+#         if (row['Treecover_indicator'] == "no" or
+#             row['Commodities_indicator'] == "yes" or
+#             row['Disturbance_before_2020_indicator'] == "yes"):
+#             df.at[index, 'EUDR_risk'] = "low"
+#         elif row['Disturbance_after_2020_indicator'] == "yes":
+#             df.at[index, 'EUDR_risk'] = "high"
+#         else:
+#             df.at[index, 'EUDR_risk'] = "more_info_needed"
+#     return df
+
 
 
