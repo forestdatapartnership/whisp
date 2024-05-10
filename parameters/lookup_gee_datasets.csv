@@ -135,3 +135,13 @@ dataset_id,dataset_order,dataset_name,presence_only_flag,exclude,theme
 135,1340,MODIS_fire_2022,0,0,disturbance_after
 136,1350,MODIS_fire_2023,0,0,disturbance_after
 137,1360,MODIS_fire_2024,0,0,disturbance_after
+138,1370,TMF_deg_before_2020,0,0,disturbance_before
+139,1380,TMF_loss_before_2020,0,0,disturbance_before
+140,1390,GFC_loss_before_2020,0,0,disturbance_before
+141,1400,ESA_fire_before_2020,0,0,disturbance_before
+142,1410,MODIS_fire_before_2020,0,0,disturbance_before
+143,1420,TMF_deg_after_2020,0,0,disturbance_after
+144,1430,TMF_loss_after_2020,0,0,disturbance_after
+145,1440,GFC_loss_after_2020,0,0,disturbance_after
+146,1450,MODIS_fire_after_2020,0,0,disturbance_after
+147,1460,RADD_after_2020,0,0,disturbance_after

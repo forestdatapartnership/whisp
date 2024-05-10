@@ -145,9 +145,9 @@ def get_stats_feature(feature):
     reduce_percent = reduce_ha.map(lambda key, val: percent_and_format(ee.Number(val), area_ha)) 
 
     # Reformat
-    reducer_stats_ha = reduce_ha.set("Area_ha", area_ha.format('%.1f'))  # area ha (to 1 decimal places) 
+    reducer_stats_ha = reduce_ha.set("Area_ha", area_ha.format('%.2f'))  # area ha (to 1 decimal places) 
     
-    reducer_stats_percent = reduce_percent.set("Area_ha", area_ha.format('%.1f'))  # area ha (to 1 decimal places) 
+    reducer_stats_percent = reduce_percent.set("Area_ha", area_ha.format('%.2f'))  # area ha (to 1 decimal places) 
 
     #add country on
     properties_ha = country.combine(ee.Dictionary(reducer_stats_ha))
