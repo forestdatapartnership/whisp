@@ -1,6 +1,7 @@
 import ee
 
 from datetime import datetime
+from parameters.config_runtime import geometry_area_column
 
 #add datasets below
 
@@ -362,45 +363,94 @@ def birdlife_kbas_biodiversity_prep():
 
 # statistics will be run on for each band and appear as a column in the output table (if also present and listed in the ('parameters/gee_lookup_table.csv')
 
+# def combine_datasets():
+#     "Combines datasets into a single multiband image" 
+#     # Initialize an image with a constant band to start with
+#     img_combined = ee.Image(1).rename("Area_ha") # becomes the area column after pixel area multiplication step below
+
+#     # Add bands from each dataset
+#     img_combined = img_combined.addBands(creaf_descals_palm_prep())
+#     img_combined = img_combined.addBands(jaxa_forest_prep())
+#     img_combined = img_combined.addBands(esri_lulc_trees_prep())
+#     img_combined = img_combined.addBands(glad_gfc_10pc_prep())
+#     img_combined = img_combined.addBands(glad_lulc_stable_prep())
+#     img_combined = img_combined.addBands(glad_pht_prep())
+#     img_combined = img_combined.addBands(jrc_gfc_2020_prep())
+#     img_combined = img_combined.addBands(fdap_palm_prep())
+#     img_combined = img_combined.addBands(jrc_tmf_transition_prep())
+#     img_combined = img_combined.addBands(eth_kalischek_cocoa_prep())
+#     img_combined = img_combined.addBands(wcmc_wdpa_protection_prep())
+#     img_combined = img_combined.addBands(birdlife_kbas_biodiversity_prep())
+#     img_combined = img_combined.addBands(esa_worldcover_trees_prep())
+#     img_combined = img_combined.addBands(civ_ocs2020_prep()) 
+#     img_combined = img_combined.addBands(tmf_loss_per_year_prep()) # multi year
+#     img_combined = img_combined.addBands(tmf_deg_per_year_prep()) # multi year
+#     img_combined = img_combined.addBands(glad_gfc_loss_per_year_prep()) # multi year
+#     img_combined = img_combined.addBands(radd_year_prep()) # multi year
+#     img_combined = img_combined.addBands(esa_fire_prep()) # multi year
+#     img_combined = img_combined.addBands(modis_fire_prep()) # multi year
+#     img_combined = img_combined.addBands(glad_gfc_loss_before_2020_prep()) # multi year
+#     img_combined = img_combined.addBands(glad_gfc_loss_after_2020_prep()) # multi year
+#     img_combined = img_combined.addBands(esa_fire_before_2020_prep()) # combined 
+#     img_combined = img_combined.addBands(modis_fire_before_2020_prep()) # combined
+#     img_combined = img_combined.addBands(modis_fire_after_2020_prep()) # combined
+#     img_combined = img_combined.addBands(tmf_loss_before_2020_prep()) # combined
+#     img_combined = img_combined.addBands(tmf_loss_after_2020_prep())# combined
+#     img_combined = img_combined.addBands(tmf_deg_before_2020_prep()) # combined
+#     img_combined = img_combined.addBands(tmf_deg_after_2020_prep()) # combined
+#     img_combined = img_combined.addBands(radd_after_2020_prep()) # combined
+        
+#     img_combined = img_combined.multiply(ee.Image.pixelArea()) # multiple all bands by pixel area
+#     return img_combined
+
+
+
+
+def try_access(asset_prep_func):
+    try:
+        return asset_prep_func()
+    except Exception as e:
+        print(f"Error accessing asset: {e}")
+        return None
+
+# Now, wrap each datasetfunction in try_access
+
 def combine_datasets():
     "Combines datasets into a single multiband image" 
     # Initialize an image with a constant band to start with
-    img_combined = ee.Image(1).rename("Area_ha") # becomes the area column after pixel area multiplication step below
+    img_combined = ee.Image(1).rename(geometry_area_column) # becomes the area column after pixel area multiplication step below
 
     # Add bands from each dataset
-    img_combined = img_combined.addBands(creaf_descals_palm_prep())
-    img_combined = img_combined.addBands(jaxa_forest_prep())
-    img_combined = img_combined.addBands(esri_lulc_trees_prep())
-    img_combined = img_combined.addBands(glad_gfc_10pc_prep())
-    img_combined = img_combined.addBands(glad_lulc_stable_prep())
-    img_combined = img_combined.addBands(glad_pht_prep())
-    img_combined = img_combined.addBands(jrc_gfc_2020_prep())
-    img_combined = img_combined.addBands(fdap_palm_prep())
-    img_combined = img_combined.addBands(jrc_tmf_transition_prep())
-    img_combined = img_combined.addBands(eth_kalischek_cocoa_prep())
-    img_combined = img_combined.addBands(wcmc_wdpa_protection_prep())
-    img_combined = img_combined.addBands(birdlife_kbas_biodiversity_prep())
-    img_combined = img_combined.addBands(esa_worldcover_trees_prep())
-    img_combined = img_combined.addBands(civ_ocs2020_prep()) 
-    img_combined = img_combined.addBands(tmf_loss_per_year_prep()) # multi year
-    img_combined = img_combined.addBands(tmf_deg_per_year_prep()) # multi year
-    img_combined = img_combined.addBands(glad_gfc_loss_per_year_prep()) # multi year
-    img_combined = img_combined.addBands(radd_year_prep()) # multi year
-    img_combined = img_combined.addBands(esa_fire_prep()) # multi year
-    img_combined = img_combined.addBands(modis_fire_prep()) # multi year
-    img_combined = img_combined.addBands(glad_gfc_loss_before_2020_prep()) # multi year
-    img_combined = img_combined.addBands(glad_gfc_loss_after_2020_prep()) # multi year
-    img_combined = img_combined.addBands(esa_fire_before_2020_prep()) # combined 
-    img_combined = img_combined.addBands(modis_fire_before_2020_prep()) # combined
-    img_combined = img_combined.addBands(modis_fire_after_2020_prep()) # combined
-    img_combined = img_combined.addBands(tmf_loss_before_2020_prep()) # combined
-    img_combined = img_combined.addBands(tmf_loss_after_2020_prep())# combined
-    img_combined = img_combined.addBands(tmf_deg_before_2020_prep()) # combined
-    img_combined = img_combined.addBands(tmf_deg_after_2020_prep()) # combined
-    img_combined = img_combined.addBands(radd_after_2020_prep()) # combined
-    
-    
-    
+    img_combined = img_combined.addBands(try_access(creaf_descals_palm_prep))
+    img_combined = img_combined.addBands(try_access(jaxa_forest_prep))
+    img_combined = img_combined.addBands(try_access(esri_lulc_trees_prep))
+    img_combined = img_combined.addBands(try_access(glad_gfc_10pc_prep))
+    img_combined = img_combined.addBands(try_access(glad_lulc_stable_prep))
+    img_combined = img_combined.addBands(try_access(glad_pht_prep))
+    img_combined = img_combined.addBands(try_access(jrc_gfc_2020_prep))
+    img_combined = img_combined.addBands(try_access(fdap_palm_prep))
+    img_combined = img_combined.addBands(try_access(jrc_tmf_transition_prep))
+    img_combined = img_combined.addBands(try_access(eth_kalischek_cocoa_prep))
+    img_combined = img_combined.addBands(try_access(wcmc_wdpa_protection_prep))
+    img_combined = img_combined.addBands(try_access(birdlife_kbas_biodiversity_prep))
+    img_combined = img_combined.addBands(try_access(esa_worldcover_trees_prep))
+    img_combined = img_combined.addBands(try_access(civ_ocs2020_prep)) 
+    img_combined = img_combined.addBands(try_access(tmf_loss_per_year_prep)) # multi year
+    img_combined = img_combined.addBands(try_access(tmf_deg_per_year_prep)) # multi year
+    img_combined = img_combined.addBands(try_access(glad_gfc_loss_per_year_prep)) # multi year
+    img_combined = img_combined.addBands(try_access(radd_year_prep)) # multi year
+    img_combined = img_combined.addBands(try_access(esa_fire_prep)) # multi year
+    img_combined = img_combined.addBands(try_access(modis_fire_prep)) # multi year
+    img_combined = img_combined.addBands(try_access(glad_gfc_loss_before_2020_prep)) # multi year
+    img_combined = img_combined.addBands(try_access(glad_gfc_loss_after_2020_prep)) # multi year
+    img_combined = img_combined.addBands(try_access(esa_fire_before_2020_prep)) # combined 
+    img_combined = img_combined.addBands(try_access(modis_fire_before_2020_prep)) # combined
+    img_combined = img_combined.addBands(try_access(modis_fire_after_2020_prep)) # combined
+    img_combined = img_combined.addBands(try_access(tmf_loss_before_2020_prep)) # combined
+    img_combined = img_combined.addBands(try_access(tmf_loss_after_2020_prep))# combined
+    img_combined = img_combined.addBands(try_access(tmf_deg_before_2020_prep)) # combined
+    img_combined = img_combined.addBands(try_access(tmf_deg_after_2020_prep)) # combined
+    img_combined = img_combined.addBands(try_access(radd_after_2020_prep)) # combined
     
     img_combined = img_combined.multiply(ee.Image.pixelArea()) # multiple all bands by pixel area
     return img_combined

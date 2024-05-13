@@ -2,7 +2,7 @@ import ee
 
 from modules.datasets import combine_datasets
 
-from parameters.config_runtime import percent_or_ha, plot_id_column
+from parameters.config_runtime import percent_or_ha, plot_id_column, geometry_type_column, geometry_area_column
 
 import functools
 
@@ -111,7 +111,9 @@ def get_stats_feature(feature):
         maxPixels=1e10,
         tileScale=8
     )
-    
+    ######
+    ## roi attributes
+    ######
     ## get location
     
     ### gaul boundaries - dated, moving towards open licence
@@ -132,31 +134,41 @@ def get_stats_feature(feature):
     location = ee.Dictionary(get_geoboundaries_info(centroid))
     
     country = ee.Dictionary({'Country': location.get('shapeGroup')})
-    
-    coords = centroid.coordinates() # list of lat lon coords for centroid
-    
-    # Create a dictionary with latitude and longitude keys  #coords.get(1).format('%.2f')
-    coords_dict = ee.Dictionary({"lat": coords.get(0), "lon": coords.get(1)})
 
+    geom_type = ee.Dictionary({geometry_type_column: feature.geometry().type()})
+    
+    coords_list = centroid.coordinates() # list of lat lon coords for centroid
+
+    # Create a dictionary with latitude and longitude keys  #coords.get(1).format('%.2f')
+    coords_dict = ee.Dictionary({"lat": coords_list.get(0), "lon": coords_list.get(1)})
+    
+    # combine info on country, geometry type and coordinates into a single dictionary
+    feature_info = country.combine(geom_type).combine(coords_dict)
+    
+    ####
+    
     # Now, modified_dict contains all keys with the prefix added
     reduce_ha = reduce.map(lambda key, val: divide_and_format(ee.Number(val),ee.Number(10000)))  
     
     # Get val for hectares
-    area_ha = ee.Number(ee.Dictionary(reduce_ha).get("Area_ha"))
+    area_ha = ee.Number(ee.Dictionary(reduce_ha).get(geometry_area_column))
+
+    
+    ####
     
     # Apply the function (defined above) to each value in the dictionary using map()
     reduce_percent = reduce_ha.map(lambda key, val: percent_and_format(ee.Number(val), area_ha)) 
 
     # Reformat
-    reducer_stats_ha = reduce_ha.set("Area_ha", area_ha.format('%.2f'))  # area ha (to 1 decimal places) 
+    reducer_stats_ha = reduce_ha.set(geometry_area_column, area_ha.format('%.2f'))  # area ha (to 1 decimal places) 
     
-    reducer_stats_percent = reduce_percent.set("Area_ha", area_ha.format('%.2f'))  # area ha (to 1 decimal places) 
+    reducer_stats_percent = reduce_percent.set(geometry_area_column, area_ha.format('%.2f'))  # area ha (to 1 decimal places) 
 
-    # add country info on to ha path
-    properties_ha = country.combine(coords_dict).combine(ee.Dictionary(reducer_stats_ha))
+    # add country info on to ha analysis results
+    properties_ha = feature_info.combine(ee.Dictionary(reducer_stats_ha))
     
-    # add country info on to percent path
-    properties_percent = country.combine(coords_dict).combine(ee.Dictionary(reducer_stats_percent))
+    # add country info on to percent analysis results
+    properties_percent = feature_info.combine(ee.Dictionary(reducer_stats_percent))
     
     # choose whether ha or percent based on the percent_or_ha variable (definined in paramters.config_runtime)
     out_feature = ee.Algorithms.If(percent_or_ha == "ha", 

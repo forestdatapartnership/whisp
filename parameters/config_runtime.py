@@ -5,7 +5,7 @@ ee.Initialize()
 
 debug = True  # get print messages or not (e.g. for debugging code etc) (True or False)
 
-percent_or_ha = "ha" #units
+percent_or_ha = "ha" #units 
 
 out_path = os.path.join('/home/sepal-user/whisp/')
 
@@ -25,9 +25,11 @@ geometry_area_column = "Area_ha"
 
 geo_id_column = "Geo_id"
 
+geometry_type_column = "Geometry_type" 
+
 plot_id_column = "PlotID"
 
-prefix_columns_list =[geo_id_column,geometry_area_column, "Country","lat","lon"] 
+prefix_columns_list =[geo_id_column, geometry_area_column,geometry_type_column, "Country", "lat", "lon"] 
 
 #whisp outputs formatting
 
