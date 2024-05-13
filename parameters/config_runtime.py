@@ -9,21 +9,25 @@ percent_or_ha = "ha" #units
 
 out_path = os.path.join('/home/sepal-user/whisp/')
 
-#wide csv (main output format)
-out_wide_csv_name = 'whisp_output_table.csv' #set output name
 
-out_file_wide = out_path+out_wide_csv_name #set full path for output csv
+#wide csv (main output format)
+out_csv_name = 'whisp_output_table.csv' #set output name
+
+out_csv = out_path + out_csv_name #set full path for output csv
 
 out_shapefile_name = "shapefile_for_ceo.shp.zip"
 
 out_shapefile = out_path + out_shapefile_name
+
 
 #output column names 
 geometry_area_column = "Area_ha"
 
 geo_id_column = "Geo_id"
 
-plot_id_column = "PLOTID"
+plot_id_column = "PlotID"
+
+prefix_columns_list =[geo_id_column,geometry_area_column, "Country","lat","lon"] 
 
 #whisp outputs formatting
 
@@ -31,7 +35,7 @@ plot_id_column = "PLOTID"
 keep_system_index = True
 
 # do you keep other properties from input feature collection?
-keep_original_properties = True
+keep_original_properties = False
 
 #lookup path
 path_lookup_gee_datasets_df = "parameters/lookup_gee_datasets.csv"
