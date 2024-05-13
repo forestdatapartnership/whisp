@@ -2,7 +2,7 @@ import ee
 
 from modules.datasets import combine_datasets
 
-from parameters.config_runtime import percent_or_ha
+from parameters.config_runtime import percent_or_ha, plot_id_column
 
 import functools
 
@@ -127,13 +127,16 @@ def get_stats_feature(feature):
 
     
     ### geoboundaries - freqently updated database; allows commercial use (CC BY 4.0 DEED)
+    centroid = feature.geometry().centroid(1)
     
-    location = ee.Dictionary(get_geoboundaries_info(feature.geometry().centroid(1)))
+    location = ee.Dictionary(get_geoboundaries_info(centroid))
     
     country = ee.Dictionary({'Country': location.get('shapeGroup')})
-
-    # Apply the function (defined above) to each value in the dictionary using map()
-
+    
+    coords = centroid.coordinates() # list of lat lon coords for centroid
+    
+    # Create a dictionary with latitude and longitude keys  #coords.get(1).format('%.2f')
+    coords_dict = ee.Dictionary({"lat": coords.get(0), "lon": coords.get(1)})
 
     # Now, modified_dict contains all keys with the prefix added
     reduce_ha = reduce.map(lambda key, val: divide_and_format(ee.Number(val),ee.Number(10000)))  
@@ -145,23 +148,27 @@ def get_stats_feature(feature):
     reduce_percent = reduce_ha.map(lambda key, val: percent_and_format(ee.Number(val), area_ha)) 
 
     # Reformat
-    reducer_stats_ha = reduce_ha.set("Area_ha", area_ha.format('%.1f'))  # area ha (to 1 decimal places) 
+    reducer_stats_ha = reduce_ha.set("Area_ha", area_ha.format('%.2f'))  # area ha (to 1 decimal places) 
     
-    reducer_stats_percent = reduce_percent.set("Area_ha", area_ha.format('%.1f'))  # area ha (to 1 decimal places) 
+    reducer_stats_percent = reduce_percent.set("Area_ha", area_ha.format('%.2f'))  # area ha (to 1 decimal places) 
 
-    #add country on
-    properties_ha = country.combine(ee.Dictionary(reducer_stats_ha))
-
-    properties_percent = country.combine(ee.Dictionary(reducer_stats_percent))
-
+    # add country info on to ha path
+    properties_ha = country.combine(coords_dict).combine(ee.Dictionary(reducer_stats_ha))
+    
+    # add country info on to percent path
+    properties_percent = country.combine(coords_dict).combine(ee.Dictionary(reducer_stats_percent))
+    
+    # choose whether ha or percent based on the percent_or_ha variable (definined in paramters.config_runtime)
     out_feature = ee.Algorithms.If(percent_or_ha == "ha", 
                                    feature.set(properties_ha).setGeometry(None), 
                                    feature.set(properties_percent).setGeometry(None))
+
+    
     
     return out_feature
 
 
-def add_id_to_feature_collection(dataset,id_name="PLOTID"):
+def add_id_to_feature_collection(dataset,id_name="PlotID"):
     """
     Adds an incremental (1,2,3 etc) 'id' property to each feature in the given FeatureCollection.
 
