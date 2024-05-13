@@ -5,7 +5,9 @@ from parameters.config_runtime import (
     cols_ind_1_treecover,
     cols_ind_2_commodities,
     cols_ind_3_dist_before_2020,
-    cols_ind_4_dist_after_2020)
+    cols_ind_4_dist_after_2020,
+    geometry_area_column
+    )
 
 def clamp(value, min_val, max_val):
     """
@@ -211,12 +213,12 @@ def add_indicator_column(df, input_columns, threshold, new_column_name, low_name
     else:
         # Check if any values in specified columns are above the threshold and update the new column accordingly
         for col in input_columns:
-            ## So that threshold is always in percent, if outputs are in ha, the code converts to percent (based on dividing by the "Area_ha" column. 
+            ## So that threshold is always in percent, if outputs are in ha, the code converts to percent (based on dividing by the geometry_area_column column. 
             # Clamping is needed due to differences in decimal places (meaning input values may go just over 100)
             if percent_or_ha == "ha": 
-                # if df["Area_ha"]<0.01: #to add in for when points, some warning message or similar
+                # if df[geometry_area_column]<0.01: #to add in for when points, some warning message or similar
 
-                val_to_check = clamp(((df[col] / df["Area_ha"]) * 100),0,100)
+                val_to_check = clamp(((df[col] / df[geometry_area_column]) * 100),0,100)
             else:
                 val_to_check = df[col]
             df.loc[val_to_check > threshold, new_column_name] = high_name
