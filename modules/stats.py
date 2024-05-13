@@ -2,7 +2,7 @@ import ee
 
 from modules.datasets import combine_datasets
 
-from parameters.config_runtime import percent_or_ha, plot_id_column, geometry_type_column, geometry_area_column
+from parameters.config_runtime import percent_or_ha, plot_id_column, geometry_type_column, geometry_area_column, geometry_area_column_formatting, centroid_x_coord_column, centroid_y_coord_column, country_column, stats_unit_type_column, stats_area_columns_formatting, stats_percent_columns_formatting
 
 import functools
 
@@ -88,14 +88,14 @@ def get_stats_fc(feature_col):
 # Define a function to divide each value by 10,000 and format it with one decimal place
 def divide_and_format(val,unit):
     # Convert the image to an ee.Number, divide by 10,000, and format with one decimal place
-    formatted_value = ee.Number(ee.Number(val).divide(ee.Number(unit)))#.format("%.2f")
+    formatted_value = ee.Number.parse(ee.Number(ee.Number(val).divide(ee.Number(unit))).format(stats_area_columns_formatting))
     # Return the formatted value
     return ee.Number(formatted_value)
 
 
 # Define a function to divide by total area of geometry and multiply by 100
 def percent_and_format(val,area_ha):
-    formatted_value = ee.Number(ee.Number(val).divide(area_ha).multiply(ee.Number(100))).round()
+    formatted_value = ee.Number.parse(ee.Number(ee.Number(val).divide(area_ha).multiply(ee.Number(100))).format(stats_percent_columns_formatting))
     # Return the formatted value
     return ee.Number(formatted_value)
 
@@ -119,13 +119,13 @@ def get_stats_feature(feature):
     ### gaul boundaries - dated, moving towards open licence
     # location = ee.Dictionary(get_gaul_info(feature.geometry()))
     
-    # country = ee.Dictionary({'Country': location.get('ADM0_NAME')})
+    # country = ee.Dictionary({country_column: location.get('ADM0_NAME')})
     
     ### gadm - non-commercial use only
     
     # location = ee.Dictionary(get_gadm_info(feature.geometry().centroid(1)))
 
-    # country = ee.Dictionary({'Country': location.get('GID_0')})
+    # country = ee.Dictionary({country_column: location.get('GID_0')})
 
     
     ### geoboundaries - freqently updated database; allows commercial use (CC BY 4.0 DEED)
@@ -133,17 +133,19 @@ def get_stats_feature(feature):
     
     location = ee.Dictionary(get_geoboundaries_info(centroid))
     
-    country = ee.Dictionary({'Country': location.get('shapeGroup')})
+    country = ee.Dictionary({country_column: location.get('shapeGroup')})
 
     geom_type = ee.Dictionary({geometry_type_column: feature.geometry().type()})
     
     coords_list = centroid.coordinates() # list of lat lon coords for centroid
 
     # Create a dictionary with latitude and longitude keys  #coords.get(1).format('%.2f')
-    coords_dict = ee.Dictionary({"lat": coords_list.get(0), "lon": coords_list.get(1)})
+    coords_dict = ee.Dictionary({centroid_x_coord_column: coords_list.get(0), centroid_y_coord_column: coords_list.get(1)})
+
+    stats_unit_type = ee.Dictionary({stats_unit_type_column: percent_or_ha})
     
     # combine info on country, geometry type and coordinates into a single dictionary
-    feature_info = country.combine(geom_type).combine(coords_dict)
+    feature_info = country.combine(geom_type).combine(coords_dict).combine(stats_unit_type)
     
     ####
     
@@ -160,9 +162,9 @@ def get_stats_feature(feature):
     reduce_percent = reduce_ha.map(lambda key, val: percent_and_format(ee.Number(val), area_ha)) 
 
     # Reformat
-    reducer_stats_ha = reduce_ha.set(geometry_area_column, area_ha.format('%.2f'))  # area ha (to 1 decimal places) 
+    reducer_stats_ha = reduce_ha.set(geometry_area_column, area_ha.format(geometry_area_column_formatting))  # area ha (to a set number of decimal places) 
     
-    reducer_stats_percent = reduce_percent.set(geometry_area_column, area_ha.format('%.2f'))  # area ha (to 1 decimal places) 
+    reducer_stats_percent = reduce_percent.set(geometry_area_column, area_ha.format(geometry_area_column_formatting))  # area ha (to a set number of decimal places) 
 
     # add country info on to ha analysis results
     properties_ha = feature_info.combine(ee.Dictionary(reducer_stats_ha))
