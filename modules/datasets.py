@@ -93,7 +93,7 @@ def radd_year_prep():
     for year in range(start_year, current_year +1 ):
         #gfc_loss_year = gfc.select(['lossyear']).eq(i).And(gfc.select(['treecover2000']).gt(10))
         start = year*1000
-        end   = year*1000+365
+        end  = year*1000+365
         radd_year = radd_date.updateMask(radd_date.gte(start)).updateMask(radd_date.lte(end)).gt(0).rename("RADD_year_" +"20"+ str(year))
         
         if img_stack is None:
@@ -101,6 +101,8 @@ def radd_year_prep():
         else:
             img_stack = img_stack.addBands(radd_year)
     return img_stack
+
+
 
 # ESA_TC_2020
 def esa_worldcover_trees_prep():
@@ -111,9 +113,12 @@ def esa_worldcover_trees_prep():
 # Cocoa_bnetd
 def civ_ocs2020_prep():
     return ee.Image("projects/ee-bnetdcign2/assets/OCS_CI_2020vf").eq(9).rename("Cocoa_bnetd") # NB ask Aurelie for info on this
-    
+
+
+#### disturbances by year
+
 # TMF_def_2000 to TMF_def_2022
-def tmf_loss_per_year():
+def tmf_loss_per_year_prep():
     # Load the TMF Deforestation annual product
     tmf_def   = ee.ImageCollection('projects/JRC/TMF/v1_2022/DeforestationYear').mosaic()
     img_stack = None
@@ -125,9 +130,10 @@ def tmf_loss_per_year():
         else:
             img_stack = img_stack.addBands(tmf_def_year)
     return img_stack
-    
-# TMF_degr_2000 to TMF_degr_2022 
-def tmf_degr_per_year():
+
+
+# TMF_deg_2000 to TMF_deg_2022 
+def tmf_deg_per_year_prep():
     # Load the TMF Degradation annual product
     tmf_def   = ee.ImageCollection('projects/JRC/TMF/v1_2022/DegradationYear').mosaic()
     img_stack = None
@@ -140,8 +146,9 @@ def tmf_degr_per_year():
             img_stack = img_stack.addBands(tmf_def_year)
     return img_stack
 
+   
 # GFC_loss_year_2001 to GFC_loss_year_2023 (correct for version 11)
-def glad_gfc_loss_per_year():
+def glad_gfc_loss_per_year_prep():
     # Load the Global Forest Change dataset
     gfc = ee.Image("UMD/hansen/global_forest_change_2023_v1_11")
     img_stack = None
@@ -177,7 +184,9 @@ def modis_fire_prep():
             img_stack = img_stack.addBands(modis_year)
     return img_stack
 
-# ESA_fire_2000 to ESA_fire_< current year >
+
+
+# ESA_fire_2000 to ESA_fire_2020
 def esa_fire_prep():
     esa_fire = ee.ImageCollection("ESA/CCI/FireCCI/5_1")
     img_stack = None
@@ -192,6 +201,102 @@ def esa_fire_prep():
         else:
             img_stack = img_stack.addBands(esa_year)
     return img_stack
+
+
+
+
+#### disturbances combined (split into before and after 2020) 
+
+# RADD_after_2020
+def radd_after_2020_prep():
+    from datetime import datetime
+    radd = ee.ImageCollection('projects/radar-wur/raddalert/v1')
+    
+    radd_date = radd.filterMetadata('layer', 'contains', 'alert').select('Date').mosaic()
+    # date of avaialbility 
+    start_year = 21 ## (starts 2019 in Africa, then 2020 for S America and Asia: https://data.globalforestwatch.org/datasets/gfw::deforestation-alerts-radd/about)
+        
+    current_year = datetime.now().year % 100 # NB the % 100 part gets last two digits needed        
+    start = start_year*1000
+    end  = current_year*1000+365
+    return radd_date.updateMask(radd_date.gte(start)).updateMask(radd_date.lte(end)).gt(0).rename("RADD_after_2020")
+
+
+#TMF_deg_before_2020
+def tmf_deg_before_2020_prep():
+    tmf_deg = ee.ImageCollection('projects/JRC/TMF/v1_2022/DegradationYear').mosaic()
+    return (tmf_deg.lte(2020)).And(tmf_deg.gte(2000)).rename("TMF_deg_before_2020")
+
+#TMF_deg_after_2020
+def tmf_deg_after_2020_prep():
+    tmf_deg = ee.ImageCollection('projects/JRC/TMF/v1_2022/DegradationYear').mosaic()
+    return tmf_deg.gt(2020).rename("TMF_deg_after_2020")
+
+#TMF_loss_before_2020
+def tmf_loss_before_2020_prep():
+    tmf_loss = ee.ImageCollection('projects/JRC/TMF/v1_2022/DeforestationYear').mosaic()
+    return (tmf_loss.lte(2020)).And(tmf_loss.gte(2000)).rename("TMF_loss_before_2020")
+
+#TMF_loss_after_2020
+def tmf_loss_after_2020_prep():
+    tmf_loss = ee.ImageCollection('projects/JRC/TMF/v1_2022/DeforestationYear').mosaic()
+    return tmf_loss.gt(2020).rename("TMF_loss_after_2020")
+
+# GFC_loss_before_2020 (loss within 10 percent cover; includes 2020; correct for version 11)
+def glad_gfc_loss_before_2020_prep():
+    # Load the Global Forest Change dataset
+    gfc = ee.Image("UMD/hansen/global_forest_change_2023_v1_11")
+    gfc_loss = gfc.select(['lossyear']).lte(20).And(gfc.select(['treecover2000']).gt(10))
+    return gfc_loss.rename("GFC_loss_before_2020")
+    
+# GFC_loss_after_2020 (loss within 10 percent cover; correct for version 11)
+def glad_gfc_loss_after_2020_prep():
+    # Load the Global Forest Change dataset
+    gfc = ee.Image("UMD/hansen/global_forest_change_2023_v1_11")
+    gfc_loss = gfc.select(['lossyear']).gt(20).And(gfc.select(['treecover2000']).gt(10))
+    return gfc_loss.rename("GFC_loss_after_2020")
+
+# MODIS_fire_before_2020
+def modis_fire_before_2020_prep():
+    modis_fire = ee.ImageCollection("MODIS/061/MCD64A1")
+    start_year = 2000 
+    end_year = 2020
+    date_st = str(start_year) + "-01-01"
+    date_ed = str(end_year) + "-12-31"
+    return modis_fire.filterDate(date_st,date_ed).mosaic().select(['BurnDate']).gte(0).rename("MODIS_fire_before_2020")
+
+# MODIS_fire_after_2020
+def modis_fire_after_2020_prep():
+    modis_fire = ee.ImageCollection("MODIS/061/MCD64A1")
+    start_year = 2021 
+    end_year = datetime.now().year
+    date_st = str(start_year) + "-01-01"
+    date_ed = str(end_year) + "-12-31"
+    return modis_fire.filterDate(date_st,date_ed).mosaic().select(['BurnDate']).gte(0).rename("MODIS_fire_after_2020")
+
+# ESA_fire_before_2020
+def esa_fire_before_2020_prep():
+    esa_fire = ee.ImageCollection("ESA/CCI/FireCCI/5_1")
+    start_year = 2000 
+    end_year = 2020
+    date_st = str(start_year) + "-01-01"
+    date_ed = str(end_year) + "-12-31"
+    return esa_fire.filterDate(date_st,date_ed).mosaic().select(['BurnDate']).gte(0).rename("ESA_fire_before_2020")
+
+# def ESA_fire_after_2020_prep():
+#     start_year = 2021 
+#     end_year = datetime.now().year
+#     date_st = str(start_year) + "-01-01"
+#     date_ed = str(end_year) + "-12-31"
+#     return modis_fire.filterDate(date_st,date_ed).mosaic().select(['BurnDate']).gte(0).rename("ESA_fire_after_2020)
+
+
+# def ESA_fire_after_2020_prep():
+#     start_year = 2021 
+#     end_year = datetime.now().year
+#     date_st = str(start_year) + "-01-01"
+#     date_ed = str(end_year) + "-12-31"
+#     return modis_fire.filterDate(date_st,date_ed).mosaic().select(['BurnDate']).gte(0).rename("ESA_fire_after_2020)
 
 
 ####### handling feature datasets 
@@ -277,12 +382,25 @@ def combine_datasets():
     img_combined = img_combined.addBands(birdlife_kbas_biodiversity_prep())
     img_combined = img_combined.addBands(esa_worldcover_trees_prep())
     img_combined = img_combined.addBands(civ_ocs2020_prep()) 
-    img_combined = img_combined.addBands(tmf_loss_per_year()) # multi year
-    img_combined = img_combined.addBands(tmf_degr_per_year()) # multi year
-    img_combined = img_combined.addBands(glad_gfc_loss_per_year()) # multi year
+    img_combined = img_combined.addBands(tmf_loss_per_year_prep()) # multi year
+    img_combined = img_combined.addBands(tmf_deg_per_year_prep()) # multi year
+    img_combined = img_combined.addBands(glad_gfc_loss_per_year_prep()) # multi year
     img_combined = img_combined.addBands(radd_year_prep()) # multi year
-    img_combined = img_combined.addBands(esa_fire_prep())
-    img_combined = img_combined.addBands(modis_fire_prep())
+    img_combined = img_combined.addBands(esa_fire_prep()) # multi year
+    img_combined = img_combined.addBands(modis_fire_prep()) # multi year
+    img_combined = img_combined.addBands(glad_gfc_loss_before_2020_prep()) # multi year
+    img_combined = img_combined.addBands(glad_gfc_loss_after_2020_prep()) # multi year
+    img_combined = img_combined.addBands(esa_fire_before_2020_prep()) # combined 
+    img_combined = img_combined.addBands(modis_fire_before_2020_prep()) # combined
+    img_combined = img_combined.addBands(modis_fire_after_2020_prep()) # combined
+    img_combined = img_combined.addBands(tmf_loss_before_2020_prep()) # combined
+    img_combined = img_combined.addBands(tmf_loss_after_2020_prep())# combined
+    img_combined = img_combined.addBands(tmf_deg_before_2020_prep()) # combined
+    img_combined = img_combined.addBands(tmf_deg_after_2020_prep()) # combined
+    img_combined = img_combined.addBands(radd_after_2020_prep()) # combined
+    
+    
+    
     
     img_combined = img_combined.multiply(ee.Image.pixelArea()) # multiple all bands by pixel area
     return img_combined
