@@ -5,20 +5,21 @@ ee.Initialize()
 
 debug = True  # get print messages or not (e.g. for debugging code etc) (True or False)
 
+from parameters.config_directory import RESULTS_DIR,BACKUP_CSVS_DIR 
+
 #unit choice ("ha" or "percent")
 percent_or_ha = "ha"  
 
-out_path = os.path.join('/home/sepal-user/whisp/')
-
+out_directory = RESULTS_DIR
 
 #wide csv (main output format)
 out_csv_name = 'whisp_output_table.csv' #set output name
 
-out_csv = out_path + out_csv_name #set full path for output csv
+out_csv = out_directory / out_csv_name #set full path for output csv
 
 out_shapefile_name = "shapefile_for_ceo.shp.zip"
 
-out_shapefile = out_path + out_shapefile_name
+out_shapefile = out_directory / out_shapefile_name
 
 
 ### whisp outputs formatting
@@ -84,10 +85,8 @@ cols_ind_4_dist_after_2020 = ["RADD_after_2020", "GFC_loss_after_2020", "MODIS_f
 
 ### Temp output parameters
 
-#for storing backup/temp csv files
-temp_csvs_folder_name = "backup_csvs"
-
-temp_csvs_folder_path = out_path + temp_csvs_folder_name
+# #for storing backup/temp csv files
+temp_csvs_folder_path = BACKUP_CSVS_DIR
 
 ###################### wishlist - more options for units
 # # if need to expand units in future
