@@ -7,8 +7,13 @@ import os
 import geopandas as gpd
 import shutil
 import sys
+import pandas as pd
+
 from datetime import datetime
 # from modules.utils import buffer_point_to_required_area # to handle point features
+
+
+from parameters.config_directory import BASE_DIR,RESULTS_DIR,BACKUP_CSVS_DIR 
 
 # A lot of these could be done with decorators instead of building up functions etc
 
@@ -104,15 +109,6 @@ def register_feature_and_set_geo_id(feature,geo_id_column,token,session,asset_re
     feature_w_geo_id_property = feature.set(geo_id_column,geo_id)
     return feature_w_geo_id_property
     
-# def register_feature_and_append_to_csv(feature,geo_id_column,csv_path,csv_name,token,session,asset_registry_base,debug=True):
-#     """Registers a field boundary with the ee geometry using the AgStack API"""
-#     geo_id = feature_to_geo_id(feature,token,session,asset_registry_base,debug)
-#     system_index = feature.get('system:index').getInfo()
-    
-#     feature_w_geo_id_property = feature.set(geo_id_column,geo_id)
-#     return feature_w_geo_id_property
-
-# def write_to_csv_if_exists
 
 def feature_to_geo_id(feature, token=None, session=None, asset_registry_base="https://api-ar.agstack.org", debug=False):
     """
@@ -406,7 +402,6 @@ def check_json_geometry_type(geojson_obj):
 #     geo_json = res.json()['Geo JSON']['geometry']['coordinates']
 #     return geo_json
 
-import pandas as pd
 
 def check_inputs_same_size(fc,df,override_checks=False):
     """ Throws an error if differentb sizes and override_checks not True"""
@@ -504,7 +499,7 @@ def copy_and_rename_csv(source_file, destination_folder,delete_source):
 
     try:
         # Copy the file
-        shutil.copy(source_file, destination_path)
+        shutil.copy(source_file, destination_folder / "backup_csvs" / new_file_name)
         # os.system(cp source_file destination_path)
         print(f"Backup file copied successfully to: {destination_path}")
 
@@ -544,9 +539,10 @@ def csv_prep_and_fc_filtering(feature_col, geo_id_column, output_lookup_csv, joi
     return fc
 
 
-def register_fc_and_append_to_csv(feature_col, geo_id_column, output_lookup_csv, join_id_column, token, session, asset_registry_base, override_checks=False,remove_temp_csv=True,backup_csv_folder="backup_csvs", debug=False):
+def register_fc_and_append_to_csv(feature_col, geo_id_column, output_lookup_csv, join_id_column, token, session, asset_registry_base, override_checks=False,remove_temp_csv=True, debug=False):
     """feature collection to geo ids stored in a csv, either as a lookup table to add to other datasets (e.g. feature collections). 
     If csv exists (e.g. a lookup or whisp results) this adds in missing geo ids (so if crashes can carry on where left)"""
+    
     # Initialize an empty list to store features
     feature_list = []
 
@@ -580,9 +576,9 @@ def register_fc_and_append_to_csv(feature_col, geo_id_column, output_lookup_csv,
 
         print(f"Progress: {progress:.2f}% ({i + 1}/{total_iterations}) ", end='\r')
     
-    # back up copy in csvs folder (currently hard coded)
-    # option to delete original (e.g. if its a temp csv you want cleared)    
-    copy_and_rename_csv(source_file=output_lookup_csv,destination_folder=backup_csv_folder,delete_source=remove_temp_csv)
+    # back up copy in backup csvs folder 
+    # option to delete original (e.g. if its a temp csv that you want cleared - e.g. if appending adding directly to stats csv)    
+    # copy_and_rename_csv(source_file=output_lookup_csv,destination_folder=BACKUP_CSVS_DIR,delete_source=remove_temp_csv)
     
     return print("Done")
 
@@ -681,12 +677,15 @@ def add_geo_ids_to_csv_from_lookup_df(
     if drop_geo:
         if debug: print ("Dropping geometry column ('drop_geo' set to True)")
         input_df_w_geo_ids = input_df_w_geo_ids.drop(".geo",axis=1)   
-
+    
+    suffix = "_w_geo_id" # to add to the end of the filename
+    
     if overwrite:
         out_name = input_csv
         print ("new csv: ",  out_name)
     else:    
-        out_name = f'copy_{input_csv}'
+        out_name = f'{input_csv}'[:-4] #remove .csv
+        out_name = f'{out_name}_w_geo_id.csv' #add suffix
         print ("new csv: ",  out_name)
     
     
