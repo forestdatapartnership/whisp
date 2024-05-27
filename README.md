@@ -27,29 +27,40 @@ The Forest Data Partnership promotes a Convergence of Evidence approach for Fore
 
 4. Python Notebook implementation.
 
+More info on Whisp can be found in [here](https://unfao-my.sharepoint.com/:b:/g/personal/maria_valbuenaperez_fao_org/EZAaBgWDruZOgL39BUp3AzgBORN6X1ttWIRgO6jg0mwOfQ?e=MWfVcb)
+
 ## How to Whisp Your Data Using the Python Notebook Pathway
+
+### Requirements
+
+- A Sepal account.
+- A Google Earth Engine (GEE) account.
+- A registered cloud GEE project.
+- Some experience in Python or a similar language.
+
+The Python notebooks are currently set up to run in Sepal and to focus on polygon data provided by the user or geo_ids that allow the notebooks to access polygons stored and registered in the Asset Registry. NB: We value your feedback in terms of what input data we should support.
 
 If your data is available as a feature collection and the GitHub repo is cloned, you are ready to start processing. We suggest first familiarizing yourself with running the notebooks using the default inputs in the notebook code. This will allow you to understand the expected outputs and the general functionality, as well as check if the setup worked successfully.
 
 ### Whisping a Feature Collection
 
 1. Open Jupyter Lab (see Apps).
-2. Open the notebook `whisp_feature_collection.ipynb` from inside your Whisp folder. If you wish to view the original in GitHub, see [here](link_to_github).
-3. To run the notebook cells, press the Play icon, or use the Shift + Enter shortcut. For more info on Jupyter and controlling notebooks, see [here](link_to_jupyter_info).
-4. You can change the ROI to point to your own feature collection data instead of the default input feature collection asset.
+2. Open the notebook `whisp_feature_collection.ipynb` from inside your Whisp folder. If you wish to view the original in GitHub, see [here](https://github.com/forestdatapartnership/whisp/blob/main/whisp_feature_collection.ipynb).
+3. To run the notebook cells, press the Play icon, or use the Shift + Enter shortcut. For more info on Jupyter and controlling notebooks, see [here](https://jupyter.org/try-jupyter/lab/).
+4. You can change the ROI (region of interest) to point to your own feature collection data instead of the default input feature collection asset.
 5. The outputs from the notebook will appear in your output folder (outside the Whisp repository folder).
-6. Outputs from the process include a CSV file `whisp_output_stats_table.csv`.
-7. If registering features in the Asset Registry, a temporary CSV will be created called `temp_geo_id_lookup.csv`. This file stores geo_ids so they can be joined to whisp output tables, or the input feature collection, via a unique id (`system:index`).
-8. If the processing job is large, outputs may be sent to your Google drive, or stored as GEE assets.
+6. Outputs from the process include a CSV file `whisp_output_table.csv`.
+7. NB If the processing job is large (currently defined as such if it has over 500 features), the Whisp output may be sent to your Google drive, or stored as GEE assets. We are developing functionality to upload
 
-### Adding Geo IDs to Your Plots (Optional)
-
-1. After the main Whisp process, there are some optional steps for adding geo_ids to each of the features in your feature collection. This uses functionality from the Asset Registry API.
-2. Currently, the process of registering a plot takes about 2-3 seconds. The speed of this external API should increase in the future. In the meantime, we use the approach of creating a lookup table containing geo-ids for each feature. These are joined to the CSV output of Whisp via a common id. The common id used currently is the `system:index` (as this is a property present in every GEE feature collection).
-3. This approach is useful when registering large numbers of features/plots, as if the process is interrupted (e.g., if a bug occurs or the SEPAL instance times out), the lookup CSV still contains all the geo ids processed until this point. Therefore, the process automatically continues from where it stopped when this cell is rerun.
-4. This lookup table of Geo IDs is then appended to the results from Whisp.
-5. If required, there are additional functions outside of this notebook that can also be applied to add Geo IDs to the original feature collection prior to running the Whisp statistics.
-6. Finally, functions at the end of the notebook allow the user to add EUDR risk indicators to the table. NB: these risk indicators are still at the experimental stage.
+### Adding Geo IDs to your results (Optional)
+1. After the main Whisp process, there are some optional steps for adding geo_ids to each of the features in your feature collection. This uses functionality from the Asset Registry API (see https://asset-registry.agstack.org/ for details).
+2. Currently, the process of registering a plot takes about 2-3 seconds. The speed of this external API should increase in the future. In the meantime, we use the approach of creating a lookup table (a temporary CSV called `temp_geo_id_lookup.csv`) containing geo-ids for each feature.  This can then be joined to the CSV output of Whisp (i.e., `whisp_output_table.csv`) via a common id (currently the `system:index` as this is a property present in every GEE feature collection). The notebook is set up to create a new version of the results with the Geo ID column appended : `whisp_output_table_w_geo_ids.csv`, but the output name is easily changed e.g. to overwrite the original output table if preferred.
+3.  This file stores geo_ids along with a unique id (`system:index`) from the feature collection. This system:index column can then be used to join the Geo IDs column on to the Whisp output table (`whisp_output_table.csv`). Similarly the lookup can also be used to join Geo IDs to the input feature collection.
+4. This approach is useful when registering large numbers of features/plots, as if the process is interrupted (e.g., if a bug occurs or the SEPAL instance times out), the lookup CSV still contains all the geo ids processed until this point. Therefore, the process automatically continues from where it stopped when this cell is rerun.
+5. This lookup table of Geo IDs is then appended to the results from Whisp.
+   
+### Adding risk indicators to your results  
+7. Finally, functions at the end of the notebook allow the user to add EUDR risk indicators to the table. NB: these risk indicators are still at the experimental stage.
 
 ### Intermediate Output
 
@@ -97,14 +108,7 @@ Key files:
 
 ## Setting Up Your System
 
-### Requirements
 
-- A Sepal account.
-- A Google Earth Engine (GEE) account.
-- A registered cloud GEE project.
-- Some experience in Python or a similar language.
-
-The Python notebooks are currently set up to focus on polygon data provided by the user or geo_ids that allow the notebooks to access polygons stored and registered in the Asset Registry. NB: We value your feedback in terms of what input data we should support.
 
 ### Setting Up SEPAL
 
