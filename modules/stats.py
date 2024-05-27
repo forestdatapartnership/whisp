@@ -6,44 +6,6 @@ from parameters.config_runtime import percent_or_ha, plot_id_column, geometry_ty
 
 import functools
 
-##
-
-# Function to reorder properties 
-def reorder_properties(feature, order):
-    properties = {key: feature.get(key) for key in order}
-    return ee.Feature(feature.geometry(), properties) 
-
-# Function to add ID to features
-def add_id_to_feature(feature, join):
-    index = feature.get('system:index')
-    return feature.set(id_name, index)
-
-# Function to flag positive values
-def flag_positive_values(feature,flag_positive):
-    for prop_name in flag_positive:
-        flag_value = ee.Algorithms.If(ee.Number(feature.get(prop_name)).gt(0), 'True', '-')
-        feature = feature.set(prop_name, flag_value)
-    return feature
-
-# Function to round properties to whole numbers
-def round_properties_to_whole_numbers(feature,round_properties):
-    for prop_name in round_properties:
-        prop_value = feature.get(prop_name)
-        prop_value_rounded = ee.Number(prop_value).round()
-        feature = feature.set(prop_name, prop_value_rounded)
-    return feature
-
-# Function to exclude properties
-def copy_properties_and_exclude(feature,exclude_properties):
-    return ee.Feature(feature.geometry()).copyProperties(source=feature, exclude=exclude_properties)
-
-
-# # Function to select and rename properties
-# def select_and_rename_properties(feature):
-#     first_feature = ee.Feature(feature_collection.first())
-#     property_names = first_feature.propertyNames().getInfo()
-#     new_property_names = [prop.replace('_', ' ') for prop in property_names]
-#     return feature.select(property_names, new_property_names)
 
 ########################################
 ### geoboundaries - freqently updated database, allows commercial use (CC BY 4.0 DEED) (disputed territories may need checking)
@@ -64,7 +26,10 @@ def get_gadm_info(geometry):
     polygonsIntersectPoint = gadm.filterBounds(geometry);
     return	ee.Algorithms.If(polygonsIntersectPoint.size().gt(0), polygonsIntersectPoint.first().toDictionary().select(["GID_0","COUNTRY"]) ,	None );
 
-###################
+
+
+
+################### main stats functions
     
 def get_stats(feature_or_feature_col):
     # Check if the input is a Feature or a FeatureCollection
@@ -182,41 +147,8 @@ def get_stats_feature(feature):
     return out_feature
 
 
-def add_id_to_feature_collection(dataset,id_name="PlotID"):
-    """
-    Adds an incremental (1,2,3 etc) 'id' property to each feature in the given FeatureCollection.
 
-    Args:
-    - dataset: ee.FeatureCollection, the FeatureCollection to operate on.
-
-    Returns:
-    - dataset_with_id: ee.FeatureCollection, the FeatureCollection with 'id' property added to each feature.
-    """
-    # Get the list of system:index values
-    indexes = dataset.aggregate_array('system:index')
-    
-    # Create a sequence of numbers starting from 1 to the size of indexes
-    ids = ee.List.sequence(1, indexes.size())
-    
-    # Create a dictionary mapping system:index to id
-    id_by_index = ee.Dictionary.fromLists(indexes, ids)
-    
-    # Function to add 'id' property to each feature
-    def add_id(feature):
-        # Get the system:index of the feature
-        system_index = feature.get('system:index')
-        
-        # Get the id corresponding to the system:index
-        feature_id = id_by_index.get(system_index)
-        
-        # Set the 'id' property of the feature
-        return feature.set(id_name, feature_id)
-    
-    # Map the add_id function over the dataset
-    dataset_with_id = dataset.map(add_id)
-    
-    return dataset_with_id
-
+############3
 
     
 def reformat_whisp_fc(feature_collection, 
@@ -299,3 +231,83 @@ def stats_formatter_decorator(func):
 def get_stats_formatted(feature_or_feature_col, **kwargs) -> ee.FeatureCollection:
     fc = get_stats(feature_or_feature_col)
     return fc
+
+
+
+
+##tidying functions
+
+
+def add_id_to_feature_collection(dataset,id_name="PlotID"):
+    """
+    Adds an incremental (1,2,3 etc) 'id' property to each feature in the given FeatureCollection.
+
+    Args:
+    - dataset: ee.FeatureCollection, the FeatureCollection to operate on.
+
+    Returns:
+    - dataset_with_id: ee.FeatureCollection, the FeatureCollection with 'id' property added to each feature.
+    """
+    # Get the list of system:index values
+    indexes = dataset.aggregate_array('system:index')
+    
+    # Create a sequence of numbers starting from 1 to the size of indexes
+    ids = ee.List.sequence(1, indexes.size())
+    
+    # Create a dictionary mapping system:index to id
+    id_by_index = ee.Dictionary.fromLists(indexes, ids)
+    
+    # Function to add 'id' property to each feature
+    def add_id(feature):
+        # Get the system:index of the feature
+        system_index = feature.get('system:index')
+        
+        # Get the id corresponding to the system:index
+        feature_id = id_by_index.get(system_index)
+        
+        # Set the 'id' property of the feature
+        return feature.set(id_name, feature_id)
+    
+    # Map the add_id function over the dataset
+    dataset_with_id = dataset.map(add_id)
+    
+    return dataset_with_id
+
+
+# Function to reorder properties 
+def reorder_properties(feature, order):
+    properties = {key: feature.get(key) for key in order}
+    return ee.Feature(feature.geometry(), properties) 
+
+# Function to add ID to features
+def add_id_to_feature(feature, join):
+    index = feature.get('system:index')
+    return feature.set(id_name, index)
+
+# Function to flag positive values
+def flag_positive_values(feature,flag_positive):
+    for prop_name in flag_positive:
+        flag_value = ee.Algorithms.If(ee.Number(feature.get(prop_name)).gt(0), 'True', '-')
+        feature = feature.set(prop_name, flag_value)
+    return feature
+
+# Function to round properties to whole numbers
+def round_properties_to_whole_numbers(feature,round_properties):
+    for prop_name in round_properties:
+        prop_value = feature.get(prop_name)
+        prop_value_rounded = ee.Number(prop_value).round()
+        feature = feature.set(prop_name, prop_value_rounded)
+    return feature
+
+# Function to exclude properties
+def copy_properties_and_exclude(feature,exclude_properties):
+    return ee.Feature(feature.geometry()).copyProperties(source=feature, exclude=exclude_properties)
+
+
+# # Function to select and rename properties
+# def select_and_rename_properties(feature):
+#     first_feature = ee.Feature(feature_collection.first())
+#     property_names = first_feature.propertyNames().getInfo()
+#     new_property_names = [prop.replace('_', ' ') for prop in property_names]
+#     return feature.select(property_names, new_property_names)
+
