@@ -211,7 +211,6 @@ def shapefile_to_ee_feature_collection(shapefile_path):
     NB Making this as existing Geemap function shp_to_ee wouldnt work.
     Args:
     - shapefile_path (str): Path to the shapefile (.zip) to be converted.
-    - geo_id_column (str): Name of the column to be used as the GeoID.
 
     Returns:
     - ee.FeatureCollection: Earth Engine FeatureCollection created from the shapefile.
@@ -228,6 +227,37 @@ def shapefile_to_ee_feature_collection(shapefile_path):
 
     # Create a FeatureCollection from GeoJSON
     roi = ee.FeatureCollection(json.loads(geo_json))
+    roi = ee.FeatureCollection(json)
+    
+
+    return roi
+    
+
+
+
+def shapefile_to_ee_feature_collection(shapefile_path):
+    """
+    Convert a zipped shapefile to an Earth Engine FeatureCollection.
+    NB Making this as existing Geemap function shp_to_ee wouldnt work.
+    Args:
+    - shapefile_path (str): Path to the shapefile (.zip) to be converted.
+    - geo_id_column (str): Name of the column to be used as the GeoID.
+
+    Returns:
+    - ee.FeatureCollection: Earth Engine FeatureCollection created from the shapefile.
+    """
+    # Unzip the shapefile
+    # with zipfile.ZipFile(shapefile_path, "r") as zip_ref:
+    #     zip_ref.extractall("shapefile")
+
+    # Load the shapefile into a GeoDataFrame
+    gdf = gpd.read_file(shapefile_path)#"shapefile/test_ceo_all.shp")
+
+    # Convert GeoDataFrame to GeoJSON
+    geo_json = gdf.to_json()
+
+    # Create a FeatureCollection from GeoJSON
+    roi = ee.FeatureCollection(json)
 
     return roi
 
