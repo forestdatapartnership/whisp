@@ -223,6 +223,24 @@ def radd_after_2020_prep():
     return radd_date.updateMask(radd_date.gte(start)).updateMask(radd_date.lte(end)).gt(0).rename("RADD_after_2020")
 
 
+# # RADD_before_2020
+# def radd_before_2020_prep():
+#     from datetime import datetime
+#     radd = ee.ImageCollection('projects/radar-wur/raddalert/v1')
+    
+#     radd_date = radd.filterMetadata('layer', 'contains', 'alert').select('Date').mosaic()
+#     # date of avaialbility 
+#     start_year = 19 ## (starts 2019 in Africa, then 2020 for S America and Asia: https://data.globalforestwatch.org/datasets/gfw::deforestation-alerts-radd/about)
+        
+#     # current_year = datetime.now().year % 100 # NB the % 100 part gets last two digits needed 
+    
+#     start = start_year*1000
+#     end  = 20*1000+365
+#     return radd_date.updateMask(radd_date.gte(start)).updateMask(radd_date.lte(end)).gt(0).rename("RADD_after_2020")
+
+
+
+
 #TMF_deg_before_2020
 def tmf_deg_before_2020_prep():
     tmf_deg = ee.ImageCollection('projects/JRC/TMF/v1_2022/DegradationYear').mosaic()
