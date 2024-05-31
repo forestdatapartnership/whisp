@@ -35,9 +35,9 @@ stats_unit_type_column = "Unit"
 
 country_column = "Country"
 
-centroid_x_coord_column = "Centroid_lat" 
+centroid_x_coord_column = "Centroid_lon" 
 
-centroid_y_coord_column = "Centroid_lon"
+centroid_y_coord_column = "Centroid_lat"
 
 geo_id_column = "Geo_id"
 

@@ -205,7 +205,7 @@ def wkt_to_geo_id(wkt, token=None, session=None, asset_registry_base="https://ap
     return res
 
 
-def shapefile_to_ee_feature_collection(shapefile_path):
+def shapefile_to_ee(shapefile_path):
     """
     Convert a zipped shapefile to an Earth Engine FeatureCollection.
     NB Making this as existing Geemap function shp_to_ee wouldnt work.
@@ -227,39 +227,144 @@ def shapefile_to_ee_feature_collection(shapefile_path):
 
     # Create a FeatureCollection from GeoJSON
     roi = ee.FeatureCollection(json.loads(geo_json))
-    roi = ee.FeatureCollection(json)
-    
 
     return roi
-    
 
 
-
-def shapefile_to_ee_feature_collection(shapefile_path):
+def ee_to_shapefile(feature_collection, shapefile_path):
     """
-    Convert a zipped shapefile to an Earth Engine FeatureCollection.
-    NB Making this as existing Geemap function shp_to_ee wouldnt work.
-    Args:
-    - shapefile_path (str): Path to the shapefile (.zip) to be converted.
-    - geo_id_column (str): Name of the column to be used as the GeoID.
+    Export an Earth Engine FeatureCollection to a shapefile.
+
+    Parameters:
+    - feature_collection: Earth Engine FeatureCollection to be exported.
+    - shapefile_path: Path to save the shapefile.
 
     Returns:
-    - ee.FeatureCollection: Earth Engine FeatureCollection created from the shapefile.
+    - Path to the saved shapefile.
     """
-    # Unzip the shapefile
-    # with zipfile.ZipFile(shapefile_path, "r") as zip_ref:
-    #     zip_ref.extractall("shapefile")
 
-    # Load the shapefile into a GeoDataFrame
-    gdf = gpd.read_file(shapefile_path)#"shapefile/test_ceo_all.shp")
+    # Initialize Earth Engine
+    ee.Initialize()
 
-    # Convert GeoDataFrame to GeoJSON
-    geo_json = gdf.to_json()
+    # Convert FeatureCollection to GeoJSON
+    geojson_str = feature_collection.getInfo()
 
-    # Create a FeatureCollection from GeoJSON
-    roi = ee.FeatureCollection(json)
+    # Save GeoJSON to file
+    local_folder, shapefile_name = os.path.split(shapefile_path)
+    geojson_path = os.path.join(local_folder, f"{shapefile_name}.geojson")
+    with open(geojson_path, 'w') as f:
+        json.dump(geojson_str, f)
 
-    return roi
+    # Read GeoJSON into GeoDataFrame
+    gdf = gpd.read_file(geojson_path)
+
+    # Save GeoDataFrame as shapefile
+    gdf.to_file(shapefile_path, driver='ESRI Shapefile')
+
+    print(f'Shapefile saved to {shapefile_path}')
+
+    return shapefile_path
+
+# adapted from geemap version https://geemap.org/common/#geemap.common.geojson_to_ee
+## but to work on geojson path and remove altitiude
+def geojson_to_ee(file_path_geojson, geodesic=False, encoding="utf-8"):
+    """
+    Converts a geojson file to ee.FeatureCollection or ee.Geometry, stripping altitude information.
+
+    Args:
+        file_path_geojson (str): The file path to a geojson file.
+        geodesic (bool, optional): Whether line segments should be interpreted as spherical geodesics. Defaults to False.
+        encoding (str, optional): The encoding of the geojson file. Defaults to "utf-8".
+
+    Returns:
+        ee_object: An ee.FeatureCollection or ee.Geometry object.
+    """
+
+    try:
+        # Read the geojson file
+        with open(os.path.abspath(file_path_geojson), encoding=encoding) as f:
+            geo_json = json.load(f)
+
+        # Helper function to remove altitude from coordinates
+        def remove_altitude(coords):
+            if isinstance(coords[0], list):  # Multi-coordinates
+                return [remove_altitude(coord) for coord in coords]
+            else:
+                return coords[:2]  # Keep only the first two elements (longitude and latitude)
+
+        # Handle the geojson
+        if geo_json["type"] == "FeatureCollection":
+            for feature in geo_json["features"]:
+                feature["geometry"]["coordinates"] = remove_altitude(feature["geometry"]["coordinates"])
+                if feature["geometry"]["type"] != "Point":
+                    feature["geometry"]["geodesic"] = geodesic
+            features = ee.FeatureCollection(geo_json)
+            return features
+
+        elif geo_json["type"] == "Feature":
+            geom = None
+            geometry = geo_json["geometry"]
+            geometry["coordinates"] = remove_altitude(geometry["coordinates"])
+            geom_type = geometry["type"]
+            if geom_type == "Point":
+                geom = ee.Geometry.Point(geometry["coordinates"])
+            else:
+                geom = ee.Geometry(geometry, "", geodesic)
+            return geom
+
+        elif geo_json["type"] == "GeometryCollection":
+            geometries = geo_json["geometries"]
+            for geometry in geometries:
+                geometry["coordinates"] = remove_altitude(geometry["coordinates"])
+            ee_geometries = [ee.Geometry(geometry) for geometry in geometries]
+            return ee.FeatureCollection(ee_geometries)
+
+        else:
+            raise Exception("Could not convert the geojson to ee.Geometry() or ee.FeatureCollection()")
+
+    except Exception as e:
+        print("Could not convert the geojson to ee.Geometry() or ee.FeatureCollection()")
+        raise Exception(e)
+
+
+def geojson_to_shapefile(geojson_path, shapefile_output_path):
+    """
+    Convert a GeoJSON file to a Shapefile and save it to a file.
+
+    Parameters:
+    - geojson_path: Path to the GeoJSON file.
+    - shapefile_output_path: Path where the Shapefile will be saved.
+    """
+    # Read the GeoJSON file
+    with open(geojson_path, 'r') as geojson_file:
+        geojson = json.load(geojson_file)
+    
+    # Convert to GeoDataFrame
+    gdf = gpd.GeoDataFrame.from_features(geojson['features'])
+    
+    # Save to Shapefile
+    gdf.to_file(shapefile_output_path, driver='ESRI Shapefile')
+
+
+
+def shapefile_to_geojson(shapefile_path, geojson_output_path):
+    """
+    Convert a Shapefile to GeoJSON and save it to a file.
+
+    Parameters:
+    - shapefile_path: Path to the Shapefile.
+    - geojson_output_path: Path where the GeoJSON file will be saved.
+    """
+    # Read the Shapefile
+    gdf = gpd.read_file(shapefile_path)
+
+    # Convert to GeoJSON
+    geojson_str = gdf.to_json()
+
+    # Write the GeoJSON string to a file
+    with open(geojson_output_path, 'w') as geojson_file:
+        geojson_file.write(geojson_str)
+
 
 
 def feature_to_wkt(feature):
@@ -501,17 +606,6 @@ def update_geo_id_in_csv(output_lookup_csv,system_index, geo_id_column,new_geo_i
     df.to_csv(output_lookup_csv, index=False)
 
 
-def register_feature_and_append_to_csv(feature,geo_id_column,output_lookup_csv,join_id_column,token,session,asset_registry_base,debug=True):
-    """Registers a field boundary with the ee geometry using the AgStack API"""
-    new_geo_id = feature_to_geo_id(feature,token,session,asset_registry_base,debug)
-    
-    system_index = feature.get(join_id_column).getInfo()
-    
-    update_geo_id_in_csv(output_lookup_csv,system_index,geo_id_column, new_geo_id,join_id_column)
-    # feature_w_geo_id_property = feature.set(geo_id_column,geo_id)
-    
-    if debug: print(new_geo_id, "for" , join_id_column ," added to " ,output_lookup_csv, end='\r')
-
 
 def copy_and_rename_csv(source_file, destination_folder,delete_source):
     """"copies and auto renames csv but with option to delete original"""
@@ -568,31 +662,53 @@ def csv_prep_and_fc_filtering(feature_col, geo_id_column, output_lookup_csv, joi
         
     return fc
 
+def column_empty_check(df,column):
+    """returns true if column in df has no values (and false if has values)"""
+    ## parameters:
+    ## df: the dataframe variable
+    ## column name: String
+    
+    return df[column].isnull().values.all()
 
 def register_fc_and_append_to_csv(feature_col, geo_id_column, output_lookup_csv, join_id_column, token, session, asset_registry_base, override_checks=False,remove_temp_csv=True, debug=False):
     """feature collection to geo ids stored in a csv, either as a lookup table to add to other datasets (e.g. feature collections). 
     If csv exists (e.g. a lookup or whisp results) this adds in missing geo ids (so if crashes can carry on where left)"""
-    
+    if column_exists_in_feature_collection(feature_col,geo_id_column):
+        print ("Warning: geo id column already exists in input")
+        
     # Initialize an empty list to store features
     feature_list = []
-
+    print (f"Chosen path for temp lookup csv:{output_lookup_csv} \n")
     #checks and fc filtering
     fc = csv_prep_and_fc_filtering(feature_col, geo_id_column, output_lookup_csv, join_id_column, override_checks=override_checks, debug=debug)
+    
+    #check if temp csv has empty row for geo id
+    column_empty_boolean = column_empty_check(pd.read_csv(output_lookup_csv),geo_id_column)
     
     # Convert the FeatureCollection to a list
     feature_col_list = fc.toList(feature_col.size())
 
     total_iterations = feature_col_list.size().getInfo()
     
-    if debug: print (f"Number without geo ids:{total_iterations}. \n Processing started...")
+    #checks
+    if total_iterations == 0 and column_empty_boolean == True:
+        print ("Warning: No iterations left to run and geo id column empty. \n Joins may not be working - please log this in 'Issues' in github")
+
+    if debug: print (f"Number without geo ids:{total_iterations}")
+    
+    
+    if total_iterations == 0: 
+        print("All geo ids present in lookup csv")
+    elif total_iterations >0:
+        print("Processing started...")       
         
     # loop over each feature in the list
     for i in range(total_iterations):
 
         feature = ee.Feature(feature_col_list.get(i))
         
-        try:
-            register_feature_and_append_to_csv(feature,geo_id_column,output_lookup_csv,join_id_column,token,session,asset_registry_base,debug)
+        #using the helper function for single features
+        try:  register_feature_and_append_to_csv(feature,geo_id_column,output_lookup_csv,join_id_column,token,session,asset_registry_base,debug)
         except KeyboardInterrupt:
             raise ValueError("KeyboardInterrupt")
                        
@@ -605,17 +721,30 @@ def register_fc_and_append_to_csv(feature_col, geo_id_column, output_lookup_csv,
         progress = (i + 1) / total_iterations * 100
 
         print(f"Progress: {progress:.2f}% ({i + 1}/{total_iterations}) ", end='\r')
+       
+    return print("Done \n")
+
+
+
+
+
+# helper function for single features only - used in a loop in "register_fc_and_append_to_csv"
+def register_feature_and_append_to_csv(feature,geo_id_column,output_lookup_csv,join_id_column,token,session,asset_registry_base,debug=True):
+    """Registers a field boundary with the ee geometry using the AgStack API"""
+    new_geo_id = feature_to_geo_id(feature,token,session,asset_registry_base,debug)
     
-    # back up copy in backup csvs folder 
-    # option to delete original (e.g. if its a temp csv that you want cleared - e.g. if appending adding directly to stats csv)    
-    # copy_and_rename_csv(source_file=output_lookup_csv,destination_folder=BACKUP_CSVS_DIR,delete_source=remove_temp_csv)
+    system_index = feature.get(join_id_column).getInfo()
     
-    return print("Done")
+    update_geo_id_in_csv(output_lookup_csv,system_index,geo_id_column, new_geo_id,join_id_column)
+    # feature_w_geo_id_property = feature.set(geo_id_column,geo_id)
+    
+    if debug: print(new_geo_id, "for" , join_id_column ," added to " ,output_lookup_csv, end='\r')
+
 
 
 def add_geo_ids_to_feature_col_from_lookup_df(fc,df,join_id_column="system:index",geo_id_column="Geo_id",override_checks=False,remove_other_properties=False,
                                               debug=False):
-    
+
     check_inputs_same_size(fc, df, override_checks) 
     
     df = df.loc[:, [join_id_column, geo_id_column]]
@@ -635,6 +764,32 @@ def add_geo_ids_to_feature_col_from_lookup_df(fc,df,join_id_column="system:index
     
     return out_fc
     
+
+
+def column_exists_in_feature_collection(feature_collection, column_name):
+    """
+    Check if a column exists in a Google Earth Engine FeatureCollection.
+
+    Args:
+        feature_collection (ee.FeatureCollection): The FeatureCollection to check.
+        column_name (str): The name of the column to check for.
+
+    Returns:
+        bool: True if the column exists, False otherwise.
+    """
+    try:
+        # Get the first feature in the collection
+        first_feature = feature_collection.first()
+        
+        # Get the property names of the first feature
+        property_names = first_feature.propertyNames().getInfo()
+        
+        # Check if the column name is in the list of property names
+        return column_name in property_names
+    except Exception as e:
+        print(f"Error checking column existence: {e}")
+        return False
+
 
 def add_geo_ids_to_feature_col_from_lookup_csv(fc,csv,join_id_column="system:index",geo_id_column="Geo_id",override_checks=False,remove_other_properties=False,debug=False):
     df = pd.read_csv(csv)
@@ -749,5 +904,22 @@ def add_geo_ids_to_csv_from_lookup_csv(input_csv,
     )
 
     return None   
+
+
+def drop_property_from_feature_collection(feature_collection, property_name):
+    """
+    Drop a specified property from all features in a FeatureCollection.
+
+    Parameters:
+    - feature_collection: The ee.FeatureCollection from which to drop the property.
+    - property_name: The name of the property to drop.
+
+    Returns:
+    - A new ee.FeatureCollection with the specified property removed.
+    """
+    def drop_property(feature):
+        return feature.select(feature.propertyNames().remove(property_name))
+
+    return feature_collection.map(drop_property)
 
 
