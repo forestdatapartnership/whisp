@@ -28,7 +28,11 @@ from modules.agstack_to_gee import (
     add_empty_column_to_csv,
     remove_column_from_csv,
     geo_id_or_ids_to_feature_collection,
-    shapefile_to_ee_feature_collection,
+    shapefile_to_ee,
+    ee_to_shapefile,
+    geojson_to_ee, 
+    geojson_to_shapefile,
+    shapefile_to_geojson,
     register_fc_and_set_geo_id,
     add_geo_ids_to_feature_col_from_lookup_df,
 )
@@ -58,7 +62,7 @@ from parameters.config_runtime import (
     geo_id_column,
     out_directory,
     out_csv,
-    out_shapefile,
+    out_shapefile, #to check
     cols_ind_1_treecover,
     cols_ind_2_commodities,
     cols_ind_3_dist_before_2020,
@@ -70,6 +74,7 @@ from parameters.config_runtime import (
     keep_system_index,
     keep_original_properties,
     prefix_columns_list,
+    threshold_to_drive,
 )
 from parameters.config_asr_url_info import (
     asset_registry_base,
@@ -79,6 +84,7 @@ from parameters.config_asr_credentials import (
     email,
     password,
 )
+from config_gee import gee_cloud_project
 
 # Additional custom module imports
 session = start_agstack_session(email, password, user_registry_base)
