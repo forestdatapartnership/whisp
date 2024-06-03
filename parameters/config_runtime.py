@@ -9,11 +9,12 @@ from parameters.config_directory import RESULTS_DIR,BACKUP_CSVS_DIR
 
 
 ## unit choice ("ha" or "percent")
-percent_or_ha = "percent"  
+percent_or_ha = "ha"  
 
 out_directory = RESULTS_DIR
 
 
+threshold_to_drive = 500 #default 500 - whisping anything over this many features will go to drive 
 
 ### main outputs (main output format)
 out_csv_name = 'whisp_output_table.csv' #set output name
@@ -35,9 +36,9 @@ stats_unit_type_column = "Unit"
 
 country_column = "Country"
 
-centroid_x_coord_column = "Centroid_lat" 
+centroid_x_coord_column = "Centroid_lon" 
 
-centroid_y_coord_column = "Centroid_lon"
+centroid_y_coord_column = "Centroid_lat"
 
 geo_id_column = "Geo_id"
 
@@ -85,10 +86,10 @@ cols_ind_1_treecover = ['EUFO_2020','GLAD_Primary', 'TMF_undist', 'JAXA_FNF_2020
 cols_ind_2_commodities = ['TMF_plant', 'Oil_palm_Descals', 'Oil_palm_FDaP', 'Cocoa_ETH', 'Cocoa_bnetd']
 
 # disturbance before 2020
-cols_ind_3_dist_before_2020= ["GFC_loss_before_2020", "MODIS_fire_before_2020", "TMF_deg_before_2020", "TMF_loss_before_2020"]
+cols_ind_3_dist_before_2020= ["GFC_loss_before_2020", "MODIS_fire_before_2020", "TMF_deg_before_2020", "TMF_def_before_2020"]
 
 # disturbance after 2020
-cols_ind_4_dist_after_2020 = ["RADD_after_2020", "GFC_loss_after_2020", "MODIS_fire_after_2020", "TMF_deg_after_2020", "TMF_loss_after_2020"]
+cols_ind_4_dist_after_2020 = ["RADD_after_2020", "GFC_loss_after_2020", "MODIS_fire_after_2020", "TMF_deg_after_2020", "TMF_def_after_2020"]
 
 
 ### Temp output parameters
