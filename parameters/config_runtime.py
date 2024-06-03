@@ -14,6 +14,7 @@ percent_or_ha = "percent"
 out_directory = RESULTS_DIR
 
 
+threshold_to_drive = 500 #default 500 - whisping anything over this many features will go to drive 
 
 ### main outputs (main output format)
 out_csv_name = 'whisp_output_table.csv' #set output name
