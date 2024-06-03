@@ -119,7 +119,7 @@ def civ_ocs2020_prep():
 #### disturbances by year
 
 # TMF_def_2000 to TMF_def_2022
-def tmf_loss_per_year_prep():
+def tmf_def_per_year_prep():
     # Load the TMF Deforestation annual product
     tmf_def   = ee.ImageCollection('projects/JRC/TMF/v1_2022/DeforestationYear').mosaic()
     img_stack = None
@@ -251,15 +251,15 @@ def tmf_deg_after_2020_prep():
     tmf_deg = ee.ImageCollection('projects/JRC/TMF/v1_2022/DegradationYear').mosaic()
     return tmf_deg.gt(2020).rename("TMF_deg_after_2020")
 
-#TMF_loss_before_2020
-def tmf_loss_before_2020_prep():
-    tmf_loss = ee.ImageCollection('projects/JRC/TMF/v1_2022/DeforestationYear').mosaic()
-    return (tmf_loss.lte(2020)).And(tmf_loss.gte(2000)).rename("TMF_loss_before_2020")
+#tmf_def_before_2020
+def tmf_def_before_2020_prep():
+    tmf_def = ee.ImageCollection('projects/JRC/TMF/v1_2022/DeforestationYear').mosaic()
+    return (tmf_def.lte(2020)).And(tmf_def.gte(2000)).rename("TMF_def_before_2020")
 
-#TMF_loss_after_2020
-def tmf_loss_after_2020_prep():
-    tmf_loss = ee.ImageCollection('projects/JRC/TMF/v1_2022/DeforestationYear').mosaic()
-    return tmf_loss.gt(2020).rename("TMF_loss_after_2020")
+#tmf_def_after_2020
+def tmf_def_after_2020_prep():
+    tmf_def = ee.ImageCollection('projects/JRC/TMF/v1_2022/DeforestationYear').mosaic()
+    return tmf_def.gt(2020).rename("TMF_def_after_2020")
 
 # GFC_loss_before_2020 (loss within 10 percent cover; includes 2020; correct for version 11)
 def glad_gfc_loss_before_2020_prep():
@@ -406,7 +406,7 @@ def combine_datasets():
     img_combined = img_combined.addBands(try_access(birdlife_kbas_biodiversity_prep))
     img_combined = img_combined.addBands(try_access(esa_worldcover_trees_prep))
     img_combined = img_combined.addBands(try_access(civ_ocs2020_prep)) 
-    img_combined = img_combined.addBands(try_access(tmf_loss_per_year_prep)) # multi year
+    img_combined = img_combined.addBands(try_access(tmf_def_per_year_prep)) # multi year
     img_combined = img_combined.addBands(try_access(tmf_deg_per_year_prep)) # multi year
     img_combined = img_combined.addBands(try_access(glad_gfc_loss_per_year_prep)) # multi year
     img_combined = img_combined.addBands(try_access(radd_year_prep)) # multi year
@@ -417,8 +417,8 @@ def combine_datasets():
     img_combined = img_combined.addBands(try_access(esa_fire_before_2020_prep)) # combined 
     img_combined = img_combined.addBands(try_access(modis_fire_before_2020_prep)) # combined
     img_combined = img_combined.addBands(try_access(modis_fire_after_2020_prep)) # combined
-    img_combined = img_combined.addBands(try_access(tmf_loss_before_2020_prep)) # combined
-    img_combined = img_combined.addBands(try_access(tmf_loss_after_2020_prep))# combined
+    img_combined = img_combined.addBands(try_access(tmf_def_before_2020_prep)) # combined
+    img_combined = img_combined.addBands(try_access(tmf_def_after_2020_prep))# combined
     img_combined = img_combined.addBands(try_access(tmf_deg_before_2020_prep)) # combined
     img_combined = img_combined.addBands(try_access(tmf_deg_after_2020_prep)) # combined
     img_combined = img_combined.addBands(try_access(radd_after_2020_prep)) # combined
