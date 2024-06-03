@@ -568,6 +568,23 @@ def create_csv_from_list(join_id_column,data_list, output_lookup_csv):
     df.to_csv(output_lookup_csv, index=False)
 
 
+# def get_system_index_vals_w_missing_geo_ids(df, geo_id_column, join_id_column): 
+#     """
+#     Extracts values from join_id_column where geo_id_column is NaN.
+
+#     Args:
+#     - df: Input data in the form of a pandas DataFrame.
+#     - geo_id_column: The name of the column containing Geo IDs.
+#     - join_id_column: The name of the column containing join IDs.
+
+#     Returns:
+#     - List of join_id_column values where no Geo ID is present.
+#     """
+
+#     # Extract values from join_id_column where geo_id_column is NaN
+#     # making sure join_id_column is string format so can be used to filter fc in 
+#     return df[df[geo_id_column].isna()][join_id_column].astype(str).tolist()
+
 def get_system_index_vals_w_missing_geo_ids(df,geo_id_column,join_id_column):
     """
     Extracts system:index values where Geo_id is not present (NaN).
@@ -580,9 +597,12 @@ def get_system_index_vals_w_missing_geo_ids(df,geo_id_column,join_id_column):
     """
 
     # Extract system:index values where Geo_id is NaN
-    no_geo_id_values = df[df[geo_id_column].isna()][join_id_column].tolist()
+    # making sure join_id_column is string format so can be used to filter fc in csv_prep_and_fc_filtering
+    df[join_id_column] = df[join_id_column].astype(str)
+    no_geo_id_values = df[df[geo_id_column].isna()][join_id_column].tolist() 
 
     return no_geo_id_values
+
 
 def filter_features_by_system_index(feature_col, system_indexes,join_id_column):
     # Create a list of filters
@@ -682,7 +702,7 @@ def register_fc_and_append_to_csv(feature_col, geo_id_column, output_lookup_csv,
     #checks and fc filtering
     fc = csv_prep_and_fc_filtering(feature_col, geo_id_column, output_lookup_csv, join_id_column, override_checks=override_checks, debug=debug)
     
-    #check if temp csv has empty row for geo id
+    # #check if temp csv has empty row for geo id
     column_empty_boolean = column_empty_check(pd.read_csv(output_lookup_csv),geo_id_column)
     
     # Convert the FeatureCollection to a list
