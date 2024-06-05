@@ -16,7 +16,7 @@ import geemap
 from sidecar import Sidecar
 
 # Initialize Earth Engine
-from parameters.config_gee import gee_cloud_project
+# from parameters.config_gee import gee_cloud_project
 
 from modules.gee_initialize import initialize_ee
 initialize_ee()
