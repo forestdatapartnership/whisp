@@ -8,6 +8,7 @@ import geopandas as gpd
 import shutil
 import sys
 import pandas as pd
+from typing import Union, List
 
 from datetime import datetime
 # from modules.utils import buffer_point_to_required_area # to handle point features
@@ -231,6 +232,44 @@ def shapefile_to_ee(shapefile_path):
     return roi
 
 
+# def ee_to_shapefile(feature_collection, shapefile_path):
+#     """
+#     Export an Earth Engine FeatureCollection to a shapefile.
+
+#     Parameters:
+#     - feature_collection: Earth Engine FeatureCollection to be exported.
+#     - shapefile_path: Path to save the shapefile.
+
+#     Returns:
+#     - Path to the saved shapefile.
+#     """
+
+#     # Initialize Earth Engine
+#     ee.Initialize()
+
+#     # Convert FeatureCollection to GeoJSON
+#     geojson_str = feature_collection.getInfo()
+
+#     # Save GeoJSON to file
+#     local_folder, shapefile_name = os.path.split(shapefile_path)
+#     geojson_path = os.path.join(local_folder, f"{shapefile_name}.geojson")
+#     with open(geojson_path, 'w') as f:
+#         json.dump(geojson_str, f)
+
+#     # Read GeoJSON into GeoDataFrame
+#     gdf = gpd.read_file(geojson_path)
+
+#     # Save GeoDataFrame as shapefile
+#     gdf.to_file(shapefile_path, driver='ESRI Shapefile')
+
+#     print(f'Shapefile saved to {shapefile_path}')
+
+#     return shapefile_path
+
+import ee
+import geopandas as gpd
+from shapely.geometry import shape
+
 def ee_to_shapefile(feature_collection, shapefile_path):
     """
     Export an Earth Engine FeatureCollection to a shapefile.
@@ -246,17 +285,14 @@ def ee_to_shapefile(feature_collection, shapefile_path):
     # Initialize Earth Engine
     ee.Initialize()
 
-    # Convert FeatureCollection to GeoJSON
-    geojson_str = feature_collection.getInfo()
+    # Convert FeatureCollection to GeoJSON object using the function
+    geojson = ee_to_geojson(feature_collection)
 
-    # Save GeoJSON to file
-    local_folder, shapefile_name = os.path.split(shapefile_path)
-    geojson_path = os.path.join(local_folder, f"{shapefile_name}.geojson")
-    with open(geojson_path, 'w') as f:
-        json.dump(geojson_str, f)
-
-    # Read GeoJSON into GeoDataFrame
-    gdf = gpd.read_file(geojson_path)
+    # Convert GeoJSON features to GeoPandas GeoDataFrame
+    features = geojson['features']
+    geoms = [shape(feature['geometry']) for feature in features]
+    properties = [feature['properties'] for feature in features]
+    gdf = gpd.GeoDataFrame(properties, geometry=geoms)
 
     # Save GeoDataFrame as shapefile
     gdf.to_file(shapefile_path, driver='ESRI Shapefile')
@@ -264,6 +300,39 @@ def ee_to_shapefile(feature_collection, shapefile_path):
     print(f'Shapefile saved to {shapefile_path}')
 
     return shapefile_path
+
+def ee_to_geojson(ee_object, filename=None, indent=2, **kwargs):
+    """Converts Earth Engine object to geojson.
+
+    Args:
+        ee_object (object): An Earth Engine object.
+        filename (str, optional): The file path to save the geojson. Defaults to None.
+
+    Returns:
+        object: GeoJSON object.
+    """
+
+    try:
+        if (
+            isinstance(ee_object, ee.Geometry)
+            or isinstance(ee_object, ee.Feature)
+            or isinstance(ee_object, ee.FeatureCollection)
+        ):
+            json_object = ee_object.getInfo()
+            if filename is not None:
+                filename = os.path.abspath(filename)
+                if not os.path.exists(os.path.dirname(filename)):
+                    os.makedirs(os.path.dirname(filename))
+                with open(filename, "w") as f:
+                    f.write(json.dumps(json_object, indent=indent, **kwargs) + "\n")
+            else:
+                return json_object
+        else:
+            print("Could not convert the Earth Engine object to geojson")
+    except Exception as e:
+        raise Exception(e)
+
+
 
 # adapted from geemap version https://geemap.org/common/#geemap.common.geojson_to_ee
 ## but to work on geojson path and remove altitiude
@@ -412,7 +481,62 @@ def coordinates_to_wkt(coordinates):
 
 
 
-def geo_id_or_ids_to_feature_collection (all_geo_ids,
+def read_geo_ids(input_data: Union[str, List[str]]) -> List[str]:
+    """
+    Read content from a file or process a list of strings representing Geo IDs and convert it into a list of strings.
+
+    Args:
+        input_data (Union[str, List[str]]): Either a file path (str) or a list of strings representing Geo IDs.
+
+    Returns:
+        List[str]: A list of strings representing Geo IDs extracted from the input data.
+
+    Raises:
+        ValueError: If input data is neither a file path nor a list.
+    """
+    data = []
+
+    if isinstance(input_data, str):
+        # Read from file
+        with open(input_data, 'r') as file:
+            content = file.read().strip()
+    elif isinstance(input_data, list):
+        # Input is already a list, assign content directly
+        content = input_data
+    else:
+        raise ValueError("Input data must be either a file path (str) or a list.")
+
+    # Check if content is already a list
+    if isinstance(content, list):
+        for item in content:
+            if item.startswith('"') or item.startswith("'"):
+                # Content is already a string, just append to data
+                data.append(item.strip('"').strip("'"))
+            else:
+                # Content is not enclosed in quotes
+                data.append(item)
+    else:
+        # Remove newline characters and split by commas
+        items = [item.strip() for item in content.replace('\n', ',').split(',')]
+
+        for item in items:
+            # Check if item is empty, if so, skip
+            if not item:
+                continue
+            
+            if item.startswith('"') or item.startswith("'"):
+                # Content is already a string, just append to data
+                data.append(item.strip('"').strip("'"))
+            else:
+                # Content is not enclosed in quotes
+                data.append(item)
+
+    return data
+
+
+
+
+def geo_id_or_ids_to_feature_collection (input_geo_ids,
                                          geo_id_column, 
                                          session,asset_registry_base="https://api-ar.agstack.org",
                                          required_area=4,
@@ -421,17 +545,19 @@ def geo_id_or_ids_to_feature_collection (all_geo_ids,
     """creates a feature collection from agstack with single (string) or multiple geo_ids (list) as input. /
     NB feature collection has one feature if single input""" 
 
-    multiple_inputs_boolean=true_if_list_false_if_string(all_geo_ids,debug)
+    input_geo_ids = read_geo_ids(input_geo_ids)
+    
+    multiple_inputs_boolean=true_if_list_false_if_string(input_geo_ids,debug)
     
     #if list of geo ids, loop over them and make a feature collection else just put as a single feature in a feature collection
     
     if multiple_inputs_boolean==True:
-        roi = geo_id_list_to_feature_collection(all_geo_ids,geo_id_column, session,asset_registry_base,required_area,area_unit)    
-        if debug: print ("Count of geo ids in list: ", len(all_geo_ids))
+        roi = geo_id_list_to_feature_collection(input_geo_ids,geo_id_column, session,asset_registry_base,required_area,area_unit)    
+        if debug: print ("Count of geo ids in list: ", len(input_geo_ids))
             
     elif multiple_inputs_boolean == False: 
-        roi = ee.FeatureCollection(geo_id_to_feature(all_geo_ids,geo_id_column, session,asset_registry_base,required_area,area_unit))
-        if debug: print ("Geo id input: ", all_geo_ids)
+        roi = ee.FeatureCollection(geo_id_to_feature(input_geo_ids,geo_id_column, session,asset_registry_base,required_area,area_unit))
+        if debug: print ("Geo id input: ", input_geo_ids)
             
     else: 
         print("no ee.Object created: check input format")
@@ -439,7 +565,6 @@ def geo_id_or_ids_to_feature_collection (all_geo_ids,
     if debug: print ("Count of features in FeatureCollection: ", roi.size().getInfo())
     
     return roi
-
 
 
 def true_if_list_false_if_string(python_object,debug=False): 
@@ -563,7 +688,7 @@ def check_inputs_same_size(fc,df,override_checks=False):
 def create_csv_from_list(join_id_column,data_list, output_lookup_csv):
     # Create a pandas DataFrame from the list
     df = pd.DataFrame(data_list, columns=[join_id_column])
-
+    
     # Write DataFrame to CSV file
     df.to_csv(output_lookup_csv, index=False)
 
@@ -598,7 +723,6 @@ def get_system_index_vals_w_missing_geo_ids(df,geo_id_column,join_id_column):
 
     # Extract system:index values where Geo_id is NaN
     # making sure join_id_column is string format so can be used to filter fc in csv_prep_and_fc_filtering
-    df[join_id_column] = df[join_id_column].astype(str)
     no_geo_id_values = df[df[geo_id_column].isna()][join_id_column].tolist() 
 
     return no_geo_id_values
@@ -703,16 +827,16 @@ def register_fc_and_append_to_csv(feature_col, geo_id_column, output_lookup_csv,
     fc = csv_prep_and_fc_filtering(feature_col, geo_id_column, output_lookup_csv, join_id_column, override_checks=override_checks, debug=debug)
     
     # #check if temp csv has empty row for geo id
-    column_empty_boolean = column_empty_check(pd.read_csv(output_lookup_csv),geo_id_column)
+    # column_empty_boolean = column_empty_check(pd.read_csv(output_lookup_csv),geo_id_column)
     
     # Convert the FeatureCollection to a list
     feature_col_list = fc.toList(feature_col.size())
 
     total_iterations = feature_col_list.size().getInfo()
     
-    #checks
-    if total_iterations == 0 and column_empty_boolean == True:
-        print ("Warning: No iterations left to run and geo id column empty. \n Joins may not be working - please log this in 'Issues' in github")
+    # #checks
+    # if total_iterations == 0:# and column_empty_boolean == True:
+    #     print ("Warning: No iterations left to run and geo id column empty. \n Joins may not be working - please log this in 'Issues' in github")
 
     if debug: print (f"Number without geo ids:{total_iterations}")
     
