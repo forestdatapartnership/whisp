@@ -740,7 +740,7 @@ def filter_features_by_system_index(feature_col, system_indexes,join_id_column):
 def update_geo_id_in_csv(output_lookup_csv,system_index, geo_id_column,new_geo_id, join_id_column):
     """updates rows in csv based on match to the individual input system_index string value. Uses an overwrite (slow as adds time for each but works ok...batch would be quicker)"""
     # Read the CSV into a pandas DataFrame
-    df = pd.read_csv(output_lookup_csv)
+    df = pd.read_csv(output_lookup_csv, dtype={join_id_column: str})
     # pd.dataframe(data)
     
     # Update the Geo_id for the corresponding system_index (making sure both are strings for when system:index is a number e.g. when a shapefile)
