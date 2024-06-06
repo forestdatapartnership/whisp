@@ -86,7 +86,7 @@ cols_ind_1_treecover = ['EUFO_2020','GLAD_Primary', 'TMF_undist', 'JAXA_FNF_2020
 cols_ind_2_commodities = ['TMF_plant', 'Oil_palm_Descals', 'Oil_palm_FDaP', 'Cocoa_ETH', 'Cocoa_bnetd']
 
 # disturbance before 2020
-cols_ind_3_dist_before_2020= ["GFC_loss_before_2020", "MODIS_fire_before_2020", "TMF_deg_before_2020", "TMF_def_before_2020"]
+cols_ind_3_dist_before_2020= ["RADD_before_2020","GFC_loss_before_2020", "MODIS_fire_before_2020", "TMF_deg_before_2020", "TMF_def_before_2020"]
 
 # disturbance after 2020
 cols_ind_4_dist_after_2020 = ["RADD_after_2020", "GFC_loss_after_2020", "MODIS_fire_after_2020", "TMF_deg_after_2020", "TMF_def_after_2020"]

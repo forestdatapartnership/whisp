@@ -140,8 +140,9 @@ dataset_id,dataset_order,dataset_name,presence_only_flag,exclude,theme
 140,1390,GFC_loss_before_2020,0,0,disturbance_before
 141,1400,ESA_fire_before_2020,0,0,disturbance_before
 142,1410,MODIS_fire_before_2020,0,0,disturbance_before
-143,1420,TMF_deg_after_2020,0,0,disturbance_after
-144,1430,TMF_def_after_2020,0,0,disturbance_after
-145,1440,GFC_loss_after_2020,0,0,disturbance_after
-146,1450,MODIS_fire_after_2020,0,0,disturbance_after
-147,1460,RADD_after_2020,0,0,disturbance_after
+143,1415,RADD_before_2020,0,0,disturbance_before
+144,1420,TMF_deg_after_2020,0,0,disturbance_after
+145,1430,TMF_def_after_2020,0,0,disturbance_after
+146,1440,GFC_loss_after_2020,0,0,disturbance_after
+147,1450,MODIS_fire_after_2020,0,0,disturbance_after
+148,1460,RADD_after_2020,0,0,disturbance_after
