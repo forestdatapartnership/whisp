@@ -2,17 +2,22 @@ import ee
 
 from modules.datasets import combine_datasets
 
-from parameters.config_runtime import percent_or_ha, plot_id_column, geometry_type_column, geometry_area_column, geometry_area_column_formatting, centroid_x_coord_column, centroid_y_coord_column, country_column, stats_unit_type_column, stats_area_columns_formatting, stats_percent_columns_formatting
+from parameters.config_runtime import percent_or_ha, plot_id_column, geometry_type_column, geometry_area_column, geometry_area_column_formatting, centroid_x_coord_column, centroid_y_coord_column, country_column, admin_1_column, stats_unit_type_column, stats_area_columns_formatting, stats_percent_columns_formatting
 
 import functools
 
 
 ########################################
 ### geoboundaries - freqently updated database, allows commercial use (CC BY 4.0 DEED) (disputed territories may need checking)
+# def get_geoboundaries_info(geometry):
+#     gbounds_ADM0 = ee.FeatureCollection("WM/geoLab/geoBoundaries/600/ADM0");
+#     polygonsIntersectPoint = gbounds_ADM0.filterBounds(geometry)
+#     return ee.Algorithms.If( polygonsIntersectPoint.size().gt(0), polygonsIntersectPoint.first().toDictionary().select(["shapeGroup"]), None );
+
 def get_geoboundaries_info(geometry):
-    gbounds_ADM0 = ee.FeatureCollection("WM/geoLab/geoBoundaries/600/ADM0");
+    gbounds_ADM0 = ee.FeatureCollection("WM/geoLab/geoBoundaries/600/ADM1");
     polygonsIntersectPoint = gbounds_ADM0.filterBounds(geometry)
-    return ee.Algorithms.If( polygonsIntersectPoint.size().gt(0), polygonsIntersectPoint.first().toDictionary().select(["shapeGroup"]), None );
+    return ee.Algorithms.If( polygonsIntersectPoint.size().gt(0), polygonsIntersectPoint.first().toDictionary().select(["shapeGroup","shapeName"]), None );
 
 ### gaul boundaries - dated and need a lookup to get iso3 codes, but moving towards open licence
 def get_gaul_info(geometry):
@@ -100,6 +105,8 @@ def get_stats_feature(feature):
     
     country = ee.Dictionary({country_column: location.get('shapeGroup')})
 
+    admin_1 = ee.Dictionary({admin_1_column: location.get('shapeName')}) # if running adm1
+
     geom_type = ee.Dictionary({geometry_type_column: feature.geometry().type()})
     
     coords_list = centroid.coordinates() # list of lat lon coords for centroid
@@ -110,7 +117,7 @@ def get_stats_feature(feature):
     stats_unit_type = ee.Dictionary({stats_unit_type_column: percent_or_ha})
     
     # combine info on country, geometry type and coordinates into a single dictionary
-    feature_info = country.combine(geom_type).combine(coords_dict).combine(stats_unit_type)
+    feature_info = country.combine(admin_1).combine(geom_type).combine(coords_dict).combine(stats_unit_type)
     
     ####
     
