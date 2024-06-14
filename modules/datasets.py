@@ -302,26 +302,10 @@ def esa_fire_before_2020_prep():
     date_ed = str(end_year) + "-12-31"
     return esa_fire.filterDate(date_st,date_ed).mosaic().select(['BurnDate']).gte(0).rename("ESA_fire_before_2020")
 
-# def ESA_fire_after_2020_prep():
-#     start_year = 2021 
-#     end_year = datetime.now().year
-#     date_st = str(start_year) + "-01-01"
-#     date_ed = str(end_year) + "-12-31"
-#     return modis_fire.filterDate(date_st,date_ed).mosaic().select(['BurnDate']).gte(0).rename("ESA_fire_after_2020)
-
-
-# def ESA_fire_after_2020_prep():
-#     start_year = 2021 
-#     end_year = datetime.now().year
-#     date_st = str(start_year) + "-01-01"
-#     date_ed = str(end_year) + "-12-31"
-#     return modis_fire.filterDate(date_st,date_ed).mosaic().select(['BurnDate']).gte(0).rename("ESA_fire_after_2020)
-
-
 ####### handling feature datasets 
 
 def feat_coll_prep(feats_name,attr_name, base_name):
-    ## feats_name    = ee.FeatureCollection("projects/ee-cocoacmr/assets/feature_data/Aires_protegees_de_faunes");
+    ## feats_name    = ee.FeatureCollection(your_asset_id);
     ## attr_name     = "desc_type"
     ## base_name     = "cmr"
 
@@ -352,6 +336,8 @@ def feat_coll_prep(feats_name,attr_name, base_name):
 
 
 # WDPA
+# NB restricted for commercial use. Shown here for code tranparency. 
+# Results are included only in the Whisp API. And there results are restricted to a limited number of plots. This aims to support small holders and smaller cooperatives etc. 
 def wcmc_wdpa_protection_prep():
     wdpa_poly = ee.FeatureCollection("WCMC/WDPA/current/polygons")
     
@@ -364,7 +350,11 @@ def wcmc_wdpa_protection_prep():
     
     return wdpa_binary.rename("WDPA")
 
-# KBA
+
+# KBA  
+# NB restricted for commercial use. Shown here for code tranparency. 
+# Key Biodiversity Areas (KBAs) results show presence/absence in plot
+# Results are included only in the Whisp API. And results are restricted to a limited number of plots. This aims to support small holders and smaller cooperatives etc.
 def birdlife_kbas_biodiversity_prep():
     
     ##uploaded data - Non-commercial. For queries with limited numbers of sites. Exact number to be confirmed. 
@@ -373,8 +363,6 @@ def birdlife_kbas_biodiversity_prep():
     kba_2023_binary = ee.Image().paint(kbas_2023_poly,1)
     
     return kba_2023_binary.rename('KBA')
-
-
 
 
 def try_access(asset_prep_func):
