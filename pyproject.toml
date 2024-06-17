@@ -1,0 +1,129 @@
+[build-systems]
+requires = ["setuptools"]
+build-backend = ["setuptools.build_meta"]
+
+[project]
+name = "whisp"
+# TODO: ADD WHISP MAINTAINERS TO THE AUTHORS LIST
+authors = [{name = "Florent Scarpa", email = "florent.scarpa@sustaain.org"}]
+version = "0.0.0"
+requires-python = ">=3.10"
+dependencies = [
+    "earthengine-api",
+    "geemap",
+    "numpy<2",  # https://github.com/unionai-oss/pandera/issues/1656
+    "pandas",
+    "pandera",
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pre-commit",
+    "ruff",
+]
+
+[tool.setuptools.packages]
+find = {}
+
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_level = "DEBUG"
+
+[tool.ruff]
+fix = true
+select = [
+    "A",
+    "ANN",
+    "ARG",
+    "B",
+    "C",
+    "COM",
+    "C90",
+    "E",
+    "ERA",
+    "F",
+    "I",
+    "N",
+    "PGH",
+    "PL",
+    "PLE",
+    "PLR",
+    "PLW",
+    "PT",
+    "PTH",
+    "Q",
+    "RET",
+    "RUF",
+    "SLF",
+    "SIM",
+    "TID",
+    "TRY",
+    "UP",
+    "W",
+    "YTT",
+]
+ignore = ["A003", "ANN002", "ANN003", "ANN101", "ANN102", "ANN401", "N805", "N818", "PLR0913", "RET504", "RET505"]
+
+fixable = [
+    "A",
+    "ANN",
+    "ARG",
+    "B",
+    "C",
+    "COM",
+    "C90",
+    "E",
+    "ERA",
+    "F",
+    "I",
+    "PGH",
+    "PL",
+    "PLE",
+    "PLR",
+    "PLW",
+    "PT",
+    "PTH",
+    "Q",
+    "RET",
+    "RUF",
+    "SLF",
+    "SIM",
+    "TID",
+    "TRY",
+    "UP",
+    "W",
+    "YTT",
+]
+unfixable = []
+
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".hg",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "venv",
+    "pages",
+    "tests"
+]
+
+line-length = 120
+
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+target-version = "py310"
+
+[tool.ruff.mccabe]
+max-complexity = 10

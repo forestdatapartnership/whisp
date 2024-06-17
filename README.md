@@ -2,12 +2,12 @@ whisp
 =====
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/openforis/sepal/blob/master/license.txt)
 
-***whisp*** stands for **WH**at **IS** in that **P**lot ? 
+***whisp*** stands for **WH**at **IS** in that **P**lot ?
 
-The Forest Data Partnership promotes a Convergence of Evidence approach for Forest and Commodities Monitoring  
+The Forest Data Partnership promotes a Convergence of Evidence approach for Forest and Commodities Monitoring
 
-- no single source of geospatial data (i.e a land cover map) can tell the whole story around any given plot of land, 
-- all the existing, published and available datasets contribute to telling that story 
+- no single source of geospatial data (i.e a land cover map) can tell the whole story around any given plot of land,
+- all the existing, published and available datasets contribute to telling that story
 
 ***whisp***  implements that convergence approach by providing a transparent and public processing flow using those datasets
 
@@ -15,8 +15,46 @@ The Forest Data Partnership promotes a Convergence of Evidence approach for Fore
 
 ![whisp convergence of proof](images/pol_story_agu.gif)
 
+# Requirements
 
-### whisp pathways
+- A Sepal account.
+- A Google Earth Engine (GEE) account.
+- A registered cloud GEE project.
+- Some experience in Python or a similar language.
+
+# Setup
+
+Clone the Whisp repo and install the package:
+```
+git clone https://github.com/forestdatapartnership/whisp.git
+cd whisp/
+pip install .
+```
+
+Create a `.env` file with the required information for Earth Engine login (you may copy and edit the `.env.template` file)
+
+
+# Contributing
+
+Install the package in editable mode with the additional dependencies required for testing and running pre-commit hooks:
+```
+git clone https://github.com/forestdatapartnership/whisp.git
+cd whisp/
+pip install .[dev]
+```
+
+Setup the pre-commit hooks:
+```
+pre-commit install
+```
+
+
+You should be able to run the Pytest suite by simple running the `pytest` command from the repo's root folder.
+
+Please read the ![contributing guidelines](contributing_guidelines.md) for good practice recommendations.
+
+
+# whisp pathways
 ***whisp*** can be implemented through at least three pathways
 
 1. As an operationnal API in JS and Python
@@ -30,13 +68,6 @@ The Forest Data Partnership promotes a Convergence of Evidence approach for Fore
 More info on Whisp can be found in [here](https://unfao-my.sharepoint.com/:b:/g/personal/maria_valbuenaperez_fao_org/EZAaBgWDruZOgL39BUp3AzgBORN6X1ttWIRgO6jg0mwOfQ?e=MWfVcb)
 
 ## How to Whisp Your Data Using the Python Notebook Pathway
-
-### Requirements
-
-- A Sepal account.
-- A Google Earth Engine (GEE) account.
-- A registered cloud GEE project.
-- Some experience in Python or a similar language.
 
 The Python notebooks are currently set up to run in Sepal and to focus on polygon data provided by the user or geo_ids that allow the notebooks to access polygons stored and registered in the Asset Registry. NB: We value your feedback in terms of what input data we should support.
 
@@ -58,8 +89,8 @@ If your data is available as a feature collection and the GitHub repo is cloned,
 3.  This file stores geo_ids along with a unique id (`system:index`) from the feature collection. This system:index column can then be used to join the Geo IDs column on to the Whisp output table (`whisp_output_table.csv`). Similarly the lookup can also be used to join Geo IDs to the input feature collection.
 4. This approach is useful when registering large numbers of features/plots, as if the process is interrupted (e.g., if a bug occurs or the SEPAL instance times out), the lookup CSV still contains all the geo ids processed until this point. Therefore, the process automatically continues from where it stopped when this cell is rerun.
 5. This lookup table of Geo IDs is then appended to the results from Whisp.
-   
-### Adding risk indicators to your results  
+
+### Adding risk indicators to your results
 7. Finally, functions at the end of the notebook allow the user to add EUDR risk indicators to the table. NB: these risk indicators are still at the experimental stage.
 
 ### Intermediate Output
@@ -96,9 +127,9 @@ A folder containing a series of Python scripts and a CSV. These files are used t
 
 Key files include:
 - `lookup_gee_datasets.csv` contains the list of input datasets, the order they will be displayed, which ones are to be excluded from the current analysis, and which ones are shown as flags (i.e., shown as presence or absence instead of figures for area/percentage coverage of the plot).
-- `config_runtime.py` contains parameters that the user can tweak, e.g., file and column names.
+- `config_runtime.py` contains parameters that the user can tweak, e.g., file and column names. **WARNING: USERS SHOULD NOT EDIT PACKAGE CONFIG ; IF THEY WANT TO, THEY SHOULD INSTALL THE PACKAGE IN EDITABLE MODE IN ORDER TO BE ABLE TO MODIFY CONFIGS WITHOUT HAVING TO RE-INSTALL THE PACKGE EVERY TIME**
 
-### Modules Folder
+### src code
 
 Various functions for the main Whisp analysis along with some for interacting with the AgStack Asset Registry.
 
@@ -158,4 +189,3 @@ However, as large or detailed polygon data may cause conversion errors, for more
 10. The uploaded assets will be listed in the Assets List under the Assets tab. If not displayed, click on the Refresh button.
 11. Clicking on the asset will open a pop-up window to allow you to explore the table.
 12. The feature collection asset is ready to use. NB: You can visualize, share, or delete it as needed within the code editor interface.
-
