@@ -1,0 +1,54 @@
+repos:
+  - repo: local
+    hooks:
+      # Used to clean dummy log file during a new commit attempt
+      # The dummy log prevents from running time-consuming hooks if another hook failed during the last commit attempt
+      - id: log_cleaner
+        name: log_cleaner
+        entry: bash clean_pre_commit_log.sh
+        language: system
+        stages: [commit]
+        pass_filenames: false
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.3.0
+    hooks:
+      - id: check-ast
+        log_file: pre-commit.log
+        stages: [commit]
+      - id: check-merge-conflict
+        log_file: pre-commit.log
+        stages: [commit]
+      - id: check-yaml
+        log_file: pre-commit.log
+        stages: [commit]
+      - id: end-of-file-fixer
+        log_file: pre-commit.log
+        stages: [commit]
+      - id: mixed-line-ending
+        log_file: pre-commit.log
+        stages: [commit]
+      - id: trailing-whitespace
+        log_file: pre-commit.log
+        stages: [commit]
+#  - repo: https://github.com/charliermarsh/ruff-pre-commit
+#    rev: 'v0.0.254'
+#    hooks:
+#      - id: ruff
+##        args: [--fix, --exit-non-zero-on-fix]
+#        log_file: pre-commit.log
+#        stages: [commit]
+#     TO BE REPLACED BY RUFF
+  - repo: https://github.com/psf/black
+    rev: 22.3.0
+    hooks:
+      - id: black
+        log_file: pre-commit.log
+        stages: [commit]
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: bash run_pytest.sh
+        language: system
+        stages: [commit]
+        pass_filenames: false

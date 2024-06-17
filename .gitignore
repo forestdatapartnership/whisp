@@ -11,4 +11,5 @@ whisp_output_table.csv
 temp_geo_id_lookup.csv
 copy_whisp_output_table.csv
 copy_whisp_output_table_w_risk.csv
-parameters/config_gee.py
+.env
+whisp.egg-info/

@@ -1,13 +1,14 @@
 import pandas as pd
 import ee
 from parameters.config_runtime import (
-    percent_or_ha, 
+    percent_or_ha,
     cols_ind_1_treecover,
     cols_ind_2_commodities,
     cols_ind_3_dist_before_2020,
     cols_ind_4_dist_after_2020,
-    geometry_area_column
-    )
+    geometry_area_column,
+)
+
 
 def clamp(value, min_val, max_val):
     """
@@ -26,11 +27,13 @@ def clamp(value, min_val, max_val):
     else:
         return max(min_val, min(value, max_val))
 
+
 def check_range(value):
     if not (0 <= value <= 100):
         raise ValueError("Value must be between 0 and 100.")
     # else:
     #     print("Value is within the range.")
+
 
 def whisp_risk(
     df,
@@ -38,18 +41,18 @@ def whisp_risk(
     ind_2_pcent_threshold,
     ind_3_pcent_threshold,
     ind_4_pcent_threshold,
-    ind_1_input_columns = cols_ind_1_treecover,
-    ind_2_input_columns = cols_ind_2_commodities,
-    ind_3_input_columns = cols_ind_3_dist_before_2020,
-    ind_4_input_columns = cols_ind_4_dist_after_2020,
+    ind_1_input_columns=cols_ind_1_treecover,
+    ind_2_input_columns=cols_ind_2_commodities,
+    ind_3_input_columns=cols_ind_3_dist_before_2020,
+    ind_4_input_columns=cols_ind_4_dist_after_2020,
     ind_1_name="Indicator_1_treecover",
     ind_2_name="Indicator_2_commodities",
     ind_3_name="Indicator_3_disturbance_before_2020",
     ind_4_name="Indicator_4_disturbance_after_2020",
     low_name="no",
-    high_name="yes"
-   ):
-    """ Adds the EUDR (European Union Deforestation Risk) column to the DataFrame based on indicator values.
+    high_name="yes",
+):
+    """Adds the EUDR (European Union Deforestation Risk) column to the DataFrame based on indicator values.
 
     Args:
         df (DataFrame): Input DataFrame.
@@ -62,8 +65,8 @@ def whisp_risk(
     Returns:
         DataFrame: DataFrame with added 'EUDR_risk' column.
     """
-    
-    #check range of values
+
+    # check range of values
     check_range(ind_1_pcent_threshold)
     check_range(ind_2_pcent_threshold)
     check_range(ind_3_pcent_threshold)
@@ -84,15 +87,16 @@ def whisp_risk(
         ind_3_name,
         ind_4_name,
         low_name,
-        high_name
+        high_name,
     )
-    
+
     df_w_indicators_and_risk = add_eudr_risk_col(
         df=df_w_indicators,
-        ind_1_name=ind_1_name, 
-        ind_2_name=ind_2_name, 
-        ind_3_name=ind_3_name, 
-        ind_4_name=ind_4_name)
+        ind_1_name=ind_1_name,
+        ind_2_name=ind_2_name,
+        ind_3_name=ind_3_name,
+        ind_4_name=ind_4_name,
+    )
 
     return df_w_indicators_and_risk
 
@@ -102,8 +106,8 @@ def add_eudr_risk_col(
     ind_1_name="Indicator_1_treecover",
     ind_2_name="Indicator_2_commodities",
     ind_3_name="Indicator_3_disturbance_before_2020",
-    ind_4_name="Indicator_4_disturbance_after_2020"
-    ):
+    ind_4_name="Indicator_4_disturbance_after_2020",
+):
     """
     Adds the EUDR (European Union Deforestation Risk) column to the DataFrame based on indicator values.
 
@@ -120,69 +124,92 @@ def add_eudr_risk_col(
 
     for index, row in df.iterrows():
         # If any of the first three indicators suggest low risk, set EUDR_risk to "low"
-        if row[ind_1_name] == "no" or row[ind_2_name] == "yes" or row[ind_3_name] == "yes":
-            df.at[index, 'EUDR_risk'] = "low"
+        if (
+            row[ind_1_name] == "no"
+            or row[ind_2_name] == "yes"
+            or row[ind_3_name] == "yes"
+        ):
+            df.at[index, "EUDR_risk"] = "low"
         # If none of the first three indicators suggest low risk and Indicator 4 suggests no risk, set EUDR_risk to "more_info_needed"
         elif row[ind_4_name] == "no":
-            df.at[index, 'EUDR_risk'] = "more_info_needed"
+            df.at[index, "EUDR_risk"] = "more_info_needed"
         # If none of the above conditions are met, set EUDR_risk to "high"
         else:
-            df.at[index, 'EUDR_risk'] = "high"
+            df.at[index, "EUDR_risk"] = "high"
 
     return df
 
 
-def add_indicators (df,
-                    ind_1_pcent_threshold,
-                    ind_2_pcent_threshold,
-                    ind_3_pcent_threshold,
-                    ind_4_pcent_threshold,
-                    ind_1_input_columns = cols_ind_1_treecover,
-                    ind_2_input_columns = cols_ind_2_commodities,
-                    ind_3_input_columns = cols_ind_3_dist_before_2020,
-                    ind_4_input_columns = cols_ind_4_dist_after_2020,
-                    ind_1_name="Indicator_1_treecover",
-                    ind_2_name="Indicator_2_commodities",
-                    ind_3_name="Indicator_3_disturbance_before_2020",
-                    ind_4_name="Indicator_4_disturbance_after_2020",
-                    low_name="no",
-                    high_name="yes"):
+def add_indicators(
+    df,
+    ind_1_pcent_threshold,
+    ind_2_pcent_threshold,
+    ind_3_pcent_threshold,
+    ind_4_pcent_threshold,
+    ind_1_input_columns=cols_ind_1_treecover,
+    ind_2_input_columns=cols_ind_2_commodities,
+    ind_3_input_columns=cols_ind_3_dist_before_2020,
+    ind_4_input_columns=cols_ind_4_dist_after_2020,
+    ind_1_name="Indicator_1_treecover",
+    ind_2_name="Indicator_2_commodities",
+    ind_3_name="Indicator_3_disturbance_before_2020",
+    ind_4_name="Indicator_4_disturbance_after_2020",
+    low_name="no",
+    high_name="yes",
+):
 
-                    # add presence indicators (default is for > threshold as yes/high)
-                    #Indicator_1_treecover
-                    df_w_indicators = add_indicator_column(df=df,
-                                            input_columns=ind_1_input_columns, 
-                                            threshold=ind_1_pcent_threshold,
-                                            new_column_name=ind_1_name,
-                                            low_name=low_name,
-                                            high_name=high_name)
-                    
-                    #Indicator_2_commodities
-                    df_w_indicators = add_indicator_column(df=df_w_indicators, 
-                                            input_columns=ind_2_input_columns, 
-                                            threshold=ind_2_pcent_threshold,
-                                            new_column_name=ind_2_name,
-                                            low_name=low_name,
-                                            high_name=high_name)
-                    
-                    #Indicator_3_disturbance_before_2020
-                    df_w_indicators = add_indicator_column(df=df_w_indicators, 
-                                            input_columns=ind_3_input_columns,
-                                            threshold=ind_3_pcent_threshold,
-                                            new_column_name=ind_3_name,
-                                            low_name=low_name,
-                                            high_name=high_name)
-                    
-                    #Indicator_4_disturbance_after_2020
-                    df_w_indicators = add_indicator_column(df=df_w_indicators,
-                                            input_columns=ind_4_input_columns,
-                                            threshold=ind_4_pcent_threshold,
-                                            new_column_name=ind_4_name,
-                                            low_name=low_name,
-                                            high_name=high_name)
-                    return df_w_indicators
-    
-def add_indicator_column(df, input_columns, threshold, new_column_name, low_name='yes', high_name='no', sum_comparison=False):
+    # add presence indicators (default is for > threshold as yes/high)
+    # Indicator_1_treecover
+    df_w_indicators = add_indicator_column(
+        df=df,
+        input_columns=ind_1_input_columns,
+        threshold=ind_1_pcent_threshold,
+        new_column_name=ind_1_name,
+        low_name=low_name,
+        high_name=high_name,
+    )
+
+    # Indicator_2_commodities
+    df_w_indicators = add_indicator_column(
+        df=df_w_indicators,
+        input_columns=ind_2_input_columns,
+        threshold=ind_2_pcent_threshold,
+        new_column_name=ind_2_name,
+        low_name=low_name,
+        high_name=high_name,
+    )
+
+    # Indicator_3_disturbance_before_2020
+    df_w_indicators = add_indicator_column(
+        df=df_w_indicators,
+        input_columns=ind_3_input_columns,
+        threshold=ind_3_pcent_threshold,
+        new_column_name=ind_3_name,
+        low_name=low_name,
+        high_name=high_name,
+    )
+
+    # Indicator_4_disturbance_after_2020
+    df_w_indicators = add_indicator_column(
+        df=df_w_indicators,
+        input_columns=ind_4_input_columns,
+        threshold=ind_4_pcent_threshold,
+        new_column_name=ind_4_name,
+        low_name=low_name,
+        high_name=high_name,
+    )
+    return df_w_indicators
+
+
+def add_indicator_column(
+    df,
+    input_columns,
+    threshold,
+    new_column_name,
+    low_name="yes",
+    high_name="no",
+    sum_comparison=False,
+):
     """
     Add a new column to the DataFrame based on the specified columns, threshold, and comparison sign.
 
@@ -204,7 +231,7 @@ def add_indicator_column(df, input_columns, threshold, new_column_name, low_name
     df[new_column_name] = low_name
 
     # if percent_or_ha == "ha": print ("output in hectares. Converting values to percent for indicator")
-        
+
     # Default behavior: use '>' for single column comparison
     if sum_comparison:
         # Sum all values in specified columns and compare to threshold
@@ -213,20 +240,30 @@ def add_indicator_column(df, input_columns, threshold, new_column_name, low_name
     else:
         # Check if any values in specified columns are above the threshold and update the new column accordingly
         for col in input_columns:
-            ## So that threshold is always in percent, if outputs are in ha, the code converts to percent (based on dividing by the geometry_area_column column. 
+            ## So that threshold is always in percent, if outputs are in ha, the code converts to percent (based on dividing by the geometry_area_column column.
             # Clamping is needed due to differences in decimal places (meaning input values may go just over 100)
-            if percent_or_ha == "ha": 
+            if percent_or_ha == "ha":
                 # if df[geometry_area_column]<0.01: #to add in for when points, some warning message or similar
 
-                val_to_check = clamp(((df[col] / df[geometry_area_column]) * 100),0,100)
+                val_to_check = clamp(
+                    ((df[col] / df[geometry_area_column]) * 100), 0, 100
+                )
             else:
                 val_to_check = df[col]
             df.loc[val_to_check > threshold, new_column_name] = high_name
     return df
 
- 
 
-def add_indicator_column_from_csv(csv_file, input_columns, threshold, new_column_name,low_name='low', high_name='high', sum_comparison=False, output_file=None):
+def add_indicator_column_from_csv(
+    csv_file,
+    input_columns,
+    threshold,
+    new_column_name,
+    low_name="low",
+    high_name="high",
+    sum_comparison=False,
+    output_file=None,
+):
     """
     Read a CSV file into a DataFrame, add a new column based on specified columns and threshold,
     and optionally export the DataFrame as a CSV file.
@@ -246,18 +283,24 @@ def add_indicator_column_from_csv(csv_file, input_columns, threshold, new_column
     """
     # Read the CSV file into a DataFrame
     df = pd.read_csv(csv_file)
-    
+
     # Call the add_indicator_column function
-    df = add_indicator_column(df, input_columns, threshold, new_column_name, low_name, high_name, sum_comparison)
-    
+    df = add_indicator_column(
+        df,
+        input_columns,
+        threshold,
+        new_column_name,
+        low_name,
+        high_name,
+        sum_comparison,
+    )
+
     # Export the DataFrame as a CSV file if output_file is provided
     if output_file:
         df.to_csv(output_file, index=False)
-        print(f'exported to {output_file}')
+        print(f"exported to {output_file}")
     else:
         return df
-
-
 
 
 def create_wildcard_column_list(df, wildcard_patterns):
@@ -271,10 +314,10 @@ def create_wildcard_column_list(df, wildcard_patterns):
     Returns:
         list: List of column names matching the wildcard patterns.
     """
-    column_lists = [df.filter(like=pattern).columns.tolist() for pattern in wildcard_patterns]
+    column_lists = [
+        df.filter(like=pattern).columns.tolist() for pattern in wildcard_patterns
+    ]
     return [col for sublist in column_lists for col in sublist]
-
-
 
 
 def select_years_in_range(string_list, min_year, max_year):
@@ -303,62 +346,87 @@ def select_years_in_range(string_list, min_year, max_year):
     return selected_strings
 
 
-
 def order_list_from_lookup(lookup_gee_datasets_df):
-    return lookup_gee_datasets_df.sort_values(by=['dataset_order'])["dataset_name"].tolist() # names sorted by list
-    
-def create_column_list_from_lookup(lookup_gee_datasets_df,prefix_columns_list):
+    return lookup_gee_datasets_df.sort_values(by=["dataset_order"])[
+        "dataset_name"
+    ].tolist()  # names sorted by list
+
+
+def create_column_list_from_lookup(lookup_gee_datasets_df, prefix_columns_list):
     # ordered_dataset_df= lookup_gee_datasets_df.sort_values(by=['dataset_order'])
-    
+
     # column_order_list = list(ordered_dataset_df["dataset_name"])
-    column_order_list = lookup_gee_datasets_df.sort_values(by=['dataset_order'])["dataset_name"].tolist()
+    column_order_list = lookup_gee_datasets_df.sort_values(by=["dataset_order"])[
+        "dataset_name"
+    ].tolist()
 
     # adds in a list of columns to the start of the order list (i.e. the geo_id, geometry area column and country columns), if left blank nothing added
-    column_order_list =  prefix_columns_list + order_list_from_lookup(lookup_gee_datasets_df)
+    column_order_list = prefix_columns_list + order_list_from_lookup(
+        lookup_gee_datasets_df
+    )
 
     return column_order_list
-    
-                                   
-def reorder_columns_by_lookup(df,lookup_gee_datasets_df,dataset_order_column,dataset_name_column,prefix_columns_list=[]):    
-    """ reorder columns by creating an ordered list from a lookup_gee_datasets_df containing column order and dataset names that match those in results dataframe"""
-    column_order_list = create_column_list_from_lookup(lookup_gee_datasets_df,prefix_columns_list)
+
+
+def reorder_columns_by_lookup(
+    df,
+    lookup_gee_datasets_df,
+    dataset_order_column,
+    dataset_name_column,
+    prefix_columns_list=[],
+):
+    """reorder columns by creating an ordered list from a lookup_gee_datasets_df containing column order and dataset names that match those in results dataframe"""
+    column_order_list = create_column_list_from_lookup(
+        lookup_gee_datasets_df, prefix_columns_list
+    )
     # ordered_dataset_df= lookup_gee_datasets_df.sort_values(by=['dataset_order'])
-    
+
     # column_order_list = list(ordered_dataset_df["dataset_name"])
-    
+
     # # adds in a list of columns to the start of the order list (i.e. the geo_id, geometry area column and country columns), if left blanmk nothing added
     # column_order_list = prefix_columns_list + column_order_list
 
-    df_reordered  = df.reindex(columns=column_order_list) # reorder by list
+    df_reordered = df.reindex(columns=column_order_list)  # reorder by list
 
     return df_reordered
 
 
-def make_lookup_from_feature_col(feature_col,join_column,lookup_column,join_column_new_name=False,lookup_column_new_name=False):
+def make_lookup_from_feature_col(
+    feature_col,
+    join_column,
+    lookup_column,
+    join_column_new_name=False,
+    lookup_column_new_name=False,
+):
     """makes a lookup table (pandas dataframe) from two columns in a feature collection (duplicates removed)"""
-    
+
     list_join_column = feature_col.aggregate_array(join_column).getInfo()
-    
+
     list_lookup_column = feature_col.aggregate_array(lookup_column).getInfo()
-    
-    #make dataframe from columns
-    lookup_table = pd.DataFrame({join_column:list_join_column,
-                                      lookup_column:list_lookup_column}) 
-    #removes duplicates
-    lookup_table= lookup_table.drop_duplicates()
+
+    # make dataframe from columns
+    lookup_table = pd.DataFrame(
+        {join_column: list_join_column, lookup_column: list_lookup_column}
+    )
+    # removes duplicates
+    lookup_table = lookup_table.drop_duplicates()
 
     # rename columns if specified
-    if join_column_new_name!=False:
-        lookup_table.rename(columns={join_column:join_column_new_name},inplace=True)
-        
-    if lookup_column_new_name!=False:
-        lookup_table.rename(columns={lookup_column:lookup_column_new_name},inplace=True)
-        
+    if join_column_new_name != False:
+        lookup_table.rename(columns={join_column: join_column_new_name}, inplace=True)
+
+    if lookup_column_new_name != False:
+        lookup_table.rename(
+            columns={lookup_column: lookup_column_new_name}, inplace=True
+        )
+
     return lookup_table
+
 
 def truncate_strings_in_list(input_list, max_length):
     """as name suggests, useful for exporting to shapefiles fort instance where col name length is limited"""
     return [string[:max_length] for string in input_list]
+
 
 ###alternative vedrsion for clarity
 # If 'Treecover_indicator' is "no", or 'Commodities_indicator' is "yes", or 'Disturbance_before_2020_indicator' is "yes", then set 'EUDR_risk' to "low".
@@ -376,6 +444,3 @@ def truncate_strings_in_list(input_list, max_length):
 #         else:
 #             df.at[index, 'EUDR_risk'] = "more_info_needed"
 #     return df
-
-
-
