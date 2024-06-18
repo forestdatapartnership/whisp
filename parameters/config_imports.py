@@ -96,6 +96,3 @@ from parameters.config_asr_credentials import (
 )
 
 
-# Additional custom module imports
-session = start_agstack_session(email, password, user_registry_base)
-token = get_agstack_token(email, password, asset_registry_base)
