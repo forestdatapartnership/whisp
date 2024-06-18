@@ -19,7 +19,7 @@ from parameters.config_directory import BASE_DIR,RESULTS_DIR,BACKUP_CSVS_DIR
 # A lot of these could be done with decorators instead of building up functions etc
 
 # functions for setting up session based on usr credentials
-def start_agstack_session(email,password,user_registry_base,debug=False):
+def start_agstack_session(email,password,user_registry_base="https://user-registry.agstack.org",debug=False):
     """using session to store cookies that are persistent"""
     import requests
     session = requests.session()
@@ -32,6 +32,7 @@ def start_agstack_session(email,password,user_registry_base,debug=False):
     if debug: print ("Cookies",session.cookies)
     if debug: print ("status code:", res.status_code)
     return session
+
 
 
 def get_agstack_token(email, password, asset_registry_base='https://api-ar.agstack.org'):
@@ -230,41 +231,6 @@ def shapefile_to_ee(shapefile_path):
     roi = ee.FeatureCollection(json.loads(geo_json))
 
     return roi
-
-
-# def ee_to_shapefile(feature_collection, shapefile_path):
-#     """
-#     Export an Earth Engine FeatureCollection to a shapefile.
-
-#     Parameters:
-#     - feature_collection: Earth Engine FeatureCollection to be exported.
-#     - shapefile_path: Path to save the shapefile.
-
-#     Returns:
-#     - Path to the saved shapefile.
-#     """
-
-#     # Initialize Earth Engine
-#     ee.Initialize()
-
-#     # Convert FeatureCollection to GeoJSON
-#     geojson_str = feature_collection.getInfo()
-
-#     # Save GeoJSON to file
-#     local_folder, shapefile_name = os.path.split(shapefile_path)
-#     geojson_path = os.path.join(local_folder, f"{shapefile_name}.geojson")
-#     with open(geojson_path, 'w') as f:
-#         json.dump(geojson_str, f)
-
-#     # Read GeoJSON into GeoDataFrame
-#     gdf = gpd.read_file(geojson_path)
-
-#     # Save GeoDataFrame as shapefile
-#     gdf.to_file(shapefile_path, driver='ESRI Shapefile')
-
-#     print(f'Shapefile saved to {shapefile_path}')
-
-#     return shapefile_path
 
 import ee
 import geopandas as gpd
@@ -536,66 +502,90 @@ def read_geo_ids(input_data: Union[str, List[str]]) -> List[str]:
 
 
 
-def geo_id_or_ids_to_feature_collection (input_geo_ids,
-                                         geo_id_column, 
-                                         session,asset_registry_base="https://api-ar.agstack.org",
-                                         required_area=4,
-                                         area_unit="ha",
-                                         debug=False):
-    """creates a feature collection from agstack with single (string) or multiple geo_ids (list) as input. /
-    NB feature collection has one feature if single input""" 
 
+
+def geo_id_or_ids_to_feature_collection(input_geo_ids,
+                                        geo_id_column, 
+                                        email=None,
+                                        password=None,
+                                        asset_registry_base="https://api-ar.agstack.org",
+                                        user_registry_base="https://user-registry.agstack.org",
+                                        required_area=4,
+                                        area_unit="ha",
+                                        debug=False):
+    """Creates a feature collection from agstack with single (string) or multiple geo_ids (list) as input.
+    NB: feature collection has one feature if single input"""
+
+    # If asset registry parameters are missing, try importing them from the default config file, or ask for user input
+    if email is None:
+        try:
+            from parameters.config_asr_credentials import email
+            if debug: print("Imported email parameter successfully from parameters.config_asr_credentials")
+        except ImportError:
+            raise ValueError("Missing asset registry email parameter")
+            
+    if password is None:
+        try:
+            from parameters.config_asr_credentials import password
+            if debug: print("Imported password parameter successfully from parameters.config_asr_credentials")
+        except ImportError:
+            raise ValueError("Missing asset registry password parameter")
+
+    # Get session from asset registry
+    try:
+        session = start_agstack_session(email, password, user_registry_base, debug=debug)
+        if debug: print("Session:", session)
+    except Exception as e:
+        raise ConnectionError("Starting agstack session failed. Check inputs (email, password, user_registry_base). Error: {}".format(e))
+
+    # Get inputs in the right format
     input_geo_ids = read_geo_ids(input_geo_ids)
-    
-    multiple_inputs_boolean=true_if_list_false_if_string(input_geo_ids,debug)
-    
-    #if list of geo ids, loop over them and make a feature collection else just put as a single feature in a feature collection
-    
-    if multiple_inputs_boolean==True:
-        roi = geo_id_list_to_feature_collection(input_geo_ids,geo_id_column, session,asset_registry_base,required_area,area_unit)    
-        if debug: print ("Count of geo ids in list: ", len(input_geo_ids))
-            
-    elif multiple_inputs_boolean == False: 
-        roi = ee.FeatureCollection(geo_id_to_feature(input_geo_ids,geo_id_column, session,asset_registry_base,required_area,area_unit))
-        if debug: print ("Geo id input: ", input_geo_ids)
-            
-    else: 
-        print("no ee.Object created: check input format")
+    multiple_inputs_boolean = true_if_list_false_if_string(input_geo_ids, debug)
 
-    if debug: print ("Count of features in FeatureCollection: ", roi.size().getInfo())
-    
+    # If list of geo ids, loop over them and make a feature collection else just put as a single feature in a feature collection
+    if multiple_inputs_boolean:
+        roi = geo_id_list_to_feature_collection(input_geo_ids, geo_id_column, session, asset_registry_base, required_area, area_unit)    
+        if debug: print("Count of geo ids in list:", len(input_geo_ids))
+    else:
+        roi = ee.FeatureCollection(geo_id_to_feature(input_geo_ids, geo_id_column, session, asset_registry_base, required_area, area_unit))
+        if debug: print("Geo id input:", input_geo_ids)
+
+    if debug: print("Count of features in FeatureCollection:", roi.size().getInfo())
+
     return roi
 
 
-def true_if_list_false_if_string(python_object,debug=False): 
+def true_if_list_false_if_string(python_object, debug=False): 
     if isinstance(python_object, list):
-        boolean=True
-        if debug: print ("input: list")
+        if debug: print("Input: list")
+        return True
     elif isinstance(python_object, str):
-        boolean=False
-        if debug: print (python_object,"input: string")
+        if debug: print(f"{python_object} input: string")
+        return False
     else:
-        if debug: print (python_object," must be a single string or list of strings")
-    return boolean
-    
-
+        if debug: print(f"{python_object} must be a single string or list of strings")
+        raise ValueError("Input must be a single string or list of strings")
+        
 def geo_id_list_to_feature_collection(list_of_geo_ids,
                                       geo_id_column,
                                       session,
                                       asset_registry_base="https://api-ar.agstack.org",
                                       required_area=4,
                                       area_unit="ha"):
-    """Converts a list of geo_ids fron asset registry to a feature collection. "Geo_id" is setas a property for each feature)"""
+    """Converts a list of geo_ids from asset registry to a feature collection. "Geo_id" is set as a property for each feature"""
     out_fc_list = []
     if isinstance(list_of_geo_ids, list):
         for geo_id in list_of_geo_ids:
-            feature = geo_id_to_feature(geo_id,geo_id_column,session,asset_registry_base,required_area=4,area_unit="ha")
+            feature = geo_id_to_feature(geo_id, geo_id_column, session, asset_registry_base, required_area, area_unit)
             out_fc_list.append(feature)
     else:
-        geo_id = list_of_geo_ids
-        feature = geo_id_to_feature(geo_id)
+        feature = geo_id_to_feature(list_of_geo_ids, geo_id_column, session, asset_registry_base, required_area, area_unit)
         out_fc_list.append(feature)
     return ee.FeatureCollection(out_fc_list)
+
+
+
+
 
 
 
@@ -606,35 +596,37 @@ def geo_id_to_feature(geo_id,
                       asset_registry_base="https://api-ar.agstack.org",
                       required_area=4,
                       area_unit="ha"):
-    """converts geo_id fron asset registry into a feature with geo_id (or similar) set as a property"""
-    
-    res = session.get(asset_registry_base + f"/fetch-field/{geo_id}?s2_index=") # s2 indexes. Will need S2 cell token
-    
-    geo_json = res.json()['Geo JSON']
+    """converts geo_id from asset registry into a feature with geo_id (or similar) set as a property"""
+    try:
+        res = session.get(asset_registry_base + f"/fetch-field/{geo_id}?s2_index=")  # s2 indexes. Will need S2 cell token
+        res.raise_for_status()  # Ensure we raise an error for bad responses
+
+        try:
+            geo_json = res.json()['Geo JSON']
+        except (requests.exceptions.JSONDecodeError, KeyError) as e:
+            print(f"Error decoding JSON response: {e}")
+            return None  # or handle it in a way that makes sense for your application
+
+    except requests.exceptions.RequestException as e:
+        print(f"HTTP request error: {e}")
+        return None  # or handle it in a way that makes sense for your application
     
     coordinates = geo_json['geometry']['coordinates']
     
-    if check_json_geometry_type(geo_json)=='Polygon':        
-        feature = ee.Feature(ee.Geometry.Polygon(coordinates),ee.Dictionary([geo_id_column,geo_id]))
+    if check_json_geometry_type(geo_json) == 'Polygon':        
+        feature = ee.Feature(ee.Geometry.Polygon(coordinates), ee.Dictionary([geo_id_column, geo_id]))
         
-    elif check_json_geometry_type(geo_json)=='Point':
-        point_feature = ee.Feature(ee.Geometry.Point(coordinates),ee.Dictionary([geo_id_column,geo_id]))
-        
+    elif check_json_geometry_type(geo_json) == 'Point':
+        point_feature = ee.Feature(ee.Geometry.Point(coordinates), ee.Dictionary([geo_id_column, geo_id]))
         feature = point_feature
         
-        if debug: print("Point input")
-        # feature = buffer_point_to_required_area(point_feature,required_area,area_unit) //
+        if debug: 
+            print("Point input")
+        # feature = buffer_point_to_required_area(point_feature, required_area, area_unit)
         # if debug: print("Buffering points into polygons of required area")
     
     return feature
 
-# def geo_id_to_feature(geo_id, geo_id_column, session, asset_registry_base):
-#     """converts geo_id fron asset registry into a feature with geo_id (or similar) set as a property"""
-#     res = session.get(asset_registry_base + f"/fetch-field/{geo_id}?s2_index=") # s2 indexes. Will need S2 cell token
-#     geo_json = res.json()['Geo JSON']['geometry']['coordinates']  
-#     feature = ee.Feature(ee.Geometry.Polygon(geo_json),ee.Dictionary([geo_id_column,geo_id]))
-#     return feature
-    
 
 
 def check_json_geometry_type(geojson_obj):
@@ -693,23 +685,6 @@ def create_csv_from_list(join_id_column,data_list, output_lookup_csv):
     df.to_csv(output_lookup_csv, index=False)
 
 
-# def get_system_index_vals_w_missing_geo_ids(df, geo_id_column, join_id_column): 
-#     """
-#     Extracts values from join_id_column where geo_id_column is NaN.
-
-#     Args:
-#     - df: Input data in the form of a pandas DataFrame.
-#     - geo_id_column: The name of the column containing Geo IDs.
-#     - join_id_column: The name of the column containing join IDs.
-
-#     Returns:
-#     - List of join_id_column values where no Geo ID is present.
-#     """
-
-#     # Extract values from join_id_column where geo_id_column is NaN
-#     # making sure join_id_column is string format so can be used to filter fc in 
-#     return df[df[geo_id_column].isna()][join_id_column].astype(str).tolist()
-
 def get_system_index_vals_w_missing_geo_ids(df,geo_id_column,join_id_column):
     """
     Extracts system:index values where Geo_id is not present (NaN).
@@ -736,6 +711,7 @@ def filter_features_by_system_index(feature_col, system_indexes,join_id_column):
     filtered_features = feature_col.filter(filters)
     
     return ee.FeatureCollection(filtered_features)
+
 
 def update_geo_id_in_csv(output_lookup_csv,system_index, geo_id_column,new_geo_id, join_id_column):
     """updates rows in csv based on match to the individual input system_index string value. Uses an overwrite (slow as adds time for each but works ok...batch would be quicker)"""
@@ -814,12 +790,55 @@ def column_empty_check(df,column):
     
     return df[column].isnull().values.all()
 
-def register_fc_and_append_to_csv(feature_col, geo_id_column, output_lookup_csv, join_id_column, token, session, asset_registry_base, override_checks=False,remove_temp_csv=True, debug=False):
+
+def register_fc_and_append_to_csv(
+    feature_col, 
+    geo_id_column, 
+    output_lookup_csv, 
+    join_id_column,
+    email=None,
+    password=None,
+    asset_registry_base="https://api-ar.agstack.org",
+    user_registry_base="https://user-registry.agstack.org",
+    override_checks=False,
+    remove_temp_csv=True, 
+    debug=False):
     """feature collection to geo ids stored in a csv, either as a lookup table to add to other datasets (e.g. feature collections). 
     If csv exists (e.g. a lookup or whisp results) this adds in missing geo ids (so if crashes can carry on where left)"""
+
+    # if asset reg parameters missing, try importing them from default config file, or ask for user input
+    if email==None: 
+        try: 
+            from parameters.config_asr_credentials import email
+            if debug: print ("imported email parameter successfully from parameters.config_asr_credentials")
+        except:
+            print ("missing asset registry email parameter")
+    if password==None:
+        try:
+            from parameters.config_asr_credentials import password
+            if debug: print ("imported password parameter successfully from parameters.config_asr_credentials")
+        except:
+            print ("missing asset registry password parameter")
+
+    #get session from asset reg
+    try:
+        session = start_agstack_session(email,password,user_registry_base,debug)
+        if debug: print ("session", session)
+    except:
+        print ("Warning: Starting agstack session failed. Try checking inputs (email, password, user_registry_base) are defined correctly")
+        
+    #get token from asset reg
+    try:
+        token = get_agstack_token(email,password,asset_registry_base,debug)
+        if debug: print ("session", session)
+    except:
+        print ("Warning: Getting agstack token failed. Try check inputs (email, password, asset_registry_base) are defined correctly")
+
+    
     if column_exists_in_feature_collection(feature_col,geo_id_column):
         print ("Warning: geo id column already exists in input")
-        
+    
+    
     # Initialize an empty list to store features
     feature_list = []
     print (f"Chosen path for temp lookup csv:{output_lookup_csv} \n")
@@ -867,6 +886,96 @@ def register_fc_and_append_to_csv(feature_col, geo_id_column, output_lookup_csv,
         print(f"Progress: {progress:.2f}% ({i + 1}/{total_iterations}) ", end='\r')
        
     return print("Done \n")
+
+
+# def register_fc_and_append_to_csv(
+#     feature_col, 
+#     geo_id_column, 
+#     output_lookup_csv, 
+#     join_id_column,
+#     email=None,
+#     password=None,
+#     asset_registry_base="https://api-ar.agstack.org",
+#     user_registry_base="https://user-registry.agstack.org",
+#     override_checks=False,
+#     remove_temp_csv=True, 
+#     debug=False):
+#     """Registers a feature collection to geo IDs stored in a CSV, either as a lookup table to add to other datasets.
+#     If CSV exists, this adds missing geo IDs (so if crashes can carry on where left off)."""
+
+#     # If asset registry parameters are missing, try importing them from the default config file, or ask for user input
+#     if email is None: 
+#         try: 
+#             from parameters.config_asr_credentials import email
+#             if debug: print("Imported email parameter successfully from parameters.config_asr_credentials")
+#         except ImportError:
+#             raise ValueError("Missing asset registry email parameter")
+            
+#     if password is None:
+#         try:
+#             from parameters.config_asr_credentials import password
+#             if debug: print("Imported password parameter successfully from parameters.config_asr_credentials")
+#         except ImportError:
+#             raise ValueError("Missing asset registry password parameter")
+
+#     # Get session from asset registry
+#     try:
+#         session = start_agstack_session(email, password, user_registry_base, debug=debug)
+#         if debug: print("Session:", session)
+#     except Exception as e:
+#         raise ConnectionError("Starting agstack session failed. Check inputs (email, password, user_registry_base). Error: {}".format(e))
+        
+#     # Get token from asset registry
+#     try:
+#         token = get_agstack_token(email, password, asset_registry_base, debug=debug)
+#         if debug: print("Token:", token)
+#     except Exception as e:
+#         raise ConnectionError("Getting agstack token failed. Check inputs (email, password, asset_registry_base). Error: {}".format(e))
+
+#     if column_exists_in_feature_collection(feature_col, geo_id_column):
+#         raise ValueError("Geo ID column already exists in input")
+    
+#     print(f"Chosen path for temp lookup CSV: {output_lookup_csv} \n")
+
+#     # Checks and feature collection filtering
+#     fc = csv_prep_and_fc_filtering(feature_col, geo_id_column, output_lookup_csv, join_id_column, override_checks=override_checks, debug=debug)
+    
+#     # Convert the FeatureCollection to a list
+#     feature_col_list = fc.toList(feature_col.size())
+#     total_iterations = feature_col_list.size().getInfo()
+    
+#     if debug: print(f"Number without geo IDs: {total_iterations}")
+    
+#     if total_iterations == 0: 
+#         print("All geo IDs present in lookup CSV")
+#     else:
+#         print("Processing started...")       
+        
+#     # Loop over each feature in the list
+#     for i in range(total_iterations):
+#         feature = ee.Feature(feature_col_list.get(i))
+        
+#         # Using the helper function for single features
+#         try:  
+#             register_feature_and_append_to_csv(feature, geo_id_column, output_lookup_csv, join_id_column, token, session, asset_registry_base, debug)
+#         except KeyboardInterrupt:
+#             raise
+#         except Exception as error:
+#             print("An exception occurred:", error)
+#             print(f"Skipping feature {join_id_column} {str(feature.get(join_id_column).getInfo())}")
+        
+#         # Calculate progress percentage         
+#         progress = (i + 1) / total_iterations * 100
+#         print(f"Progress: {progress:.2f}% ({i + 1}/{total_iterations}) ", end='\r')
+       
+#     if remove_temp_csv:
+#         try:
+#             os.remove(output_lookup_csv)
+#             if debug: print("Temporary CSV removed.")
+#         except Exception as e:
+#             print(f"Failed to remove temporary CSV: {e}")
+
+#     print("Done \n")
 
 
 
