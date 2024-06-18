@@ -54,7 +54,7 @@ If your data is available as a feature collection and the GitHub repo is cloned,
 
 ### Adding Geo IDs to your results (Optional)
 1. After the main Whisp process, there are some optional steps for adding geo_ids to each of the features in your feature collection. This uses functionality from the Asset Registry API (see https://asset-registry.agstack.org/ for details).
-2. Currently, the process of registering a plot takes about 2-3 seconds. The speed of this external API should increase in the future. In the meantime, we use the approach of creating a lookup table (a temporary CSV called `temp_geo_id_lookup.csv`) containing geo-ids for each feature.  This can then be joined to the CSV output of Whisp (i.e., `whisp_output_table.csv`) via a common id (currently the `system:index` as this is a property present in every GEE feature collection). The notebook is set up to create a new version of the results with the Geo ID column appended : `whisp_output_table_w_geo_ids.csv`, but the output name is easily changed e.g. to overwrite the original output table if preferred.
+2. Currently, the process of registering a plot takes about 2-3 seconds. The speed of this external API should increase in the future. In the meantime, we use the approach of creating a lookup table (a temporary CSV called `temp_geo_id_lookup.csv`) containing geo-ids for each feature.  This can then be joined to the CSV outputs of the Whisp process (i.e., `whisp_output_table_w_risk.csv`) via a common id. Currently the common id is the `system:index` column as this is a property present in every GEE feature collection. The notebook is set up to create a new CSV with the Geo ID column appended, called: `whisp_output_table_w_risk_w_geo_ids.csv`. The output name is easily changed, e.g. to overwrite the original output table, if preferred.
 3.  This file stores geo_ids along with a unique id (`system:index`) from the feature collection. This system:index column can then be used to join the Geo IDs column on to the Whisp output table (`whisp_output_table.csv`). Similarly the lookup can also be used to join Geo IDs to the input feature collection.
 4. This approach is useful when registering large numbers of features/plots, as if the process is interrupted (e.g., if a bug occurs or the SEPAL instance times out), the lookup CSV still contains all the geo ids processed until this point. Therefore, the process automatically continues from where it stopped when this cell is rerun.
 5. This lookup table of Geo IDs is then appended to the results from Whisp.
@@ -72,11 +72,11 @@ If your data is available as a feature collection and the GitHub repo is cloned,
 
 ### Output 2
 
-- A CSV called `whisp_output_table_w_geo_ids.csv` contains results from the whisp processing along with a column for the newly registered geo ids.
+- A CSV called `whisp_output_table_w_risk.csv` contains results from the whisp processing and EUDR risk indicators.
 
 ### Output 3
 
-- A CSV called `whisp_output_table_w_geo_ids_w_risk.csv` contains results from the whisp processing, the registered geo ids, and EUDR risk indicators.
+- A CSV called `whisp_output_table_w_risk_w_geo_ids.csv` contains results from the whisp processing, EUDR risk indicators, and a column for the newly registered geo ids.
 
 ## Whisping a List of Geo IDs
 
@@ -138,9 +138,11 @@ SEPAL is closely linked to Google Earth Engine (GEE), a Google-powered Earth-obs
 
 Whisp summary statistics are processed using the cloud computing platform Google Earth Engine (GEE). To do this, plot data needs to be in feature collection format.
 
-#### Conversions via the GEE Python API: ‘On the Fly’ Processing with GeeMap
+#### Conversions via the GEE Python API: ‘On the Fly’ Processing
 
-To help, Whisp notebooks support conversion on the fly from shapefiles. This is carried out using functions from the geemap package. The Geemap package also supports other vector dataset conversions, such as from a GeoJSON, KML, or WKT to a feature collection, etc. For details and code examples see [here](link_to_geemap_info).
+To help, Whisp notebooks support conversion on the fly from geosjon (the proposed new EU standard: https://www.lecommercedubois.org/files/upload/RDUE/EUDR_-_Gelocation_file_description_1-0.pdf). This is possible in the whisp_feature_collection.ipynb notebook where you can choose between a pre-existing GEE asset or Goejson input. Further conversions including compatability with shapefiles are found in the the "data_conversion.ipynb" notebook. We are in the process of making Whisp more resilient to differences in geojson input formats.
+
+NB Some of these conversions are carried out adapting functions from the [geemap](https://geemap.org/) package. For those that are interested in other formats, such as KML, WKT etc, geemap provides additional options (although currently functionality varies due to recent updates in dependencies for this package).
 
 #### Conversions via GEE Code Editor: Uploading Shapefile as a GEE Asset
 
