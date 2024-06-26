@@ -161,6 +161,7 @@ As large or detailed polygon data may cause conversion errors, for more reliable
 11. Clicking on the asset will open a pop-up window to allow you to explore the table.
 12. The feature collection asset is ready to use. NB: You can visualize, share, or delete it as needed within the code editor interface.
 
+### Data layer additions
 #### Requesting a dataset addition in Whisp
 If you think a particular dataset has wide applicability for Whisp users, you can request it be added to the main Whisp repository by logging as an issue in Github [here] (https://github.com/forestdatapartnership/whisp/issues). 
 
@@ -196,5 +197,5 @@ NB if there is in a 1 in the "exclude" column this over-rules all of the above a
 •	A binary input image is expected, but non-integer values are allowed if they range between 0 and 1. This is most appropriate for datasets that have proportion of coverage in a pixel (e.g., a value of 0.5 would represent having half the pixel covered).
 •	If you are adding timeseries data, when creating the function you can use loops/mapping to compile a multiband input and to name each band accordingly.
 
-#### Contributing to the Whisp code base
+### Contributing to the Whisp code base
 Contributions to the Whisp code in GitHub are welcome. They can be made by forking the repository making and pushing the required changes, then making a pull request to the Whisp repository. After briefly reviewing the request, we can make a branch for which to make a new pull request to. If in doubt get in contact first or log as an issue [here] (https://github.com/forestdatapartnership/whisp/issues).
