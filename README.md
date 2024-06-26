@@ -132,7 +132,7 @@ SEPAL is closely linked to Google Earth Engine (GEE), a Google-powered Earth-obs
 
 4. If this works, on the left-hand pane you should now be able to view a Whisp folder containing Notebooks along with other supporting files and folders.
 
-### Setting Up Your Input Data
+### Setting Up Your Input Plot Data
 
 #### Converting Plot Data into a Feature Collection
 
