@@ -117,7 +117,7 @@ SEPAL is closely linked to Google Earth Engine (GEE), a Google-powered Earth-obs
 1. Login to SEPAL.
 2. Start an instance (see Terminal info) to provide you with free processing power.
 3. If you don’t have SEPAL set up:
-    - To create a SEPAL account, please follow the registration steps described [here](link_to_sepal_registration) and then familiarize yourself with the tool by exploring its interface.
+    - To create a SEPAL account, please follow the registration steps described [here](https://docs.sepal.io/en/latest/setup/register.html) and then familiarize yourself with the tool by exploring its interface.
     - To create a Google Earth Engine (GEE) account, please follow these steps and don’t forget to initialize the home folder.
 
 ### Setting Up the Whisp GitHub Repository
@@ -146,7 +146,7 @@ NB Some of these conversions are carried out adapting functions from the [geemap
 
 #### Conversions via GEE Code Editor: Uploading Shapefile as a GEE Asset
 
-However, as large or detailed polygon data may cause conversion errors, for more reliable functionality, you can also upload a shapefile straight into the GEE code editor where it is stored as a feature collection asset. This is documented [here](link_to_gee_code_editor_doc) as well as below.
+As large or detailed polygon data may cause conversion errors, for more reliable functionality, you can also upload a shapefile straight into the GEE code editor where it is stored as a feature collection asset. This is documented [here](https://developers.google.com/earth-engine/guides/table_upload#:~:text=4326%20before%20uploading.-,Upload%20a%20Shapefile,on%20your%20local%20file%20system.) as well as below.
 
 1. Go to Assets in the top left panel in the Earth Engine Code Editor page.
 2. Clicking on it will open the Asset Manager.
@@ -161,3 +161,40 @@ However, as large or detailed polygon data may cause conversion errors, for more
 11. Clicking on the asset will open a pop-up window to allow you to explore the table.
 12. The feature collection asset is ready to use. NB: You can visualize, share, or delete it as needed within the code editor interface.
 
+#### Requesting a dataset addition in Whisp
+If you think a particular dataset has wide applicability for Whisp users, you can request it be added to the main Whisp repository by logging as an issue in Github [here] (https://github.com/forestdatapartnership/whisp/issues). 
+
+#### Adding your own data for analysis using the Python Notebooks
+Adding your To add other datasets, such as that are specific to your circumstances, or can’t be shared directly in GEE, follow the steps and guidance below.
+
+1)	Edit modules/datasets.py and add in a function to make a binary GEE image (i.e., where values are either 0 or 1*). 
+2)	Choose a name to represent the data layer in the final CSV output. Place in speech brackets  in the .rename() section at the end of the function. See examples elsewhere in the functions in this script.
+3)	Edit parameters/lookup_gee_datasets.csv to include the chosen dataset name in a new row. Make sure other relevant columns are filled in.
+   
+The above assumes a single band image that is being included, which results in a single column being added. 
+If you have multiband images to add and want each band to be a layer in Whisp, make sure each band is named. 
+Make sure to add all the bands to the lookup CSV (see Step 3), else they won’t appear in the output.
+
+How to fill out the columns parameters/lookup_gee_datasets.csv
+a.	dataset_id: add a unique number
+b.	dataset_order: choose a number for where you want the dataset column placed in the CSV output.
+c.	dataset_name: the name for the dataset column. NB must be exactly the same as the name of the image band in step 1.
+d.	presence_only_flag: if 1 added here the dataset shows a value of True if it overlaps with the plot to any extent. 
+e.	exclude: removes the dataset from analysis 
+f.	theme: a word denoting the dataset Theme. Currently there are five themes where i to iv correspond to:
+   i.	treecover: for forest or treecover at the end of 2020 
+   ii.	commodities: representing commodities in 2020 (typically ones that tree cover might be confused with in remote sensing products).    
+   iii.	disturbance_before: forest/tree cover disturbance before the end of 2020
+   iv.	disturbance_after: forest/tree cover disturbance after the end of 2020
+   v.	ancillary: other relevant layers, such as representing protected areas or areas of importance for biodiversity.
+g.	use_for_risk: if 1 is added here this dataset is included in the risk calculations. The type of risk indicator it will contribute to is automatically governed by the “theme” column.
+NB if there is in a 1 in the "exclude" column this over-rules all of the above and the dataset is ignored. There are functions (in the modules/tidy_tables.py), to create lists for each of the 4 indicators from the lookup csv. These are used in the "whisp_risk" function for creating default columns to include in the final overall risk column.
+
+#### Tips for preparing and adding in your data
+•	It’s sometimes easier to do initial checks in JavaScript and check all looks ok on the map in Code Editor, and then convert the code into Python. Tools that can help convert include AI interfaces such as ChatGPT, or [geemap] (https://giswqs.medium.com/15-converting-earth-engine-javascripts-to-python-code-with-just-a-few-mouse-clicks-6aa02b1268e1). 
+•	Check your data: Python functions will still need sense checking and putting on a map is one way to do this using functions in [geemap] (https://geemap.org/notebooks/09_plotting/)
+•	A binary input image is expected, but non-integer values are allowed if they range between 0 and 1. This is most appropriate for datasets that have proportion of coverage in a pixel (e.g., a value of 0.5 would represent having half the pixel covered).
+•	If you are adding timeseries data, when creating the function you can use loops/mapping to compile a multiband input and to name each band accordingly.
+
+#### Contributing to the Whisp code base
+Contributions to the Whisp code in GitHub are welcome. They can be made by forking the repository making and pushing the required changes, then making a pull request to the Whisp repository. After briefly reviewing the request, we can make a branch for which to make a new pull request to. If in doubt get in contact first or log as an issue [here] (https://github.com/forestdatapartnership/whisp/issues).
