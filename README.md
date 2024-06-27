@@ -161,11 +161,14 @@ As large or detailed polygon data may cause conversion errors, for more reliable
 11. Clicking on the asset will open a pop-up window to allow you to explore the table.
 12. The feature collection asset is ready to use. NB: You can visualize, share, or delete it as needed within the code editor interface.
 
-### Data layer additions
-#### Requesting a dataset addition in Whisp
+## How to add data layers to Whisp
+
+There are two main approaches: to request a layer be incorporated into the core Whisp inputs, or to add in your own data directly to complement the core ones in Whisp
+
+### Requesting a dataset additions
 If you think a particular dataset has wide applicability for Whisp users, you can request it be added to the main Whisp repository by logging as an issue in Github [here] (https://github.com/forestdatapartnership/whisp/issues). 
 
-#### Adding your own data for analysis using the Python Notebooks
+### Adding your own dataset for a bespoke Whisp analysis (using the Python Notebooks)
 Adding your To add other datasets, such as that are specific to your circumstances, or can’t be shared directly in GEE, follow the steps and guidance below.
 
 1)	Edit modules/datasets.py and add in a function to make a binary GEE image (i.e., where values are either 0 or 1*). 
@@ -191,11 +194,11 @@ f.	theme: a word denoting the dataset Theme. Currently there are five themes whe
 g.	use_for_risk: if 1 is added here this dataset is included in the risk calculations. The type of risk indicator it will contribute to is automatically governed by the “theme” column.
 NB if there is in a 1 in the "exclude" column this over-rules all of the above and the dataset is ignored. There are functions (in the modules/tidy_tables.py), to create lists for each of the 4 indicators from the lookup csv. These are used in the "whisp_risk" function for creating default columns to include in the final overall risk column.
 
-#### Tips for preparing and adding in your data
+### Tips for preparing and adding in your data
 •	It’s sometimes easier to do initial checks in JavaScript and check all looks ok on the map in Code Editor, and then convert the code into Python. Tools that can help convert include AI interfaces such as ChatGPT, or [geemap] (https://giswqs.medium.com/15-converting-earth-engine-javascripts-to-python-code-with-just-a-few-mouse-clicks-6aa02b1268e1). 
 •	Check your data: Python functions will still need sense checking and putting on a map is one way to do this using functions in [geemap] (https://geemap.org/notebooks/09_plotting/)
 •	A binary input image is expected, but non-integer values are allowed if they range between 0 and 1. This is most appropriate for datasets that have proportion of coverage in a pixel (e.g., a value of 0.5 would represent having half the pixel covered).
 •	If you are adding timeseries data, when creating the function you can use loops/mapping to compile a multiband input and to name each band accordingly.
 
-### Contributing to the Whisp code base
+## Contributing to the Whisp code base
 Contributions to the Whisp code in GitHub are welcome. They can be made by forking the repository making and pushing the required changes, then making a pull request to the Whisp repository. After briefly reviewing the request, we can make a branch for which to make a new pull request to. If in doubt get in contact first or log as an issue [here] (https://github.com/forestdatapartnership/whisp/issues).
