@@ -27,7 +27,7 @@ The Forest Data Partnership promotes a Convergence of Evidence approach for Fore
 
 4. Python Notebook implementation.
 
-More info on Whisp can be found in [here](https://unfao-my.sharepoint.com/:b:/g/personal/maria_valbuenaperez_fao_org/EZAaBgWDruZOgL39BUp3AzgBORN6X1ttWIRgO6jg0mwOfQ?e=MWfVcb)
+More info on Whisp can be found in [here](https://openknowledge.fao.org/items/e9284dc7-4b19-4f9c-b3e1-e6c142585865)
 
 ## How to Whisp Your Data Using the Python Notebook Pathway
 
