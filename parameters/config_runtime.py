@@ -47,6 +47,7 @@ geometry_type_column = "Geometry_type"
 
 plot_id_column = "Plot_ID"
 
+water_flag = "Water_flag"
 
 # reformatting numbers to decimal places (e.g. '%.3f' is 3 dp)
 geometry_area_column_formatting = '%.3f' 
@@ -57,7 +58,7 @@ stats_percent_columns_formatting = '%.0f'
 
 
 # ordering prefix columns: inserted before stats columns (plot metadata and stats unit type). 
-prefix_columns_list =[geo_id_column, geometry_area_column, geometry_type_column, country_column, admin_1_column, centroid_x_coord_column, centroid_y_coord_column, stats_unit_type_column] 
+prefix_columns_list =[geo_id_column, geometry_area_column, geometry_type_column, country_column, admin_1_column, centroid_x_coord_column, centroid_y_coord_column, stats_unit_type_column, water_flag] 
 
 
 #do you want to keep system:index from input feature collection? NB it's useful for making joins after processing
@@ -79,18 +80,3 @@ lookup_gee_datasets_df = pd.read_csv(path_lookup_gee_datasets_df)
 
 # #for storing backup/temp csv files
 temp_csvs_folder_path = BACKUP_CSVS_DIR
-
-###################### wishlist - more options for units
-# # if need to expand units in future
-# UNIT_TYPE = {
-# # type: [selector, name]
-# "area": [0, "area"],
-# "percent": [1, "percent"]
-# "proportion": [2, "proportion"]
-# }
-
-# UNIT = {
-# # acronym: [factor, name]
-# "ha": [10000, "hectares"],
-# "sqkm": [1000000, "square kilometers"]
-# }
