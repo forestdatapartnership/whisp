@@ -19,15 +19,15 @@ def get_geoboundaries_info(geometry):
 ### gaul boundaries - dated and need a lookup to get iso3 codes, but moving towards open licence
 def get_gaul_info(geometry):
     gaul2 = ee.FeatureCollection("FAO/GAUL/2015/level2");
-    backup_dict =ee.Dictionary({"shapeGroup":"Unknown","shapeName": "Unknown"})
+    backup_dict =ee.Dictionary({"ADM0_NAME":"Unknown","ADM1_NAME": "Unknown"})
     polygonsIntersectPoint = gaul2.filterBounds(geometry);
-    return	ee.Algorithms.If( polygonsIntersectPoint.size().gt(0), polygonsIntersectPoint.first().toDictionary().select(["ADM0_NAME","ADM1_NAME", "ADM2_NAME"]) ,	backup_dict );
+    return	ee.Algorithms.If( polygonsIntersectPoint.size().gt(0), polygonsIntersectPoint.first().toDictionary().select(["ADM0_NAME","ADM1_NAME"]),	backup_dict );
     
 ### gadm - non-commercial use only
 def get_gadm_info(geometry):
     gadm = ee.FeatureCollection("projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/raw/gadm_41_level_1")
     polygonsIntersectPoint = gadm.filterBounds(geometry);
-    backup_dict =ee.Dictionary({"shapeGroup":"Unknown","shapeName": "Unknown"})
+    backup_dict =ee.Dictionary({"GID_0":"Unknown","COUNTRY": "Unknown"})
     
     return	ee.Algorithms.If(polygonsIntersectPoint.size().gt(0), polygonsIntersectPoint.first().toDictionary().select(["GID_0","COUNTRY"]) ,	backup_dict );
 
