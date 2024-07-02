@@ -205,7 +205,6 @@ def esa_fire_prep():
 
 
 
-
 #### disturbances combined (split into before and after 2020) 
 
 # RADD_after_2020
@@ -237,8 +236,6 @@ def radd_before_2020_prep():
     start = start_year*1000
     end  = 20*1000+365
     return radd_date.updateMask(radd_date.gte(start)).updateMask(radd_date.lte(end)).gt(0).rename("RADD_before_2020")
-
-
 
 
 #TMF_deg_before_2020
@@ -411,6 +408,7 @@ def combine_datasets():
     img_combined = img_combined.addBands(try_access(tmf_deg_after_2020_prep)) # combined
     img_combined = img_combined.addBands(try_access(radd_after_2020_prep)) # combined
     img_combined = img_combined.addBands(try_access(radd_before_2020_prep)) # combined
+
     
     
     img_combined = img_combined.multiply(ee.Image.pixelArea()) # multiple all bands by pixel area
