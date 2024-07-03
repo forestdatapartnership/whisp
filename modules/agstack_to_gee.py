@@ -13,7 +13,6 @@ from typing import Union, List
 from datetime import datetime
 # from modules.utils import buffer_point_to_required_area # to handle point features
 
-
 from parameters.config_directory import BASE_DIR,RESULTS_DIR,BACKUP_CSVS_DIR 
 
 # A lot of these could be done with decorators instead of building up functions etc
@@ -791,7 +790,7 @@ def column_empty_check(df,column):
     return df[column].isnull().values.all()
 
 
-def register_fc_and_append_to_csv(
+def register_fc_and_append_to_csv( ##Needs updating - token etc
     feature_col, 
     geo_id_column, 
     output_lookup_csv, 
@@ -829,7 +828,7 @@ def register_fc_and_append_to_csv(
         
     #get token from asset reg
     try:
-        token = get_agstack_token(email,password,asset_registry_base,debug)
+        token = get_agstack_token(email,password,asset_registry_base,debug)####
         if debug: print ("session", session)
     except:
         print ("Warning: Getting agstack token failed. Try check inputs (email, password, asset_registry_base) are defined correctly")
