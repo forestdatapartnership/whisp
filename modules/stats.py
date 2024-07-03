@@ -53,13 +53,20 @@ def usgs_gsv_ocean_prep(): # TO DO: for speed export image as an asset at samne 
 
 def jrc_water_surface_prep(): 
     jrc_surface_water = ee.Image("JRC/GSW1_4/GlobalSurfaceWater");
-
-    water_surface = jrc_surface_water.select('occurrence').gte(50).selfMask();
     
-    #clip to within coast line an rename band
-    # water_surface = water_surface.where(usgs_gsv_ocean_prep(),0)
+    #use transition band
+    jrc_transition = jrc_surface_water.select("transition") 
     
-    return water_surface.rename("water_inland") 
+    # select permanent water bodies: 
+    # remap the following classes to have a value of 1: 
+    # "Permanent", "New Permanent", and "Seasonal to Permanent" (i.e., classes 1,2 and 7). 
+    # All other classes as value 0.
+    permanent_inland_water = jrc_transition.remap([1,2,7],[1,1,1],0).unmask() 
+    
+    #optional - clip to within coast line (not needed currently and extra processing)
+    # permanent_inland_water = permanent_inland_water.where(usgs_gsv_ocean_prep(),0)
+    
+    return permanent_inland_water.rename("water_inland") 
 
 
 def water_flag_all_prep():
