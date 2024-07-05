@@ -302,6 +302,43 @@ def get_stats_formatted(feature_or_feature_col, **kwargs) -> ee.FeatureCollectio
 
 
 
+# def get_stats_formatted(feature_collection, flag_positive=None, exclude_properties=None, presence_only_flag_list=None, lookup_gee_datasets_df=None, **kwargs):
+#     """
+#     Example function to process a feature collection.
+
+#     Args:
+#     feature_collection (ee.FeatureCollection): Input feature collection to process.
+#     flag_positive (bool, optional): Flag to determine additional processing. Defaults to False.
+#     exclude_properties (list, optional): List of properties to exclude. Defaults to None.
+#     presence_only_flag_list (list, optional): List of properties with presence-only flag. Defaults to None.
+#     kwargs: Additional keyword arguments for flexibility.
+
+#     Returns:
+#     ee.FeatureCollection: Processed feature collection.
+#     """
+    
+#     if lookup_gee_datasets_df is not None:
+#         if exclude_properties is None:
+#             exclude_properties = exclude_properties or get_exclude_list(lookup_gee_datasets_df)
+#         if presence_only_flag_list is None:
+#             presence_only_flag_list = presence_only_flag_list or get_presence_only_flag_list(lookup_gee_datasets_df)
+#     else:
+        
+
+
+#     # Call the processing function
+#     processed_fc = process_feature_collection(
+#         feature_collection,
+#         flag_positive=flag_positive,
+#         exclude_properties=exclude_properties,
+#         presence_only_flag_list=presence_only_flag_list,
+#         **kwargs
+#     )
+
+
+#     return processed_fc
+
+
 
 ##tidying functions
 

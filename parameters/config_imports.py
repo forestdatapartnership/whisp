@@ -37,19 +37,15 @@ from modules.agstack_to_gee import (
     geojson_to_ee, 
     geojson_to_shapefile,
     shapefile_to_geojson,
-    register_fc_and_set_geo_id,
     add_geo_ids_to_feature_col_from_lookup_df,
 )
-from modules.file_to_ceo import (
-    get_ceo_url,
-    whisp_stats_shapefile_and_ceo_url,
-)
+
 from modules.utils import (
     collection_properties_to_df,
     remove_geometry_from_feature_collection,
     get_centroid,
 )
-from modules.tidy_tables import (
+from modules.risk import (
     whisp_risk,
     add_eudr_risk_col,
     add_indicators,
