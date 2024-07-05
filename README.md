@@ -192,7 +192,7 @@ f.	theme: a word denoting the dataset Theme. Currently there are five themes whe
    iv.	disturbance_after: forest/tree cover disturbance after the end of 2020
    v.	ancillary: other relevant layers, such as representing protected areas or areas of importance for biodiversity.
 g.	use_for_risk: if 1 is added here this dataset is included in the risk calculations. The type of risk indicator it will contribute to is automatically governed by the “theme” column.
-NB if there is in a 1 in the "exclude" column this over-rules all of the above and the dataset is ignored. There are functions (in the modules/tidy_tables.py), to create lists for each of the 4 indicators from the lookup csv. These are used in the "whisp_risk" function for creating default columns to include in the final overall risk column.
+NB if there is in a 1 in the "exclude" column this over-rules all of the above and the dataset is ignored. There are functions (in the modules/risk.py), to create lists for each of the 4 indicators from the lookup csv. These are used in the "whisp_risk" function for creating default columns to include in the final overall risk column.
 
 ### Tips for preparing and adding in your data
 •	It’s sometimes easier to do initial checks in JavaScript and check all looks ok on the map in Code Editor, and then convert the code into Python. Tools that can help convert include AI interfaces such as ChatGPT, or [geemap] (https://giswqs.medium.com/15-converting-earth-engine-javascripts-to-python-code-with-just-a-few-mouse-clicks-6aa02b1268e1/). 
