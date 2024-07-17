@@ -28,6 +28,15 @@ dev = [
 [tool.setuptools.packages]
 find = {}
 
+#[tool.setuptools]
+#package-dir = {"" = "."}
+#include-package-data = true
+#[tool.setuptools.packages.find]
+#where = ["whisp"]
+#[tool.setuptools.package-data]
+#"*" = ["*.csv"]
+
+
 [tool.pytest.ini_options]
 log_cli = true
 log_cli_level = "DEBUG"

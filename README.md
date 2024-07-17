@@ -31,8 +31,14 @@ cd whisp/
 pip install .
 ```
 
-Create a `.env` file with the required information for Earth Engine login (you may copy and edit the `.env.template` file)
+Create a `.env` file with the required information for Earth Engine login (you may copy and edit the `.env.template`
+file found in the root directory). The file must contain the following environment variables:
+```
+# Earth Engine project name
+PROJECT="my-ee-project"
+```
 
+Where you must replace the GEE project name by your own.
 
 # Contributing
 
