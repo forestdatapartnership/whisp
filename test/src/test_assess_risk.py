@@ -5,7 +5,7 @@ import pandas as pd
 
 
 GEOJSON_EXAMPLE_FILEPATH = (
-    Path(__file__).parent / "fixtures" / "geojson_example.geojson"
+    Path(__file__).parents[1] / "fixtures" / "geojson_example.geojson"
 )
 
 

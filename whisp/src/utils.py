@@ -21,10 +21,18 @@ def load_env_vars() -> None:
     out : None
     """
 
-    dotenv_path = Path(__file__).parents[2] / ".env"
-    if not dotenv_path.exists():
+    all_dotenv_paths = iter([Path(__file__).parents[2] / ".env", Path.cwd() / ".env"])
+    dotenv_loaded = False
+
+    while not dotenv_loaded:
+        dotenv_path = next(all_dotenv_paths)
+        logger.logger.debug(f"dotenv_path: {dotenv_path}")
+        if not dotenv_path.exists():
+            continue
+        dotenv_loaded = load_dotenv(dotenv_path)
+
+    if not dotenv_loaded:
         raise DotEnvNotFoundError
-    load_dotenv(dotenv_path)
     logger.logger.info(f"Loaded evironment variables from '{dotenv_path}'")
 
 
@@ -140,6 +148,6 @@ def get_radius_m_to_buffer_to_required_area(area, area_unit="km2"):
 class DotEnvNotFoundError(FileNotFoundError):
     def __init__(self) -> None:
         super().__init__(
-            "Running tests requires setting an appropriate '.env' in the 'src' folder. You may copy and edit "
-            "the 'src/.env.template' file.",
+            "Running tests requires setting an appropriate '.env' in the root directory or in your current working "
+            "directory. You may copy and edit the '.env.template' file from the root directory or from the README.",
         )
