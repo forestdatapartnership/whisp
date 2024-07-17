@@ -5,6 +5,8 @@ import os
 # from google.oauth2 import service_account
 
 # for sepal instance
+
+
 def initialize_ee():
     """Initializes Google Earth Engine with credentials located one level up from the script's directory."""
     try:

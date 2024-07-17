@@ -13,3 +13,4 @@ copy_whisp_output_table.csv
 copy_whisp_output_table_w_risk.csv
 .env
 whisp.egg-info/
+build/

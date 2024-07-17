@@ -1,4 +1,4 @@
-import shutil
+# import shutil
 from pathlib import Path
 
 __all__ = [
@@ -9,7 +9,7 @@ __all__ = [
 
 BASE_DIR = Path("~").expanduser()
 
-RESULTS_DIR = BASE_DIR / "module_results/whisp"
+RESULTS_DIR = BASE_DIR / "module_results/src"
 
 BACKUP_CSVS_DIR = RESULTS_DIR / "backup_csvs"
 "Path: location for storing backup csvs - typically created during geo-id registration process"

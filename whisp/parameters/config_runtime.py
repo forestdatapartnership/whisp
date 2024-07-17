@@ -1,14 +1,10 @@
 from pathlib import Path
-import ee
+from .config_directory import RESULTS_DIR, BACKUP_CSVS_DIR
 
-# ee.Initialize()
 
 debug = True  # get print messages or not (e.g. for debugging code etc) (True or False)
 
-from parameters.config_directory import RESULTS_DIR, BACKUP_CSVS_DIR
-
-
-## unit choice ("ha" or "percent")
+# unit choice ("ha" or "percent")
 percent_or_ha = "ha"
 
 out_directory = RESULTS_DIR
@@ -18,7 +14,7 @@ threshold_to_drive = (
     500  # default 500 - whisping anything over this many features will go to drive
 )
 
-### main outputs (main output format)
+# main outputs (main output format)
 out_csv_name = "whisp_output_table.csv"  # set output name
 
 out_csv = out_directory / out_csv_name  # set full path for output csv
@@ -28,7 +24,7 @@ out_shapefile_name = "shapefile_for_ceo.shp.zip"
 out_shapefile = out_directory / out_shapefile_name
 
 
-### whisp outputs formatting
+# src outputs formatting
 
 # output column names
 geometry_area_column = "Plot_area_ha"
@@ -85,7 +81,7 @@ DEFAULT_GEE_DATASETS_LOOKUP_TABLE_PATH = (
 )
 
 
-### risk indicator parameters
+# risk indicator parameters
 
 # lists of columns to check (could shift to lookup_gee_datasets.csv in future)
 
@@ -127,12 +123,12 @@ cols_ind_4_dist_after_2020 = [
 ]
 
 
-### Temp output parameters
+# Temp output parameters
 
 # #for storing backup/temp csv files
 temp_csvs_folder_path = BACKUP_CSVS_DIR
 
-###################### wishlist - more options for units
+# wishlist - more options for units
 # # if need to expand units in future
 # UNIT_TYPE = {
 # # type: [selector, name]

@@ -13,7 +13,7 @@ import geemap
 # Assuming file_to_ceo.py is in the modules directory, we add the parameters directory to the path
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "parameters"))
 
-from config_ceo import ceo_email, ceo_password
+from ..parameters.config_ceo import ceo_email, ceo_password
 
 
 def file_to_base64(file_path):
@@ -215,7 +215,7 @@ def merge_and_reformat_to_gdf(roi, df, plot_id_column):
 
     Parameters:
     - roi: feature collection of region(s) of interest (i.e input plots)
-    - df: DataFrame, from the whisp stats output
+    - df: DataFrame, from the src stats output
     - plot_id_column: name for output column for quick reference
 
     Returns:

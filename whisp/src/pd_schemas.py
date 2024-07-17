@@ -2,7 +2,7 @@ import pandera as pa
 from pandera.typing import DataFrame, Index, Series
 
 
-class DfGEEDatasetsSchema(pa.SchemaModel):
+class DfGEEDatasetsSchema(pa.DataFrameModel):
 
     dataset_id: Index[int]
     dataset_order: Series[int]
