@@ -1,10 +1,12 @@
 import requests
 import json
-import geojson
-import ee
+
+# import geojson
+# import ee
 import geemap
 import os
-import geopandas as gpd
+
+# import geopandas as gpd
 import shutil
 import sys
 import pandas as pd
@@ -12,12 +14,15 @@ from typing import Union, List
 
 from datetime import datetime
 
-# from src.utils import buffer_point_to_required_area # to handle point features
+# to handle point features
+# from .utils import buffer_point_to_required_area
 
 
-from parameters.config_directory import BASE_DIR, RESULTS_DIR, BACKUP_CSVS_DIR
+# from whisp.parameters.config_directory import BASE_DIR, RESULTS_DIR, BACKUP_CSVS_DIR
+from ..parameters.config_runtime import debug
 
 # A lot of these could be done with decorators instead of building up functions etc
+
 
 # functions for setting up session based on usr credentials
 def start_agstack_session(email, password, user_registry_base, debug=False):
@@ -25,7 +30,7 @@ def start_agstack_session(email, password, user_registry_base, debug=False):
     import requests
 
     session = requests.session()
-    session.headers = headers = {
+    session.headers = {
         "Accept": "application/json",
         "Content-Type": "application/json",
     }

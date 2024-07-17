@@ -1,10 +1,10 @@
 import ee
+import functools
 
-from src.datasets import combine_datasets
+from .datasets import combine_datasets
 
-from parameters.config_runtime import (
+from ..parameters.config_runtime import (
     percent_or_ha,
-    plot_id_column,
     geometry_type_column,
     geometry_area_column,
     geometry_area_column_formatting,
@@ -17,11 +17,8 @@ from parameters.config_runtime import (
     stats_percent_columns_formatting,
 )
 
-import functools
 
-
-########################################
-### geoboundaries - freqently updated database, allows commercial use (CC BY 4.0 DEED) (disputed territories may need checking)
+# geoboundaries - freqently updated database, allows commercial use (CC BY 4.0 DEED) (disputed territories may need checking)
 # def get_geoboundaries_info(geometry):
 #     gbounds_ADM0 = ee.FeatureCollection("WM/geoLab/geoBoundaries/600/ADM0");
 #     polygonsIntersectPoint = gbounds_ADM0.filterBounds(geometry)
@@ -40,7 +37,7 @@ def get_geoboundaries_info(geometry):
     )
 
 
-### gaul boundaries - dated and need a lookup to get iso3 codes, but moving towards open licence
+# gaul boundaries - dated and need a lookup to get iso3 codes, but moving towards open licence
 def get_gaul_info(geometry):
     gaul2 = ee.FeatureCollection("FAO/GAUL/2015/level2")
     polygonsIntersectPoint = gaul2.filterBounds(geometry)
@@ -53,7 +50,7 @@ def get_gaul_info(geometry):
     )
 
 
-### gadm - non-commercial use only
+# gadm - non-commercial use only
 def get_gadm_info(geometry):
     gadm = ee.FeatureCollection(
         "projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/raw/gadm_41_level_1"
@@ -66,7 +63,7 @@ def get_gadm_info(geometry):
     )
 
 
-################### main stats functions
+# main stats functions
 
 
 def get_stats(feature_or_feature_col):
@@ -121,23 +118,19 @@ def get_stats_feature(feature):
         maxPixels=1e10,
         tileScale=8,
     )
-    ######
-    ## roi attributes
-    ######
-    ## get location
 
-    ### gaul boundaries - dated, moving towards open licence
+    # gaul boundaries - dated, moving towards open licence
     # location = ee.Dictionary(get_gaul_info(feature.geometry()))
 
     # country = ee.Dictionary({country_column: location.get('ADM0_NAME')})
 
-    ### gadm - non-commercial use only
+    # gadm - non-commercial use only
 
     # location = ee.Dictionary(get_gadm_info(feature.geometry().centroid(1)))
 
     # country = ee.Dictionary({country_column: location.get('GID_0')})
 
-    ### geoboundaries - freqently updated database; allows commercial use (CC BY 4.0 DEED)
+    # geoboundaries - freqently updated database; allows commercial use (CC BY 4.0 DEED)
     centroid = feature.geometry().centroid(1)
 
     location = ee.Dictionary(get_geoboundaries_info(centroid))
@@ -170,7 +163,7 @@ def get_stats_feature(feature):
         .combine(stats_unit_type)
     )
 
-    ####
+    #
 
     # Now, modified_dict contains all keys with the prefix added
     reduce_ha = reduce.map(
@@ -180,7 +173,7 @@ def get_stats_feature(feature):
     # Get val for hectares
     area_ha = ee.Number(ee.Dictionary(reduce_ha).get(geometry_area_column))
 
-    ####
+    #
 
     # Apply the function (defined above) to each value in the dictionary using map()
     reduce_percent = reduce_ha.map(
@@ -210,9 +203,6 @@ def get_stats_feature(feature):
     )
 
     return out_feature
-
-
-############3
 
 
 def reformat_whisp_fc(
@@ -307,9 +297,6 @@ def get_stats_formatted(feature_or_feature_col, **kwargs) -> ee.FeatureCollectio
     return fc
 
 
-##tidying functions
-
-
 def add_id_to_feature_collection(dataset, id_name="PlotID"):
     """
     Adds an incremental (1,2,3 etc) 'id' property to each feature in the given FeatureCollection.
@@ -353,7 +340,7 @@ def reorder_properties(feature, order):
 
 
 # Function to add ID to features
-def add_id_to_feature(feature, join):
+def add_id_to_feature(feature, id_name):
     index = feature.get("system:index")
     return feature.set(id_name, index)
 

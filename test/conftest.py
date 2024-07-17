@@ -1,11 +1,11 @@
 import logging
 import pytest
 
-from src.utils import init_ee, clear_ee_credentials
-from src.logger import StdoutLogger
+from whisp.src.utils import init_ee, clear_ee_credentials
+from whisp.src.logger import StdoutLogger
 
 
-logger = StdoutLogger()
+logger = StdoutLogger(__name__)
 
 
 logging.getLogger("faker").setLevel(logging.INFO)

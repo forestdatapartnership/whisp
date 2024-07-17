@@ -7,14 +7,14 @@ BASE_MSG_FORMAT = (
 
 
 class StdoutLogger:
-    def __init__(self, msg_format: str = BASE_MSG_FORMAT) -> None:
+    def __init__(self, name: str, msg_format: str = BASE_MSG_FORMAT) -> None:
 
         self.handler = logging.StreamHandler(sys.stdout)
         self.handler.setFormatter(logging.Formatter(msg_format))
         self.handler.setLevel(logging.DEBUG)
-        self.logger = logging.getLogger(f"{__name__}")
+        self.logger = logging.getLogger(name)
         self.logger.addHandler(self.handler)
-        self.logger.propagate = True
+        self.logger.propagate = False
 
 
 class FileLogger:

@@ -1,6 +1,5 @@
 import pandas as pd
-import ee
-from parameters.config_runtime import (
+from ..parameters.config_runtime import (
     percent_or_ha,
     cols_ind_1_treecover,
     cols_ind_2_commodities,
@@ -8,19 +7,22 @@ from parameters.config_runtime import (
     cols_ind_4_dist_after_2020,
     geometry_area_column,
 )
+from .pd_schemas import DfGEEDatasetsType
 
 
-def clamp(value, min_val, max_val):
+def clamp(
+    value: float | pd.Series, min_val: float, max_val: float
+) -> float | pd.Series:
     """
     Clamp a value or a Pandas Series within a specified range.
 
     Args:
-        value (float, int, or pandas.Series): The value or series to be clamped.
-        min_val (float or int): The minimum value of the range.
-        max_val (float or int): The maximum value of the range.
+        value (float | pd.Series): The value or series to be clamped.
+        min_val (float): The minimum value of the range.
+        max_val (float): The maximum value of the range.
 
     Returns:
-        float, int, or pandas.Series: The clamped value or series within the range.
+        float | pd.Series: The clamped value or series within the range.
     """
     if isinstance(value, pd.Series):
         return value.clip(lower=min_val, upper=max_val)
@@ -28,64 +30,62 @@ def clamp(value, min_val, max_val):
         return max(min_val, min(value, max_val))
 
 
-def check_range(value):
+def check_range(value: float) -> None:
     if not (0 <= value <= 100):
         raise ValueError("Value must be between 0 and 100.")
-    # else:
-    #     print("Value is within the range.")
 
 
 def whisp_risk(
-    df,
-    ind_1_pcent_threshold,
-    ind_2_pcent_threshold,
-    ind_3_pcent_threshold,
-    ind_4_pcent_threshold,
-    ind_1_input_columns=cols_ind_1_treecover,
-    ind_2_input_columns=cols_ind_2_commodities,
-    ind_3_input_columns=cols_ind_3_dist_before_2020,
-    ind_4_input_columns=cols_ind_4_dist_after_2020,
-    ind_1_name="Indicator_1_treecover",
-    ind_2_name="Indicator_2_commodities",
-    ind_3_name="Indicator_3_disturbance_before_2020",
-    ind_4_name="Indicator_4_disturbance_after_2020",
-    low_name="no",
-    high_name="yes",
-):
+    df: DfGEEDatasetsType,
+    ind_1_pcent_threshold: float,
+    ind_2_pcent_threshold: float,
+    ind_3_pcent_threshold: float,
+    ind_4_pcent_threshold: float,
+    ind_1_input_columns: pd.Series = cols_ind_1_treecover,
+    ind_2_input_columns: pd.Series = cols_ind_2_commodities,
+    ind_3_input_columns: pd.Series = cols_ind_3_dist_before_2020,
+    ind_4_input_columns: pd.Series = cols_ind_4_dist_after_2020,
+    ind_1_name: str = "Indicator_1_treecover",
+    ind_2_name: str = "Indicator_2_commodities",
+    ind_3_name: str = "Indicator_3_disturbance_before_2020",
+    ind_4_name: str = "Indicator_4_disturbance_after_2020",
+    low_name: str = "no",
+    high_name: str = "yes",
+) -> DfGEEDatasetsType:
     """Adds the EUDR (European Union Deforestation Risk) column to the DataFrame based on indicator values.
 
     Args:
-        df (DataFrame): Input DataFrame.
+        df (DfGEEDatasetsType): Input DataFrame.
         ind_1_name (str, optional): Name of first indicator column. Defaults to "Indicator_1_treecover".
         ind_2_name (str, optional): Name of second indicator column. Defaults to "Indicator_2_commodities".
         ind_3_name (str, optional): Name of third indicator column. Defaults to "Indicator_3_disturbance_before_2020".
         ind_4_name (str, optional): Name of fourth indicator column. Defaults to "Indicator_4_disturbance_after_2020".
         low_name (str, optional): Value shown in table if less than or equal to threshold. Defualts to "no".
-        low_name (str, optional): Value shown in table if more than threshold. Defualts to "yes".
+        high_name (str, optional): Value shown in table if more than threshold. Defualts to "yes".
     Returns:
-        DataFrame: DataFrame with added 'EUDR_risk' column.
+        DfGEEDatasetsType: DataFrame with added 'EUDR_risk' column.
     """
 
-    # check range of values
-    check_range(ind_1_pcent_threshold)
-    check_range(ind_2_pcent_threshold)
-    check_range(ind_3_pcent_threshold)
-    check_range(ind_4_pcent_threshold)
-
-    df_w_indicators = add_indicators(
-        df,
-        ind_1_pcent_threshold,
-        ind_2_pcent_threshold,
-        ind_3_pcent_threshold,
-        ind_4_pcent_threshold,
+    input_cols = [
         ind_1_input_columns,
         ind_2_input_columns,
         ind_3_input_columns,
         ind_4_input_columns,
-        ind_1_name,
-        ind_2_name,
-        ind_3_name,
-        ind_4_name,
+    ]
+    thresholds = [
+        ind_1_pcent_threshold,
+        ind_2_pcent_threshold,
+        ind_3_pcent_threshold,
+        ind_4_pcent_threshold,
+    ]
+    names = [ind_1_name, ind_2_name, ind_3_name]
+    [check_range(threshold) for threshold in thresholds]
+
+    df_w_indicators = add_indicators(
+        df,
+        input_cols,
+        thresholds,
+        names,
         low_name,
         high_name,
     )
@@ -102,21 +102,21 @@ def whisp_risk(
 
 
 def add_eudr_risk_col(
-    df,
-    ind_1_name="Indicator_1_treecover",
-    ind_2_name="Indicator_2_commodities",
-    ind_3_name="Indicator_3_disturbance_before_2020",
-    ind_4_name="Indicator_4_disturbance_after_2020",
-):
+    df: DfGEEDatasetsType,
+    ind_1_name: str,
+    ind_2_name: str,
+    ind_3_name: str,
+    ind_4_name: str,
+) -> DfGEEDatasetsType:
     """
     Adds the EUDR (European Union Deforestation Risk) column to the DataFrame based on indicator values.
 
     Args:
         df (DataFrame): Input DataFrame.
-        ind_1_name (str, optional): Name of first indicator column. Defaults to "Indicator_1_treecover".
-        ind_2_name (str, optional): Name of second indicator column. Defaults to "Indicator_2_commodities".
-        ind_3_name (str, optional): Name of third indicator column. Defaults to "Indicator_3_disturbance_before_2020".
-        ind_4_name (str, optional): Name of fourth indicator column. Defaults to "Indicator_4_disturbance_after_2020".
+        ind_1_name (str): Name of first indicator column.
+        ind_2_name (str): Name of second indicator column.
+        ind_3_name (str): Name of third indicator column.
+        ind_4_name (str): Name of fourth indicator column.
 
     Returns:
         DataFrame: DataFrame with added 'EUDR_risk' column.
@@ -141,80 +141,41 @@ def add_eudr_risk_col(
 
 
 def add_indicators(
-    df,
-    ind_1_pcent_threshold,
-    ind_2_pcent_threshold,
-    ind_3_pcent_threshold,
-    ind_4_pcent_threshold,
-    ind_1_input_columns=cols_ind_1_treecover,
-    ind_2_input_columns=cols_ind_2_commodities,
-    ind_3_input_columns=cols_ind_3_dist_before_2020,
-    ind_4_input_columns=cols_ind_4_dist_after_2020,
-    ind_1_name="Indicator_1_treecover",
-    ind_2_name="Indicator_2_commodities",
-    ind_3_name="Indicator_3_disturbance_before_2020",
-    ind_4_name="Indicator_4_disturbance_after_2020",
-    low_name="no",
-    high_name="yes",
-):
+    df: DfGEEDatasetsType,
+    input_cols: list[str],
+    thresholds: list[float],
+    names: list[str],
+    low_name: str = "no",
+    high_name: str = "yes",
+) -> DfGEEDatasetsType:
 
-    # add presence indicators (default is for > threshold as yes/high)
-    # Indicator_1_treecover
-    df_w_indicators = add_indicator_column(
-        df=df,
-        input_columns=ind_1_input_columns,
-        threshold=ind_1_pcent_threshold,
-        new_column_name=ind_1_name,
-        low_name=low_name,
-        high_name=high_name,
-    )
+    for input_col, threshold, name in zip(input_cols, thresholds, names):
+        df = add_indicator_column(
+            df=df,
+            input_columns=input_col,
+            threshold=threshold,
+            new_column_name=name,
+            low_name=low_name,
+            high_name=high_name,
+        )
 
-    # Indicator_2_commodities
-    df_w_indicators = add_indicator_column(
-        df=df_w_indicators,
-        input_columns=ind_2_input_columns,
-        threshold=ind_2_pcent_threshold,
-        new_column_name=ind_2_name,
-        low_name=low_name,
-        high_name=high_name,
-    )
-
-    # Indicator_3_disturbance_before_2020
-    df_w_indicators = add_indicator_column(
-        df=df_w_indicators,
-        input_columns=ind_3_input_columns,
-        threshold=ind_3_pcent_threshold,
-        new_column_name=ind_3_name,
-        low_name=low_name,
-        high_name=high_name,
-    )
-
-    # Indicator_4_disturbance_after_2020
-    df_w_indicators = add_indicator_column(
-        df=df_w_indicators,
-        input_columns=ind_4_input_columns,
-        threshold=ind_4_pcent_threshold,
-        new_column_name=ind_4_name,
-        low_name=low_name,
-        high_name=high_name,
-    )
-    return df_w_indicators
+    return df
 
 
 def add_indicator_column(
-    df,
-    input_columns,
-    threshold,
-    new_column_name,
-    low_name="yes",
-    high_name="no",
-    sum_comparison=False,
-):
+    df: DfGEEDatasetsType,
+    input_columns: list[str],
+    threshold: float,
+    new_column_name: str,
+    low_name: str = "yes",
+    high_name: str = "no",
+    sum_comparison: bool = False,
+) -> DfGEEDatasetsType:
     """
     Add a new column to the DataFrame based on the specified columns, threshold, and comparison sign.
 
     Parameters:
-        df (DataFrame): The pandas DataFrame to which the column will be added.
+        df (DfGEEDatasetsType): The pandas DataFrame to which the column will be added.
         input_columns (list): List of column names to check for threshold.
         threshold (float): The threshold value to compare against.
         new_column_name (str): The name of the new column to be added.
@@ -225,7 +186,7 @@ def add_indicator_column(
         sum_comparison (bool): If True, sum all values in input_columns and compare to threshold (default is False).
 
     Returns:
-        DataFrame: The DataFrame with the new column added.
+        DfGEEDatasetsType: The DataFrame with the new column added.
     """
     # Create a new column and initialize with low_name
     df[new_column_name] = low_name
@@ -240,7 +201,7 @@ def add_indicator_column(
     else:
         # Check if any values in specified columns are above the threshold and update the new column accordingly
         for col in input_columns:
-            ## So that threshold is always in percent, if outputs are in ha, the code converts to percent (based on dividing by the geometry_area_column column.
+            # So that threshold is always in percent, if outputs are in ha, the code converts to percent (based on dividing by the geometry_area_column column.
             # Clamping is needed due to differences in decimal places (meaning input values may go just over 100)
             if percent_or_ha == "ha":
                 # if df[geometry_area_column]<0.01: #to add in for when points, some warning message or similar

@@ -1,5 +1,5 @@
 from pathlib import Path
-from src.assess_risk import whisp_stats_from_geojson_roi
+from whisp.src.assess_risk import whisp_stats_from_geojson_roi
 
 import pandas as pd
 

@@ -6,7 +6,7 @@ build-backend = ["setuptools.build_meta"]
 name = "whisp"
 # TODO: ADD WHISP MAINTAINERS TO THE AUTHORS LIST
 authors = [{name = "Florent Scarpa", email = "florent.scarpa@sustaain.org"}]
-version = "0.0.0"
+version = "0.0.1"
 requires-python = ">=3.10"
 dependencies = [
     "earthengine-api",
@@ -15,6 +15,7 @@ dependencies = [
     "pandas",
     "pandera",
     "python-dotenv",
+    "setuptools",
 ]
 
 [project.optional-dependencies]

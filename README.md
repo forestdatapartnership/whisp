@@ -40,7 +40,7 @@ Install the package in editable mode with the additional dependencies required f
 ```
 git clone https://github.com/forestdatapartnership/whisp.git
 cd whisp/
-pip install .[dev]
+pip install -e .[dev]
 ```
 
 Setup the pre-commit hooks:

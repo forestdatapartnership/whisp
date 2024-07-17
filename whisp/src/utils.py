@@ -1,15 +1,16 @@
 import base64
 import ee
+import math
 import os
 import pandas as pd
 
 from dotenv import load_dotenv
 from pathlib import Path
 
-from src.logger import StdoutLogger
+from .logger import StdoutLogger
 
 
-logger = StdoutLogger()
+logger = StdoutLogger(__name__)
 
 
 def load_env_vars() -> None:
@@ -20,7 +21,7 @@ def load_env_vars() -> None:
     out : None
     """
 
-    dotenv_path = Path(__file__).parents[1] / ".env"
+    dotenv_path = Path(__file__).parents[2] / ".env"
     if not dotenv_path.exists():
         raise DotEnvNotFoundError
     load_dotenv(dotenv_path)
@@ -139,6 +140,6 @@ def get_radius_m_to_buffer_to_required_area(area, area_unit="km2"):
 class DotEnvNotFoundError(FileNotFoundError):
     def __init__(self) -> None:
         super().__init__(
-            "Running tests requires setting an appropriate '.env' in the 'whisp' folder. You may copy and edit "
-            "the 'whisp/.env.template' file.",
+            "Running tests requires setting an appropriate '.env' in the 'src' folder. You may copy and edit "
+            "the 'src/.env.template' file.",
         )

@@ -3,21 +3,21 @@ import geemap
 import pandas as pd
 from pathlib import Path
 
-from parameters.config_runtime import (
+from ..parameters.config_runtime import (
     plot_id_column,
     keep_system_index,
     keep_original_properties,
     DEFAULT_GEE_DATASETS_LOOKUP_TABLE_PATH,
     threshold_to_drive,
 )
-from src.datasets import combine_datasets
-from src.tidy_tables import order_list_from_lookup
-from src.pd_schemas import DfGEEDatasetsType
-from src.logger import StdoutLogger
-from src.stats import get_stats_formatted
+from whisp.src.datasets import combine_datasets
+from whisp.src.tidy_tables import order_list_from_lookup
+from whisp.src.pd_schemas import DfGEEDatasetsType
+from whisp.src.logger import StdoutLogger
+from whisp.src.stats import get_stats_formatted
 
 
-logger = StdoutLogger()
+logger = StdoutLogger(__name__)
 
 
 def whisp_stats_from_geojson_roi(roi_filepath: Path | str) -> pd.DataFrame:
@@ -162,11 +162,11 @@ def assert_all_datasets_found_in_lookup(all_datasets_list: list[str]) -> None:
         ee.Filter.inList("item", multiband_image_list).Not()
     )
 
-    logger.logger.info(
-        f"number_in_multiband_datasets_list: {multiband_image_list.length().getInfo()}"
-    )
-    logger.logger.info(f"number_in_both_lists: {in_both_lists.length().getInfo()}")
-    logger.logger.info(f"not_in_multiband: {not_in_multiband.getInfo()}")
+    # logger.logger.info(
+    #     f"number_in_multiband_datasets_list: {multiband_image_list.length().getInfo()}"
+    # )
+    # logger.logger.info(f"number_in_both_lists: {in_both_lists.length().getInfo()}")
+    # logger.logger.info(f"not_in_multiband: {not_in_multiband.getInfo()}")
 
     in_lookup = multiband_image_list.containsAll(ee.List(all_datasets_list)).getInfo()
     logger.logger.info(f"Datasets present in lookup: {in_lookup}")
