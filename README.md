@@ -23,6 +23,12 @@ The Forest Data Partnership promotes a Convergence of Evidence approach for Fore
 - Some experience in Python or a similar language.
 
 # Setup
+Consider creating a virtual environment to keep your main python installation clean.
+This can be done through this command line
+```
+python -m venv env
+```
+More info on virtual environments here: https://docs.python.org/3/library/venv.html
 
 Clone the Whisp repo and install the package:
 ```
@@ -37,8 +43,10 @@ file found in the root directory). The file must contain the following environme
 # Earth Engine project name
 PROJECT="my-ee-project"
 ```
-
 Where you must replace the GEE project name by your own.
+
+Note: this should be a registered cloud project. If unsure of this check pic here: https://developers.google.com/earth-engine/cloud/assets
+
 
 # Contributing
 
