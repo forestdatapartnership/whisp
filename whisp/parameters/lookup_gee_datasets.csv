@@ -14,7 +14,7 @@ dataset_id,dataset_order,dataset_name,presence_only_flag,exclude,theme
 14,130,Cocoa_ETH,0,0,commodities
 15,140,WDPA,1,0,ancilliary
 16,150,OECM,1,1,ancilliary
-17,160,KBA,1,0,ancilliary
+17,160,KBA,1,1,ancilliary
 18,170,Cocoa_bnetd,0,0,commodities
 19,180,TMF_def_2000,0,0,disturbance_before
 20,190,TMF_def_2001,0,0,disturbance_before
