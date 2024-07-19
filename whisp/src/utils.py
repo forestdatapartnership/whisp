@@ -21,15 +21,14 @@ def load_env_vars() -> None:
     out : None
     """
 
-    all_dotenv_paths = iter([Path(__file__).parents[2] / ".env", Path.cwd() / ".env"])
+    all_dotenv_paths = [Path(__file__).parents[2] / ".env", Path.cwd() / ".env"]
     dotenv_loaded = False
 
-    while not dotenv_loaded:
-        dotenv_path = next(all_dotenv_paths)
+    for dotenv_path in all_dotenv_paths:
         logger.logger.debug(f"dotenv_path: {dotenv_path}")
-        if not dotenv_path.exists():
-            continue
-        dotenv_loaded = load_dotenv(dotenv_path)
+        if dotenv_path.exists():
+            dotenv_loaded = load_dotenv(dotenv_path)
+            break
 
     if not dotenv_loaded:
         raise DotEnvNotFoundError

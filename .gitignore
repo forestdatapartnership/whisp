@@ -14,3 +14,4 @@ copy_whisp_output_table_w_risk.csv
 .env
 whisp.egg-info/
 build/
+pre-commit.log
