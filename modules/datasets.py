@@ -51,22 +51,32 @@ def jrc_gfc_2020_prep():
     return jrc_gfc2020_raw.mosaic().rename("EUFO_2020")
 
 # TMF_disturbed, TMF_plant, TMF_undist
+# def jrc_tmf_transition_prep():
+#     jrc_tmf_transitions_raw = ee.ImageCollection('projects/JRC/TMF/v1_2020/TransitionMap_Subtypes')
+#     jrc_tmf_transitions = jrc_tmf_transitions_raw.mosaic()
+#     default_value = 0
+    
+#     in_list_dist = [21, 22, 23, 24, 25, 26, 61, 62, 31, 32, 33, 63, 64, 51, 52, 53, 54, 67, 92, 93, 94]
+#     jrc_tmf_disturbed   = jrc_tmf_transitions.remap(in_list_dist, [1] * len(in_list_dist), default_value).rename("TMF_disturbed")
+
+#     in_list_plnt = [81, 82, 83, 84, 85, 86]
+#     jrc_tmf_plantations = jrc_tmf_transitions.remap(in_list_plnt, [1] * len(in_list_plnt), default_value).rename("TMF_plant")
+
+#     in_list_udis = [10, 11, 12]
+#     jrc_tmf_undisturbed = jrc_tmf_transitions.remap(in_list_udis, [1] * len(in_list_udis), default_value).rename("TMF_undist")
+    
+#     jrc_tmf_transition = jrc_tmf_disturbed.addBands(jrc_tmf_plantations).addBands(jrc_tmf_undisturbed)
+#     return jrc_tmf_transition
+
 def jrc_tmf_transition_prep():
-    jrc_tmf_transitions_raw = ee.ImageCollection('projects/JRC/TMF/v1_2020/TransitionMap_Subtypes')
-    jrc_tmf_transitions = jrc_tmf_transitions_raw.mosaic()
-    default_value = 0
+    TMF_disturbed = ee.Image("projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/work_in_progress/whisp_image_col_v1/TMF_disturbed")
+    TMF_undist = ee.Image("projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/work_in_progress/whisp_image_col_v1/TMF_undist")
+    TMF_plant = ee.Image("projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/work_in_progress/whisp_image_col_v1/TMF_plant")
+    TMF_disturbed_band = TMF_disturbed.gt(0).rename("TMF_disturbed")
+    TMF_undist_band = TMF_undist.gt(0).rename("TMF_undist")
+    TMF_plant_band = TMF_plant.gt(0).rename("TMF_plant")
     
-    in_list_dist = [21, 22, 23, 24, 25, 26, 61, 62, 31, 32, 33, 63, 64, 51, 52, 53, 54, 67, 92, 93, 94]
-    jrc_tmf_disturbed   = jrc_tmf_transitions.remap(in_list_dist, [1] * len(in_list_dist), default_value).rename("TMF_disturbed")
-
-    in_list_plnt = [81, 82, 83, 84, 85, 86]
-    jrc_tmf_plantations = jrc_tmf_transitions.remap(in_list_plnt, [1] * len(in_list_plnt), default_value).rename("TMF_plant")
-
-    in_list_udis = [10, 11, 12]
-    jrc_tmf_undisturbed = jrc_tmf_transitions.remap(in_list_udis, [1] * len(in_list_udis), default_value).rename("TMF_undist")
-    
-    jrc_tmf_transition = jrc_tmf_disturbed.addBands(jrc_tmf_plantations).addBands(jrc_tmf_undisturbed)
-    return jrc_tmf_transition
+    return TMF_disturbed_band.addBands(TMF_undist_band).addBands(TMF_plant_band)
     
 # Cocoa_ETH
 def eth_kalischek_cocoa_prep():
