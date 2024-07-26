@@ -28,12 +28,13 @@ from ..parameters.config_runtime import (
 def get_geoboundaries_info(geometry):
     gbounds_ADM0 = ee.FeatureCollection("WM/geoLab/geoBoundaries/600/ADM1")
     polygonsIntersectPoint = gbounds_ADM0.filterBounds(geometry)
+    backup_dict =ee.Dictionary({"shapeGroup":"Unknown","shapeName": "Unknown"})
     return ee.Algorithms.If(
         polygonsIntersectPoint.size().gt(0),
         polygonsIntersectPoint.first()
         .toDictionary()
         .select(["shapeGroup", "shapeName"]),
-        None,
+        backup_dict,
     )
 
 
@@ -41,12 +42,13 @@ def get_geoboundaries_info(geometry):
 def get_gaul_info(geometry):
     gaul2 = ee.FeatureCollection("FAO/GAUL/2015/level2")
     polygonsIntersectPoint = gaul2.filterBounds(geometry)
+    backup_dict =ee.Dictionary({"ADM0_NAME":"Unknown","ADM1_NAME": "Unknown"})
     return ee.Algorithms.If(
         polygonsIntersectPoint.size().gt(0),
         polygonsIntersectPoint.first()
         .toDictionary()
         .select(["ADM0_NAME", "ADM1_NAME", "ADM2_NAME"]),
-        None,
+        backup_dict,
     )
 
 
@@ -56,13 +58,68 @@ def get_gadm_info(geometry):
         "projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/raw/gadm_41_level_1"
     )
     polygonsIntersectPoint = gadm.filterBounds(geometry)
+    backup_dict =ee.Dictionary({"GID_0":"Unknown","COUNTRY": "Unknown"})
+
     return ee.Algorithms.If(
         polygonsIntersectPoint.size().gt(0),
         polygonsIntersectPoint.first().toDictionary().select(["GID_0", "COUNTRY"]),
-        None,
+        backup_dict,
     )
 
+#####
+# water flag - to flag plots that may be erroneous (i.e., where errors may have occured in their creation / translation  and so fall in either the ocean or inland water - 
+def usgs_gsv_ocean_prep(): # TO DO: for speed export image as an asset at samne res as JRC
+    # Initialize the Earth Engine API
+    ee.Initialize()
 
+    # Load the datasets
+    mainlands = ee.FeatureCollection('projects/sat-io/open-datasets/shoreline/mainlands')
+    big_islands = ee.FeatureCollection('projects/sat-io/open-datasets/shoreline/big_islands')
+    small_islands = ee.FeatureCollection('projects/sat-io/open-datasets/shoreline/small_islands')
+
+    # Combine the datasets into one FeatureCollection
+    gsv = ee.FeatureCollection([mainlands, big_islands, small_islands]).flatten()
+
+    # Rasterize the combined FeatureCollection and make areas outside coast (i.e. ocean) as value 1 
+    # and then rename the band
+    return ee.Image(1).paint(gsv).selfMask().rename("ocean")
+
+
+def jrc_water_surface_prep(): 
+    jrc_surface_water = ee.Image("JRC/GSW1_4/GlobalSurfaceWater");
+    
+    #use transition band
+    jrc_transition = jrc_surface_water.select("transition") 
+    
+    # select permanent water bodies: 
+    # remap the following classes to have a value of 1: 
+    # "Permanent", "New Permanent", and "Seasonal to Permanent" (i.e., classes 1,2 and 7). 
+    # All other classes as value 0.
+    permanent_inland_water = jrc_transition.remap([1,2,7],[1,1,1],0).unmask() 
+    
+    #optional - clip to within coast line (not needed currently and extra processing)
+    # permanent_inland_water = permanent_inland_water.where(usgs_gsv_ocean_prep(),0)
+    
+    return permanent_inland_water.rename("water_inland") 
+
+
+def water_flag_all_prep():
+    # combine both where water surface is 1, then 1, else use non_land_gsv
+    return usgs_gsv_ocean_prep().unmask().where(jrc_water_surface_prep(),1).rename("water_flag") 
+
+
+def value_at_point_flag(point, image, band_name, output_name):
+    """ Sample an image at the given point and make a dictionary output where the name is defined by output_name parameter"""
+    sample = image.sample(region=point, scale=30, numPixels=1).first()
+
+    # Get the value from the sampled point
+    value = sample.get(band_name)  # assuming the band name is 'b1', change if necessary
+
+    # Use a conditional statement to check if the value is 1
+    result = ee.Algorithms.If(ee.Number(value).eq(1), 'True', '-')
+    
+    # Return the output dictionary
+    return ee.Dictionary({output_name: result})#.getInfo()
 # main stats functions
 
 
@@ -106,7 +163,6 @@ def percent_and_format(val, area_ha):
     # Return the formatted value
     return ee.Number(formatted_value)
 
-
 def get_stats_feature(feature):
 
     img_combined = combine_datasets()  # imported function
@@ -140,7 +196,9 @@ def get_stats_feature(feature):
     admin_1 = ee.Dictionary(
         {admin_1_column: location.get("shapeName")}
     )  # if running adm1
-
+    water_all = water_flag_all_prep()
+    
+    water_flag_dict = value_at_point_flag(centroid,water_all,"water_flag",water_flag)
     geom_type = ee.Dictionary({geometry_type_column: feature.geometry().type()})
 
     coords_list = centroid.coordinates()  # list of lat lon coords for centroid
@@ -161,6 +219,7 @@ def get_stats_feature(feature):
         .combine(geom_type)
         .combine(coords_dict)
         .combine(stats_unit_type)
+        .combine(water_flag_dict)
     )
 
     #
