@@ -19,7 +19,7 @@ The Forest Data Partnership promotes a Convergence of Evidence approach for Fore
 ### whisp pathways
 ***whisp*** can be implemented through at least three pathways
 
-1. As an operationnal API in JS and Python
+1. As an operationnal [API](https://github.com/forestdatapartnership/whisp-app) in JS and Python
 
 2. Through mobile applications to enable smallholder in the field directly generate and own the monitoring data associated with their plots of land
 
