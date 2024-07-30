@@ -10,6 +10,7 @@ class DfGEEDatasetsSchema(pa.DataFrameModel):
     presence_only_flag: Series[int | bool]
     exclude: Series[int | bool]
     theme: Series[str]
+    use_for_risktheme: Series[str]
 
 
 DfGEEDatasetsType = DataFrame[DfGEEDatasetsSchema]

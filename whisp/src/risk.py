@@ -1,24 +1,18 @@
 import pandas as pd
-<<<<<<<< HEAD:whisp/src/tidy_tables.py
-from ..parameters.config_runtime import (
-    percent_or_ha,
-    cols_ind_1_treecover,
-    cols_ind_2_commodities,
-    cols_ind_3_dist_before_2020,
-    cols_ind_4_dist_after_2020,
-    geometry_area_column,
-)
-from .pd_schemas import DfGEEDatasetsType
-========
 import ee
 
+from .pd_schemas import DfGEEDatasetsType
 
-from parameters.config_runtime import (
-    percent_or_ha, 
+from ..parameters.config_runtime import (
+    percent_or_ha,
     geometry_area_column,
-    lookup_gee_datasets_df
-    )
->>>>>>>> main:whisp/src/risk.py
+    DEFAULT_GEE_DATASETS_LOOKUP_TABLE_PATH,
+)
+
+# could embed this in each function below that uses lookup_gee_datasets_df.
+lookup_gee_datasets_df: DfGEEDatasetsType = pd.read_csv(
+    DEFAULT_GEE_DATASETS_LOOKUP_TABLE_PATH
+)
 
 
 def clamp(
@@ -47,16 +41,15 @@ def check_range(value: float) -> None:
 
 
 def whisp_risk(
-<<<<<<<< HEAD:whisp/src/tidy_tables.py
     df: DfGEEDatasetsType,
-    ind_1_pcent_threshold: float,
-    ind_2_pcent_threshold: float,
-    ind_3_pcent_threshold: float,
-    ind_4_pcent_threshold: float,
-    ind_1_input_columns: pd.Series = cols_ind_1_treecover,
-    ind_2_input_columns: pd.Series = cols_ind_2_commodities,
-    ind_3_input_columns: pd.Series = cols_ind_3_dist_before_2020,
-    ind_4_input_columns: pd.Series = cols_ind_4_dist_after_2020,
+    ind_1_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
+    ind_2_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
+    ind_3_pcent_threshold: float = 0,  # default values (draft decision tree and parameters)
+    ind_4_pcent_threshold: float = 0,  # default values (draft decision tree and parameters)
+    ind_1_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
+    ind_2_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
+    ind_3_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
+    ind_4_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_1_name: str = "Indicator_1_treecover",
     ind_2_name: str = "Indicator_2_commodities",
     ind_3_name: str = "Indicator_3_disturbance_before_2020",
@@ -64,33 +57,6 @@ def whisp_risk(
     low_name: str = "no",
     high_name: str = "yes",
 ) -> DfGEEDatasetsType:
-    """Adds the EUDR (European Union Deforestation Risk) column to the DataFrame based on indicator values.
-
-    Args:
-        df (DfGEEDatasetsType): Input DataFrame.
-        ind_1_name (str, optional): Name of first indicator column. Defaults to "Indicator_1_treecover".
-        ind_2_name (str, optional): Name of second indicator column. Defaults to "Indicator_2_commodities".
-        ind_3_name (str, optional): Name of third indicator column. Defaults to "Indicator_3_disturbance_before_2020".
-        ind_4_name (str, optional): Name of fourth indicator column. Defaults to "Indicator_4_disturbance_after_2020".
-        low_name (str, optional): Value shown in table if less than or equal to threshold. Defualts to "no".
-        high_name (str, optional): Value shown in table if more than threshold. Defualts to "yes".
-========
-    df,
-    ind_1_pcent_threshold=10,  # default values (draft decision tree and parameters)
-    ind_2_pcent_threshold=10,  # default values (draft decision tree and parameters)
-    ind_3_pcent_threshold=0,   # default values (draft decision tree and parameters)
-    ind_4_pcent_threshold=0,   # default values (draft decision tree and parameters)
-    ind_1_input_columns=None,  # see lookup_gee_datasets for details
-    ind_2_input_columns=None,  # see lookup_gee_datasets for details
-    ind_3_input_columns=None,  # see lookup_gee_datasets for details
-    ind_4_input_columns=None,  # see lookup_gee_datasets for details
-    ind_1_name="Indicator_1_treecover",
-    ind_2_name="Indicator_2_commodities",
-    ind_3_name="Indicator_3_disturbance_before_2020",
-    ind_4_name="Indicator_4_disturbance_after_2020",
-    low_name="no",
-    high_name="yes"
-):
     """
     Adds the EUDR (European Union Deforestation Risk) column to the DataFrame based on indicator values.
 
@@ -111,13 +77,10 @@ def whisp_risk(
         low_name (str, optional): Value shown in table if less than or equal to the threshold. Defaults to "no".
         high_name (str, optional): Value shown in table if more than the threshold. Defaults to "yes".
 
->>>>>>>> main:whisp/src/risk.py
     Returns:
         DfGEEDatasetsType: DataFrame with added 'EUDR_risk' column.
     """
-<<<<<<<< HEAD:whisp/src/tidy_tables.py
-========
-    
+
     if ind_1_input_columns is None:
         ind_1_input_columns = get_cols_ind_1_treecover(lookup_gee_datasets_df)
     if ind_2_input_columns is None:
@@ -132,7 +95,6 @@ def whisp_risk(
     check_range(ind_2_pcent_threshold)
     check_range(ind_3_pcent_threshold)
     check_range(ind_4_pcent_threshold)
->>>>>>>> main:whisp/src/risk.py
 
     input_cols = [
         ind_1_input_columns,
@@ -160,20 +122,14 @@ def whisp_risk(
 
     df_w_indicators_and_risk = add_eudr_risk_col(
         df=df_w_indicators,
-<<<<<<<< HEAD:whisp/src/tidy_tables.py
         ind_1_name=ind_1_name,
         ind_2_name=ind_2_name,
         ind_3_name=ind_3_name,
         ind_4_name=ind_4_name,
-========
-        ind_1_name=ind_1_name, 
-        ind_2_name=ind_2_name, 
-        ind_3_name=ind_3_name, 
-        ind_4_name=ind_4_name
->>>>>>>> main:whisp/src/risk.py
     )
 
     return df_w_indicators_and_risk
+
 
 def add_eudr_risk_col(
     df: DfGEEDatasetsType,
@@ -214,7 +170,6 @@ def add_eudr_risk_col(
     return df
 
 
-<<<<<<<< HEAD:whisp/src/tidy_tables.py
 def add_indicators(
     df: DfGEEDatasetsType,
     input_cols: list[str],
@@ -223,24 +178,6 @@ def add_indicators(
     low_name: str = "no",
     high_name: str = "yes",
 ) -> DfGEEDatasetsType:
-========
-def add_indicators (df,
-                    ind_1_pcent_threshold,
-                    ind_2_pcent_threshold,
-                    ind_3_pcent_threshold,
-                    ind_4_pcent_threshold,
-                    ind_1_input_columns,
-                    ind_2_input_columns,
-                    ind_3_input_columns,
-                    ind_4_input_columns,
-                    ind_1_name,
-                    ind_2_name,
-                    ind_3_name,
-                    ind_4_name,
-                    low_name,
-                    high_name):
->>>>>>>> main:whisp/src/risk.py
-
     for input_col, threshold, name in zip(input_cols, thresholds, names):
         df = add_indicator_column(
             df=df,
@@ -306,8 +243,6 @@ def add_indicator_column(
             df.loc[val_to_check > threshold, new_column_name] = high_name
     return df
 
-<<<<<<<< HEAD:whisp/src/tidy_tables.py
-========
 
 # make lists for formatting - including a few distinctions for dataset types and preferred formatting
 def get_exclude_list(lookup_gee_datasets_df):
@@ -320,7 +255,10 @@ def get_exclude_list(lookup_gee_datasets_df):
     Returns:
     list: List of dataset names to be excluded.
     """
-    return list(lookup_gee_datasets_df["dataset_name"][(lookup_gee_datasets_df["exclude"] == 1)])
+    return list(
+        lookup_gee_datasets_df["dataset_name"][(lookup_gee_datasets_df["exclude"] == 1)]
+    )
+
 
 def get_all_datasets_list(lookup_gee_datasets_df):
     """
@@ -332,8 +270,11 @@ def get_all_datasets_list(lookup_gee_datasets_df):
     Returns:
     list: List of all dataset names excluding those marked for exclusion.
     """
-    lookup_gee_datasets_df = lookup_gee_datasets_df[lookup_gee_datasets_df["exclude"] != 1]
+    lookup_gee_datasets_df = lookup_gee_datasets_df[
+        lookup_gee_datasets_df["exclude"] != 1
+    ]
     return list(lookup_gee_datasets_df["dataset_name"])
+
 
 def get_presence_only_flag_list(lookup_gee_datasets_df):
     """
@@ -345,8 +286,15 @@ def get_presence_only_flag_list(lookup_gee_datasets_df):
     Returns:
     list: List of dataset names with the presence only flag, excluding those marked for exclusion.
     """
-    lookup_gee_datasets_df = lookup_gee_datasets_df[lookup_gee_datasets_df["exclude"] != 1]
-    return list(lookup_gee_datasets_df["dataset_name"][(lookup_gee_datasets_df["presence_only_flag"] == 1)])
+    lookup_gee_datasets_df = lookup_gee_datasets_df[
+        lookup_gee_datasets_df["exclude"] != 1
+    ]
+    return list(
+        lookup_gee_datasets_df["dataset_name"][
+            (lookup_gee_datasets_df["presence_only_flag"] == 1)
+        ]
+    )
+
 
 def get_decimal_place_column_list(lookup_gee_datasets_df):
     """
@@ -358,10 +306,17 @@ def get_decimal_place_column_list(lookup_gee_datasets_df):
     Returns:
     list: List of dataset names without the presence only flag, excluding those marked for exclusion.
     """
-    lookup_gee_datasets_df = lookup_gee_datasets_df[lookup_gee_datasets_df["exclude"] != 1]
+    lookup_gee_datasets_df = lookup_gee_datasets_df[
+        lookup_gee_datasets_df["exclude"] != 1
+    ]
     all_datasets_list = list(lookup_gee_datasets_df["dataset_name"])
-    presence_only_flag_list = list(lookup_gee_datasets_df["dataset_name"][(lookup_gee_datasets_df["presence_only_flag"] == 1)])
+    presence_only_flag_list = list(
+        lookup_gee_datasets_df["dataset_name"][
+            (lookup_gee_datasets_df["presence_only_flag"] == 1)
+        ]
+    )
     return [i for i in all_datasets_list if i not in presence_only_flag_list]
+
 
 def get_order_list(lookup_gee_datasets_df):
     """
@@ -373,8 +328,11 @@ def get_order_list(lookup_gee_datasets_df):
     Returns:
     list: Ordered list of dataset names, excluding those marked for exclusion.
     """
-    lookup_gee_datasets_df = lookup_gee_datasets_df[lookup_gee_datasets_df["exclude"] != 1]
-    return order_list_from_lookup(lookup_gee_datasets_df) 
+    lookup_gee_datasets_df = lookup_gee_datasets_df[
+        lookup_gee_datasets_df["exclude"] != 1
+    ]
+    return order_list_from_lookup(lookup_gee_datasets_df)
+
 
 def get_cols_ind_1_treecover(lookup_gee_datasets_df):
     """
@@ -386,11 +344,16 @@ def get_cols_ind_1_treecover(lookup_gee_datasets_df):
     Returns:
     list: List of dataset names set to be used in the risk calculations for the treecover theme, excluding those marked for exclusion.
     """
-    lookup_gee_datasets_df = lookup_gee_datasets_df[lookup_gee_datasets_df["exclude"] != 1]
-    return list(lookup_gee_datasets_df["dataset_name"][
-        (lookup_gee_datasets_df["use_for_risk"] == 1) &
-        (lookup_gee_datasets_df["theme"] == "treecover")
-    ])
+    lookup_gee_datasets_df = lookup_gee_datasets_df[
+        lookup_gee_datasets_df["exclude"] != 1
+    ]
+    return list(
+        lookup_gee_datasets_df["dataset_name"][
+            (lookup_gee_datasets_df["use_for_risk"] == 1)
+            & (lookup_gee_datasets_df["theme"] == "treecover")
+        ]
+    )
+
 
 def get_cols_ind_2_commodities(lookup_gee_datasets_df):
     """
@@ -402,11 +365,16 @@ def get_cols_ind_2_commodities(lookup_gee_datasets_df):
     Returns:
     list: List of dataset names set to be used in the risk calculations for the commodities theme, excluding those marked for exclusion.
     """
-    lookup_gee_datasets_df = lookup_gee_datasets_df[lookup_gee_datasets_df["exclude"] != 1]
-    return list(lookup_gee_datasets_df["dataset_name"][
-        (lookup_gee_datasets_df["use_for_risk"] == 1) &
-        (lookup_gee_datasets_df["theme"] == "commodities")
-    ])
+    lookup_gee_datasets_df = lookup_gee_datasets_df[
+        lookup_gee_datasets_df["exclude"] != 1
+    ]
+    return list(
+        lookup_gee_datasets_df["dataset_name"][
+            (lookup_gee_datasets_df["use_for_risk"] == 1)
+            & (lookup_gee_datasets_df["theme"] == "commodities")
+        ]
+    )
+
 
 def get_cols_ind_3_dist_before_2020(lookup_gee_datasets_df):
     """
@@ -418,11 +386,16 @@ def get_cols_ind_3_dist_before_2020(lookup_gee_datasets_df):
     Returns:
     list: List of dataset names set to be used in the risk calculations for the disturbance before 2020 theme, excluding those marked for exclusion.
     """
-    lookup_gee_datasets_df = lookup_gee_datasets_df[lookup_gee_datasets_df["exclude"] != 1]
-    return list(lookup_gee_datasets_df["dataset_name"][
-        (lookup_gee_datasets_df["use_for_risk"] == 1) &
-        (lookup_gee_datasets_df["theme"] == "disturbance_before")
-    ])
+    lookup_gee_datasets_df = lookup_gee_datasets_df[
+        lookup_gee_datasets_df["exclude"] != 1
+    ]
+    return list(
+        lookup_gee_datasets_df["dataset_name"][
+            (lookup_gee_datasets_df["use_for_risk"] == 1)
+            & (lookup_gee_datasets_df["theme"] == "disturbance_before")
+        ]
+    )
+
 
 def get_cols_ind_4_dist_after_2020(lookup_gee_datasets_df):
     """
@@ -434,14 +407,16 @@ def get_cols_ind_4_dist_after_2020(lookup_gee_datasets_df):
     Returns:
     list: List of dataset names set to be used in the risk calculations  for the disturbance after 2020 theme, excluding those marked for exclusion.
     """
-    lookup_gee_datasets_df = lookup_gee_datasets_df[lookup_gee_datasets_df["exclude"] != 1]
-    return list(lookup_gee_datasets_df["dataset_name"][
-        (lookup_gee_datasets_df["use_for_risk"] == 1) &
-        (lookup_gee_datasets_df["theme"] == "disturbance_after")
-    ])
+    lookup_gee_datasets_df = lookup_gee_datasets_df[
+        lookup_gee_datasets_df["exclude"] != 1
+    ]
+    return list(
+        lookup_gee_datasets_df["dataset_name"][
+            (lookup_gee_datasets_df["use_for_risk"] == 1)
+            & (lookup_gee_datasets_df["theme"] == "disturbance_after")
+        ]
+    )
 
-
->>>>>>>> main:whisp/src/risk.py
 
 def add_indicator_column_from_csv(
     csv_file,

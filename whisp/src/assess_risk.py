@@ -11,7 +11,7 @@ from ..parameters.config_runtime import (
     threshold_to_drive,
 )
 from whisp.src.datasets import combine_datasets
-from whisp.src.tidy_tables import order_list_from_lookup
+from whisp.src.risk import order_list_from_lookup
 from whisp.src.pd_schemas import DfGEEDatasetsType
 from whisp.src.logger import StdoutLogger
 from whisp.src.stats import get_stats_formatted
