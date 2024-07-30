@@ -60,7 +60,7 @@ If your data is available as a feature collection and the GitHub repo is cloned,
 5. This lookup table of Geo IDs is then appended to the results from Whisp.
    
 ### Adding risk indicators to your results  
-7. Finally, functions at the end of the notebook allow the user to add EUDR risk indicators to the table. NB: these risk indicators are still at the experimental stage.
+7. Finally, functions at the end of the notebook allow the user to add risk indicators to the table. NB: these risk indicators are still at the experimental stage and aim to support compliance with deforestation-related regulations. 
 
 ### Intermediate Output
 
@@ -72,11 +72,11 @@ If your data is available as a feature collection and the GitHub repo is cloned,
 
 ### Output 2
 
-- A CSV called `whisp_output_table_w_risk.csv` contains results from the whisp processing and EUDR risk indicators.
+- A CSV called `whisp_output_table_w_risk.csv` contains results from the whisp processing and risk indicators.
 
 ### Output 3
 
-- A CSV called `whisp_output_table_w_risk_w_geo_ids.csv` contains results from the whisp processing, EUDR risk indicators, and a column for the newly registered geo ids.
+- A CSV called `whisp_output_table_w_risk_w_geo_ids.csv` contains results from the whisp processing, risk indicators, and a column for the newly registered geo ids.
 
 ## Whisping a List of Geo IDs
 
