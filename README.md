@@ -19,11 +19,11 @@ The Forest Data Partnership promotes a Convergence of Evidence approach for Fore
 ### whisp pathways
 ***whisp*** can be implemented through at least three pathways
 
-1. As an operationnal [API](https://github.com/forestdatapartnership/whisp-app) in JS and Python
+1. As an operational [API](https://whisp.openforis.org/) in [JS and Python](https://github.com/forestdatapartnership/whisp-app)
 
-2. Through mobile applications to enable smallholder in the field directly generate and own the monitoring data associated with their plots of land
+2. Through [mobile applications](https://play.google.com/store/apps/details?id=org.openforis.ground&hl=en) to enable smallholder in the field directly generate and own the monitoring data associated with their plots of land
 
-3. Integrated through Graphical User Interfaces for demonstration and verification purposes
+3. Integrated through [Graphical User Interfaces](https://whisp.earthmap.org/?aoi=WHISP&boundary=plot1&layers=%7B%22CocoaETH%22%3A%7B%22opacity%22%3A1%7D%2C%22JRCForestMask%22%3A%7B%22opacity%22%3A1%7D%2C%22planet_rgb%22%3A%7B%22opacity%22%3A1%2C%22date%22%3A%222020-12%22%7D%7D&map=%7B%22center%22%3A%7B%22lat%22%3A7%2C%22lng%22%3A4%7D%2C%22zoom%22%3A3%2C%22mapType%22%3A%22satellite%22%7D&statisticsOpen=true) for demonstration and verification purposes
 
 4. Python Notebook implementation.
 
