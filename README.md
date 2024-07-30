@@ -140,7 +140,7 @@ Whisp summary statistics are processed using the cloud computing platform Google
 
 #### Conversions via the GEE Python API: ‘On the Fly’ Processing
 
-To help, Whisp notebooks support conversion on the fly from geosjon (the proposed new EU standard: https://www.lecommercedubois.org/files/upload/RDUE/EUDR_-_Gelocation_file_description_1-0.pdf). This is possible in the whisp_feature_collection.ipynb notebook where you can choose between a pre-existing GEE asset or Goejson input. Further conversions including compatability with shapefiles are found in the the "data_conversion.ipynb" notebook. We are in the process of making Whisp more resilient to differences in geojson input formats.
+To help, Whisp notebooks support conversion on the fly from geosjon. This is possible in the whisp_feature_collection.ipynb notebook where you can choose between a pre-existing GEE asset or Goejson input. Further conversions including compatability with shapefiles are found in the the "data_conversion.ipynb" notebook. We are in the process of making Whisp more resilient to differences in geojson input formats.
 
 NB Some of these conversions are carried out adapting functions from the [geemap](https://geemap.org/) package. For those that are interested in other formats, such as KML, WKT etc, geemap provides additional options (although currently functionality varies due to recent updates in dependencies for this package).
 
