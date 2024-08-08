@@ -13,7 +13,7 @@ dataset_id,dataset_order,dataset_name,presence_only_flag,exclude,theme,use_for_r
 12,120,Oil_palm_FDaP,0,0,commodities,1
 13,130,Cocoa_ETH,0,0,commodities,1
 14,140,Cocoa_bnetd,0,0,commodities,1
-15,150,WDPA,1,0,ancilliary,
+15,150,WDPA,1,1,ancilliary,
 16,160,OECM,1,1,ancilliary,
 17,170,KBA,1,1,ancilliary,
 18,180,TMF_def_2000,0,0,disturbance_before,
