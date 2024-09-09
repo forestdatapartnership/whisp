@@ -13,7 +13,7 @@ The Forest Data Partnership promotes a Convergence of Evidence approach for Fore
 
 --------------------------------------------------------------------------------
 
-![whisp convergence of proof](images/pol_story_agu.gif)
+![whisp convergence of evidence](images/pol_story_agu.gif)
 
 
 ### whisp pathways
