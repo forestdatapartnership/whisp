@@ -29,7 +29,7 @@ The types of datasets reported on are categorized as follows:
 4) deforestation / disturbances after 2020
 
 
-Check the [full list of WHISP data layers](https://github.com/jo-spek/whisp-test/blob/main/parameters/sources.md)
+Check the [full list of WHISP data layers](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md)
 
 
 
