@@ -1,6 +1,6 @@
 Source list behind lookup_gee_datasets.csv
 
-**Tree cover datasets:**
+<b>Tree cover datasets:</b>
 <table>
   <thead>
     <tr>
@@ -41,13 +41,13 @@ Source list behind lookup_gee_datasets.csv
 
 
 <br><br><br>
-**Commodity datasets:**
+<b>Commodity datasets:</b>
 <table>
   <thead>
     <tr><th style="width: 150px;">Dataset name</th><th style="width: 250px;">Description of zonal statistics applied</th><th style="width: 500px;">Citation</th></tr>
   </thead>
   <tbody>
-    <tr><td rowspan="3">TMF_plant</td><td rowspan="3">Select classes representing any type of plantation (i.e., classes 81-86).</td><td rowspan="2">C. Vancutsem, F. Achard, J.-F. Pekel, G. Vieilledent, S. Carboni, D. Simonetti, J. Gallego, L.E.O.C. Aragão, R. Nasi (2021): Long-term (1990-2019) monitoring of forest cover changes in the humid tropics. Science Advances. DOI: 10.1126/sciadv.abe1603</td></tr>
+    <tr><td rowspan="3">TMF_plant</td><td rowspan="3">Select classes representing any type of plantation (i.e., classes 81-86).</td><td rowspan="2">C. Vancutsem, F. Achard, J.-F. Pekel, G. Vieilledent, S. Carboni, D. Simonetti, J. Gallego, L.E.O.C. Aragão, R. Nasi (2021): <b><i>Long-term (1990-2019) monitoring of forest cover changes in the humid tropics.</i></b> Science Advances. DOI: https://doi.org/10.1126/sciadv.abe1603</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection(‘projects/JRC/TMF/v1_2021/TransitionMap_Subtypes’)</td></tr>
     <tr><td rowspan="3">Oil_palm_Descals</td><td rowspan="3">Selected classes from the “classification band” representing oil palm plantations( i.e. classes 0 and 1).</td><td rowspan="2">Descals, A., Wich, S., Meijaard, E., Gaveau, D. L. A., Peedell, S., and Szantoi, Z.: High-resolution global map of smallholder and industrial closed-canopy oil palm plantations, Earth Syst. Sci. Data, 13, 1211–1231, https://doi.org/10.5194/essd-13-1211-2021, 2021.</td></tr>
@@ -66,19 +66,35 @@ Source list behind lookup_gee_datasets.csv
 </table>
 
 
+<br><br><br>
 
+<b>Disturbance before & after 2020 datasets:</b>
+<table>
+  <thead>
+    <tr><th style="width: 150px;">Dataset name</th><th style="width: 250px;">Description of zonal statistics applied</th><th style="width: 500px;">Citation</th></tr>
+  </thead>
+  <tbody>
+    <tr><td rowspan="3">TMF_deg_before_2020 <br> TMF_def_before_2020 <br> TMF_deg_after_2020 <br> TMF_def_after_2020</td><td rowspan="3">Select classes representing tree cover classifications (i.e., classes 1 and 2).</td><td rowspan="2">C. Vancutsem, F. Achard, J.-F. Pekel, G. Vieilledent, S. Carboni, D. Simonetti, J. Gallego, L.E.O.C. Aragão, R. Nasi (2021): <br><b><i>Long-term (1990-2019) monitoring of forest cover changes in the humid tropics.</i></b><br> Science Advances. DOI: https://doi.org/10.1126/sciadv.abe1603</td></tr>
+    <tr></tr>
+    <tr><td>ee.ImageCollection(‘projects/JRC/TMF/TransitionMap_Subtypes’)</td></tr>
+    <tr><td rowspan="3">GFC_loss_before_2020 <br> GFC_loss_after_2020</td><td rowspan="3">Select loss of the years in question.</td><td rowspan="2">Hansen, M. C., P. V. Potapov, R. Moore, M. Hancher, S. A. Turubanova, A. Tyukavina, D. Thau, S. V. Stehman, S. J. Goetz, T. R. Loveland, A. Kommareddy, A. Egorov, L. Chini, C. O. Justice, and J. R. G. Townshend (2013): <br><b><i>High-Resolution Global Maps of 21st-Century Forest Cover Change.</i></b><br> Science 342 (15 November): 850-53. DOI: https://doi.org/10.1126/science.1244693. Data available on-line from: https://glad.earthengine.app/view/global-forest-change. </td></tr>
+    <tr></tr>
+    <tr><td>ee.Image(“UMD/hansen/global_forest_change_2022_v1_10”)</td></tr>
+    <tr><td rowspan="3">RADD_before_2020 <br> RADD_after_2020</td><td rowspan="3">Select confirmed (i.e., class 3) alerts since year in question.</td><td rowspan="2">Reiche J, Mullissa A, Slagter B, Gou Y, Tsendbazar N, Odongo-Braun C, Vollrath A, Weisse M, Stolle F, Pickens A, Donchyts G, Clinton N, Gorelick N & Herold M, (2021): <br><b><i>Forest disturbance alerts for the Congo Basin using Sentinel-1. Environmental Research Letters.</i></b><br> DOI: https://doi.org/10.1088/1748-9326/abd0a8</td></tr>
+    <tr></tr>
+    <tr><td>ee.ImageCollection(“projects/GLAD/alert/RADD”) <br>ee.ImageCollection(‘UMD/GLAD/PRIMARY_HUMID_TROPICAL_FORESTS/v1’)</td></tr>
+    <tr><td rowspan="3">MODIS_fire_before_2020 <br> MODIS_fire_after_2020</td><td rowspan="3">Aggregate of burnt areas of the years in question.</td><td rowspan="2">Giglio, L., Justice, C., Boschetti, L., Roy, D. (2021): <br><b><i>MODIS/Terra+Aqua Burned Area Monthly L3 Global 500m SIN Grid V061 [Data set]. NASA EOSDIS Land Processes Distributed Active Archive Center.</i></b><br> https://doi.org/10.5067/MODIS/MCD64A1.061</td></tr>
+    <tr></tr>
+    <tr><td>ee.ImageCollection("MODIS/061/MCD64A1")</td></tr>
+    <tr><td rowspan="3">ESA_fire_before_2020</td><td rowspan="3">Aggregate of burnt areas between 2001 and 2020.</td><td rowspan="2">Lizundia-Loiola J., Otón G., Ramo R., Chuvieco E. (2020): <br><b><i>A spatio-temporal active-fire clustering approach for global burned area mapping at 250 m from MODIS data Remote Sensing of Environment.</i></b><br> Volume 236. <a href="https://doi.org/10.1016/j.rse.2019.111493" target="_blank">DOI: 10.1016/j.rse.2019.111493</a></td></tr>
+    <tr></tr>
+    <tr><td>ee.ImageCollection("ESA/CCI/FireCCI/5_1")</td></tr>
+  </tbody>
+</table>
 
-
-**Disturbance before & after 2020 datasets:**
-| Dataset name | Description of zonal statistics applied | Citation |
-| -- | -- | -- |
-| TMF_deg_before_2020 <br> TMF_def_before_2020 <br> TMF_deg_after_2020 <br> TMF_def_after_2020 <br>| Select classes representing tree cover classified as degraded, regrowth or with some ongoing deforestation in 2020 (i.e., classes 21-26; 61-62; 31-33; 63-64; 51-54; 67 and 92-94) | *C. Vancutsem, F. Achard, J.-F. Pekel, G. Vieilledent, S. Carboni, D. Simonetti, J. Gallego, L.E.O.C. Aragão, R. Nasi (2021):* **Long-term (1990-2019) monitoring of forest cover changes in the humid tropics.** Science Advances. DOI: [10.1126/sciadv.abe1603](https://doi.org/10.1126/sciadv.abe1603) <br><br> **GEE:** ee.ImageCollection(‘projects/JRC/TMF/TransitionMap_Subtypes’) |
-| GFC_loss_before_2020 <br> GFC_loss_after_2020| Select loss of the years in question. | *Hansen, M. C., P. V. Potapov, R. Moore, M. Hancher, S. A. Turubanova, A. Tyukavina, D. Thau, S. V. Stehman, S. J. Goetz, T. R. Loveland, A. Kommareddy, A. Egorov, L. Chini, C. O. Justice, and J. R. G. Townshend (2013):* **High-Resolution Global Maps of 21st-Century Forest Cover Change.** Science 342 (15 November): 850-53. DOI: [10.1126/science.1244693](https://doi.org/10.1126/science.1244693). Data available on-line from: https://glad.earthengine.app/view/global-forest-change. <br><br> **GEE:** ee.Image(“UMD/hansen/global_forest_change_2022_v1_10”) |
-| RADD_before_2020 <br> RADD_after_2020| Select confirmed (i.e., class 3) alerts since 2020. Alerts filtered to within forest using the ancillary dataset (GLAD Primary). | *Reiche J, Mullissa A, Slagter B, Gou Y, Tsendbazar N, Odongo-Braun C, Vollrath A, Weisse M, Stolle F, Pickens A, Donchyts G, Clinton N, Gorelick N & Herold M, (2021):* **Forest disturbance alerts for the Congo Basin using Sentinel-1.** Environmental Research Letters. DOI: [10.1088/1748-9326/abd0a8](https://doi.org/10.1088/1748-9326/abd0a8) <br><br> **GEE:** ee.ImageCollection(‘projects/radar-wur/raddalert/v1’) <br> Ancillary data: ee.ImageCollection(‘UMD/GLAD/PRIMARY_HUMID_TROPICAL_FORESTS/v1’) |
-| MODIS_fire_before_2020 <br> MODIS_fire_after_2020 | Aggregate of burnt areas until the end of 2020. <br> Aggregate of burnt areas from 2021 forward.  | Giglio, L., Justice, C., Boschetti, L., Roy, D. (2021). <i>MODIS/Terra+Aqua Burned Area Monthly L3 Global 500m SIN Grid V061</i> [Data set]. NASA EOSDIS Land Processes Distributed Active Archive Center. https://doi.org/10.5067/MODIS/MCD64A1.061 <br><br> **GEE:** ee.ImageCollection("MODIS/061/MCD64A1")|
-| ESA_fire_before_2020 | Aggregate of burnt areas between 2001 and 2020. | Lizundia-Loiola J., Otón G., Ramo R., Chuvieco E. (2020): *A spatio-temporal active-fire clustering approach for global burned area mapping at 250 m from MODIS data* Remote Sensing of Environment. Volume 236. https://doi.org/10.1016/j.rse.2019.111493. <br><br> **GEE:** ee.ImageCollection("ESA/CCI/FireCCI/5_1") |
 
 <br><br><br>
+
 
 **Ancillary datasets:**
 | Dataset name | Description of zonal statistics applied | Citation |
