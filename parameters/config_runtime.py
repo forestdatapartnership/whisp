@@ -57,8 +57,8 @@ stats_area_columns_formatting = '%.3f'
 stats_percent_columns_formatting = '%.0f'   
 
 
-	# ordering prefix columns: inserted before stats columns (plot metadata and stats unit type). 
-	prefix_columns_list =[plot_id_column, geo_id_column, geometry_area_column, geometry_type_column, country_column, admin_1_column, centroid_x_coord_column, centroid_y_coord_column, water_flag, stats_unit_type_column] 
+# ordering prefix columns: inserted before stats columns (plot metadata and stats unit type). 
+prefix_columns_list =[plot_id_column, geo_id_column, geometry_area_column, geometry_type_column, country_column, admin_1_column, centroid_x_coord_column, centroid_y_coord_column, water_flag, stats_unit_type_column] 
 
 
 
