@@ -1,14 +1,14 @@
 whisp 
 =====
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/openforis/sepal/blob/master/license.txt)
+[![DOI](https://img.shields.io/badge/DOI-10.4060%2Fcd0957en-brightgreen.svg)](https://doi.org/10.4060/cd0957en)
 
 ![Whisp_OpenForis_Banner_Github](https://github.com/user-attachments/assets/fe7a6505-2afa-40a2-8125-23f8d153be51)
 
-
 ## Convergence of Evidence <a name="whisp_coe"></a>
-***whisp*** stands for **WH**at **IS** in that **P**lot ? 
+***Whisp*** stands for **Wh**at **is** in that **p**lot ? 
 
-The Forest Data Partnership promotes a Convergence of Evidence approach for Forest and Commodities Monitoring  
+The [Forest Data Partnership](https://www.fao.org/in-action/forest-data-partnership/en) promotes a Convergence of Evidence approach for Forest and Commodities Monitoring  
 - no single source of geospatial data (i.e a land cover map) can tell the whole story around any given plot of land, 
 - all the existing, published and available datasets contribute to telling that story 
 
@@ -32,6 +32,7 @@ The types of datasets reported on are categorized as follows:
 4) deforestation / disturbances after 2020
 
 ![Kopie von whisp_decision_tree_20240909](https://github.com/user-attachments/assets/6a49dac8-d3b0-4137-871e-37a879d0e173)
+
 
 Check the [full list of WHISP data layers](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md)
 
