@@ -1,6 +1,9 @@
-whisp
+whisp 
 =====
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/openforis/sepal/blob/master/license.txt)
+
+![Whisp_OpenForis_Banner_Github](https://github.com/user-attachments/assets/fe7a6505-2afa-40a2-8125-23f8d153be51)
+
 
 ## Convergence of Evidence <a name="whisp_coe"></a>
 ***whisp*** stands for **WH**at **IS** in that **P**lot ? 
@@ -28,10 +31,11 @@ The types of datasets reported on are categorized as follows:
 3) deforestation / disturbances before 2020
 4) deforestation / disturbances after 2020
 
+![Kopie von whisp_decision_tree_20240909](https://github.com/user-attachments/assets/6a49dac8-d3b0-4137-871e-37a879d0e173)
 
 Check the [full list of WHISP data layers](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md)
 
-
+<br><br>
 
 
 ## WHISP pathways <a name="whisp_pathways"></a>
