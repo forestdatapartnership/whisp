@@ -1,4 +1,4 @@
-whisp 
+&omega;hisp 
 =====
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/openforis/sepal/blob/master/license.txt)
 [![DOI](https://img.shields.io/badge/DOI-10.4060%2Fcd0957en-brightgreen.svg)](https://doi.org/10.4060/cd0957en)
@@ -6,11 +6,11 @@ whisp
 ![Whisp_OpenForis_Banner_Github](https://github.com/user-attachments/assets/fe7a6505-2afa-40a2-8125-23f8d153be51)
 
 ## Convergence of Evidence <a name="whisp_coe"></a>
-***Whisp*** stands for **Wh**at **is** in that **p**lot ? 
+***&omega;hisp*** stands for **Wh**at **is** in that **p**lot ? 
 
-The [Forest Data Partnership](https://www.fao.org/in-action/forest-data-partnership/en) promotes a Convergence of Evidence approach for Forest and Commodities Monitoring  
+The [Forest Data Partnership](https://www.fao.org/in-action/forest-data-partnership/en) promotes a Convergence of Evidence approach for forest and commodities monitoring, assuming that
 - no single source of geospatial data (i.e a land cover map) can tell the whole story around any given plot of land, 
-- all the existing, published and available datasets contribute to telling that story 
+- all the existing, published and available datasets contribute to telling that story.
 
 --------------------------------------------------------------------------------
 - [ ] [Whisp datasets](#whisp_datasets)
@@ -21,28 +21,28 @@ The [Forest Data Partnership](https://www.fao.org/in-action/forest-data-partners
 - [ ] [Contribute to the code](#whisp_contribute)
 
 
-## Whisp datasets <a name="whisp_datasets"></a>
-***whisp***  implements that convergence approach by providing a transparent and public processing flow using those datasets
+## &omega;hisp datasets <a name="whisp_datasets"></a>
+***&omega;hisp***  implements the convergence of evidence approach by providing a transparent and public processing flow using those datasets.
 
 The types of datasets reported on are categorized as follows:
 
-1) forest and tree cover at the end of 2020
-2) crop plantations and other agricultural uses
-3) deforestation / disturbances before 2020
-4) deforestation / disturbances after 2020
+1) Forest and tree cover at the end of 2020
+2) Crop plantations and other agricultural uses
+3) Deforestation / disturbances **before 2020**
+4) Deforestation / disturbances **after 2020**
 
 ![Kopie von whisp_decision_tree_20240909](https://github.com/user-attachments/assets/6a49dac8-d3b0-4137-871e-37a879d0e173)
 
 
-Check the [full list of WHISP data layers](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md)
+Check the [full list of WHISP data layers here](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md).
 
 <br><br>
 
 
 ## WHISP pathways <a name="whisp_pathways"></a>
-***whisp*** can be implemented through at least three pathways
+***whisp*** can be implemented through at least three pathways:
 
-1. As an operational [API](https://whisp.openforis.org/) in [JS and Python](https://github.com/forestdatapartnership/whisp-app)
+1. As an operational [API](https://whisp.openforis.org/) (find the underlying code in Javascript and Python [here](https://github.com/forestdatapartnership/whisp-app)
 
 2. Through [mobile applications](https://play.google.com/store/apps/details?id=org.openforis.ground&hl=en) to enable smallholder in the field directly generate and own the monitoring data associated with their plots of land
 
@@ -54,12 +54,12 @@ More info can be found on the  [Whisp webpage](https://openforis.org/solutions/w
 
 ### Requirements
 
-- A Sepal account.
-- A Google Earth Engine (GEE) account.
-- A registered cloud GEE project.
-- Some experience in Python or a similar language.
+- A [Sepal account](https://sepal.io/-/process);
+- a [Google Earth Engine (GEE) account](https://code.earthengine.google.com/);
+- a registered cloud GEE project;
+- some experience in Python or a similar language.
 
-The Python notebooks are currently set up to run in Sepal and to focus on polygon data provided by the user or geo_ids that allow the notebooks to access polygons stored and registered in the Asset Registry. NB: We value your feedback in terms of what input data we should support.
+The Python notebooks are currently set up to run in Sepal and to focus on polygon data provided by the user or [GeoIDs](https://openknowledge.fao.org/server/api/core/bitstreams/b54cabe9-7ecb-46bf-810d-e3f028818067/content) that allow the notebooks to access polygons stored and registered in the [Asset Registry](https://github.com/agstack/asset-registry). NB: We value your feedback in terms of what input data we should support. 
 
 If your data is available as a feature collection and the GitHub repo is cloned, you are ready to start processing. We suggest first familiarizing yourself with running the notebooks using the default inputs in the notebook code. This will allow you to understand the expected outputs and the general functionality, as well as check if the setup worked successfully.
 
