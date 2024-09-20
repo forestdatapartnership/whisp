@@ -1,4 +1,4 @@
-&omega;hisp 
+whisp 
 =====
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/openforis/sepal/blob/master/license.txt)
 [![DOI](https://img.shields.io/badge/DOI-10.4060%2Fcd0957en-brightgreen.svg)](https://doi.org/10.4060/cd0957en)
@@ -6,7 +6,7 @@
 ![Whisp_OpenForis_Banner_Github](https://github.com/user-attachments/assets/fe7a6505-2afa-40a2-8125-23f8d153be51)
 
 ## Convergence of Evidence <a name="whisp_coe"></a>
-***&omega;hisp*** stands for **Wh**at **is** in that **p**lot ? 
+***Whisp*** stands for **Wh**at **is** in that **p**lot ? 
 
 The [Forest Data Partnership](https://www.fao.org/in-action/forest-data-partnership/en) promotes a Convergence of Evidence approach for forest and commodities monitoring, assuming that
 - no single source of geospatial data (i.e a land cover map) can tell the whole story around any given plot of land, 
@@ -21,8 +21,8 @@ The [Forest Data Partnership](https://www.fao.org/in-action/forest-data-partners
 - [ ] [Contribute to the code](#whisp_contribute)
 
 
-## &omega;hisp datasets <a name="whisp_datasets"></a>
-***&omega;hisp***  implements the convergence of evidence approach by providing a transparent and public processing flow using those datasets.
+## Whisp datasets <a name="whisp_datasets"></a>
+***Whisp***  implements the convergence of evidence approach by providing a transparent and public processing flow using those datasets.
 
 The types of datasets reported on are categorized as follows:
 
