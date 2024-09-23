@@ -27,6 +27,7 @@ The Forest Data Partnership promotes this approach for forest and commodities mo
 - [Add data layers](#whisp_add_data)
 - [Contribute to the code](#whisp_contribute)
 
+<br>
 
 ## Whisp pathways <a name="whisp_pathways"></a>
 ***Whisp*** can currently be used directly or implemented in your own code through three different pathways:
@@ -38,6 +39,7 @@ The Forest Data Partnership promotes this approach for forest and commodities mo
 
 3. Datasets of any size, especially when holding more than 500 geometries, can be "whisped" through the [Jupyter Notebook](whisp_feature_collection.ipynb) in this repository. They can either be uploaded as GeoJSONs or accessed through GEE assets. For the detailed procedure please go to the section [Whisp notebooks](#whisp_notebooks).
 
+<br>
 
 ## Whisp datasets <a name="whisp_datasets"></a>
 ***Whisp***  implements the convergence of evidence approach by providing a transparent and public processing flow using datasets covering the following categories:
@@ -67,14 +69,6 @@ However, under the same circumstances but with <u>no</u> disturbances reported a
 
 *The Whisp algorithm visualized:*
 ![Kopie von whisp_decision_tree_20240909](https://github.com/user-attachments/assets/6a49dac8-d3b0-4137-871e-37a879d0e173)
-
-
-
-
-<br><br>
-
-
-
 
 ## Run Whisp through Jupyter Notebooks <a name="whisp_notebooks"></a>
 
@@ -151,6 +145,8 @@ Key files:
 - `datasets.py` contains a series of functions related to the creation of a single multiband GEE image to be used in the Whisp summary statistics analysis.
 - `stats.py` contains functions to run the Whisp analysis for each of the various datasets and to provide results for coverage of each plot as a percentage (or as an area in hectares).
 
+<br>
+
 ## Setting Up Your System <a name="whisp_setup"></a>
 
 ### Setting Up SEPAL
@@ -204,6 +200,8 @@ As large or detailed polygon data may cause conversion errors, for more reliable
 11. Clicking on the asset will open a pop-up window to allow you to explore the table.
 12. The feature collection asset is ready to use. NB: You can visualize, share, or delete it as needed within the code editor interface.
 
+<br>
+
 ## How to add data layers to Whisp <a name="whisp_add_data"></a>
 
 There are two main approaches: to request a layer be incorporated into the core Whisp inputs, or to add in your own data directly to complement the core ones in Whisp
@@ -244,5 +242,31 @@ NB if there is in a 1 in the "exclude" column this over-rules all of the above a
 - A binary input image is expected, but non-integer values are allowed if they range between 0 and 1. This is most appropriate for datasets that have proportion of coverage in a pixel (e.g., a value of 0.5 would represent having half the pixel covered).
 - If you are adding timeseries data, when creating the function you can use loops/mapping to compile a multiband input and to name each band accordingly.
 
+<br>
+
 ## Contributing to the Whisp code base <a name="whisp_contribute"></a>
 Contributions to the Whisp code in GitHub are welcome. They can be made by forking the repository making and pushing the required changes, then making a pull request to the Whisp repository. After briefly reviewing the request, we can make a branch for which to make a new pull request to. If in doubt get in contact first or log as an issue [here] (https://github.com/forestdatapartnership/whisp/issues/).
+
+<br>
+
+## Code of Conduct
+
+**Purpose**  
+We are dedicated to maintaining a safe and respectful environment for all users. Harassment or abusive behavior will not be tolerated. <br>
+
+**Scope**  
+This Code applies to all interactions on the repository and on the app.
+
+**Expectations** <br>
+*- Respect others:* Treat all contributors and users with courtesy and kindness. <br>
+*- Constructive communication:* Engage respectfully, even in disagreements. <br>
+*- Protect privacy:* Do not share personal information without consent.
+
+**Prohibited Conduct** <br>
+*- Harassment:* Unwanted or abusive communication, stalking, threats, or bullying.<br>
+*- Discrimination:* Any form of hate speech or exclusion based on race, gender, orientation, or other identities.<br>
+*- Inappropriate Content:* Posting offensive, harmful, or explicit material.
+
+**Reporting**  
+Users can report violations directly to open-foris@fao.org.
+
