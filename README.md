@@ -1,54 +1,80 @@
 whisp 
 =====
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/openforis/sepal/blob/master/license.txt)
+[![Privacy Policy](https://img.shields.io/badge/Privacy_Policy-FAO-lightblue.svg)](https://www.fao.org/contact-us/privacy-policy-applications-use/en)
 [![DOI](https://img.shields.io/badge/DOI-10.4060%2Fcd0957en-brightgreen.svg)](https://doi.org/10.4060/cd0957en)
+
+
 
 ![Whisp_OpenForis_Banner_Github](https://github.com/user-attachments/assets/fe7a6505-2afa-40a2-8125-23f8d153be51)
 
 ## Convergence of Evidence <a name="whisp_coe"></a>
-***Whisp*** stands for **Wh**at **is** in that **p**lot ? 
+***Whisp*** stands for "***Wh****at* ***is*** *in that* ***p****lot*"? 
 
-The [Forest Data Partnership](https://www.fao.org/in-action/forest-data-partnership/en) promotes a Convergence of Evidence approach for forest and commodities monitoring, assuming that
-- no single source of geospatial data (i.e a land cover map) can tell the whole story around any given plot of land, 
+Numerous publicly available Earth Observation maps provide data on tree cover, land use, and forest disturbances. However, these maps often differ from one another because they use various definitions and classification systems. As a result, no single map can provide a complete picture of any specific area. To address this issue, the [Forest Data Partnership (FDaP)](https://www.forestdatapartnership.org) and the [AIM4Forests Programme](https://www.fao.org/in-action/aim4forests/en/) advocate for the **Convergence of Evidence** approach.
+
+The Forest Data Partnership promotes this approach for forest and commodities monitoring, assuming that
+- no single source of geospatial data can tell the whole story around any given plot of land; 
 - all the existing, published and available datasets contribute to telling that story.
+<br><br>
 
---------------------------------------------------------------------------------
-- [ ] [Whisp datasets](#whisp_datasets)
-- [ ] [Whisp pathways](#whisp_pathways)
-- [ ] [Whisp notebooks](#whisp_notebooks)
-- [ ] [System setup](#whisp_setup)
-- [ ] [Add data layers](#whisp_add_data)
-- [ ] [Contribute to the code](#whisp_contribute)
+
+## Contents
+- [Whisp pathways](#whisp_pathways)
+- [Whisp datasets](#whisp_datasets)
+- [Whisp notebooks](#whisp_notebooks)
+- [System setup](#whisp_setup)
+- [Add data layers](#whisp_add_data)
+- [Contribute to the code](#whisp_contribute)
+
+
+## Whisp pathways <a name="whisp_pathways"></a>
+***Whisp*** can currently be used directly or implemented in your own code through three different pathways:
+
+
+1. The Whisp App with its simple interface can be used [right here](https://whisp.openforis.org/) or called from other software by [API](https://whisp.openforis.org/documentation). The Whisp App currently supports the processing of up to 500 geometries per job. The original JS & Python code behind the Whisp App and API can be found [here](https://github.com/forestdatapartnership/whisp-app).
+
+2. [Whisp in Earthmap](https://whisp.earthmap.org/?aoi=WHISP&boundary=plot1&layers=%7B%22CocoaETH%22%3A%7B%22opacity%22%3A1%7D%2C%22JRCForestMask%22%3A%7B%22opacity%22%3A1%7D%2C%22planet_rgb%22%3A%7B%22opacity%22%3A1%2C%22date%22%3A%222020-12%22%7D%7D&map=%7B%22center%22%3A%7B%22lat%22%3A7%2C%22lng%22%3A4%7D%2C%22zoom%22%3A3%2C%22mapType%22%3A%22satellite%22%7D&statisticsOpen=true) supports the visualization of geometries on actual maps with the possibility to toggle different relevant map products around tree cover, commodities and deforestation. It is practical for demonstration purposes and spot checks of single geometries but not recommended for larger datasets.
+
+3. Datasets of any size, especially when holding more than 500 geometries, can be "whisped" through the [Jupyter Notebook](whisp_feature_collection.ipynb) in this repository. They can either be uploaded as GeoJSONs or accessed through GEE assets. For the detailed procedure please go to the section [Whisp notebooks](#whisp_notebooks).
 
 
 ## Whisp datasets <a name="whisp_datasets"></a>
-***Whisp***  implements the convergence of evidence approach by providing a transparent and public processing flow using those datasets.
+***Whisp***  implements the convergence of evidence approach by providing a transparent and public processing flow using datasets covering the following categories:
 
-The types of datasets reported on are categorized as follows:
+1) Tree and forest cover (at the end of 2020);
+2) Commodities (i.e., crop plantations and other agricultural uses at the end of 2020);
+3) Disturbances **before 2020** (i.e., degredation or deforestation until 2020-12-31);
+4) Disturbances **after 2020** (i.e., degredation or deforestation from 2021-01-01 onward).
 
-1) Forest and tree cover at the end of 2020
-2) Crop plantations and other agricultural uses
-3) Deforestation / disturbances **before 2020**
-4) Deforestation / disturbances **after 2020**
+There are multiple datasets for each category. Find the full current [list of datasets used in Whisp here](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md).
+ Whisp checks the plots provided by the user by running zonal statistics on them to answer the following questions:
 
+1) Was there tree cover in 2020?
+2) Were there commodity plantations or other agricultural uses in 2020?
+3) Were there disturbances until 2020-12-31?
+4) Were there disturbances after 2020-12-31 / starting 2021-01-01?
+
+If no treecover dataset indicates any tree cover for a plot by the end of 2020, **Whisp will deem the deforestation risk as low.** 
+
+If one or more treecover datasets indicate tree cover on a plot by the end of 2020, but a commodity dataset indicates agricultural use by the end of 2020, **Whisp will deem the deforestation risk as low.**
+
+If treecover datasets indicate tree cover on a plot by late 2020, no commodity datasets indicate agricultural use, but a disturbance datasets indicates disturbances before the end of 2020, **Whisp will deem the deforestation risk as <u>low</u>.** Such deforestation has happened before the EUDR cutoff date and therefore does not count as high risk for the EUDR.
+
+Now, if the datasets under 1., 2. & 3. indicate that there was tree cover, but no agriculture and no disturbances before or by the end of 2020, the Whisp algorithm checks whether degredation or deforestation have been reported in a disturbance dataset after 2020-12-31. If they have, **Whisp will deem the deforestation risk as <u>high</u>.** <br>
+However, under the same circumstances but with <u>no</u> disturbances reported after 2020-12-31 there is insufficient evidence and the **Whisp output will be "More info needed".** Such can be the case for, e.g., cocoa or coffee grown under the shade of treecover or agroforestry.
+
+
+*The Whisp algorithm visualized:*
 ![Kopie von whisp_decision_tree_20240909](https://github.com/user-attachments/assets/6a49dac8-d3b0-4137-871e-37a879d0e173)
 
 
-Check the [full list of WHISP data layers here](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md).
+
 
 <br><br>
 
 
-## WHISP pathways <a name="whisp_pathways"></a>
-***whisp*** can be implemented through at least three pathways:
 
-1. As an operational [API](https://whisp.openforis.org/) (find the underlying code in Javascript and Python [here](https://github.com/forestdatapartnership/whisp-app)
-
-2. Through [mobile applications](https://play.google.com/store/apps/details?id=org.openforis.ground&hl=en) to enable smallholder in the field directly generate and own the monitoring data associated with their plots of land
-
-3. Integrated through [Graphical User Interfaces](https://whisp.earthmap.org/?aoi=WHISP&boundary=plot1&layers=%7B%22CocoaETH%22%3A%7B%22opacity%22%3A1%7D%2C%22JRCForestMask%22%3A%7B%22opacity%22%3A1%7D%2C%22planet_rgb%22%3A%7B%22opacity%22%3A1%2C%22date%22%3A%222020-12%22%7D%7D&map=%7B%22center%22%3A%7B%22lat%22%3A7%2C%22lng%22%3A4%7D%2C%22zoom%22%3A3%2C%22mapType%22%3A%22satellite%22%7D&statisticsOpen=true) for demonstration and verification purposes
-
-More info can be found on the  [Whisp webpage](https://openforis.org/solutions/whisp)
 
 ## Run Whisp through Jupyter Notebooks <a name="whisp_notebooks"></a>
 
