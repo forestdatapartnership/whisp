@@ -26,6 +26,7 @@ The Forest Data Partnership promotes this approach for forest and commodities mo
 - [System setup](#whisp_setup)
 - [Add data layers](#whisp_add_data)
 - [Contribute to the code](#whisp_contribute)
+- [Code of conduct](#whisp_conduct)
 
 <br>
 
@@ -249,7 +250,7 @@ Contributions to the Whisp code in GitHub are welcome. They can be made by forki
 
 <br>
 
-## Code of Conduct
+## Code of Conduct <a name="whisp_conduct"></a>
 
 **Purpose**  
 We are dedicated to maintaining a safe and respectful environment for all users. Harassment or abusive behavior will not be tolerated. <br>
