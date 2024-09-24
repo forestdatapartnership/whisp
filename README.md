@@ -269,5 +269,6 @@ This Code applies to all interactions on the repository and on the app.
 *- Inappropriate Content:* Posting offensive, harmful, or explicit material.
 
 **Reporting**  
-Users can report violations directly to open-foris@fao.org.
+Users can report violations directly to us by emailing the address listed in the "Contact Us" section of the website:
+https://openforis.org/solutions/whisp/
 
