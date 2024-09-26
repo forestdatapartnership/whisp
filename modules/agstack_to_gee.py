@@ -528,7 +528,7 @@ def geo_id_list_to_feature_collection(list_of_geo_ids,
                                       asset_registry_base="https://api-ar.agstack.org",
                                       required_area=4,
                                       area_unit="ha"):
-    """Converts a list of geo_ids from asset registry to a feature collection. "Geo_id" is set as a property for each feature"""
+    """Converts a list of geo_ids from asset registry to a feature collection. "geoid" is set as a property for each feature"""
     out_fc_list = []
     if isinstance(list_of_geo_ids, list):
         for geo_id in list_of_geo_ids:
@@ -630,16 +630,16 @@ def create_csv_from_list(join_id_column,data_list, output_lookup_csv):
 
 def get_system_index_vals_w_missing_geo_ids(df,geo_id_column,join_id_column):
     """
-    Extracts system:index values where Geo_id is not present (NaN).
+    Extracts system:index values where geoid is not present (NaN).
 
     Args:
     - data: Input data in the form of pandas dataframe
 
     Returns:
-    - List of system:index / join_id_column values where no Geo_id is present.
+    - List of system:index / join_id_column values where no geoid is present.
     """
 
-    # Extract system:index values where Geo_id is NaN
+    # Extract system:index values where geoid is NaN
     # making sure join_id_column is string format so can be used to filter fc in csv_prep_and_fc_filtering
     no_geo_id_values = df[df[geo_id_column].isna()][join_id_column].tolist() 
 
@@ -662,7 +662,7 @@ def update_geo_id_in_csv(output_lookup_csv,system_index, geo_id_column,new_geo_i
     df = pd.read_csv(output_lookup_csv, dtype={join_id_column: str})
     # pd.dataframe(data)
     
-    # Update the Geo_id for the corresponding system_index (making sure both are strings for when system:index is a number e.g. when a shapefile)
+    # Update the geoid for the corresponding system_index (making sure both are strings for when system:index is a number e.g. when a shapefile)
     df.loc[(df[join_id_column.replace(' ', '_')].astype(str)) == str(system_index), geo_id_column] = new_geo_id
 
     # Write the updated DataFrame back to the CSV
@@ -847,7 +847,7 @@ def register_feature_and_append_to_csv(feature,geo_id_column,output_lookup_csv,j
 
 
 
-def add_geo_ids_to_feature_col_from_lookup_df(fc,df,join_id_column="system:index",geo_id_column="Geo_id",override_checks=False,remove_other_properties=False,
+def add_geo_ids_to_feature_col_from_lookup_df(fc,df,join_id_column="system:index",geo_id_column="geoid",override_checks=False,remove_other_properties=False,
                                               debug=False):
 
     check_inputs_same_size(fc, df, override_checks) 
@@ -896,7 +896,7 @@ def column_exists_in_feature_collection(feature_collection, column_name):
         return False
 
 
-def add_geo_ids_to_feature_col_from_lookup_csv(fc,csv,join_id_column="system:index",geo_id_column="Geo_id",override_checks=False,remove_other_properties=False,debug=False):
+def add_geo_ids_to_feature_col_from_lookup_csv(fc,csv,join_id_column="system:index",geo_id_column="geoid",override_checks=False,remove_other_properties=False,debug=False):
     df = pd.read_csv(csv)
     return add_geo_ids_to_feature_col_from_lookup_df(fc,df,join_id_column,geo_id_column,override_checks=override_checks,remove_other_properties=remove_other_properties,debug=debug)
 
@@ -943,7 +943,7 @@ def add_geo_ids_to_csv_from_lookup_df(
     input_csv,
     geo_id_lookup_df,
     join_id_column="system:index",
-    geo_id_column="Geo_id",
+    geo_id_column="geoid",
     # override_checks=False, # needs implementing
     join_id_column_rename=True,
     overwrite=False,
@@ -989,7 +989,7 @@ def add_geo_ids_to_csv_from_lookup_df(
 def add_geo_ids_to_csv_from_lookup_csv(input_csv,
     geo_id_lookup_csv,
     join_id_column="system:index",
-    geo_id_column="Geo_id",
+    geo_id_column="geoid",
     # override_checks=False, # needs implementing
     overwrite=False,
     drop_geo=False,
