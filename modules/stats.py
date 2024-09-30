@@ -367,8 +367,9 @@ def add_id_to_feature_collection(dataset,id_name="PlotID"):
         # Get the system:index of the feature
         system_index = feature.get('system:index')
         
-        # Get the id corresponding to the system:index
-        feature_id = id_by_index.get(system_index)
+        # Get the id corresponding to the system:index and cast to integer
+        feature_id = ee.Number(id_by_index.get(system_index)).toInt()
+
         
         # Set the 'id' property of the feature
         return feature.set(id_name, feature_id)
