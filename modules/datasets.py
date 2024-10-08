@@ -125,6 +125,10 @@ def esa_worldcover_trees_prep():
 def civ_ocs2020_prep():
     return ee.Image("projects/ee-bnetdcign2/assets/OCS_CI_2020vf").eq(9).rename("Cocoa_bnetd") # NB ask Aurelie for info on this
 
+# Rubber_RBGE  - from Royal Botanical Gardens of Edinburgh (RBGE) NB for 2021  
+def rbge_rubber_prep():
+    return ee.Image('users/wangyxtina/MapRubberPaper/rRubber10m202122_perc1585DifESAdist5pxPF').unmask().rename("Rubber_RBGE");
+
 
 #### disturbances by year
 
@@ -401,6 +405,7 @@ def combine_datasets():
     # img_combined = img_combined.addBands(try_access(birdlife_kbas_biodiversity_prep))
     img_combined = img_combined.addBands(try_access(esa_worldcover_trees_prep))
     img_combined = img_combined.addBands(try_access(civ_ocs2020_prep)) 
+    img_combined = img_combined.addBands(try_access(rbge_rubber_prep))  
     img_combined = img_combined.addBands(try_access(tmf_def_per_year_prep)) # multi year
     img_combined = img_combined.addBands(try_access(tmf_deg_per_year_prep)) # multi year
     img_combined = img_combined.addBands(try_access(glad_gfc_loss_per_year_prep)) # multi year
