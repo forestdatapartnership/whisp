@@ -82,5 +82,25 @@ Centre d'Information Géographique et du Numérique / Bureau National d’Étude
     <tr><td rowspan="3">MODIS_fire_after_2020</td><td rowspan="3">Binary mask of aggregate burnt areas from 2021 onward.</td><td rowspan="2">Giglio, L., Justice, C., Boschetti, L., & Roy, D. (2021). <i>MODIS/Terra+Aqua Burned Area Monthly L3 Global 500m SIN Grid V061</i> [Dataset]. NASA EOSDIS Land Processes Distributed Active Archive Center. https://doi.org/10.5067/MODIS/MCD64A1.061</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection("MODIS/061/MCD64A1")</td></tr>
+      <tr><td colspan="3"><b>Plot location:</b></td></tr>
+    <tr><td rowspan="3">Country</td><td rowspan="3">ISO3 code for the country based on plot centroid. Boundaries may contain errors and do not imply official endorsement or acceptance.</td><td rowspan="2">Runfola, D. et al. (2020) geoBoundaries: A global database of political administrative boundaries. <i> PLoS ONE </i> 15(4): e0231866. https://doi.org/10.1371/journal.pone.0231866 </td></tr>
+    <tr></tr>
+    <tr><td>ee.FeatureCollection("WM/geoLab/geoBoundaries/600/ADM1")</td></tr>
+    <tr><td rowspan="3">Admin_Level_1</td><td rowspan="3">Name of subnational administrative boundary (Level 1), based on plot centroid. Boundaries may contain errors and do not imply official endorsement or acceptance.</td><td rowspan="2">Runfola, D. et al. (2020) geoBoundaries: A global database of political administrative boundaries. <i> PLoS ONE </i> 15(4): e0231866.https://doi.org/10.1371/journal.pone.0231866 </td></tr>
+    <tr></tr>
+    <tr><td>ee.FeatureCollection("WM/geoLab/geoBoundaries/600/ADM1")</td></tr>
+    <tr><td rowspan="4">Water_flag</td><td rowspan="4">
+ Binary mask for permanent water. Used to detect potential plot location errors based on pixel value for the plot centroid. JRC's Global Surface Water data for inland water bodies (classes 1, 2, or 7 from the transitions layer); areas outside USGS Global Shoreline Vector (GSV) boundaries for marine. </td><td>Pekel, JF., Cottam, A., Gorelick, N., Belward, A.S. (2016) High-resolution mapping of global surface water and its long-term changes. <i> Nature </i> 540, 418-422. (doi:10.1038/nature20584)</td></tr>
+    <tr><td> 
+ ee.Image("JRC/GSW1_4/GlobalSurfaceWater")
+ </td></tr>
+     <td>Sayre, R., S. Noble, S. Hamann, R. Smith, D. Wright et al., (2019). A new 30 meter resolution global shoreline vector and associated global islands database for the development of standardized ecological coastal units. <i> Journal of Operational Oceanography </i>, 12: sup 2, S47-S56, DOI: 10.1080/1755876X.2018.1529714ee. 
+    </tr>
+    </td>
+    <tr>
+    <td>
+    ee.FeatureCollection('projects/sat-io/open-datasets/shoreline/mainlands'); ee.FeatureCollection('projects/sat-io/open-datasets/shoreline/big_islands'); ee.FeatureCollection('projects/sat-io/open-datasets/shoreline/small_islands');
+    </tr>
+    </td>
   </tbody>
 </table>
