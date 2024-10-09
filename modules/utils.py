@@ -35,7 +35,7 @@ def collection_properties_to_df(collection, property_selection=None):
 
 
 # Compute centroids of each polygon
-def get_centroid(feature, geo_id_column="Geo_id"):
+def get_centroid(feature, geo_id_column="geoid"):
     keepProperties = [geo_id_column];
     # Get the centroid of the feature's geometry.
     centroid = feature.geometry().centroid(1);
