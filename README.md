@@ -1,48 +1,90 @@
-whisp
+whisp 
 =====
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/openforis/sepal/blob/master/license.txt)
-
-***whisp*** stands for **WH**at **IS** in that **P**lot ? 
-
-The Forest Data Partnership promotes a Convergence of Evidence approach for Forest and Commodities Monitoring  
-
-- no single source of geospatial data (i.e a land cover map) can tell the whole story around any given plot of land, 
-- all the existing, published and available datasets contribute to telling that story 
-
-***whisp***  implements that convergence approach by providing a transparent and public processing flow using those datasets
-
---------------------------------------------------------------------------------
-
-![whisp convergence of proof](images/pol_story_agu.gif)
+[![Privacy Policy](https://img.shields.io/badge/Privacy_Policy-FAO-lightblue.svg)](https://www.fao.org/contact-us/privacy-policy-applications-use/en)
+[![DOI](https://img.shields.io/badge/DOI-10.4060%2Fcd0957en-brightgreen.svg)](https://doi.org/10.4060/cd0957en)
 
 
-### whisp pathways
-***whisp*** can be implemented through at least three pathways
 
-1. As an operationnal API in JS and Python
+![Whisp_OpenForis_Banner_Github](https://github.com/user-attachments/assets/fe7a6505-2afa-40a2-8125-23f8d153be51)
 
-2. Through mobile applications to enable smallholder in the field directly generate and own the monitoring data associated with their plots of land
+## Convergence of Evidence <a name="whisp_coe"></a>
+***Whisp*** stands for "***Wh****at* ***is*** *in that* ***p****lot*"? 
 
-3. Integrated through Graphical User Interfaces for demonstration and verification purposes
+Numerous publicly available Earth Observation maps provide data on tree cover, land use, and forest disturbances. However, these maps often differ from one another because they use various definitions and classification systems. As a result, no single map can provide a complete picture of any specific area. To address this issue, the [Forest Data Partnership (FDaP)](https://www.forestdatapartnership.org) and the [AIM4Forests Programme](https://www.fao.org/in-action/aim4forests/en/) advocate for the **Convergence of Evidence** approach.
 
-4. Python Notebook implementation.
+The Forest Data Partnership promotes this approach for forest and commodities monitoring, assuming that
+- no single source of geospatial data can tell the whole story around any given plot of land; 
+- all the existing, published and available datasets contribute to telling that story.
+<br><br>
 
-More info on Whisp can be found in [here](https://openknowledge.fao.org/items/e9284dc7-4b19-4f9c-b3e1-e6c142585865)
 
-## How to Whisp Your Data Using the Python Notebook Pathway
+## Contents
+- [Whisp pathways](#whisp_pathways)
+- [Whisp datasets](#whisp_datasets)
+- [Whisp notebooks](#whisp_notebooks)
+- [System setup](#whisp_setup)
+- [Add data layers](#whisp_add_data)
+- [Contribute to the code](#whisp_contribute)
+- [Code of conduct](#whisp_conduct)
+
+<br>
+
+## Whisp pathways <a name="whisp_pathways"></a>
+***Whisp*** can currently be used directly or implemented in your own code through three different pathways:
+
+
+1. The Whisp App with its simple interface can be used [right here](https://whisp.openforis.org/) or called from other software by [API](https://whisp.openforis.org/documentation). The Whisp App currently supports the processing of up to 500 geometries per job. The original JS & Python code behind the Whisp App and API can be found [here](https://github.com/forestdatapartnership/whisp-app).
+
+2. [Whisp in Earthmap](https://whisp.earthmap.org/?aoi=WHISP&boundary=plot1&layers=%7B%22CocoaETH%22%3A%7B%22opacity%22%3A1%7D%2C%22JRCForestMask%22%3A%7B%22opacity%22%3A1%7D%2C%22planet_rgb%22%3A%7B%22opacity%22%3A1%2C%22date%22%3A%222020-12%22%7D%7D&map=%7B%22center%22%3A%7B%22lat%22%3A7%2C%22lng%22%3A4%7D%2C%22zoom%22%3A3%2C%22mapType%22%3A%22satellite%22%7D&statisticsOpen=true) supports the visualization of geometries on actual maps with the possibility to toggle different relevant map products around tree cover, commodities and deforestation. It is practical for demonstration purposes and spot checks of single geometries but not recommended for larger datasets.
+
+3. Datasets of any size, especially when holding more than 500 geometries, can be "whisped" through the [Jupyter Notebook](whisp_feature_collection.ipynb) in this repository. They can either be uploaded as GeoJSONs or accessed through GEE assets. For the detailed procedure please go to the section [Whisp notebooks](#whisp_notebooks).
+
+<br>
+
+## Whisp datasets <a name="whisp_datasets"></a>
+***Whisp***  implements the convergence of evidence approach by providing a transparent and public processing flow using datasets covering the following categories:
+
+1) Tree and forest cover (at the end of 2020);
+2) Commodities (i.e., crop plantations and other agricultural uses at the end of 2020);
+3) Disturbances **before 2020** (i.e., degredation or deforestation until 2020-12-31);
+4) Disturbances **after 2020** (i.e., degredation or deforestation from 2021-01-01 onward).
+
+There are multiple datasets for each category. Find the full current [list of datasets used in Whisp here](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md).
+ Whisp checks the plots provided by the user by running zonal statistics on them to answer the following questions:
+
+1) Was there tree cover in 2020?
+2) Were there commodity plantations or other agricultural uses in 2020?
+3) Were there disturbances until 2020-12-31?
+4) Were there disturbances after 2020-12-31 / starting 2021-01-01?
+
+If no treecover dataset indicates any tree cover for a plot by the end of 2020, **Whisp will deem the deforestation risk as low.** 
+
+If one or more treecover datasets indicate tree cover on a plot by the end of 2020, but a commodity dataset indicates agricultural use by the end of 2020, **Whisp will deem the deforestation risk as low.**
+
+If treecover datasets indicate tree cover on a plot by late 2020, no commodity datasets indicate agricultural use, but a disturbance datasets indicates disturbances before the end of 2020, **Whisp will deem the deforestation risk as <u>low</u>.** Such deforestation has happened before the EUDR cutoff date and therefore does not count as high risk for the EUDR.
+
+Now, if the datasets under 1., 2. & 3. indicate that there was tree cover, but no agriculture and no disturbances before or by the end of 2020, the Whisp algorithm checks whether degredation or deforestation have been reported in a disturbance dataset after 2020-12-31. If they have, **Whisp will deem the deforestation risk as <u>high</u>.** <br>
+However, under the same circumstances but with <u>no</u> disturbances reported after 2020-12-31 there is insufficient evidence and the **Whisp output will be "More info needed".** Such can be the case for, e.g., cocoa or coffee grown under the shade of treecover or agroforestry.
+
+
+*The Whisp algorithm visualized:*
+![Kopie von whisp_decision_tree_20240909](https://github.com/user-attachments/assets/6a49dac8-d3b0-4137-871e-37a879d0e173)
+
+## Run Whisp through Jupyter Notebooks <a name="whisp_notebooks"></a>
 
 ### Requirements
 
-- A Sepal account.
-- A Google Earth Engine (GEE) account.
-- A registered cloud GEE project.
-- Some experience in Python or a similar language.
+- A [Sepal account](https://sepal.io/-/process);
+- a [Google Earth Engine (GEE) account](https://code.earthengine.google.com/);
+- a registered cloud GEE project;
+- some experience in Python or a similar language.
 
-The Python notebooks are currently set up to run in Sepal and to focus on polygon data provided by the user or geo_ids that allow the notebooks to access polygons stored and registered in the Asset Registry. NB: We value your feedback in terms of what input data we should support.
+The Python notebooks are currently set up to run in Sepal and to focus on polygon data provided by the user or [GeoIDs](https://openknowledge.fao.org/server/api/core/bitstreams/b54cabe9-7ecb-46bf-810d-e3f028818067/content) that allow the notebooks to access polygons stored and registered in the [Asset Registry](https://github.com/agstack/asset-registry). NB: We value your feedback in terms of what input data we should support. 
 
 If your data is available as a feature collection and the GitHub repo is cloned, you are ready to start processing. We suggest first familiarizing yourself with running the notebooks using the default inputs in the notebook code. This will allow you to understand the expected outputs and the general functionality, as well as check if the setup worked successfully.
 
-### Whisping a Feature Collection
+### Run WHISP on a Feature Collection
 
 1. Open Jupyter Lab (see Apps).
 2. Open the notebook `whisp_feature_collection.ipynb` from inside your Whisp folder. If you wish to view the original in GitHub, see [here](https://github.com/forestdatapartnership/whisp/blob/main/whisp_feature_collection.ipynb).
@@ -60,7 +102,7 @@ If your data is available as a feature collection and the GitHub repo is cloned,
 5. This lookup table of Geo IDs is then appended to the results from Whisp.
    
 ### Adding risk indicators to your results  
-7. Finally, functions at the end of the notebook allow the user to add EUDR risk indicators to the table. NB: these risk indicators are still at the experimental stage.
+6. Finally, functions at the end of the notebook allow the user to add risk indicators to the table. NB: these risk indicators are still at the experimental stage and aim to support compliance with deforestation-related regulations. 
 
 ### Intermediate Output
 
@@ -72,13 +114,13 @@ If your data is available as a feature collection and the GitHub repo is cloned,
 
 ### Output 2
 
-- A CSV called `whisp_output_table_w_risk.csv` contains results from the whisp processing and EUDR risk indicators.
+- A CSV called `whisp_output_table_w_risk.csv` contains results from the whisp processing and risk indicators.
 
 ### Output 3
 
-- A CSV called `whisp_output_table_w_risk_w_geo_ids.csv` contains results from the whisp processing, EUDR risk indicators, and a column for the newly registered geo ids.
+- A CSV called `whisp_output_table_w_risk_w_geo_ids.csv` contains results from the whisp processing, risk indicators, and a column for the newly registered geo ids.
 
-## Whisping a List of Geo IDs
+### Whisping a List of Geo IDs
 
 1. Open Jupyter Lab (see Apps).
 2. Open the following notebook from your files `whisp_geo_id.ipynb`. If you wish to view the original on GitHub, see [here](link_to_github).
@@ -87,8 +129,6 @@ If your data is available as a feature collection and the GitHub repo is cloned,
 5. This notebook requires a list of Geo IDs.
 6. Each Geo ID corresponds to a unique boundary in the Asset Registry. The functions in this notebook fetch the boundaries and turn each Geo ID into a feature stored in a feature collection.
 7. The feature collection is then run in the same way as with the previous notebook, producing Whisp summary statistics as a series of CSV tables.
-
-## Other Files
 
 ### Parameters Folder
 
@@ -106,9 +146,9 @@ Key files:
 - `datasets.py` contains a series of functions related to the creation of a single multiband GEE image to be used in the Whisp summary statistics analysis.
 - `stats.py` contains functions to run the Whisp analysis for each of the various datasets and to provide results for coverage of each plot as a percentage (or as an area in hectares).
 
-## Setting Up Your System
+<br>
 
-
+## Setting Up Your System <a name="whisp_setup"></a>
 
 ### Setting Up SEPAL
 
@@ -140,7 +180,7 @@ Whisp summary statistics are processed using the cloud computing platform Google
 
 #### Conversions via the GEE Python API: ‘On the Fly’ Processing
 
-To help, Whisp notebooks support conversion on the fly from geosjon (the proposed new EU standard: https://www.lecommercedubois.org/files/upload/RDUE/EUDR_-_Gelocation_file_description_1-0.pdf). This is possible in the whisp_feature_collection.ipynb notebook where you can choose between a pre-existing GEE asset or Goejson input. Further conversions including compatability with shapefiles are found in the the "data_conversion.ipynb" notebook. We are in the process of making Whisp more resilient to differences in geojson input formats.
+To help, Whisp notebooks support conversion on the fly from geosjon. This is possible in the whisp_feature_collection.ipynb notebook where you can choose between a pre-existing GEE asset or Goejson input. Further conversions including compatability with shapefiles are found in the the "data_conversion.ipynb" notebook. We are in the process of making Whisp more resilient to differences in geojson input formats.
 
 NB Some of these conversions are carried out adapting functions from the [geemap](https://geemap.org/) package. For those that are interested in other formats, such as KML, WKT etc, geemap provides additional options (although currently functionality varies due to recent updates in dependencies for this package).
 
@@ -161,7 +201,9 @@ As large or detailed polygon data may cause conversion errors, for more reliable
 11. Clicking on the asset will open a pop-up window to allow you to explore the table.
 12. The feature collection asset is ready to use. NB: You can visualize, share, or delete it as needed within the code editor interface.
 
-## How to add data layers to Whisp
+<br>
+
+## How to add data layers to Whisp <a name="whisp_add_data"></a>
 
 There are two main approaches: to request a layer be incorporated into the core Whisp inputs, or to add in your own data directly to complement the core ones in Whisp
 
@@ -195,10 +237,38 @@ g.	use_for_risk: if 1 is added here this dataset is included in the risk calcula
 NB if there is in a 1 in the "exclude" column this over-rules all of the above and the dataset is ignored. There are functions (in the modules/risk.py), to create lists for each of the 4 indicators from the lookup csv. These are used in the "whisp_risk" function for creating default columns to include in the final overall risk column.
 
 ### Tips for preparing and adding in your data
-•	It’s sometimes easier to do initial checks in JavaScript and check all looks ok on the map in Code Editor, and then convert the code into Python. Tools that can help convert include AI interfaces such as ChatGPT, or [geemap] (https://giswqs.medium.com/15-converting-earth-engine-javascripts-to-python-code-with-just-a-few-mouse-clicks-6aa02b1268e1/). 
-•	Check your data: Python functions will still need sense checking and putting on a map is one way to do this using functions in [geemap] (https://geemap.org/notebooks/09_plotting/)
-•	A binary input image is expected, but non-integer values are allowed if they range between 0 and 1. This is most appropriate for datasets that have proportion of coverage in a pixel (e.g., a value of 0.5 would represent having half the pixel covered).
-•	If you are adding timeseries data, when creating the function you can use loops/mapping to compile a multiband input and to name each band accordingly.
+- It’s sometimes easier to do initial checks in JavaScript and check all looks ok on the map in Code Editor, and then convert the code into Python.
+- Tools that can help convert include AI interfaces such as ChatGPT, or [geemap] (https://giswqs.medium.com/15-converting-earth-engine-javascripts-to-python-code-with-just-a-few-mouse-clicks-6aa02b1268e1/).
+- Check your data: Python functions will still need sense checking and putting on a map is one way to do this using functions in [geemap] (https://geemap.org/notebooks/09_plotting/)
+- A binary input image is expected, but non-integer values are allowed if they range between 0 and 1. This is most appropriate for datasets that have proportion of coverage in a pixel (e.g., a value of 0.5 would represent having half the pixel covered).
+- If you are adding timeseries data, when creating the function you can use loops/mapping to compile a multiband input and to name each band accordingly.
 
-## Contributing to the Whisp code base
+<br>
+
+## Contributing to the Whisp code base <a name="whisp_contribute"></a>
 Contributions to the Whisp code in GitHub are welcome. They can be made by forking the repository making and pushing the required changes, then making a pull request to the Whisp repository. After briefly reviewing the request, we can make a branch for which to make a new pull request to. If in doubt get in contact first or log as an issue [here] (https://github.com/forestdatapartnership/whisp/issues/).
+
+<br>
+
+## Code of Conduct <a name="whisp_conduct"></a>
+
+**Purpose**  
+We are dedicated to maintaining a safe and respectful environment for all users. Harassment or abusive behavior will not be tolerated. <br>
+
+**Scope**  
+This Code applies to all interactions on the repository and on the app.
+
+**Expectations** <br>
+*- Respect others:* Treat all contributors and users with courtesy and kindness. <br>
+*- Constructive communication:* Engage respectfully, even in disagreements. <br>
+*- Protect privacy:* Do not share personal information without consent.
+
+**Prohibited Conduct** <br>
+*- Harassment:* Unwanted or abusive communication, stalking, threats, or bullying.<br>
+*- Discrimination:* Any form of hate speech or exclusion based on race, gender, orientation, or other identities.<br>
+*- Inappropriate Content:* Posting offensive, harmful, or explicit material.
+
+**Reporting**  
+Users can report violations directly to us by emailing the address listed in the "Contact Us" section of the website:
+https://openforis.org/solutions/whisp/
+
