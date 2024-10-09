@@ -17,11 +17,6 @@ def jaxa_forest_prep():
     jaxa_forest_non_forest_2020 = jaxa_forest_non_forest_raw.filterDate('2020-01-01', '2020-12-31').select('fnf').mosaic()
     return jaxa_forest_non_forest_2020.lte(2).rename("JAXA_FNF_2020")
 
-# ESRI_TC_2020
-def esri_lulc_trees_prep():
-    esri_lulc10 = ee.ImageCollection("projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS")
-    esri_lulc10_2020 = esri_lulc10.filterDate('2020-01-01', '2020-12-31').map(lambda image: image.remap([1, 2, 4, 5, 7, 8, 9, 10, 11], [1, 2, 3, 4, 5, 6, 7, 8, 9])).mosaic()
-    return esri_lulc10_2020.eq(2).rename("ESRI_TC_2020")	
 
 # GFC_TC_2020
 def glad_gfc_10pc_prep():
@@ -30,12 +25,6 @@ def glad_gfc_10pc_prep():
     gfc_loss2001_2020 = gfc.select(['lossyear']).lte(20)
     gfc_treecover2020 = gfc_treecover2000.where(gfc_loss2001_2020.eq(1), 0)
     return gfc_treecover2020.gt(10).rename("GFC_TC_2020")
-
-# GLAD_LULC_2020
-def glad_lulc_stable_prep():
-    glad_landcover2020 = ee.Image('projects/glad/GLCLU2020/v2/LCLUC_2020').updateMask(ee.Image("projects/glad/OceanMask").lte(1))
-    glad_landcover2020_main = glad_landcover2020.where(glad_landcover2020.gte(27).And(glad_landcover2020.lte(48)), 27).where(glad_landcover2020.gte(127).And(glad_landcover2020.lte(148)), 27)
-    return glad_landcover2020_main.eq(27).rename("GLAD_LULC_2020")
 
 # GLAD_Primary
 def glad_pht_prep():
@@ -50,33 +39,18 @@ def jrc_gfc_2020_prep():
     jrc_gfc2020_raw = ee.ImageCollection("JRC/GFC2020/V1")
     return jrc_gfc2020_raw.mosaic().rename("EUFO_2020")
 
-# TMF_disturbed, TMF_plant, TMF_undist
-# def jrc_tmf_transition_prep():
-#     jrc_tmf_transitions_raw = ee.ImageCollection('projects/JRC/TMF/v1_2020/TransitionMap_Subtypes')
-#     jrc_tmf_transitions = jrc_tmf_transitions_raw.mosaic()
-#     default_value = 0
-    
-#     in_list_dist = [21, 22, 23, 24, 25, 26, 61, 62, 31, 32, 33, 63, 64, 51, 52, 53, 54, 67, 92, 93, 94]
-#     jrc_tmf_disturbed   = jrc_tmf_transitions.remap(in_list_dist, [1] * len(in_list_dist), default_value).rename("TMF_disturbed")
+# TMF_undist (undistrubed forest in 2020)
+def jrc_tmf_undisturbed_prep():
+    TMF_undist_2020 = ee.ImageCollection("projects/JRC/TMF/v1_2023/AnnualChanges").select("Dec2020").mosaic().eq(1) # update from https://github.com/forestdatapartnership/whisp/issues/42 
+    return TMF_undist_2020.rename("TMF_undist")
 
-#     in_list_plnt = [81, 82, 83, 84, 85, 86]
-#     jrc_tmf_plantations = jrc_tmf_transitions.remap(in_list_plnt, [1] * len(in_list_plnt), default_value).rename("TMF_plant")
-
-#     in_list_udis = [10, 11, 12]
-#     jrc_tmf_undisturbed = jrc_tmf_transitions.remap(in_list_udis, [1] * len(in_list_udis), default_value).rename("TMF_undist")
-    
-#     jrc_tmf_transition = jrc_tmf_disturbed.addBands(jrc_tmf_plantations).addBands(jrc_tmf_undisturbed)
-#     return jrc_tmf_transition
-
-def jrc_tmf_transition_prep():
-    TMF_disturbed = ee.Image("projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/work_in_progress/whisp_image_col_v1/TMF_disturbed")
-    TMF_undist = ee.Image("projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/work_in_progress/whisp_image_col_v1/TMF_undist")
-    TMF_plant = ee.Image("projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/work_in_progress/whisp_image_col_v1/TMF_plant")
-    TMF_disturbed_band = TMF_disturbed.gt(0).rename("TMF_disturbed")
-    TMF_undist_band = TMF_undist.gt(0).rename("TMF_undist")
-    TMF_plant_band = TMF_plant.gt(0).rename("TMF_plant")
-    
-    return TMF_disturbed_band.addBands(TMF_undist_band).addBands(TMF_plant_band)
+#TMF_plant (plantations in 2020) 
+def jrc_tmf_plantation_prep():
+    transition = ee.ImageCollection('projects/JRC/TMF/v1_2023/TransitionMap_Subtypes').mosaic()
+    deforestation_year = ee.ImageCollection('projects/JRC/TMF/v1_2023/DeforestationYear').mosaic()
+    plantation = (transition.gte(81)).And(transition.lte(86))
+    plantation_2020 = plantation.where(deforestation_year.gte(2021),0) # update from https://github.com/forestdatapartnership/whisp/issues/42 
+    return plantation_2020.rename("TMF_plant");
     
 # Cocoa_ETH
 def eth_kalischek_cocoa_prep():
@@ -123,7 +97,11 @@ def esa_worldcover_trees_prep():
 
 # Cocoa_bnetd
 def civ_ocs2020_prep():
-    return ee.Image("projects/ee-bnetdcign2/assets/OCS_CI_2020vf").eq(9).rename("Cocoa_bnetd") # NB ask Aurelie for info on this
+    return ee.Image("BNETD/land_cover/v1/2020").select("classification").eq(9).rename("Cocoa_bnetd") # cocoa from national land cover map for Côte d'Ivoire
+
+# Rubber_RBGE  - from Royal Botanical Gardens of Edinburgh (RBGE) NB for 2021  
+def rbge_rubber_prep():
+    return ee.Image('users/wangyxtina/MapRubberPaper/rRubber10m202122_perc1585DifESAdist5pxPF').unmask().rename("Rubber_RBGE");
 
 
 #### disturbances by year
@@ -131,7 +109,7 @@ def civ_ocs2020_prep():
 # TMF_def_2000 to TMF_def_2022
 def tmf_def_per_year_prep():
     # Load the TMF Deforestation annual product
-    tmf_def   = ee.ImageCollection('projects/JRC/TMF/v1_2022/DeforestationYear').mosaic()
+    tmf_def   = ee.ImageCollection('projects/JRC/TMF/v1_2023/DeforestationYear').mosaic()
     img_stack = None
     # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
     for i in range(0, 22 +1):
@@ -146,7 +124,7 @@ def tmf_def_per_year_prep():
 # TMF_deg_2000 to TMF_deg_2022 
 def tmf_deg_per_year_prep():
     # Load the TMF Degradation annual product
-    tmf_def   = ee.ImageCollection('projects/JRC/TMF/v1_2022/DegradationYear').mosaic()
+    tmf_def   = ee.ImageCollection('projects/JRC/TMF/v1_2023/DegradationYear').mosaic()
     img_stack = None
     # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
     for i in range(0, 22 +1):
@@ -250,22 +228,22 @@ def radd_before_2020_prep():
 
 #TMF_deg_before_2020
 def tmf_deg_before_2020_prep():
-    tmf_deg = ee.ImageCollection('projects/JRC/TMF/v1_2022/DegradationYear').mosaic()
+    tmf_deg = ee.ImageCollection('projects/JRC/TMF/v1_2023/DegradationYear').mosaic()
     return (tmf_deg.lte(2020)).And(tmf_deg.gte(2000)).rename("TMF_deg_before_2020")
 
 #TMF_deg_after_2020
 def tmf_deg_after_2020_prep():
-    tmf_deg = ee.ImageCollection('projects/JRC/TMF/v1_2022/DegradationYear').mosaic()
+    tmf_deg = ee.ImageCollection('projects/JRC/TMF/v1_2023/DegradationYear').mosaic()
     return tmf_deg.gt(2020).rename("TMF_deg_after_2020")
 
 #tmf_def_before_2020
 def tmf_def_before_2020_prep():
-    tmf_def = ee.ImageCollection('projects/JRC/TMF/v1_2022/DeforestationYear').mosaic()
+    tmf_def = ee.ImageCollection('projects/JRC/TMF/v1_2023/DeforestationYear').mosaic()
     return (tmf_def.lte(2020)).And(tmf_def.gte(2000)).rename("TMF_def_before_2020")
 
 #tmf_def_after_2020
 def tmf_def_after_2020_prep():
-    tmf_def = ee.ImageCollection('projects/JRC/TMF/v1_2022/DeforestationYear').mosaic()
+    tmf_def = ee.ImageCollection('projects/JRC/TMF/v1_2023/DeforestationYear').mosaic()
     return tmf_def.gt(2020).rename("TMF_def_after_2020")
 
 # GFC_loss_before_2020 (loss within 10 percent cover; includes 2020; correct for version 11)
@@ -342,9 +320,11 @@ def feat_coll_prep(feats_name,attr_name, base_name):
     return img_stack    #,list_types
 
 
-# WDPA
-# NB dataset is restricted for commercial use. Shown here for code tranparency.
-# Results will be included only in the Whisp API where they will be restricted to a limited number of plots. This aims This aims to support small holders and smaller cooperatives etc. 
+# WDPA 
+# World Database on Protected areas 
+
+# Temporarily removed - pending agreements for use in API. Results will likely only be included only in the Whisp API. 
+# NB dataset is restricted for commercial use. Shown here using non-commercial release of the WDPA, for code tranparency only.
 def wcmc_wdpa_protection_prep():
     wdpa_poly = ee.FeatureCollection("WCMC/WDPA/current/polygons")
     
@@ -359,9 +339,11 @@ def wcmc_wdpa_protection_prep():
 
 
 # KBA  
-# NB  dataset is restricted for commercial use. Shown here for code tranparency. 
-# Key Biodiversity Areas (KBAs) results show presence/absence in plot
-# Results will be included only in the Whisp API where they will be restricted to a limited number of plots. This aims to support small holders and smaller cooperatives etc.
+# Key Biodiversity Areas (KBAs)
+
+# Temporarily removed pending agreements for use in API.  Results will likely only be included only in the Whisp API.
+# NB dataset is restricted for commercial use. Shown here for code tranparency.
+# Results will be included only in the Whisp API where they will be restricted to a limited number of plots. 
 def birdlife_kbas_biodiversity_prep():
     
     ##uploaded data - Non-commercial. For queries with limited numbers of sites. Exact number to be confirmed. 
@@ -370,6 +352,9 @@ def birdlife_kbas_biodiversity_prep():
     kba_2023_binary = ee.Image().paint(kbas_2023_poly,1)
     
     return kba_2023_binary.rename('KBA')
+
+
+
 
 
 def try_access(asset_prep_func):
@@ -389,18 +374,18 @@ def combine_datasets():
     # Add bands from each dataset
     img_combined = img_combined.addBands(try_access(creaf_descals_palm_prep))
     img_combined = img_combined.addBands(try_access(jaxa_forest_prep))
-    img_combined = img_combined.addBands(try_access(esri_lulc_trees_prep))
     img_combined = img_combined.addBands(try_access(glad_gfc_10pc_prep))
-    img_combined = img_combined.addBands(try_access(glad_lulc_stable_prep))
     img_combined = img_combined.addBands(try_access(glad_pht_prep))
     img_combined = img_combined.addBands(try_access(jrc_gfc_2020_prep))
     img_combined = img_combined.addBands(try_access(fdap_palm_prep))
-    img_combined = img_combined.addBands(try_access(jrc_tmf_transition_prep))
+    img_combined = img_combined.addBands(try_access(jrc_tmf_undisturbed_prep))
+    img_combined = img_combined.addBands(try_access(jrc_tmf_plantation_prep))
     img_combined = img_combined.addBands(try_access(eth_kalischek_cocoa_prep))
-    img_combined = img_combined.addBands(try_access(wcmc_wdpa_protection_prep))
+    # img_combined = img_combined.addBands(try_access(wcmc_wdpa_protection_prep))
     # img_combined = img_combined.addBands(try_access(birdlife_kbas_biodiversity_prep))
     img_combined = img_combined.addBands(try_access(esa_worldcover_trees_prep))
     img_combined = img_combined.addBands(try_access(civ_ocs2020_prep)) 
+    img_combined = img_combined.addBands(try_access(rbge_rubber_prep))  
     img_combined = img_combined.addBands(try_access(tmf_def_per_year_prep)) # multi year
     img_combined = img_combined.addBands(try_access(tmf_deg_per_year_prep)) # multi year
     img_combined = img_combined.addBands(try_access(glad_gfc_loss_per_year_prep)) # multi year
