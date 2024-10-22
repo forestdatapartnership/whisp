@@ -211,28 +211,28 @@ As large or detailed polygon data may cause conversion errors, for more reliable
 There are two main approaches: to request a layer be incorporated into the core Whisp inputs, or to add in your own data directly to complement the core ones in Whisp
 
 ### Requesting a dataset additions
-If you think a particular dataset has wide applicability for Whisp users, you can request it be added to the main Whisp repository by logging as an issue in Github [here] (https://github.com/forestdatapartnership/whisp/issues/). 
+If you think a particular dataset has wide applicability for Whisp users, you can request it be added to the main Whisp repository by logging as an issue in Github [here] (https://github.com/forestdatapartnership/whisp/issues/).
 
 ### Adding your own dataset for a bespoke Whisp analysis (using the Python Notebooks)
 Adding your To add other datasets, such as that are specific to your circumstances, or can’t be shared directly in GEE, follow the steps and guidance below.
 
-1)	Edit modules/datasets.py and add in a function to make a binary GEE image (i.e., where values are either 0 or 1*). 
+1)	Edit modules/datasets.py and add in a function to make a binary GEE image (i.e., where values are either 0 or 1*).
 2)	Choose a name to represent the data layer in the final CSV output. Place in speech brackets  in the .rename() section at the end of the function. See examples elsewhere in the functions in this script.
 3)	Edit parameters/lookup_gee_datasets.csv to include the chosen dataset name in a new row. Make sure other relevant columns are filled in.
-   
-The above assumes a single band image that is being included, which results in a single column being added. 
-If you have multiband images to add and want each band to be a layer in Whisp, make sure each band is named. 
+
+The above assumes a single band image that is being included, which results in a single column being added.
+If you have multiband images to add and want each band to be a layer in Whisp, make sure each band is named.
 Make sure to add all the bands to the lookup CSV (see Step 3), else they won’t appear in the output.
 
 How to fill out the columns parameters/lookup_gee_datasets.csv
 a.	dataset_id: add a unique number
-b.	dataset_order: choose a number for where you want the dataset column placed in the CSV output.
-c.	dataset_name: the name for the dataset column. NB must be exactly the same as the name of the image band in step 1.
-d.	presence_only_flag: if 1 added here the dataset shows a value of True if it overlaps with the plot to any extent. 
-e.	exclude: removes the dataset from analysis 
+b.	order: choose a number for where you want the dataset column placed in the CSV output.
+c.	name: the name for the dataset column. NB must be exactly the same as the name of the image band in step 1.
+d.	presence_only_flag: if 1 added here the dataset shows a value of True if it overlaps with the plot to any extent.
+e.	exclude: removes the dataset from analysis
 f.	theme: a word denoting the dataset Theme. Currently there are five themes where i to iv correspond to:
-   i.	treecover: for forest or treecover at the end of 2020 
-   ii.	commodities: representing commodities in 2020 (typically ones that tree cover might be confused with in remote sensing products).    
+   i.	treecover: for forest or treecover at the end of 2020
+   ii.	commodities: representing commodities in 2020 (typically ones that tree cover might be confused with in remote sensing products).
    iii.	disturbance_before: forest/tree cover disturbance before the end of 2020
    iv.	disturbance_after: forest/tree cover disturbance after the end of 2020
    v.	ancillary: other relevant layers, such as representing protected areas or areas of importance for biodiversity.
@@ -240,7 +240,7 @@ g.	use_for_risk: if 1 is added here this dataset is included in the risk calcula
 NB if there is in a 1 in the "exclude" column this over-rules all of the above and the dataset is ignored. There are functions (in the modules/risk.py), to create lists for each of the 4 indicators from the lookup csv. These are used in the "whisp_risk" function for creating default columns to include in the final overall risk column.
 
 ### Tips for preparing and adding in your data
-•	It’s sometimes easier to do initial checks in JavaScript and check all looks ok on the map in Code Editor, and then convert the code into Python. Tools that can help convert include AI interfaces such as ChatGPT, or [geemap] (https://giswqs.medium.com/15-converting-earth-engine-javascripts-to-python-code-with-just-a-few-mouse-clicks-6aa02b1268e1/). 
+•	It’s sometimes easier to do initial checks in JavaScript and check all looks ok on the map in Code Editor, and then convert the code into Python. Tools that can help convert include AI interfaces such as ChatGPT, or [geemap] (https://giswqs.medium.com/15-converting-earth-engine-javascripts-to-python-code-with-just-a-few-mouse-clicks-6aa02b1268e1/).
 •	Check your data: Python functions will still need sense checking and putting on a map is one way to do this using functions in [geemap] (https://geemap.org/notebooks/09_plotting/)
 •	A binary input image is expected, but non-integer values are allowed if they range between 0 and 1. This is most appropriate for datasets that have proportion of coverage in a pixel (e.g., a value of 0.5 would represent having half the pixel covered).
 •	If you are adding timeseries data, when creating the function you can use loops/mapping to compile a multiband input and to name each band accordingly.

@@ -6,7 +6,9 @@ import json
 import geemap
 import os
 
-# import geopandas as gpd
+import ee
+from shapely.geometry import shape
+
 import shutil
 import sys
 import pandas as pd
@@ -14,19 +16,27 @@ from typing import Union, List
 
 from datetime import datetime
 
+from .data_conversion import (
+    feature_to_wkt,
+    geometry_to_wkt,
+    # shapefile_to_ee, ee_to_shapefile, ee_to_geojson, geojson_to_ee, geojson_to_shapefile, shapefile_to_geojson
+)
+
 # to handle point features
 # from .utils import buffer_point_to_required_area
 
 
 # from whisp.parameters.config_directory import BASE_DIR, RESULTS_DIR, BACKUP_CSVS_DIR
-from ..parameters.config_runtime import debug
-from ..parameters.config_directory import BASE_DIR,RESULTS_DIR,BACKUP_CSVS_DIR 
+from ..parameters.config_runtime import debugv
+from ..parameters.config_directory import BASE_DIR, RESULTS_DIR, BACKUP_CSVS_DIR
 
 # A lot of these could be done with decorators instead of building up functions etc
 
 
 # functions for setting up session based on usr credentials
-def start_agstack_session(email, password, user_registry_base="https://user-registry.agstack.org",debug=False):
+def start_agstack_session(
+    email, password, user_registry_base="https://user-registry.agstack.org", debug=False
+):
     """using session to store cookies that are persistent"""
     import requests
 
@@ -238,256 +248,6 @@ def wkt_to_geo_id(
     return res
 
 
-def shapefile_to_ee(shapefile_path):
-    """
-    Convert a zipped shapefile to an Earth Engine FeatureCollection.
-    NB Making this as existing Geemap function shp_to_ee wouldnt work.
-    Args:
-    - shapefile_path (str): Path to the shapefile (.zip) to be converted.
-
-    Returns:
-    - ee.FeatureCollection: Earth Engine FeatureCollection created from the shapefile.
-    """
-    # Unzip the shapefile
-    # with zipfile.ZipFile(shapefile_path, "r") as zip_ref:
-    #     zip_ref.extractall("shapefile")
-
-    # Load the shapefile into a GeoDataFrame
-    gdf = gpd.read_file(shapefile_path)  # "shapefile/test_ceo_all.shp")
-
-    # Convert GeoDataFrame to GeoJSON
-    geo_json = gdf.to_json()
-
-    # Create a FeatureCollection from GeoJSON
-    roi = ee.FeatureCollection(json.loads(geo_json))
-
-    return roi
-
-import ee
-import geopandas as gpd
-from shapely.geometry import shape
-
-
-def ee_to_shapefile(feature_collection, shapefile_path):
-    """
-    Export an Earth Engine FeatureCollection to a shapefile.
-
-    Parameters:
-    - feature_collection: Earth Engine FeatureCollection to be exported.
-    - shapefile_path: Path to save the shapefile.
-
-    Returns:
-    - Path to the saved shapefile.
-    """
-
-    # Initialize Earth Engine
-    ee.Initialize()
-
-    # Convert FeatureCollection to GeoJSON object using the function
-    geojson = ee_to_geojson(feature_collection)
-
-    # Convert GeoJSON features to GeoPandas GeoDataFrame
-    features = geojson["features"]
-    geoms = [shape(feature["geometry"]) for feature in features]
-    properties = [feature["properties"] for feature in features]
-    gdf = gpd.GeoDataFrame(properties, geometry=geoms)
-
-    # Save GeoDataFrame as shapefile
-    gdf.to_file(shapefile_path, driver="ESRI Shapefile")
-
-    print(f"Shapefile saved to {shapefile_path}")
-
-    return shapefile_path
-
-
-def ee_to_geojson(ee_object, filename=None, indent=2, **kwargs):
-    """Converts Earth Engine object to geojson.
-
-    Args:
-        ee_object (object): An Earth Engine object.
-        filename (str, optional): The file path to save the geojson. Defaults to None.
-
-    Returns:
-        object: GeoJSON object.
-    """
-
-    try:
-        if (
-            isinstance(ee_object, ee.Geometry)
-            or isinstance(ee_object, ee.Feature)
-            or isinstance(ee_object, ee.FeatureCollection)
-        ):
-            json_object = ee_object.getInfo()
-            if filename is not None:
-                filename = os.path.abspath(filename)
-                if not os.path.exists(os.path.dirname(filename)):
-                    os.makedirs(os.path.dirname(filename))
-                with open(filename, "w") as f:
-                    f.write(json.dumps(json_object, indent=indent, **kwargs) + "\n")
-            else:
-                return json_object
-        else:
-            print("Could not convert the Earth Engine object to geojson")
-    except Exception as e:
-        raise Exception(e)
-
-
-# adapted from geemap version https://geemap.org/common/#geemap.common.geojson_to_ee
-## but to work on geojson path and remove altitiude
-def geojson_to_ee(file_path_geojson, geodesic=False, encoding="utf-8"):
-    """
-    Converts a geojson file to ee.FeatureCollection or ee.Geometry, stripping altitude information.
-    Code adapted from geemap version https://geemap.org/common/#geemap.common.geojson_to_ee
-    but to work on geojson path and remove altitiude.
-    
-    Args:
-        file_path_geojson (str): The file path to a geojson file.
-        geodesic (bool, optional): Whether line segments should be interpreted as spherical geodesics. Defaults to False.
-        encoding (str, optional): The encoding of the geojson file. Defaults to "utf-8".
-
-    Returns:
-        ee_object: An ee.FeatureCollection or ee.Geometry object.
-    """
-
-    try:
-        # Read the geojson file
-        with open(os.path.abspath(file_path_geojson), encoding=encoding) as f:
-            geo_json = json.load(f)
-
-        # Helper function to remove altitude from coordinates
-        def remove_altitude(coords):
-            if isinstance(coords[0], list):  # Multi-coordinates
-                return [remove_altitude(coord) for coord in coords]
-            else:
-                return coords[
-                    :2
-                ]  # Keep only the first two elements (longitude and latitude)
-
-        # Handle the geojson
-        if geo_json["type"] == "FeatureCollection":
-            for feature in geo_json["features"]:
-                feature["geometry"]["coordinates"] = remove_altitude(
-                    feature["geometry"]["coordinates"]
-                )
-                if feature["geometry"]["type"] != "Point":
-                    feature["geometry"]["geodesic"] = geodesic
-            features = ee.FeatureCollection(geo_json)
-            return features
-
-        elif geo_json["type"] == "Feature":
-            geom = None
-            geometry = geo_json["geometry"]
-            geometry["coordinates"] = remove_altitude(geometry["coordinates"])
-            geom_type = geometry["type"]
-            if geom_type == "Point":
-                geom = ee.Geometry.Point(geometry["coordinates"])
-            else:
-                geom = ee.Geometry(geometry, "", geodesic)
-            return geom
-
-        elif geo_json["type"] == "GeometryCollection":
-            geometries = geo_json["geometries"]
-            for geometry in geometries:
-                geometry["coordinates"] = remove_altitude(geometry["coordinates"])
-            ee_geometries = [ee.Geometry(geometry) for geometry in geometries]
-            return ee.FeatureCollection(ee_geometries)
-
-        else:
-            raise Exception(
-                "Could not convert the geojson to ee.Geometry() or ee.FeatureCollection()"
-            )
-
-    except Exception as e:
-        print(
-            "Could not convert the geojson to ee.Geometry() or ee.FeatureCollection()"
-        )
-        raise Exception(e)
-
-
-def geojson_to_shapefile(geojson_path, shapefile_output_path):
-    """
-    Convert a GeoJSON file to a Shapefile and save it to a file.
-
-    Parameters:
-    - geojson_path: Path to the GeoJSON file.
-    - shapefile_output_path: Path where the Shapefile will be saved.
-    """
-    # Read the GeoJSON file
-    with open(geojson_path, "r") as geojson_file:
-        geojson = json.load(geojson_file)
-
-    # Convert to GeoDataFrame
-    gdf = gpd.GeoDataFrame.from_features(geojson["features"])
-
-    # Save to Shapefile
-    gdf.to_file(shapefile_output_path, driver="ESRI Shapefile")
-
-
-def shapefile_to_geojson(shapefile_path, geojson_output_path):
-    """
-    Convert a Shapefile to GeoJSON and save it to a file.
-
-    Parameters:
-    - shapefile_path: Path to the Shapefile.
-    - geojson_output_path: Path where the GeoJSON file will be saved.
-    """
-    # Read the Shapefile
-    gdf = gpd.read_file(shapefile_path)
-
-    # Convert to GeoJSON
-    geojson_str = gdf.to_json()
-
-    # Write the GeoJSON string to a file
-    with open(geojson_output_path, "w") as geojson_file:
-        geojson_file.write(geojson_str)
-
-
-def feature_to_wkt(feature):
-    """
-    Convert an ee.Feature with a geometry to a WKT representation.
-
-    Parameters:
-    - feature: An ee.Feature with a geometry.
-
-    Returns:
-    - wkt: The WKT representation of the geometry.
-    """
-
-    # Extract the geometry of the feature (polygon)
-    geometry = feature.geometry()
-
-    wkt = geometry_to_wkt(geometry)
-
-    return wkt
-
-
-def geometry_to_wkt(geometry):
-    """
-    Convert an ee.Feature with a polygon geometry to a WKT representation.
-
-    Parameters:
-    - feature: An ee.Feature with a polygon geometry.
-
-    Returns:
-    - wkt: The WKT representation of the polygon geometry.
-    """
-
-    # Get the coordinates of the polygon as a nested list
-    coordinates = geometry.coordinates().getInfo()[0]
-
-    # Construct the WKT string
-    wkt = coordinates_to_wkt(coordinates)
-    #'POLYGON((' + ', '.join([f'{lon} {lat}' for lon, lat in coordinates]) + '))'
-
-    return wkt
-
-
-def coordinates_to_wkt(coordinates):
-    """client side coordinates list"""
-    wkt = "POLYGON((" + ", ".join([f"{lon} {lat}" for lon, lat in coordinates]) + "))"
-    return wkt
-
-
 def read_geo_ids(input_data: Union[str, List[str]]) -> List[str]:
     """
     Read content from a file or process a list of strings representing Geo IDs and convert it into a list of strings.
@@ -541,16 +301,17 @@ def read_geo_ids(input_data: Union[str, List[str]]) -> List[str]:
     return data
 
 
-
-def geo_id_or_ids_to_feature_collection(input_geo_ids,
-                                        geo_id_column, 
-                                        email=None,
-                                        password=None,
-                                        asset_registry_base="https://api-ar.agstack.org",
-                                        user_registry_base="https://user-registry.agstack.org",
-                                        required_area=4,
-                                        area_unit="ha",
-                                        debug=False):
+def geo_id_or_ids_to_feature_collection(
+    input_geo_ids,
+    geo_id_column,
+    email=None,
+    password=None,
+    asset_registry_base="https://api-ar.agstack.org",
+    user_registry_base="https://user-registry.agstack.org",
+    required_area=4,
+    area_unit="ha",
+    debug=False,
+):
     """Creates a feature collection from agstack with single (string) or multiple geo_ids (list) as input.
     NB: feature collection has one feature if single input"""
 
@@ -558,23 +319,38 @@ def geo_id_or_ids_to_feature_collection(input_geo_ids,
     if email is None:
         try:
             from parameters.config_asr_credentials import email
-            if debug: print("Imported email parameter successfully from parameters.config_asr_credentials")
+
+            if debug:
+                print(
+                    "Imported email parameter successfully from parameters.config_asr_credentials"
+                )
         except ImportError:
             raise ValueError("Missing asset registry email parameter")
-            
+
     if password is None:
         try:
             from parameters.config_asr_credentials import password
-            if debug: print("Imported password parameter successfully from parameters.config_asr_credentials")
+
+            if debug:
+                print(
+                    "Imported password parameter successfully from parameters.config_asr_credentials"
+                )
         except ImportError:
             raise ValueError("Missing asset registry password parameter")
 
     # Get session from asset registry
     try:
-        session = start_agstack_session(email, password, user_registry_base, debug=debug)
-        if debug: print("Session:", session)
+        session = start_agstack_session(
+            email, password, user_registry_base, debug=debug
+        )
+        if debug:
+            print("Session:", session)
     except Exception as e:
-        raise ConnectionError("Starting agstack session failed. Check inputs (email, password, user_registry_base). Error: {}".format(e))
+        raise ConnectionError(
+            "Starting agstack session failed. Check inputs (email, password, user_registry_base). Error: {}".format(
+                e
+            )
+        )
 
     # Get inputs in the right format
     input_geo_ids = read_geo_ids(input_geo_ids)
@@ -655,30 +431,35 @@ def geo_id_list_to_feature_collection(
             )
             out_fc_list.append(feature)
     else:
-        feature = geo_id_to_feature(list_of_geo_ids, geo_id_column, session, asset_registry_base, required_area, area_unit)
+        feature = geo_id_to_feature(
+            list_of_geo_ids,
+            geo_id_column,
+            session,
+            asset_registry_base,
+            required_area,
+            area_unit,
+        )
         out_fc_list.append(feature)
     return ee.FeatureCollection(out_fc_list)
 
 
-
-
-
-
-
-
-def geo_id_to_feature(geo_id,
-                      geo_id_column,
-                      session,
-                      asset_registry_base="https://api-ar.agstack.org",
-                      required_area=4,
-                      area_unit="ha"):
+def geo_id_to_feature(
+    geo_id,
+    geo_id_column,
+    session,
+    asset_registry_base="https://api-ar.agstack.org",
+    required_area=4,
+    area_unit="ha",
+):
     """converts geo_id from asset registry into a feature with geo_id (or similar) set as a property"""
     try:
-        res = session.get(asset_registry_base + f"/fetch-field/{geo_id}?s2_index=")  # s2 indexes. Will need S2 cell token
+        res = session.get(
+            asset_registry_base + f"/fetch-field/{geo_id}?s2_index="
+        )  # s2 indexes. Will need S2 cell token
         res.raise_for_status()  # Ensure we raise an error for bad responses
 
         try:
-            geo_json = res.json()['Geo JSON']
+            geo_json = res.json()["Geo JSON"]
         except (requests.exceptions.JSONDecodeError, KeyError) as e:
             print(f"Error decoding JSON response: {e}")
             return None  # or handle it in a way that makes sense for your application
@@ -686,17 +467,21 @@ def geo_id_to_feature(geo_id,
     except requests.exceptions.RequestException as e:
         print(f"HTTP request error: {e}")
         return None  # or handle it in a way that makes sense for your application
-    
-    coordinates = geo_json['geometry']['coordinates']
-    
-    if check_json_geometry_type(geo_json) == 'Polygon':        
-        feature = ee.Feature(ee.Geometry.Polygon(coordinates), ee.Dictionary([geo_id_column, geo_id]))
-        
-    elif check_json_geometry_type(geo_json) == 'Point':
-        point_feature = ee.Feature(ee.Geometry.Point(coordinates), ee.Dictionary([geo_id_column, geo_id]))
+
+    coordinates = geo_json["geometry"]["coordinates"]
+
+    if check_json_geometry_type(geo_json) == "Polygon":
+        feature = ee.Feature(
+            ee.Geometry.Polygon(coordinates), ee.Dictionary([geo_id_column, geo_id])
+        )
+
+    elif check_json_geometry_type(geo_json) == "Point":
+        point_feature = ee.Feature(
+            ee.Geometry.Point(coordinates), ee.Dictionary([geo_id_column, geo_id])
+        )
         feature = point_feature
-        
-        if debug: 
+
+        if debug:
             print("Point input")
         # feature = buffer_point_to_required_area(point_feature, required_area, area_unit)
         # if debug: print("Buffering points into polygons of required area")
@@ -716,8 +501,9 @@ def check_json_geometry_type(geojson_obj):
     else:
         return "Not a Feature"
 
-def check_inputs_same_size(fc,df,override_checks=False):
-    """ Throws an error if differentb sizes and override_checks not True"""
+
+def check_inputs_same_size(fc, df, override_checks=False):
+    """Throws an error if differentb sizes and override_checks not True"""
     # df = pd.read_csv(output_lookup_csv)
     df_size = len(df)
 
@@ -750,7 +536,7 @@ def create_csv_from_list(join_id_column, data_list, output_lookup_csv):
     df.to_csv(output_lookup_csv, index=False)
 
 
-def get_system_index_vals_w_missing_geo_ids(df,geo_id_column,join_id_column):
+def get_system_index_vals_w_missing_geo_ids(df, geo_id_column, join_id_column):
     """
     Extracts system:index values where Geo_id is not present (NaN).
 
@@ -873,54 +659,67 @@ def column_empty_check(df, column):
     return df[column].isnull().values.all()
 
 
-def register_fc_and_append_to_csv( ##Needs updating - token etc
-    feature_col, 
-    geo_id_column, 
-    output_lookup_csv, 
+def register_fc_and_append_to_csv(  ##Needs updating - token etc
+    feature_col,
+    geo_id_column,
+    output_lookup_csv,
     join_id_column,
     email=None,
     password=None,
     asset_registry_base="https://api-ar.agstack.org",
     user_registry_base="https://user-registry.agstack.org",
     override_checks=False,
-    remove_temp_csv=True, 
-    debug=False):
-    """feature collection to geo ids stored in a csv, either as a lookup table to add to other datasets (e.g. feature collections). 
+    remove_temp_csv=True,
+    debug=False,
+):
+    """feature collection to geo ids stored in a csv, either as a lookup table to add to other datasets (e.g. feature collections).
     If csv exists (e.g. a lookup or whisp results) this adds in missing geo ids (so if crashes can carry on where left)"""
 
     # if asset reg parameters missing, try importing them from default config file, or ask for user input
-    if email==None: 
-        try: 
+    if email == None:
+        try:
             from parameters.config_asr_credentials import email
-            if debug: print ("imported email parameter successfully from parameters.config_asr_credentials")
+
+            if debug:
+                print(
+                    "imported email parameter successfully from parameters.config_asr_credentials"
+                )
         except:
-            print ("missing asset registry email parameter")
-    if password==None:
+            print("missing asset registry email parameter")
+    if password == None:
         try:
             from parameters.config_asr_credentials import password
-            if debug: print ("imported password parameter successfully from parameters.config_asr_credentials")
+
+            if debug:
+                print(
+                    "imported password parameter successfully from parameters.config_asr_credentials"
+                )
         except:
-            print ("missing asset registry password parameter")
+            print("missing asset registry password parameter")
 
-    #get session from asset reg
+    # get session from asset reg
     try:
-        session = start_agstack_session(email,password,user_registry_base,debug)
-        if debug: print ("session", session)
+        session = start_agstack_session(email, password, user_registry_base, debug)
+        if debug:
+            print("session", session)
     except:
-        print ("Warning: Starting agstack session failed. Try checking inputs (email, password, user_registry_base) are defined correctly")
-        
-    #get token from asset reg
-    try:
-        token = get_agstack_token(email,password,asset_registry_base)####
-        if debug: print ("session", session)
-    except:
-        print ("Warning: Getting agstack token failed. Try check inputs (email, password, asset_registry_base) are defined correctly")
+        print(
+            "Warning: Starting agstack session failed. Try checking inputs (email, password, user_registry_base) are defined correctly"
+        )
 
-    
-    if column_exists_in_feature_collection(feature_col,geo_id_column):
-        print ("Warning: geo id column already exists in input")
-    
-    
+    # get token from asset reg
+    try:
+        token = get_agstack_token(email, password, asset_registry_base)  ####
+        if debug:
+            print("session", session)
+    except:
+        print(
+            "Warning: Getting agstack token failed. Try check inputs (email, password, asset_registry_base) are defined correctly"
+        )
+
+    if column_exists_in_feature_collection(feature_col, geo_id_column):
+        print("Warning: geo id column already exists in input")
+
     # Initialize an empty list to store features
     feature_list = []
     print(f"Chosen path for temp lookup csv:{output_lookup_csv} \n")
@@ -1105,8 +904,6 @@ def add_geo_ids_to_feature_col_from_lookup_csv(
         remove_other_properties=remove_other_properties,
         debug=debug,
     )
-
-
 
 
 def add_empty_column_to_csv(csv_file, column_name):

@@ -1,0 +1,45 @@
+2024-10-16 10:48:42,453 - __main__ - WARNING - The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+2024-10-16 16:07:28,609 - __main__ - WARNING - The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000, TC_GLAD_Primary
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000, TC_GLAD_Primary
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000, TC_GLAD_Primary
+[1416026294.py | <module>() | l.24] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': system:index, ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000, TC_GLAD_Primary, .geo
+[reformat.py | log_missing_columns() | l.218] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': Plot_id, Geo_id, GLAD_Primary
+[reformat.py | log_missing_columns() | l.218] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': Plot_id, Geo_id, GLAD_Primary
+[reformat.py | log_missing_columns() | l.218] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': Plot_id, Geo_id, GLAD_Primary
+[reformat.py | log_missing_columns() | l.218] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': Plot_id, Geo_id, GLAD_Primary
+[reformat.py | log_missing_columns() | l.218] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': Plot_id, Geo_id, GLAD_Primary
+[reformat.py | log_missing_columns() | l.218] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': Plot_id, Geo_id, GLAD_Primary
+[reformat.py | log_missing_columns() | l.218] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': Plot_id, Geo_id, GLAD_Primary
+[reformat.py | log_missing_columns() | l.218] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': Plot_id, Geo_id, GLAD_Primary
+[reformat.py | log_missing_columns() | l.218] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': Plot_id, Geo_id, GLAD_Primary
+[reformat.py | log_missing_columns() | l.218] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': Plot_id, Geo_id, GLAD_Primary
+[reformat.py | log_missing_columns() | l.220] WARNING: The following columns in 'df_stats' did not match any columns in 'template_df': Plot_id, Geo_id, GLAD_Primary
+[reformat.py | log_missing_columns() | l.227] WARNING: The following columns in 'template_df' did not match any columns in 'df_stats': ESRI_TC_2020, FID, GLAD_LULC_2020, MODIS_fire_2000, TC_GLAD_Primary
