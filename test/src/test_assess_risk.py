@@ -1,5 +1,5 @@
 from pathlib import Path
-from whisp.src.assess_risk import whisp_stats_from_geojson_roi
+from whisp.src.stats import whisp_stats_geojson_to_df
 
 import pandas as pd
 
@@ -9,8 +9,9 @@ GEOJSON_EXAMPLE_FILEPATH = (
 )
 
 
-def test_whisp_stats_from_geojson_roi() -> None:
+def test_whisp_stats_geojson_to_df() -> None:
 
-    df_stats = whisp_stats_from_geojson_roi(GEOJSON_EXAMPLE_FILEPATH)
+    df_stats = whisp_stats_geojson_to_df(GEOJSON_EXAMPLE_FILEPATH)
     assert isinstance(df_stats, pd.DataFrame)
     assert len(df_stats) == 6
+    print(df_stats)
