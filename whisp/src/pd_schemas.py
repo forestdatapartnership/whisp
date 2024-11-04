@@ -27,7 +27,8 @@ class DataLookupSchema(pa.DataFrameModel):
 data_lookup_type = DataFrame[DataLookupSchema]
 
 
-# checks not working currently so using without
+# checks (below) not working currently so using without
+
 
 # import pandera as pa
 # from pandera.typing import DataFrame, Series

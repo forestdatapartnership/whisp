@@ -45,6 +45,24 @@ def whisp_stats_geojson_to_df(geojson_filepath: Path | str) -> pd.DataFrame:
     return whisp_stats_ee_to_df(feature_collection)
 
 
+def whisp_stats_geojson_to_ee(geojson_filepath: Path | str) -> pd.DataFrame:
+    """
+
+    Parameters
+    ----------
+    geojson_filepath : Path | str
+        The filepath to the GeoJSON of the ROI to analyze.
+
+    Returns
+    -------
+    df_stats : pd.DataFrame
+        The dataframe containing the Whisp stats for the input ROI.
+    """
+    feature_collection = geojson_to_ee(str(geojson_filepath))
+
+    return whisp_stats_ee_to_ee(feature_collection)
+
+
 def whisp_stats_ee_to_ee(
     feature_collection: ee.FeatureCollection,
 ) -> ee.FeatureCollection:
@@ -123,7 +141,9 @@ def whisp_stats_geojson_to_drive(geojson_filepath: Path | str):
         print(f"An error occurred: {e}")
 
 
-# main stats functions
+#### main stats functions
+
+# Get stats for a feature or feature collection
 def get_stats(feature_or_feature_col):
     # Check if the input is a Feature or a FeatureCollection
     if isinstance(feature_or_feature_col, ee.Feature):
@@ -138,13 +158,23 @@ def get_stats(feature_or_feature_col):
     return output
 
 
+# Get statistics for a feature collection
 def get_stats_fc(feature_col):
-    return ee.FeatureCollection(feature_col.map(get_stats_feature))
-
-
-def get_stats_feature(feature):
 
     img_combined = combine_datasets()  # imported function
+
+    out_feature_col = ee.FeatureCollection(
+        feature_col.map(lambda feature: get_stats_feature(feature, img_combined))
+    )
+    print(out_feature_col.first().getInfo())
+
+    return out_feature_col
+
+
+# Get statistics for a single feature
+def get_stats_feature(feature, img_combined):
+
+    # img_combined = combine_datasets()
 
     reduce = img_combined.reduceRegion(
         reducer=ee.Reducer.sum(),
@@ -203,6 +233,7 @@ def get_stats_feature(feature):
     return out_feature
 
 
+# Get basic feature information
 def get_type_and_location(feature):
     """Extracts basic feature information including country, admin area, geometry type, coordinates, and water flags."""
 
@@ -457,3 +488,42 @@ def copy_properties_and_exclude(feature, exclude_properties_from_output):
     return ee.Feature(feature.geometry()).copyProperties(
         source=feature, exclude=exclude_properties_from_output
     )
+
+
+def ee_image_checker(image):
+    """
+    Tests if the input is a valid ee.Image.
+
+    Args:
+        image: An ee.Image object.
+
+    Returns:
+        bool: True if the input is a valid ee.Image, False otherwise.
+    """
+    try:
+        if ee.Algorithms.ObjectType(image).getInfo() == "Image":
+            # Trigger some action on the image to ensure it's a valid image
+            image.getInfo()  # This will raise an exception if the image is invalid
+            return True
+    except ee.EEException as e:
+        print(f"Image validation failed with EEException: {e}")
+    except Exception as e:
+        print(f"Image validation failed with exception: {e}")
+    return False
+
+
+def keep_valid_images(image_list):
+    """
+    Filters a list to return only valid ee.Images.
+
+    Args:
+        image_list: List of ee.Image objects.
+
+    Returns:
+        list: List of valid ee.Image objects.
+    """
+    valid_imgs = []
+    for image in image_list:
+        if ee_image_checker(image):
+            valid_imgs.append(image)
+    return valid_imgs

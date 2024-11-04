@@ -94,23 +94,6 @@ def remove_geometry_from_feature_collection(feature_collection):
     return feature_collection_no_geometry
 
 
-def collection_properties_to_df(collection, property_selection=None):
-    """creates a pandas dataframe from feature collection properties. NB SLOW but functions >5000 rows (unlike geemap_to_df)"""
-    nested_list = []
-
-    if property_selection is None:
-        collection_properties_list = collection.first().propertyNames().getInfo()
-    else:
-        collection_properties_list = property_selection
-
-    for property in collection_properties_list:
-        nested_list.append(collection.aggregate_array(property).getInfo())
-
-    nested_list_transposed = list(map(list, zip(*nested_list)))
-
-    return pd.DataFrame(data=nested_list_transposed, columns=collection_properties_list)
-
-
 # Compute centroids of each polygon
 def get_centroid(feature, geo_id_column="Geo_id"):
     keepProperties = [geo_id_column]
