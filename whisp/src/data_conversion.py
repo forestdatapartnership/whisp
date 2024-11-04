@@ -315,3 +315,20 @@ def shapefile_to_geojson(shapefile_path, geojson_output_path):
 #     """client side coordinates list"""
 #     wkt = "POLYGON((" + ", ".join([f"{lon} {lat}" for lon, lat in coordinates]) + "))"
 #     return wkt
+
+
+# def collection_properties_to_df(collection, property_selection=None):
+#     """creates a pandas dataframe from feature collection properties. NB SLOW but functions >5000 rows (unlike geemap_to_df)"""
+#     nested_list = []
+
+#     if property_selection is None:
+#         collection_properties_list = collection.first().propertyNames().getInfo()
+#     else:
+#         collection_properties_list = property_selection
+
+#     for property in collection_properties_list:
+#         nested_list.append(collection.aggregate_array(property).getInfo())
+
+#     nested_list_transposed = list(map(list, zip(*nested_list)))
+
+#     return pd.DataFrame(data=nested_list_transposed, columns=collection_properties_list)

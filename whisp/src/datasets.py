@@ -1,9 +1,30 @@
 import ee
 
-from datetime import datetime
-from ..parameters.config_runtime import geometry_area_column
+ee.Authenticate()
+ee.Initialize()
 
-# add datasets below
+from datetime import datetime
+
+from whisp.parameters.config_runtime import (
+    geometry_area_column,
+)  # ideally make relative import statement
+
+import inspect
+
+
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+
+def get_logger(name):
+    return logging.getLogger(name)
+
+
+# Add datasets below
 
 # Oil_palm_Descals
 def creaf_descals_palm_prep():
@@ -23,23 +44,6 @@ def jaxa_forest_prep():
     return jaxa_forest_non_forest_2020.lte(2).rename("JAXA_FNF_2020")
 
 
-# ESRI_TC_2020
-def esri_lulc_trees_prep():
-    esri_lulc10 = ee.ImageCollection(
-        "projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS"
-    )
-    esri_lulc10_2020 = (
-        esri_lulc10.filterDate("2020-01-01", "2020-12-31")
-        .map(
-            lambda image: image.remap(
-                [1, 2, 4, 5, 7, 8, 9, 10, 11], [1, 2, 3, 4, 5, 6, 7, 8, 9]
-            )
-        )
-        .mosaic()
-    )
-    return esri_lulc10_2020.eq(2).rename("ESRI_TC_2020")
-
-
 # GFC_TC_2020
 def glad_gfc_10pc_prep():
     gfc = ee.Image("UMD/hansen/global_forest_change_2023_v1_11")
@@ -47,17 +51,6 @@ def glad_gfc_10pc_prep():
     gfc_loss2001_2020 = gfc.select(["lossyear"]).lte(20)
     gfc_treecover2020 = gfc_treecover2000.where(gfc_loss2001_2020.eq(1), 0)
     return gfc_treecover2020.gt(10).rename("GFC_TC_2020")
-
-
-# GLAD_LULC_2020
-def glad_lulc_stable_prep():
-    glad_landcover2020 = ee.Image("projects/glad/GLCLU2020/v2/LCLUC_2020").updateMask(
-        ee.Image("projects/glad/OceanMask").lte(1)
-    )
-    glad_landcover2020_main = glad_landcover2020.where(
-        glad_landcover2020.gte(27).And(glad_landcover2020.lte(48)), 27
-    ).where(glad_landcover2020.gte(127).And(glad_landcover2020.lte(148)), 27)
-    return glad_landcover2020_main.eq(27).rename("GLAD_LULC_2020")
 
 
 # GLAD_Primary
@@ -78,58 +71,34 @@ def glad_pht_prep():
 # EUFO_2020
 def jrc_gfc_2020_prep():
     jrc_gfc2020_raw = ee.ImageCollection("JRC/GFC2020/V1")
+    # jrc_gfc2020_raw = ee.ImageCollection("MISSING_JRC/GFC2020/V1")
     return jrc_gfc2020_raw.mosaic().rename("EUFO_2020")
 
 
-# TMF_disturbed, TMF_plant, TMF_undist
-def jrc_tmf_transition_prep():
-    jrc_tmf_transitions_raw = ee.ImageCollection(
-        "projects/JRC/TMF/v1_2020/TransitionMap_Subtypes"
-    )
-    jrc_tmf_transitions = jrc_tmf_transitions_raw.mosaic()
-    default_value = 0
+# TMF_undist (undistrubed forest in 2020)
+def jrc_tmf_undisturbed_prep():
+    TMF_undist_2020 = (
+        ee.ImageCollection("projects/JRC/TMF/v1_2023/AnnualChanges")
+        .select("Dec2020")
+        .mosaic()
+        .eq(1)
+    )  # update from https://github.com/forestdatapartnership/whisp/issues/42
+    return TMF_undist_2020.rename("TMF_undist")
 
-    in_list_dist = [
-        21,
-        22,
-        23,
-        24,
-        25,
-        26,
-        61,
-        62,
-        31,
-        32,
-        33,
-        63,
-        64,
-        51,
-        52,
-        53,
-        54,
-        67,
-        92,
-        93,
-        94,
-    ]
-    jrc_tmf_disturbed = jrc_tmf_transitions.remap(
-        in_list_dist, [1] * len(in_list_dist), default_value
-    ).rename("TMF_disturbed")
 
-    in_list_plnt = [81, 82, 83, 84, 85, 86]
-    jrc_tmf_plantations = jrc_tmf_transitions.remap(
-        in_list_plnt, [1] * len(in_list_plnt), default_value
-    ).rename("TMF_plant")
-
-    in_list_udis = [10, 11, 12]
-    jrc_tmf_undisturbed = jrc_tmf_transitions.remap(
-        in_list_udis, [1] * len(in_list_udis), default_value
-    ).rename("TMF_undist")
-
-    jrc_tmf_transition = jrc_tmf_disturbed.addBands(jrc_tmf_plantations).addBands(
-        jrc_tmf_undisturbed
-    )
-    return jrc_tmf_transition
+# TMF_plant (plantations in 2020)
+def jrc_tmf_plantation_prep():
+    transition = ee.ImageCollection(
+        "projects/JRC/TMF/v1_2023/TransitionMap_Subtypes"
+    ).mosaic()
+    deforestation_year = ee.ImageCollection(
+        "projects/JRC/TMF/v1_2023/DeforestationYear"
+    ).mosaic()
+    plantation = (transition.gte(81)).And(transition.lte(86))
+    plantation_2020 = plantation.where(
+        deforestation_year.gte(2021), 0
+    )  # update from https://github.com/forestdatapartnership/whisp/issues/42
+    return plantation_2020.rename("TMF_plant")
 
 
 # Cocoa_ETH
@@ -198,10 +167,22 @@ def esa_worldcover_trees_prep():
 # Cocoa_bnetd
 def civ_ocs2020_prep():
     return (
-        ee.Image("projects/ee-bnetdcign2/assets/OCS_CI_2020vf")
+        ee.Image("BNETD/land_cover/v1/2020")
+        .select("classification")
         .eq(9)
         .rename("Cocoa_bnetd")
-    )  # NB ask Aurelie for info on this
+    )  # cocoa from national land cover map for Côte d'Ivoire
+
+
+# Rubber_RBGE  - from Royal Botanical Gardens of Edinburgh (RBGE) NB for 2021
+def rbge_rubber_prep():
+    return (
+        ee.Image(
+            "users/wangyxtina/MapRubberPaper/rRubber10m202122_perc1585DifESAdist5pxPF"
+        )
+        .unmask()
+        .rename("Rubber_RBGE")
+    )
 
 
 #### disturbances by year
@@ -209,7 +190,7 @@ def civ_ocs2020_prep():
 # TMF_def_2000 to TMF_def_2022
 def tmf_def_per_year_prep():
     # Load the TMF Deforestation annual product
-    tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2022/DeforestationYear").mosaic()
+    tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2023/DeforestationYear").mosaic()
     img_stack = None
     # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
     for i in range(0, 22 + 1):
@@ -224,7 +205,7 @@ def tmf_def_per_year_prep():
 # TMF_deg_2000 to TMF_deg_2022
 def tmf_deg_per_year_prep():
     # Load the TMF Degradation annual product
-    tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2022/DegradationYear").mosaic()
+    tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2023/DegradationYear").mosaic()
     img_stack = None
     # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
     for i in range(0, 22 + 1):
@@ -358,25 +339,25 @@ def radd_before_2020_prep():
 
 # TMF_deg_before_2020
 def tmf_deg_before_2020_prep():
-    tmf_deg = ee.ImageCollection("projects/JRC/TMF/v1_2022/DegradationYear").mosaic()
+    tmf_deg = ee.ImageCollection("projects/JRC/TMF/v1_2023/DegradationYear").mosaic()
     return (tmf_deg.lte(2020)).And(tmf_deg.gte(2000)).rename("TMF_deg_before_2020")
 
 
 # TMF_deg_after_2020
 def tmf_deg_after_2020_prep():
-    tmf_deg = ee.ImageCollection("projects/JRC/TMF/v1_2022/DegradationYear").mosaic()
+    tmf_deg = ee.ImageCollection("projects/JRC/TMF/v1_2023/DegradationYear").mosaic()
     return tmf_deg.gt(2020).rename("TMF_deg_after_2020")
 
 
 # tmf_def_before_2020
 def tmf_def_before_2020_prep():
-    tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2022/DeforestationYear").mosaic()
+    tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2023/DeforestationYear").mosaic()
     return (tmf_def.lte(2020)).And(tmf_def.gte(2000)).rename("TMF_def_before_2020")
 
 
 # tmf_def_after_2020
 def tmf_def_after_2020_prep():
-    tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2022/DeforestationYear").mosaic()
+    tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2023/DeforestationYear").mosaic()
     return tmf_def.gt(2020).rename("TMF_def_after_2020")
 
 
@@ -446,57 +427,14 @@ def esa_fire_before_2020_prep():
     )
 
 
-# def ESA_fire_after_2020_prep():
-#     start_year = 2021
-#     end_year = datetime.now().year
-#     date_st = str(start_year) + "-01-01"
-#     date_ed = str(end_year) + "-12-31"
-#     return modis_fire.filterDate(date_st,date_ed).mosaic().select(['BurnDate']).gte(0).rename("ESA_fire_after_2020)
-
-
-# def ESA_fire_after_2020_prep():
-#     start_year = 2021
-#     end_year = datetime.now().year
-#     date_st = str(start_year) + "-01-01"
-#     date_ed = str(end_year) + "-12-31"
-#     return modis_fire.filterDate(date_st,date_ed).mosaic().select(['BurnDate']).gte(0).rename("ESA_fire_after_2020)
-
-
-####### handling feature datasets
-
-
-def feat_coll_prep(feats_name, attr_name, base_name):
-    ## feats_name    = ee.FeatureCollection("projects/ee-cocoacmr/assets/feature_data/Aires_protegees_de_faunes");
-    ## attr_name     = "desc_type"
-    ## base_name     = "cmr"
-
-    ## Load FC
-    feats_poly = ee.FeatureCollection(feats_name)
-
-    ## Create unique list of values for selected attribute column
-    list_types = feats_poly.distinct(attr_name).aggregate_array(attr_name)
-    list_length = ee.Number(list_types.length()).toInt().getInfo()
-
-    ## Initialize blank raster
-    img_stack = None
-
-    ## Add one band for each attribute values
-    for i in range(0, list_length):
-        attr_type = list_types.get(i)
-
-        feats_filter = feats_poly.filter(ee.Filter.eq(attr_name, attr_type))
-        feats_overlap = ee.Image().paint(feats_filter, 1)
-        feats_binary = feats_overlap.gt(0).rename(base_name + "_" + str(i))
-
-        if img_stack is None:
-            img_stack = feats_binary
-        else:
-            img_stack = img_stack.addBands(feats_binary)
-
-    return img_stack  # ,list_types
+####### feature datasets
 
 
 # WDPA
+# World Database on Protected areas
+
+# Temporarily removed - pending agreements for use in API. Results will likely only be included only in the Whisp API.
+# NB dataset is restricted for commercial use. Shown here using non-commercial release of the WDPA, for code tranparency only.
 def wcmc_wdpa_protection_prep():
     wdpa_poly = ee.FeatureCollection("WCMC/WDPA/current/polygons")
 
@@ -512,95 +450,114 @@ def wcmc_wdpa_protection_prep():
     return wdpa_binary.rename("WDPA")
 
 
-# # KBA
-# def birdlife_kbas_biodiversity_prep():
+# KBA
+# Key Biodiversity Areas (KBAs)
 
-#     ##uploaded data - Non-commercial. For queries with limited numbers of sites. Exact number to be confirmed.
-#     kbas_2023_poly = ee.FeatureCollection(
-#         "projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/raw/KBAsGlobal_2023_March_01_POL"
-#     )
+# Temporarily removed pending agreements for use in API.  Results will likely only be included only in the Whisp API.
+# NB dataset is restricted for commercial use. Shown here for code tranparency.
+# Results will be included only in the Whisp API where they will be restricted to a limited number of plots.
+def birdlife_kbas_biodiversity_prep():
 
-#     kba_2023_binary = ee.Image().paint(kbas_2023_poly, 1)
+    ##uploaded data - Non-commercial. For queries with limited numbers of sites. Exact number to be confirmed.
+    kbas_2023_poly = ee.FeatureCollection(
+        "projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/raw/KBAsGlobal_2023_March_01_POL"
+    )
 
-#     return kba_2023_binary.rename("KBA")
+    kba_2023_binary = ee.Image().paint(kbas_2023_poly, 1)
 
-
-def try_access(asset_prep_func):
-    try:
-        return asset_prep_func()
-    except Exception as e:
-        print(f"Error accessing asset: {e}")
-        return None
+    return kba_2023_binary.rename("KBA")
 
 
-# Now, wrap each datasetfunction in try_access
+# ###Combining datasets
 
 
 def combine_datasets():
-    "Combines datasets into a single multiband image"
-    # Initialize an image with a constant band to start with
-    img_combined = ee.Image(1).rename(
-        geometry_area_column
-    )  # becomes the area column after pixel area multiplication step below
+    """Combines datasets into a single multiband image, with fallback if assets are missing."""
+    img_combined = ee.Image(1).rename(geometry_area_column)
 
-    # Add bands from each dataset
-    img_combined = img_combined.addBands(try_access(creaf_descals_palm_prep))
-    img_combined = img_combined.addBands(try_access(jaxa_forest_prep))
-    img_combined = img_combined.addBands(try_access(esri_lulc_trees_prep))
-    img_combined = img_combined.addBands(try_access(glad_gfc_10pc_prep))
-    img_combined = img_combined.addBands(try_access(glad_lulc_stable_prep))
-    img_combined = img_combined.addBands(try_access(glad_pht_prep))
-    img_combined = img_combined.addBands(try_access(jrc_gfc_2020_prep))
-    img_combined = img_combined.addBands(try_access(fdap_palm_prep))
-    img_combined = img_combined.addBands(try_access(jrc_tmf_transition_prep))
-    img_combined = img_combined.addBands(try_access(eth_kalischek_cocoa_prep))
-    img_combined = img_combined.addBands(try_access(wcmc_wdpa_protection_prep))
-    # img_combined = img_combined.addBands(try_access(birdlife_kbas_biodiversity_prep))
-    img_combined = img_combined.addBands(try_access(esa_worldcover_trees_prep))
-    img_combined = img_combined.addBands(try_access(civ_ocs2020_prep))
-    img_combined = img_combined.addBands(
-        try_access(tmf_def_per_year_prep)
-    )  # multi year
-    img_combined = img_combined.addBands(
-        try_access(tmf_deg_per_year_prep)
-    )  # multi year
-    img_combined = img_combined.addBands(
-        try_access(glad_gfc_loss_per_year_prep)
-    )  # multi year
-    img_combined = img_combined.addBands(try_access(radd_year_prep))  # multi year
-    img_combined = img_combined.addBands(try_access(esa_fire_prep))  # multi year
-    img_combined = img_combined.addBands(try_access(modis_fire_prep))  # multi year
-    img_combined = img_combined.addBands(
-        try_access(glad_gfc_loss_before_2020_prep)
-    )  # multi year
-    img_combined = img_combined.addBands(
-        try_access(glad_gfc_loss_after_2020_prep)
-    )  # multi year
-    img_combined = img_combined.addBands(
-        try_access(esa_fire_before_2020_prep)
-    )  # combined
-    img_combined = img_combined.addBands(
-        try_access(modis_fire_before_2020_prep)
-    )  # combined
-    img_combined = img_combined.addBands(
-        try_access(modis_fire_after_2020_prep)
-    )  # combined
-    img_combined = img_combined.addBands(
-        try_access(tmf_def_before_2020_prep)
-    )  # combined
-    img_combined = img_combined.addBands(
-        try_access(tmf_def_after_2020_prep)
-    )  # combined
-    img_combined = img_combined.addBands(
-        try_access(tmf_deg_before_2020_prep)
-    )  # combined
-    img_combined = img_combined.addBands(
-        try_access(tmf_deg_after_2020_prep)
-    )  # combined
-    img_combined = img_combined.addBands(try_access(radd_after_2020_prep))  # combined
-    img_combined = img_combined.addBands(try_access(radd_before_2020_prep))  # combined
+    # Combine images directly
+    for img in [func() for func in list_functions()]:
+        try:
+            img_combined = img_combined.addBands(img)
+        except ee.EEException as e:
+            # logger.error(f"Error adding image: {e}")
+            print(f"Error adding image: {e}")
 
-    img_combined = img_combined.multiply(
-        ee.Image.pixelArea()
-    )  # multiple all bands by pixel area
+    try:
+        # Attempt to print band names to check for errors
+        print(img_combined.bandNames().getInfo())
+    except ee.EEException as e:
+        # logger.error(f"Error printing band names: {e}")
+        # logger.info("Running code for filtering to only valid datasets due to error in input")
+        print("using valid datasets filter due to error in input")
+        # Validate images
+        images_to_test = [func() for func in list_functions()]
+        valid_imgs = keep_valid_images(images_to_test)  # Validate images
+
+        # Retry combining images after validation
+        img_combined = ee.Image(1).rename(geometry_area_column)
+        for img in valid_imgs:
+            img_combined = img_combined.addBands(img)
+
+    img_combined = img_combined.multiply(ee.Image.pixelArea())
+
     return img_combined
+
+
+######helper functions to check images
+
+
+def create_invalid_image():
+    return ee.Image("fdg").rename("Invalid_image")
+
+
+# list all functions ending with "_prep" (in the current script)
+def list_functions():
+    # Use the module's globals to get all defined functions
+    current_module = inspect.getmodule(inspect.currentframe())
+    functions = [
+        func
+        for name, func in inspect.getmembers(current_module, inspect.isfunction)
+        if name.endswith("_prep")
+    ]
+    return functions
+
+
+def keep_valid_images(images):
+    """Keeps only valid images."""
+    valid_images = []
+    for img in images:
+        try:
+            img.getInfo()  # This will raise an exception if the image is invalid
+            valid_images.append(img)
+        except ee.EEException as e:
+            # logger.error(f"Invalid image: {e}")
+            print(f"Invalid image: {e}")
+    return valid_images
+
+
+# function to check if an image is valid
+def ee_image_checker(image):
+    """
+    Tests if the input is a valid ee.Image.
+
+    Args:
+        image: An ee.Image object.
+
+    Returns:
+        bool: True if the input is a valid ee.Image, False otherwise.
+    """
+    try:
+        if ee.Algorithms.ObjectType(image).getInfo() == "Image":
+            # Trigger some action on the image to ensure it's a valid image
+            image.getInfo()  # This will raise an exception if the image is invalid
+            return True
+    except ee.EEException as e:
+        print(f"Image validation failed with EEException: {e}")
+    except Exception as e:
+        print(f"Image validation failed with exception: {e}")
+    return False
+
+
+# print(combine_valid_datasets().bandNames().getInfo())
+# print(combine_datasets().bandNames().getInfo())
