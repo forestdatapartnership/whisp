@@ -1,19 +1,126 @@
+from typing import List, Any
+from geojson import Feature, FeatureCollection, Polygon, Point
+
 # import requests
 import json
 
-# import geojson
-# import ee
-# import geemap
+import geojson
+
 import os
 
 import geopandas as gpd
 import ee
 from shapely.geometry import shape
+from pathlib import Path
 
 # import shutil
 # import sys
 # import pandas as pd
 # from typing import Union, List
+
+
+def ee_to_geojson(ee_object, filename=None, indent=2, **kwargs):
+    """Converts Earth Engine object to geojson.
+
+    Args:
+        ee_object (object): An Earth Engine object.
+        filename (str, optional): The file path to save the geojson. Defaults to None.
+
+    Returns:
+        object: GeoJSON object.
+    """
+
+    try:
+        if (
+            isinstance(ee_object, ee.Geometry)
+            or isinstance(ee_object, ee.Feature)
+            or isinstance(ee_object, ee.FeatureCollection)
+        ):
+            json_object = ee_object.getInfo()
+            if filename is not None:
+                filename = os.path.abspath(filename)
+                if not os.path.exists(os.path.dirname(filename)):
+                    os.makedirs(os.path.dirname(filename))
+                with open(filename, "w") as f:
+                    f.write(json.dumps(json_object, indent=indent, **kwargs) + "\n")
+            else:
+                return json_object
+        else:
+            print("Could not convert the Earth Engine object to geojson")
+    except Exception as e:
+        raise Exception(e)
+
+
+def geojson_path_to_ee(geojson_filepath: Any) -> ee.FeatureCollection:
+    """
+    Reads a GeoJSON file from the given path and converts it to an Earth Engine FeatureCollection.
+
+    Args:
+        geojson_filepath (Any): The filepath to the GeoJSON file.
+
+    Returns:
+        ee.FeatureCollection: Earth Engine FeatureCollection created from the GeoJSON.
+    """
+    print(f"Received geojson_filepath: {geojson_filepath}")
+    if isinstance(geojson_filepath, (str, Path)):
+        # Read the GeoJSON file
+        file_path = os.path.abspath(geojson_filepath)
+        print(f"Reading GeoJSON file from: {file_path}")
+
+        # Read the GeoJSON file
+        with open(file_path, "r") as f:
+            geojson_data = json.load(f)
+    else:
+        raise ValueError("Input must be a file path (str or Path)")
+
+    # Validate the GeoJSON data
+    validation_errors = validate_geojson(geojson_filepath)
+    if validation_errors:
+        raise ValueError(f"GeoJSON validation errors: {validation_errors}")
+
+    # Create a FeatureCollection from the GeoJSON data
+    # using the multipolygon splitting function extract_features
+    feature_collection = ee.FeatureCollection(create_feature_collection(geojson_data))
+
+    return feature_collection
+
+
+def geojson_to_shapefile(geojson_path, shapefile_output_path):
+    """
+    Convert a GeoJSON file to a Shapefile and save it to a file.
+
+    Parameters:
+    - geojson_path: Path to the GeoJSON file.
+    - shapefile_output_path: Path where the Shapefile will be saved.
+    """
+    # Read the GeoJSON file
+    with open(geojson_path, "r") as geojson_file:
+        geojson = json.load(geojson_file)
+
+    # Convert to GeoDataFrame
+    gdf = gpd.GeoDataFrame.from_features(geojson["features"])
+
+    # Save to Shapefile
+    gdf.to_file(shapefile_output_path, driver="ESRI Shapefile")
+
+
+def shapefile_to_geojson(shapefile_path, geojson_output_path):
+    """
+    Convert a Shapefile to GeoJSON and save it to a file.
+
+    Parameters:
+    - shapefile_path: Path to the Shapefile.
+    - geojson_output_path: Path where the GeoJSON file will be saved.
+    """
+    # Read the Shapefile
+    gdf = gpd.read_file(shapefile_path)
+
+    # Convert to GeoJSON
+    geojson_str = gdf.to_json()
+
+    # Write the GeoJSON string to a file
+    with open(geojson_output_path, "w") as geojson_file:
+        geojson_file.write(geojson_str)
 
 
 def shapefile_to_ee(shapefile_path):
@@ -129,146 +236,127 @@ def ee_to_shapefile(feature_collection, shapefile_path):
     return shapefile_path
 
 
-def ee_to_geojson(ee_object, filename=None, indent=2, **kwargs):
-    """Converts Earth Engine object to geojson.
+###########from Whisp-app code here to align approaches (05/11/2024):
+# https://github.com/forestdatapartnership/whisp-app/blob/main/src/utils/geojsonUtils.ts
+# #####converted to python
 
-    Args:
-        ee_object (object): An Earth Engine object.
-        filename (str, optional): The file path to save the geojson. Defaults to None.
 
-    Returns:
-        object: GeoJSON object.
+def validate_geojson(input_data: Any) -> List[str]:
     """
+    Validates GeoJSON data and filters out certain non-critical errors.
+
+    :param input_data: GeoJSON data as a string or a file path
+    :return: List of validation errors
+    """
+    errors = []
+
+    # Check if input_data is a file path
+    if isinstance(input_data, (str, Path)):
+        try:
+            # Read the GeoJSON file
+            with open(input_data, "r") as f:
+                geojson_data = f.read()
+        except Exception as e:
+            errors.append(f"Error reading file: {e}")
+            return errors
+    else:
+        geojson_data = input_data
 
     try:
-        if (
-            isinstance(ee_object, ee.Geometry)
-            or isinstance(ee_object, ee.Feature)
-            or isinstance(ee_object, ee.FeatureCollection)
-        ):
-            json_object = ee_object.getInfo()
-            if filename is not None:
-                filename = os.path.abspath(filename)
-                if not os.path.exists(os.path.dirname(filename)):
-                    os.makedirs(os.path.dirname(filename))
-                with open(filename, "w") as f:
-                    f.write(json.dumps(json_object, indent=indent, **kwargs) + "\n")
-            else:
-                return json_object
-        else:
-            print("Could not convert the Earth Engine object to geojson")
-    except Exception as e:
-        raise Exception(e)
+        geojson_obj = json.loads(geojson_data)
+        if "type" not in geojson_obj:
+            errors.append("Missing 'type' field in GeoJSON.")
+    except ValueError as e:
+        errors.append(f"Invalid GeoJSON: {e}")
+
+    return errors
 
 
-# adapted from geemap version https://geemap.org/common/#geemap.common.geojson_to_ee
-## but to work on geojson path and remove altitiude
-def geojson_to_ee(file_path_geojson, geodesic=False, encoding="utf-8"):
+def extract_features(geometry: Any, features: List[Feature]) -> None:
     """
-    Converts a geojson file to ee.FeatureCollection or ee.Geometry, stripping altitude information.
-    Code adapted from geemap version https://geemap.org/common/#geemap.common.geojson_to_ee
-    but to work on geojson path and remove altitiude.
+    Recursively extracts features from a geometry and adds them to the feature list.
 
-    Args:
-        file_path_geojson (str): The file path to a geojson file.
-        geodesic (bool, optional): Whether line segments should be interpreted as spherical geodesics. Defaults to False.
-        encoding (str, optional): The encoding of the geojson file. Defaults to "utf-8".
-
-    Returns:
-        ee_object: An ee.FeatureCollection or ee.Geometry object.
+    :param geometry: GeoJSON geometry
+    :param features: List of extracted features
     """
-
-    try:
-        # Read the geojson file
-        with open(os.path.abspath(file_path_geojson), encoding=encoding) as f:
-            geo_json = json.load(f)
-
-        # Helper function to remove altitude from coordinates
-        def remove_altitude(coords):
-            if isinstance(coords[0], list):  # Multi-coordinates
-                return [remove_altitude(coord) for coord in coords]
-            else:
-                return coords[
-                    :2
-                ]  # Keep only the first two elements (longitude and latitude)
-
-        # Handle the geojson
-        if geo_json["type"] == "FeatureCollection":
-            for feature in geo_json["features"]:
-                feature["geometry"]["coordinates"] = remove_altitude(
-                    feature["geometry"]["coordinates"]
-                )
-                if feature["geometry"]["type"] != "Point":
-                    feature["geometry"]["geodesic"] = geodesic
-            features = ee.FeatureCollection(geo_json)
-            return features
-
-        elif geo_json["type"] == "Feature":
-            geom = None
-            geometry = geo_json["geometry"]
-            geometry["coordinates"] = remove_altitude(geometry["coordinates"])
-            geom_type = geometry["type"]
-            if geom_type == "Point":
-                geom = ee.Geometry.Point(geometry["coordinates"])
-            else:
-                geom = ee.Geometry(geometry, "", geodesic)
-            return geom
-
-        elif geo_json["type"] == "GeometryCollection":
-            geometries = geo_json["geometries"]
-            for geometry in geometries:
-                geometry["coordinates"] = remove_altitude(geometry["coordinates"])
-            ee_geometries = [ee.Geometry(geometry) for geometry in geometries]
-            return ee.FeatureCollection(ee_geometries)
-
-        else:
-            raise Exception(
-                "Could not convert the geojson to ee.Geometry() or ee.FeatureCollection()"
-            )
-
-    except Exception as e:
-        print(
-            "Could not convert the geojson to ee.Geometry() or ee.FeatureCollection()"
-        )
-        raise Exception(e)
+    if geometry["type"] == "Polygon":
+        features.append(Feature(geometry=Polygon(geometry["coordinates"])))
+    elif geometry["type"] == "Point":
+        features.append(Feature(geometry=Point(geometry["coordinates"])))
+    elif geometry["type"] == "MultiPolygon":
+        for polygon in geometry["coordinates"]:
+            features.append(Feature(geometry=Polygon(polygon)))
+    elif geometry["type"] == "GeometryCollection":
+        for geom in geometry["geometries"]:
+            extract_features(geom, features)
+    elif geometry["type"] == "Feature":
+        extract_features(geometry["geometry"], features)
+    elif geometry["type"] == "FeatureCollection":
+        for feature in geometry["features"]:
+            extract_features(feature, features)
 
 
-def geojson_to_shapefile(geojson_path, shapefile_output_path):
+def create_feature_collection(geojson_obj: Any) -> FeatureCollection:
     """
-    Convert a GeoJSON file to a Shapefile and save it to a file.
+    Creates a FeatureCollection from a GeoJSON object.
 
-    Parameters:
-    - geojson_path: Path to the GeoJSON file.
-    - shapefile_output_path: Path where the Shapefile will be saved.
+    :param geojson_obj: GeoJSON object
+    :return: GeoJSON FeatureCollection
     """
-    # Read the GeoJSON file
-    with open(geojson_path, "r") as geojson_file:
-        geojson = json.load(geojson_file)
-
-    # Convert to GeoDataFrame
-    gdf = gpd.GeoDataFrame.from_features(geojson["features"])
-
-    # Save to Shapefile
-    gdf.to_file(shapefile_output_path, driver="ESRI Shapefile")
+    features = []
+    extract_features(geojson_obj, features)
+    return FeatureCollection(features)
 
 
-def shapefile_to_geojson(shapefile_path, geojson_output_path):
-    """
-    Convert a Shapefile to GeoJSON and save it to a file.
+## not working
+# # flexible input (geojson file path or geojson object)
+# def geojson_to_ee(input_data: Union[str, Path, dict], encoding='utf-8') -> ee.FeatureCollection:
+#     """
+#     Converts a GeoJSON object or a GeoJSON file path to an Earth Engine FeatureCollection.
 
-    Parameters:
-    - shapefile_path: Path to the Shapefile.
-    - geojson_output_path: Path where the GeoJSON file will be saved.
-    """
-    # Read the Shapefile
-    gdf = gpd.read_file(shapefile_path)
+#     Args:
+#         input_data (str, Path, or dict): The GeoJSON file path or GeoJSON object.
+#         encoding (str): The encoding of the GeoJSON file. Default is 'utf-8'.
 
-    # Convert to GeoJSON
-    geojson_str = gdf.to_json()
+#     Returns:
+#         ee.FeatureCollection: Earth Engine FeatureCollection created from the GeoJSON.
+#     """
+#     print(f"Received input_data: {input_data}")
+#     if isinstance(input_data, (str, Path)):
+#         # Read the GeoJSON file
+#         file_path = os.path.abspath(input_data)
+#         print(f"Reading GeoJSON file from: {file_path}")
+#         with open(file_path, 'r', encoding=encoding) as f:
+#             geojson_data = json.load(f)
+#     elif isinstance(input_data, dict):
+#         geojson_data = input_data
+#     else:
+#         raise ValueError("Input must be a file path (str or Path) or a GeoJSON object (dict)")
 
-    # Write the GeoJSON string to a file
-    with open(geojson_output_path, "w") as geojson_file:
-        geojson_file.write(geojson_str)
+#     # Create a FeatureCollection from the GeoJSON data
+#     feature_collection = create_feature_collection(geojson_data)
+
+#     return ee.FeatureCollection(feature_collection)
+
+
+# def add_property_to_features(
+#     feature_collection: FeatureCollection, property_name: str, property_value: Any
+# ) -> FeatureCollection:
+#     """
+#     Adds a property to each feature in a FeatureCollection.
+
+#     :param feature_collection: GeoJSON FeatureCollection
+#     :param property_name: Name of the property to add
+#     :param property_value: Value of the property
+#     :return: Modified FeatureCollection with added property
+#     """
+#     modified_features = []
+#     for feature in feature_collection["features"]:
+#         feature["properties"] = feature.get("properties", {})
+#         feature["properties"][property_name] = property_value
+#         modified_features.append(feature)
+
+#     return FeatureCollection(modified_features)
 
 
 # def feature_to_wkt(feature):
@@ -332,3 +420,76 @@ def shapefile_to_geojson(shapefile_path, geojson_output_path):
 #     nested_list_transposed = list(map(list, zip(*nested_list)))
 
 #     return pd.DataFrame(data=nested_list_transposed, columns=collection_properties_list)
+
+
+################not using as aligning with the Whisp-app/Whisp-api implementation (as splits multipolygons up)
+# # adapted from geemap version https://geemap.org/common/#geemap.common.geojson_to_ee
+# ## but to work on geojson path and remove altitiude
+# def geojson_path_to_ee(file_path_geojson, geodesic=False, encoding="utf-8"):
+#     """
+#     Converts a geojson file to ee.FeatureCollection or ee.Geometry, stripping altitude information.
+#     Code adapted from geemap version https://geemap.org/common/#geemap.common.geojson_to_ee
+#     but to work on geojson path and remove altitiude.
+
+#     Args:
+#         file_path_geojson (str): The file path to a geojson file.
+#         geodesic (bool, optional): Whether line segments should be interpreted as spherical geodesics. Defaults to False.
+#         encoding (str, optional): The encoding of the geojson file. Defaults to "utf-8".
+
+#     Returns:
+#         ee_object: An ee.FeatureCollection or ee.Geometry object.
+#     """
+
+#     try:
+#         # Read the geojson file
+#         with open(os.path.abspath(file_path_geojson), encoding=encoding) as f:
+#             geo_json = json.load(f)
+
+#         # Helper function to remove altitude from coordinates
+#         def remove_altitude(coords):
+#             if isinstance(coords[0], list):  # Multi-coordinates
+#                 return [remove_altitude(coord) for coord in coords]
+#             else:
+#                 return coords[
+#                     :2
+#                 ]  # Keep only the first two elements (longitude and latitude)
+
+#         # Handle the geojson
+#         if geo_json["type"] == "FeatureCollection":
+#             for feature in geo_json["features"]:
+#                 feature["geometry"]["coordinates"] = remove_altitude(
+#                     feature["geometry"]["coordinates"]
+#                 )
+#                 if feature["geometry"]["type"] != "Point":
+#                     feature["geometry"]["geodesic"] = geodesic
+#             features = ee.FeatureCollection(geo_json)
+#             return features
+
+#         elif geo_json["type"] == "Feature":
+#             geom = None
+#             geometry = geo_json["geometry"]
+#             geometry["coordinates"] = remove_altitude(geometry["coordinates"])
+#             geom_type = geometry["type"]
+#             if geom_type == "Point":
+#                 geom = ee.Geometry.Point(geometry["coordinates"])
+#             else:
+#                 geom = ee.Geometry(geometry, "", geodesic)
+#             return geom
+
+#         elif geo_json["type"] == "GeometryCollection":
+#             geometries = geo_json["geometries"]
+#             for geometry in geometries:
+#                 geometry["coordinates"] = remove_altitude(geometry["coordinates"])
+#             ee_geometries = [ee.Geometry(geometry) for geometry in geometries]
+#             return ee.FeatureCollection(ee_geometries)
+
+#         else:
+#             raise Exception(
+#                 "Could not convert the geojson to ee.Geometry() or ee.FeatureCollection()"
+#             )
+
+#     except Exception as e:
+#         print(
+#             "Could not convert the geojson to ee.Geometry() or ee.FeatureCollection()"
+#         )
+#         raise Exception(e)
