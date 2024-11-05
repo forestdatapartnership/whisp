@@ -1,6 +1,9 @@
 import ee
-import functools
+
+# import functools
 import pandas as pd
+
+from pathlib import Path
 
 from .datasets import combine_datasets
 
@@ -19,11 +22,10 @@ from ..parameters.config_runtime import (
     water_flag,
 )
 
-from pathlib import Path
 
 from .data_conversion import (
     ee_to_df,
-    geojson_to_ee,
+    geojson_path_to_ee,
 )  # copied functions from geemap (accessed 2024) to avoid dependency
 
 
@@ -40,7 +42,7 @@ def whisp_stats_geojson_to_df(geojson_filepath: Path | str) -> pd.DataFrame:
     df_stats : pd.DataFrame
         The dataframe containing the Whisp stats for the input ROI.
     """
-    feature_collection = geojson_to_ee(str(geojson_filepath))
+    feature_collection = geojson_path_to_ee(str(geojson_filepath))
 
     return whisp_stats_ee_to_df(feature_collection)
 
@@ -58,9 +60,35 @@ def whisp_stats_geojson_to_ee(geojson_filepath: Path | str) -> pd.DataFrame:
     df_stats : pd.DataFrame
         The dataframe containing the Whisp stats for the input ROI.
     """
-    feature_collection = geojson_to_ee(str(geojson_filepath))
+    feature_collection = geojson_path_to_ee(str(geojson_filepath))
 
     return whisp_stats_ee_to_ee(feature_collection)
+
+
+def whisp_stats_geojson_to_drive(geojson_filepath: Path | str):
+    """
+    Parameters
+    ----------
+    geojson_filepath : Path | str
+        The filepath to the GeoJSON of the ROI to analyze.
+
+    Returns
+    -------
+    Message showing location of file in Google Drive
+    """
+
+    try:
+        geojson_filepath = Path(geojson_filepath)
+        if not geojson_filepath.exists():
+            raise FileNotFoundError(f"File {geojson_filepath} does not exist.")
+
+        # Assuming geojson_to_ee is properly imported from data_conversion.py
+        feature_collection = geojson_path_to_ee(str(geojson_filepath), "r")
+
+        return whisp_stats_ee_to_drive(feature_collection)
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
 
 def whisp_stats_ee_to_ee(
@@ -113,32 +141,6 @@ def whisp_stats_ee_to_drive(feature_collection: ee.FeatureCollection):
         )
     except Exception as e:
         print(f"An error occurred during the export: {e}")
-
-
-def whisp_stats_geojson_to_drive(geojson_filepath: Path | str):
-    """
-    Parameters
-    ----------
-    geojson_filepath : Path | str
-        The filepath to the GeoJSON of the ROI to analyze.
-
-    Returns
-    -------
-    Message showing location of file in Google Drive
-    """
-
-    try:
-        geojson_filepath = Path(geojson_filepath)
-        if not geojson_filepath.exists():
-            raise FileNotFoundError(f"File {geojson_filepath} does not exist.")
-
-        # Assuming geojson_to_ee is properly imported from data_conversion.py
-        feature_collection = geojson_to_ee(str(geojson_filepath), "r")
-
-        return whisp_stats_ee_to_drive(feature_collection)
-
-    except Exception as e:
-        print(f"An error occurred: {e}")
 
 
 #### main stats functions
@@ -233,7 +235,7 @@ def get_stats_feature(feature, img_combined):
     return out_feature
 
 
-# Get basic feature information
+# Get basic feature information - uses admin and water datasets in gee.
 def get_type_and_location(feature):
     """Extracts basic feature information including country, admin area, geometry type, coordinates, and water flags."""
 
@@ -298,7 +300,7 @@ def percent_and_format(val, area_ha):
     return ee.Number(formatted_value)
 
 
-# geoboundaries - freqently updated database, allows commercial use (CC BY 4.0 DEED) (disputed territories may need checking)
+# geoboundaries - admin units from a freqently updated database, allows commercial use (CC BY 4.0 DEED) (disputed territories may need checking)
 def get_geoboundaries_info(geometry):
     gbounds_ADM0 = ee.FeatureCollection("WM/geoLab/geoBoundaries/600/ADM1")
     polygonsIntersectPoint = gbounds_ADM0.filterBounds(geometry)
