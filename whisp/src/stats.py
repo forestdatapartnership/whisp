@@ -104,7 +104,7 @@ def whisp_stats_geojson_to_drive(geojson_filepath: Path | str):
             raise FileNotFoundError(f"File {geojson_filepath} does not exist.")
 
         # Assuming geojson_to_ee is properly imported from data_conversion.py
-        feature_collection = geojson_path_to_ee(str(geojson_filepath), "r")
+        feature_collection = geojson_path_to_ee(str(geojson_filepath))
 
         return whisp_stats_ee_to_drive(feature_collection)
 
