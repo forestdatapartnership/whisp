@@ -22,11 +22,32 @@ from ..parameters.config_runtime import (
     water_flag,
 )
 
-
 from .data_conversion import (
     ee_to_df,
     geojson_path_to_ee,
-)  # copied functions from geemap (accessed 2024) to avoid dependency
+)  # copied functions from whisp-api and geemap (accessed 2024) to avoid dependency
+
+from .reformat import (
+    validate_dataframe_using_lookups,
+)  # copied functions from whisp-api and geemap (accessed 2024) to avoid dependency
+
+
+def whisp_formatted_stats_geojson_to_df(geojson_filepath: Path | str) -> pd.DataFrame:
+    """
+
+    Parameters
+    ----------
+    geojson_filepath : Path | str
+        The filepath to the GeoJSON of the ROI to analyze.
+
+    Returns
+    -------
+    df_stats : pd.DataFrame
+        The dataframe containing the Whisp stats for the input ROI.
+    """
+    feature_collection = geojson_path_to_ee(str(geojson_filepath))
+
+    return whisp_formatted_stats_ee_to_df(feature_collection)
 
 
 def whisp_stats_geojson_to_df(geojson_filepath: Path | str) -> pd.DataFrame:
@@ -124,6 +145,25 @@ def whisp_stats_ee_to_df(feature_collection: ee.FeatureCollection) -> pd.DataFra
     """
 
     return ee_to_df(whisp_stats_ee_to_ee(feature_collection))
+
+
+def whisp_formatted_stats_ee_to_df(
+    feature_collection: ee.FeatureCollection,
+) -> pd.DataFrame:
+    """
+    Parameters
+    ----------
+    feature_collection : ee.FeatureCollection
+        The feature collection of the ROI to analyze.
+
+    Returns
+    -------
+    validated_df : pd.DataFrame
+        The validated dataframe containing the Whisp stats for the input ROI.
+    """
+    df_stats = ee_to_df(whisp_stats_ee_to_ee(feature_collection))
+    validated_df = validate_dataframe_using_lookups(df_stats)
+    return validated_df
 
 
 def whisp_stats_ee_to_drive(feature_collection: ee.FeatureCollection):
@@ -418,19 +458,19 @@ def reformat_whisp_fc(
         )
 
 
-def get_stats_formatted(feature_or_feature_col, **kwargs) -> ee.FeatureCollection:
-    # Call to the original function to get stats
-    fc = get_stats(feature_or_feature_col)
+# def get_stats_formatted(feature_or_feature_col, **kwargs) -> ee.FeatureCollection:
+#     # Call to the original function to get stats
+#     fc = get_stats(feature_or_feature_col)
 
-    # Directly apply the formatting logic, without a decorator
-    fc_formatted = reformat_whisp_fc(
-        fc,
-        id_name=kwargs.get("id_name"),
-        flag_positive=kwargs.get("flag_positive"),
-        exclude_properties_from_output=kwargs.get("exclude_properties_from_output"),
-    )
+#     # Directly apply the formatting logic, without a decorator
+#     fc_formatted = reformat_whisp_fc(
+#         fc,
+#         id_name=kwargs.get("id_name"),
+#         flag_positive=kwargs.get("flag_positive"),
+#         exclude_properties_from_output=kwargs.get("exclude_properties_from_output"),
+#     )
 
-    return fc_formatted
+#     return fc_formatted
 
 
 def add_id_to_feature_collection(dataset, id_name="PlotID"):
