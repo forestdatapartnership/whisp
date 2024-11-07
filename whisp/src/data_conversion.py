@@ -13,11 +13,6 @@ import ee
 from shapely.geometry import shape
 from pathlib import Path
 
-# import shutil
-# import sys
-# import pandas as pd
-# from typing import Union, List
-
 
 def ee_to_geojson(ee_object, filename=None, indent=2, **kwargs):
     """Converts Earth Engine object to geojson.

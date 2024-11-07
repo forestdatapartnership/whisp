@@ -15,7 +15,6 @@ from whisp.parameters.config_runtime import (
     DEFAULT_CONTEXT_LOOKUP_TABLE_PATH,
 )
 
-
 logger = StdoutLogger(__name__)
 
 
@@ -24,8 +23,80 @@ cached_schema = None
 cached_file_mtimes = {}
 
 
+def validate_dataframe_using_lookups(
+    df_stats: pd.DataFrame, file_paths: list = None
+) -> pd.DataFrame:
+    """
+    Load the schema if any file in the list has changed and validate the DataFrame against the loaded schema.
+
+    Args:
+        df_stats (pd.DataFrame): The DataFrame to validate.
+        file_paths (list): List of paths to schema files.
+
+    Returns:
+        pd.DataFrame: The validated DataFrame.
+    """
+    # Load the schema
+    schema = load_schema_if_any_file_changed(file_paths)
+
+    # Validate the DataFrame
+    validated_df = validate_dataframe(df_stats, schema)
+
+    return validated_df
+
+
+# NB uses default inputs. If you want to use custom inputs, you can pass them as arguments
+def load_schema_if_any_file_changed(file_paths):
+    """Load schema only if any file in the list has changed."""
+    global cached_schema, cached_file_mtimes
+
+    if file_paths is None:
+        file_paths = [
+            DEFAULT_GEE_DATASETS_LOOKUP_TABLE_PATH,
+            DEFAULT_CONTEXT_LOOKUP_TABLE_PATH,
+        ]
+
+    # Flag to indicate if any file has changed
+    schema_needs_update = False
+
+    # Check each file's modification time
+    for file_path in file_paths:
+        current_mtime = os.path.getmtime(file_path)
+
+        # If the file is new or has been modified, mark schema for update
+        if (
+            file_path not in cached_file_mtimes
+            or current_mtime != cached_file_mtimes[file_path]
+        ):
+            print(f"File {file_path} changed, updating schema...")
+            schema_needs_update = True
+            cached_file_mtimes[
+                file_path
+            ] = current_mtime  # Update the modification time
+
+    # If any file has changed, update the schema
+    if schema_needs_update or cached_schema is None:
+        print("Creating or updating schema based on changed files...")
+        # You can combine the files as needed; here we assume one schema file
+        # If you want to handle multiple schema files differently, adjust this
+
+        # add checks on lookup inputs (i.e. a dataframe in type format: data_lookup_type)
+        combined_lookup_df: data_lookup_type = append_csvs_to_dataframe(
+            file_paths
+        )  # concatonates input lookup files
+
+        cached_schema = create_schema_from_dataframe(
+            combined_lookup_df
+        )  # create cached schema
+
+    else:
+        print("Using cached schema.")
+
+    return cached_schema
+
+
 def validate_dataframe(
-    schema: pa.DataFrameSchema, df_stats: pd.DataFrame
+    df_stats: pd.DataFrame, schema: pa.DataFrameSchema
 ) -> pd.DataFrame:
     """Validate the DataFrame against the given schema, reorder columns to match schema order, and list missing columns.
 
