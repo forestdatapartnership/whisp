@@ -5,11 +5,18 @@ from parameters.config_runtime import geometry_area_column
 
 #add datasets below
 
-#Oil_palm_Descals
+# # Oil_palm_Descals 
+# NB updated to Descals et al 2024 paper (as opposed to Descals et al 2021 paper)
 def creaf_descals_palm_prep():
-    oil_palm_descals_raw = ee.ImageCollection('BIOPAMA/GlobalOilPalm/v1')
-    oil_palm_descals_mosaic = oil_palm_descals_raw.select('classification').mosaic()
-    return oil_palm_descals_mosaic.lte(2).rename("Oil_palm_Descals")
+    # Load the Global Oil Palm Year of Plantation image and mosaic it
+    img = ee.ImageCollection("projects/ee-globaloilpalm/assets/shared/GlobalOilPalm_YoP_2021").mosaic().select("minNBR_date")
+
+    # Calculate the year of plantation and select all below and including 2020
+    oil_palm_plantation_year = img.divide(365).add(1970).floor().lte(2020)
+
+    # Create a mask for plantations in the year 2020 or earlier
+    plantation_2020 = oil_palm_plantation_year.lte(2020).selfMask()
+    return plantation_2020.rename("Oil_palm_Descals")
 
 # JAXA_FNF_2020
 def jaxa_forest_prep():
