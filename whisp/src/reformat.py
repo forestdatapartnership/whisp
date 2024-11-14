@@ -1,14 +1,14 @@
-import pandas as pd
+# !pip install pandera[io] # special version used
 import pandera as pa
+import pandas as pd
 import os
+import logging
+
 
 from whisp.src.logger import StdoutLogger, FileLogger
 
-import logging
-
 from whisp.src.pd_schemas import data_lookup_type
 
-from pathlib import Path
 
 from whisp.parameters.config_runtime import (
     DEFAULT_GEE_DATASETS_LOOKUP_TABLE_PATH,
