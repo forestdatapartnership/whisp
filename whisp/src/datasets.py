@@ -33,7 +33,7 @@ def creaf_descals_palm_prep():
     # Load the Global Oil Palm Year of Plantation image and mosaic it
     img = (
         ee.ImageCollection(
-            "nope_projects/ee-globaloilpalm/assets/shared/GlobalOilPalm_YoP_2021"
+            "projects/ee-globaloilpalm/assets/shared/GlobalOilPalm_YoP_2021"
         )
         .mosaic()
         .select("minNBR_date")
@@ -125,7 +125,7 @@ def eth_kalischek_cocoa_prep():
 # Oil_palm_FDaP
 def fdap_palm_prep():
     fdap_palm2020_model_raw = ee.ImageCollection(
-        "projects/forestdatapartnership/assets/palm/palm_2020_model_20240312"
+        "projects/forestdatapartnership/assets/community_palm/20240312"
     )
     fdap_palm = (
         fdap_palm2020_model_raw.mosaic().gt(0.95).selfMask()
