@@ -19,3 +19,5 @@ from whisp.src.reformat import (
 )
 
 from whisp.src.risk import whisp_risk
+
+from whisp.src.plot_generator import generate_plots_from_csv
