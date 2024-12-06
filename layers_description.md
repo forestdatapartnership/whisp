@@ -11,9 +11,9 @@
   </thead>
   <tbody>
     <tr><td colspan="3"><b>Tree cover datasets:</b></td></tr>
-    <tr><td rowspan="3">EUFO_2020</td><td rowspan="3">Binary values, where 1 is forest.</td><td rowspan="2">Bourgoin, C., Ameztoy, I., Verhegghen, A., Carboni, S., Colditz, R.R., Achard, F. (2023). <i>Global map of forest cover 2020</i> (Version 1). European Commission, Joint Research Centre (JRC) [Dataset] PID: http://data.europa.eu/89h/10d1b337-b7d1-4938-a048-686c8185b290.</td></tr>
+    <tr><td rowspan="3">EUFO_2020</td><td rowspan="3">Binary values, where 1 is forest.</td><td rowspan="2">Bourgoin, Clement; Verhegghen, Astrid; Degreve, Lucas; Ameztoy, Iban; Carboni, Silvia; Colditz, Rene; Achard, Frederic (2024) <i> Global map of forest cover 2020 </i> version 2. European Commission, Joint Research Centre (JRC) PID: http://data.europa.eu/89h/e554d6fb-6340-45d5-9309-332337e5bc26 </td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection(“JRC/GFC2020/V1”)</td></tr>
+    <tr><td>ee.ImageCollection(“JRC/GFC2020/V2”)</td></tr>
     <tr><td rowspan="3">GLAD_Primary</td><td rowspan="3">Binary input layer representing primary forest in 2001. Loss pixels 2001-2020 removed with ancillary dataset.</td><td rowspan="2">Turubanova, S., Potapov, P. V., Tyukavina, A., & Hansen, M. C. (2018). <i>Ongoing primary forest loss in Brazil, Democratic Republic of the Congo, and Indonesia.</i> Environmental Research Letters, 13(7), 074028. https://doi.org/10.1088/1748-9326/aacd1c</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection (‘UMD/GLAD/PRIMARY_HUMID_TROPICAL_FORESTS/v1’)<br>Ancillary: ee.Image("UMD/hansen/global_forest_change_2023_v1_11")</td></tr>
