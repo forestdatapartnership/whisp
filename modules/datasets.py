@@ -43,7 +43,7 @@ def glad_pht_prep():
 
 # EUFO_2020
 def jrc_gfc_2020_prep():
-    jrc_gfc2020_raw = ee.ImageCollection("JRC/GFC2020/V1")
+    jrc_gfc2020_raw = ee.ImageCollection("JRC/GFC2020/V2")
     return jrc_gfc2020_raw.mosaic().rename("EUFO_2020")
 
 # TMF_undist (undistrubed forest in 2020)
