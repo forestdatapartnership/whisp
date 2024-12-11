@@ -29,6 +29,7 @@
     <tr><td>ee.ImageCollection(‘JAXA/ALOS/PALSAR/YEARLY/FNF4’)</td></tr>
     <tr><td rowspan="3">ESA_TC_2020</td><td rowspan="3">Tree and mangrove classes (i.e., 10 and 95) for 2020.</td><td rowspan="2">Zanaga, D., Van De Kerchove, R., De Keersmaecker, W., Souverijns, N., Brockmann, C., Quast, R., Wevers, J., Grosu, A., Paccini, A., Vergnaud, S., Cartus, O., Santoro, M., Fritz, S., Georgieva, I., Lesiv, M., Carter, S., Herold, M., Li, L., Tsendbazar, N.-E., Ramoino, F., Arino, O. (2021). <i>ESA WorldCover 10 m 2020 v100</i> (v100) [Dataset]. Zenodo. https://doi.org/10.5281/ZENODO.5571936</td></tr>
     <tr></tr>
+    <tr><td>ee.ImageCollection("ESA/WorldCover/v100")</td></tr>
     <tr><td colspan="3"><b>Commodity datasets:</b></td></tr>
     <tr><td rowspan="3">TMF_plant</td><td rowspan="3">Classes representing any type of plantation (i.e., 81 to 86).</td><td rowspan="2">Vancutsem, C., Achard, F., Pekel, J.-F., Vieilledent, G., Carboni, S., Simonetti, D., Gallego, J., Aragão, L. E. O. C., & Nasi, R. (2021). <i>Long-term (1990–2019) monitoring of forest cover changes in the humid tropics.</i> Science Advances, 7(10). https://doi.org/10.1126/sciadv.abe1603</td></tr>
     <tr></tr>
