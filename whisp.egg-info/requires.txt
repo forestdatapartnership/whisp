@@ -1,0 +1,12 @@
+earthengine-api
+geemap
+numpy<2
+pandas
+pandera
+python-dotenv
+setuptools
+
+[dev]
+pytest
+pre-commit
+ruff

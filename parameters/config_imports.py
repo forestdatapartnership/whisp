@@ -13,7 +13,8 @@ import pandas as pd
 import geopandas as gpd
 import numpy as np
 import geemap
-from sidecar import Sidecar
+
+# from sidecar import Sidecar
 
 # Initialize Earth Engine
 # from parameters.config_gee import gee_cloud_project

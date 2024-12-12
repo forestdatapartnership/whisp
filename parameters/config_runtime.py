@@ -1,7 +1,7 @@
 import os
 import ee
 import pandas as pd
-ee.Initialize()
+# ee.Initialize()
 
 debug = True  # get print messages or not (e.g. for debugging code etc) (True or False)
 
