@@ -36,7 +36,6 @@ def get_gadm_info(geometry):
 # water flag - to flag plots that may be erroneous (i.e., where errors may have occured in their creation / translation  and so fall in either the ocean or inland water - 
 def usgs_gsv_ocean_prep(): # TO DO: for speed export image as an asset at samne res as JRC
     # Initialize the Earth Engine API
-    ee.Initialize()
 
     # Load the datasets
     mainlands = ee.FeatureCollection('projects/sat-io/open-datasets/shoreline/mainlands')

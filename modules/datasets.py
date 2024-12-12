@@ -5,18 +5,6 @@ from parameters.config_runtime import geometry_area_column
 
 #add datasets below
 
-# # Oil_palm_Descals 
-# NB updated to Descals et al 2024 paper (as opposed to Descals et al 2021 paper)
-def creaf_descals_palm_prep():
-    # Load the Global Oil Palm Year of Plantation image and mosaic it
-    img = ee.ImageCollection("projects/ee-globaloilpalm/assets/shared/GlobalOilPalm_YoP_2021").mosaic().select("minNBR_date")
-
-    # Calculate the year of plantation and select all below and including 2020
-    oil_palm_plantation_year = img.divide(365).add(1970).floor().lte(2020)
-
-    # Create a mask for plantations in the year 2020 or earlier
-    plantation_2020 = oil_palm_plantation_year.lte(2020).selfMask()
-    return plantation_2020.rename("Oil_palm_Descals")
 
 # JAXA_FNF_2020
 def jaxa_forest_prep():
@@ -46,10 +34,39 @@ def jrc_gfc_2020_prep():
     jrc_gfc2020_raw = ee.ImageCollection("JRC/GFC2020/V2")
     return jrc_gfc2020_raw.mosaic().rename("EUFO_2020")
 
+
+# ESA_TC_2020
+def esa_worldcover_trees_prep():
+    esa_worldcover_2020_raw = ee.Image("ESA/WorldCover/v100/2020");
+    esa_worldcover_trees_2020 = esa_worldcover_2020_raw.eq(95).Or(esa_worldcover_2020_raw.eq(10)) #get trees and mnangroves
+    return esa_worldcover_trees_2020.rename('ESA_TC_2020') 
+
 # TMF_undist (undistrubed forest in 2020)
 def jrc_tmf_undisturbed_prep():
     TMF_undist_2020 = ee.ImageCollection("projects/JRC/TMF/v1_2023/AnnualChanges").select("Dec2020").mosaic().eq(1) # update from https://github.com/forestdatapartnership/whisp/issues/42 
     return TMF_undist_2020.rename("TMF_undist")
+
+# Forest Persistence FDaP
+def fdap_forest_prep():
+    fdap_forest_raw = ee.Image("projects/forestdatapartnership/assets/community_forests/ForestPersistence_2020")
+    fdap_forest = fdap_forest_raw.gt(0.75)
+    return fdap_forest.rename("Forest_FDaP")
+
+
+############plantation data
+# # Oil_palm_Descals 
+# NB updated to Descals et al 2024 paper (as opposed to Descals et al 2021 paper)
+def creaf_descals_palm_prep():
+    # Load the Global Oil Palm Year of Plantation image and mosaic it
+    img = ee.ImageCollection("projects/ee-globaloilpalm/assets/shared/GlobalOilPalm_YoP_2021").mosaic().select("minNBR_date")
+
+    # Calculate the year of plantation and select all below and including 2020
+    oil_palm_plantation_year = img.divide(365).add(1970).floor().lte(2020)
+
+    # Create a mask for plantations in the year 2020 or earlier
+    plantation_2020 = oil_palm_plantation_year.lte(2020).selfMask()
+    return plantation_2020.rename("Oil_palm_Descals")
+
 
 #TMF_plant (plantations in 2020) 
 def jrc_tmf_plantation_prep():
@@ -63,11 +80,56 @@ def jrc_tmf_plantation_prep():
 def eth_kalischek_cocoa_prep():
     return ee.Image('projects/ee-nk-cocoa/assets/cocoa_map_threshold_065').rename("Cocoa_ETH")
 
-# Oil_palm_FDaP
+
+# Oil Palm FDaP
 def fdap_palm_prep():
-    fdap_palm2020_model_raw = ee.ImageCollection("projects/forestdatapartnership/assets/palm/palm_2020_model_20240312")
-    fdap_palm = fdap_palm2020_model_raw.mosaic().gt(0.95).selfMask() # to check with Nick (increased due to false postives)
+    fdap_palm2020_model_raw = ee.ImageCollection("projects/forestdatapartnership/assets/palm/model_2024a")
+    fdap_palm = (
+        fdap_palm2020_model_raw
+        .filterDate('2020-01-01', '2020-12-31')
+        .mosaic()
+        .gt(0.83)  # Threshold for Oil Palm
+        
+    )
     return fdap_palm.rename("Oil_palm_FDaP")
+
+
+# Rubber FDaP
+def fdap_rubber_prep():
+    fdap_rubber2020_model_raw = ee.ImageCollection("projects/forestdatapartnership/assets/rubber/model_2024a")
+    fdap_rubber = (
+        fdap_rubber2020_model_raw
+        .filterDate('2020-01-01', '2020-12-31')
+        .mosaic()
+        .gt(0.93)  # Threshold for Rubber
+        
+    )
+    return fdap_rubber.rename("Rubber_FDaP")
+
+# Cocoa FDaP
+def fdap_cocoa_prep():
+    fdap_cocoa2020_model_raw = ee.ImageCollection("projects/forestdatapartnership/assets/cocoa/model_2024a")
+    fdap_cocoa = (
+        fdap_cocoa2020_model_raw
+        .filterDate('2020-01-01', '2020-12-31')
+        .mosaic()
+        .gt(0.5)  # Threshold for Cocoa
+       
+    )
+    return fdap_cocoa.rename("Cocoa_FDaP")
+
+
+# Cocoa_bnetd
+def civ_ocs2020_prep():
+    return ee.Image("BNETD/land_cover/v1/2020").select("classification").eq(9).rename("Cocoa_bnetd") # cocoa from national land cover map for Côte d'Ivoire
+
+# Rubber_RBGE  - from Royal Botanical Gardens of Edinburgh (RBGE) NB for 2021  
+def rbge_rubber_prep():
+    return ee.Image('users/wangyxtina/MapRubberPaper/rRubber10m202122_perc1585DifESAdist5pxPF').unmask().rename("Rubber_RBGE");
+
+
+#### disturbances by year
+
 
 # RADD_year_2019 to RADD_year_< current year >
 def radd_year_prep():
@@ -93,25 +155,6 @@ def radd_year_prep():
         else:
             img_stack = img_stack.addBands(radd_year)
     return img_stack
-
-
-
-# ESA_TC_2020
-def esa_worldcover_trees_prep():
-    esa_worldcover_2020_raw = ee.Image("ESA/WorldCover/v100/2020");
-    esa_worldcover_trees_2020 = esa_worldcover_2020_raw.eq(95).Or(esa_worldcover_2020_raw.eq(10)) #get trees and mnangroves
-    return esa_worldcover_trees_2020.rename('ESA_TC_2020') 
-
-# Cocoa_bnetd
-def civ_ocs2020_prep():
-    return ee.Image("BNETD/land_cover/v1/2020").select("classification").eq(9).rename("Cocoa_bnetd") # cocoa from national land cover map for Côte d'Ivoire
-
-# Rubber_RBGE  - from Royal Botanical Gardens of Edinburgh (RBGE) NB for 2021  
-def rbge_rubber_prep():
-    return ee.Image('users/wangyxtina/MapRubberPaper/rRubber10m202122_perc1585DifESAdist5pxPF').unmask().rename("Rubber_RBGE");
-
-
-#### disturbances by year
 
 # TMF_def_2000 to TMF_def_2022
 def tmf_def_per_year_prep():
@@ -379,13 +422,16 @@ def combine_datasets():
     img_combined = ee.Image(1).rename(geometry_area_column) # becomes the area column after pixel area multiplication step below
 
     # Add bands from each dataset
-    img_combined = img_combined.addBands(try_access(creaf_descals_palm_prep))
     img_combined = img_combined.addBands(try_access(jaxa_forest_prep))
     img_combined = img_combined.addBands(try_access(glad_gfc_10pc_prep))
     img_combined = img_combined.addBands(try_access(glad_pht_prep))
     img_combined = img_combined.addBands(try_access(jrc_gfc_2020_prep))
-    img_combined = img_combined.addBands(try_access(fdap_palm_prep))
     img_combined = img_combined.addBands(try_access(jrc_tmf_undisturbed_prep))
+    img_combined = img_combined.addBands(try_access(fdap_forest_prep))
+    img_combined = img_combined.addBands(try_access(creaf_descals_palm_prep))
+    img_combined = img_combined.addBands(try_access(fdap_palm_prep))
+    img_combined = img_combined.addBands(try_access(fdap_rubber_prep))
+    img_combined = img_combined.addBands(try_access(fdap_cocoa_prep))
     img_combined = img_combined.addBands(try_access(jrc_tmf_plantation_prep))
     img_combined = img_combined.addBands(try_access(eth_kalischek_cocoa_prep))
     # img_combined = img_combined.addBands(try_access(wcmc_wdpa_protection_prep))
