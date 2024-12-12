@@ -37,9 +37,9 @@
     <tr><td rowspan="3">Oil_palm_Descals</td><td rowspan="3">Classes from the “classification band” representing oil palm plantations (i.e., 0 & 1).</td><td rowspan="2">Descals, A., Wich, S., Meijaard, E., Gaveau, D. L. A., Peedell, S., & Szantoi, Z. (2021). <i>High-resolution global map of smallholder and industrial closed-canopy oil palm plantations.</i> Earth System Science Data, 13(3), 1211–1231. https://doi.org/10.5194/essd-13-1211-2021</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection(‘BIOPAMA/GlobalOilPalm/v1’)</td></tr>
-    <tr><td rowspan="3">Oil_palm_FDaP</td><td rowspan="3">Binary layer. For certain countries only.</td><td rowspan="2">FDaP (2024). <i>Lookup GEE datasets.</i> In: Forest Data Partnership – GitHub. https://github.com/forestdatapartnership/whisp/blob/main/parameters/lookup_gee_datasets.csv</td></tr>
+    <tr><td rowspan="3">Oil_palm_FDaP</td><td rowspan="3">Filtered collection to 2020 data. Threshold set for Whisp based on the intersection of recall and precision in charts for accuracy. For certain countries only.</td><td rowspan="2">FDaP (2024). <i>Lookup GEE datasets.</i> In: Forest Data Partnership – GitHub. https://github.com/forestdatapartnership/whisp/blob/main/parameters/lookup_gee_datasets.csv</td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection(“projects/forestdatapartnership/assets/palm/palm_2020_model_20231026”)</td></tr>
+    <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/palm/model_2024a")</td></tr>
     <tr><td rowspan="3">Cocoa_ETH</td><td rowspan="3">Binary product where 1 represents cocoa. Product derived from a cocoa probability map where the recommended threshold of >65%, had already been applied.</td><td rowspan="2">Kalischek, N., Lang, N., Renier, C., Daudt, R. C., Addoah, T., Thompson, W., Blaser-Hart, W. J., Garrett, R., Schindler, K., & Wegner, J. D. (2022). <i>Satellite-based high-resolution maps of cocoa planted area for Côte d’Ivoire and Ghana</i> ( 5). arXiv. https://doi.org/10.48550/ARXIV.2206.06119</td></tr>
     <tr></tr>
     <tr><td>ee.Image(‘projects/ee-nk-cocoa/assets/cocoa_map_threshold_065’)</td></tr>
