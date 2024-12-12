@@ -1,6 +1,5 @@
 from whisp.src.stats import (
     whisp_stats_ee_to_df,
-    whisp_formatted_stats_geojson_to_df,
     whisp_stats_geojson_to_df,
     whisp_stats_geojson_to_ee,
     whisp_stats_ee_to_drive,
