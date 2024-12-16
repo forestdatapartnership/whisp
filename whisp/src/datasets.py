@@ -1,7 +1,7 @@
 import ee
 
-ee.Authenticate()
-ee.Initialize()
+# ee.Authenticate()
+# ee.Initialize()
 
 from datetime import datetime
 
@@ -96,7 +96,7 @@ def fdap_forest_prep():
         "projects/forestdatapartnership/assets/community_forests/ForestPersistence_2020"
     )
     fdap_forest = fdap_forest_raw.gt(0.75)
-    return fdap_forest.rename("forest_FDaP")
+    return fdap_forest.rename("Forest_FDaP")
 
 
 ############plantation data
