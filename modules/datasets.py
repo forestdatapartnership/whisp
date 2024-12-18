@@ -156,13 +156,13 @@ def radd_year_prep():
             img_stack = img_stack.addBands(radd_year)
     return img_stack
 
-# TMF_def_2000 to TMF_def_2022
+# TMF_def_2000 to TMF_def_2023
 def tmf_def_per_year_prep():
     # Load the TMF Deforestation annual product
     tmf_def   = ee.ImageCollection('projects/JRC/TMF/v1_2023/DeforestationYear').mosaic()
     img_stack = None
     # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
-    for i in range(0, 22 +1):
+    for i in range(0, 23 +1):
         tmf_def_year = tmf_def.eq(2000+i).rename("TMF_def_" + str(2000+i))
         if img_stack is None:
             img_stack = tmf_def_year
@@ -171,13 +171,13 @@ def tmf_def_per_year_prep():
     return img_stack
 
 
-# TMF_deg_2000 to TMF_deg_2022 
+# TMF_deg_2000 to TMF_deg_2023 
 def tmf_deg_per_year_prep():
     # Load the TMF Degradation annual product
     tmf_def   = ee.ImageCollection('projects/JRC/TMF/v1_2023/DegradationYear').mosaic()
     img_stack = None
     # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
-    for i in range(0, 22 +1):
+    for i in range(0, 23 +1):
         tmf_def_year = tmf_def.eq(2000+i).rename("TMF_deg_" + str(2000+i))
         if img_stack is None:
             img_stack = tmf_def_year
