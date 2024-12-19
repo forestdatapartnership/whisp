@@ -1,4 +1,5 @@
 from pathlib import Path
+import ee
 from whisp.src.stats import whisp_stats_geojson_to_df
 
 import pandas as pd

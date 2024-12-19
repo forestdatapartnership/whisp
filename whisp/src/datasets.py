@@ -249,13 +249,13 @@ def radd_year_prep():
     return img_stack
 
 
-# TMF_def_2000 to TMF_def_2022
+# TMF_def_2000 to TMF_def_2023
 def tmf_def_per_year_prep():
     # Load the TMF Deforestation annual product
     tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2023/DeforestationYear").mosaic()
     img_stack = None
     # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
-    for i in range(0, 22 + 1):
+    for i in range(0, 23 + 1):
         tmf_def_year = tmf_def.eq(2000 + i).rename("TMF_def_" + str(2000 + i))
         if img_stack is None:
             img_stack = tmf_def_year
@@ -264,13 +264,13 @@ def tmf_def_per_year_prep():
     return img_stack
 
 
-# TMF_deg_2000 to TMF_deg_2022
+# TMF_deg_2000 to TMF_deg_2023
 def tmf_deg_per_year_prep():
     # Load the TMF Degradation annual product
     tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2023/DegradationYear").mosaic()
     img_stack = None
     # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
-    for i in range(0, 22 + 1):
+    for i in range(0, 23 + 1):
         tmf_def_year = tmf_def.eq(2000 + i).rename("TMF_deg_" + str(2000 + i))
         if img_stack is None:
             img_stack = tmf_def_year
@@ -497,19 +497,20 @@ def esa_fire_before_2020_prep():
 
 # Temporarily removed - pending agreements for use in API. Results will likely only be included only in the Whisp API.
 # NB dataset is restricted for commercial use. Shown here using non-commercial release of the WDPA, for code tranparency only.
-def wcmc_wdpa_protection_prep():
-    wdpa_poly = ee.FeatureCollection("WCMC/WDPA/current/polygons")
 
-    wdpa_filt = wdpa_poly.filter(
-        ee.Filter.And(
-            ee.Filter.neq("STATUS", "Proposed"),
-            ee.Filter.neq("STATUS", "Not Reported"),
-            ee.Filter.neq("DESIG_ENG", "UNESCO-MAB Biosphere Reserve"),
-        )
-    )
-    wdpa_binary = ee.Image().paint(wdpa_filt, 1)
+# def wcmc_wdpa_protection_prep():
+#     wdpa_poly = ee.FeatureCollection("WCMC/WDPA/current/polygons")
 
-    return wdpa_binary.rename("WDPA")
+#     wdpa_filt = wdpa_poly.filter(
+#         ee.Filter.And(
+#             ee.Filter.neq("STATUS", "Proposed"),
+#             ee.Filter.neq("STATUS", "Not Reported"),
+#             ee.Filter.neq("DESIG_ENG", "UNESCO-MAB Biosphere Reserve"),
+#         )
+#     )
+#     wdpa_binary = ee.Image().paint(wdpa_filt, 1)
+
+#     return wdpa_binary.rename("WDPA")
 
 
 # KBA
@@ -518,16 +519,17 @@ def wcmc_wdpa_protection_prep():
 # Temporarily removed pending agreements for use in API.  Results will likely only be included only in the Whisp API.
 # NB dataset is restricted for commercial use. Shown here for code tranparency.
 # Results will be included only in the Whisp API where they will be restricted to a limited number of plots.
-def birdlife_kbas_biodiversity_prep():
 
-    ##uploaded data - Non-commercial. For queries with limited numbers of sites. Exact number to be confirmed.
-    kbas_2023_poly = ee.FeatureCollection(
-        "projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/raw/KBAsGlobal_2023_March_01_POL"
-    )
+# def birdlife_kbas_biodiversity_prep():
 
-    kba_2023_binary = ee.Image().paint(kbas_2023_poly, 1)
+#     ##uploaded data - Non-commercial. For queries with limited numbers of sites. Exact number to be confirmed.
+#     kbas_2023_poly = ee.FeatureCollection(
+#         "projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/raw/KBAsGlobal_2023_March_01_POL"
+#     )
 
-    return kba_2023_binary.rename("KBA")
+#     kba_2023_binary = ee.Image().paint(kbas_2023_poly, 1)
+
+#     return kba_2023_binary.rename("KBA")
 
 
 # ###Combining datasets
