@@ -8,4 +8,4 @@ Admin_Level_1,-5,context_and_metadata,NA,NA,0,string,1,1,admin_1_column
 Centroid_lon,-4,context_and_metadata,NA,NA,0,float64,1,1,centroid_x_coord_column
 Centroid_lat,-3,context_and_metadata,NA,NA,0,float64,1,1,centroid_y_coord_column
 Unit,-2,context_and_metadata,NA,NA,0,string,1,1,stats_unit_type_column
-water_flag,-1,context_and_metadata,0,NA,0,string,1,1,water_flag
+In_waterbody,-1,context_and_metadata,0,NA,0,string,1,1,water_flag

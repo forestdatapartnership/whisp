@@ -291,7 +291,9 @@ def get_type_and_location(feature):
 
     # Prepare the water flag information
     water_all = water_flag_all_prep()
-    water_flag_dict = value_at_point_flag(centroid, water_all, "water_flag", water_flag)
+    water_flag_dict = value_at_point_flag(
+        point=centroid, image=water_all, band_name=water_flag, output_name=water_flag
+    )
 
     # Get the geometry type of the feature
     geom_type = ee.Dictionary({geometry_type_column: feature.geometry().type()})

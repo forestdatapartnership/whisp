@@ -11,7 +11,6 @@ from whisp.src.stats import (
 from whisp.src.reformat import (
     validate_dataframe_using_lookups,
     validate_dataframe,
-    append_csvs_to_dataframe,
     create_schema_from_dataframe,
     load_schema_if_any_file_changed,
     # log_missing_columns,

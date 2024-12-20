@@ -11,7 +11,6 @@ class DataLookupSchema(pa.DataFrameModel):
 
     # Define fields without checks
     use_for_risk: Series[pa.Int | bool] = pa.Field(nullable=True)
-    exclude_from_input: Series[pa.Int | bool] = pa.Field(nullable=False)
     exclude_from_output: Series[pa.Int | bool] = pa.Field(nullable=False)
 
     # Define col_type without checks
