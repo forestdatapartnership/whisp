@@ -1,6 +1,5 @@
 import ee
 
-# import functools
 import pandas as pd
 
 from pathlib import Path
@@ -456,21 +455,6 @@ def reformat_whisp_fc(
                 feature, exclude_properties_from_output
             )
         )
-
-
-# def get_stats_formatted(feature_or_feature_col, **kwargs) -> ee.FeatureCollection:
-#     # Call to the original function to get stats
-#     fc = get_stats(feature_or_feature_col)
-
-#     # Directly apply the formatting logic, without a decorator
-#     fc_formatted = reformat_whisp_fc(
-#         fc,
-#         id_name=kwargs.get("id_name"),
-#         flag_positive=kwargs.get("flag_positive"),
-#         exclude_properties_from_output=kwargs.get("exclude_properties_from_output"),
-#     )
-
-#     return fc_formatted
 
 
 def add_id_to_feature_collection(dataset, id_name="PlotID"):
