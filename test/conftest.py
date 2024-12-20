@@ -3,7 +3,6 @@ import pytest
 
 from whisp.src.utils import init_ee, clear_ee_credentials
 from whisp.src.logger import StdoutLogger
-import ee
 
 logger = StdoutLogger(__name__)
 

@@ -8,6 +8,7 @@ __pycache__/
 *.zip
 temp*
 whisp_output_table.csv
+whisp_output_table_w_risk.csv
 temp_geo_id_lookup.csv
 test/outputs/
 .env
