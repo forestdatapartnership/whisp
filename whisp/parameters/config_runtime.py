@@ -23,7 +23,7 @@ geometry_type_column = "Geometry_type"
 
 plot_id_column = "Plot_ID"
 
-water_flag = "water_flag"
+water_flag = "In_waterbody"
 
 # reformatting numbers to decimal places (e.g. '%.3f' is 3 dp)
 geometry_area_column_formatting = "%.3f"

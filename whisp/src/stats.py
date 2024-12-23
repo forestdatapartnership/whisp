@@ -404,7 +404,7 @@ def water_flag_all_prep():
         usgs_gsv_ocean_prep()
         .unmask()
         .where(jrc_water_surface_prep(), 1)
-        .rename("water_flag")
+        .rename(water_flag)
     )
 
 

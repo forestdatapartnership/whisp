@@ -489,7 +489,7 @@ def esa_fire_before_2020_prep():
     )
 
 
-####### feature datasets
+####### ancilliary datasets
 
 
 # WDPA
@@ -512,6 +512,8 @@ def esa_fire_before_2020_prep():
 
 #     return wdpa_binary.rename("WDPA")
 
+# Temporarily removed - pending agreements for use in API. Results will likely only be included only in the Whisp API.
+# NB dataset is restricted for commercial use.
 
 # KBA
 # Key Biodiversity Areas (KBAs)
