@@ -28,11 +28,14 @@ from .data_conversion import (
 
 from .reformat import (
     validate_dataframe_using_lookups,
-)  # copied functions from whisp-api and geemap (accessed 2024) to avoid dependency
+)
 
 
 def whisp_formatted_stats_geojson_to_df(geojson_filepath: Path | str) -> pd.DataFrame:
     """
+    Main function for most users.
+    Converts a GeoJSON file to a pandas DataFrame containing Whisp stats for the input ROI.
+    Output df is validated against a panderas schema (created on the fly from the two lookup csvs).
 
     Parameters
     ----------
@@ -422,41 +425,41 @@ def value_at_point_flag(point, image, band_name, output_name):
     return ee.Dictionary({output_name: result})  # .getInfo()
 
 
-def reformat_whisp_fc(
-    feature_collection,
-    id_name=None,
-    flag_positive=None,
-    exclude_properties_from_output=None,
-):
-    """
-    Process a FeatureCollection with various reformatting operations.
+# def reformat_whisp_fc(
+#     feature_collection,
+#     id_name=None,
+#     flag_positive=None,
+#     exclude_properties_from_output=None,
+# ):
+#     """
+#     Process a FeatureCollection with various reformatting operations.
 
-    Args:
-    - feature_collection: ee.FeatureCollection, the FeatureCollection to operate on.
-    - id_name: str, optional. Name of the ID property.
-    - flag_positive: list, optional. List of property names to flag positive values.
-    - exclude_properties_from_output: list, optional. List of property names to exclude_from_output.
+#     Args:
+#     - feature_collection: ee.FeatureCollection, the FeatureCollection to operate on.
+#     - id_name: str, optional. Name of the ID property.
+#     - flag_positive: list, optional. List of property names to flag positive values.
+#     - exclude_properties_from_output: list, optional. List of property names to exclude_from_output.
 
-    Returns:
-    - processed_features: ee.FeatureCollection, FeatureCollection after processing.
-    """
+#     Returns:
+#     - processed_features: ee.FeatureCollection, FeatureCollection after processing.
+#     """
 
-    if id_name:
-        feature_collection = add_id_to_feature_collection(feature_collection, id_name)
+#     if id_name:
+#         feature_collection = add_id_to_feature_collection(feature_collection, id_name)
 
-    # Flag positive values if specified
-    if flag_positive:
-        feature_collection = feature_collection.map(
-            lambda feature: flag_positive_values(feature, flag_positive)
-        )
+#     # Flag positive values if specified
+#     if flag_positive:
+#         feature_collection = feature_collection.map(
+#             lambda feature: flag_positive_values(feature, flag_positive)
+#         )
 
-    # Exclude properties if specified
-    if exclude_properties_from_output:
-        feature_collection = feature_collection.map(
-            lambda feature: copy_properties_and_exclude(
-                feature, exclude_properties_from_output
-            )
-        )
+#     # Exclude properties if specified
+#     if exclude_properties_from_output:
+#         feature_collection = feature_collection.map(
+#             lambda feature: copy_properties_and_exclude(
+#                 feature, exclude_properties_from_output
+#             )
+#         )
 
 
 def add_id_to_feature_collection(dataset, id_name="PlotID"):
