@@ -212,7 +212,7 @@ def ee_to_shapefile(feature_collection, shapefile_path):
     """
 
     # Initialize Earth Engine
-    ee.Initialize()
+    # ee.Initialize()
 
     # Convert FeatureCollection to GeoJSON object using the function
     geojson = ee_to_geojson(feature_collection)
