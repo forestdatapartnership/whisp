@@ -8,6 +8,7 @@ from .datasets import combine_datasets
 
 from ..parameters.config_runtime import (
     percent_or_ha,
+    plot_id_column,
     geometry_type_column,
     geometry_area_column,
     geometry_area_column_formatting,
@@ -129,7 +130,8 @@ def whisp_stats_ee_to_ee(
     feature_collection : ee.FeatureCollection
         The dataframe containing the Whisp stats for the input ROI.
     """
-    return get_stats(feature_collection)
+    fc = get_stats(feature_collection)
+    return add_id_to_feature_collection(dataset=fc, id_name=plot_id_column)
 
 
 def whisp_stats_ee_to_df(feature_collection: ee.FeatureCollection) -> pd.DataFrame:
@@ -419,7 +421,7 @@ def value_at_point_flag(point, image, band_name, output_name):
     value = sample.get(band_name)  # assuming the band name is 'b1', change if necessary
 
     # Use a conditional statement to check if the value is 1
-    result = ee.Algorithms.If(ee.Number(value).eq(1), "True", "-")
+    result = value  # ee.Algorithms.If(ee.Number(value).eq(1), "True", "False")
 
     # Return the output dictionary
     return ee.Dictionary({output_name: result})  # .getInfo()
@@ -462,7 +464,7 @@ def value_at_point_flag(point, image, band_name, output_name):
 #         )
 
 
-def add_id_to_feature_collection(dataset, id_name="PlotID"):
+def add_id_to_feature_collection(dataset, id_name):
     """
     Adds an incremental (1,2,3 etc) 'id' property to each feature in the given FeatureCollection.
 

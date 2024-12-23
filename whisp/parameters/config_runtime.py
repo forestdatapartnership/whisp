@@ -17,11 +17,11 @@ centroid_x_coord_column = "Centroid_lon"
 
 centroid_y_coord_column = "Centroid_lat"
 
-geo_id_column = "Geo_id"
+geo_id_column = "geoid"
 
 geometry_type_column = "Geometry_type"
 
-plot_id_column = "Plot_ID"
+plot_id_column = "plotId"
 
 water_flag = "In_waterbody"
 
