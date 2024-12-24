@@ -15,3 +15,4 @@ test/outputs/
 whisp.egg-info/
 build/
 pre-commit.log
+credentials.json
