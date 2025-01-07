@@ -226,8 +226,9 @@ def radd_year_prep():
     start_year = 19  ## (starts 2019 in Africa, then 2020 for S America and Asia: https://data.globalforestwatch.org/datasets/gfw::deforestation-alerts-radd/about
 
     current_year = (
-        datetime.now().year % 100
-    )  # NB the % 100 part gets last two digits needed
+        # datetime.now().year % 100
+        24  # NB the % 100 part gets last two digits needed
+    )
 
     img_stack = None
     # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
@@ -304,7 +305,8 @@ def modis_fire_prep():
 
     start_year = 2000  ## (starts 2019 in Africa, then 2020 for S America and Asia: https://data.globalforestwatch.org/datasets/gfw::deforestation-alerts-radd/about
 
-    current_year = datetime.now().year
+    # current_year = datetime.now().year
+    current_year = 2024
 
     for year in range(start_year, current_year + 1):
         date_st = str(year) + "-01-01"
