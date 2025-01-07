@@ -93,6 +93,7 @@ RADD_year_2021,910,disturbance_after,0,0,float32,1,0,radd_year_prep
 RADD_year_2022,920,disturbance_after,0,0,float32,1,0,radd_year_prep
 RADD_year_2023,930,disturbance_after,0,0,float32,1,0,radd_year_prep
 RADD_year_2024,940,disturbance_after,0,0,float32,1,0,radd_year_prep
+RADD_year_2025,941,disturbance_after,0,0,float32,1,0,radd_year_prep
 ESA_fire_2001,950,disturbance_before,0,0,float32,1,0,esa_fire_prep
 ESA_fire_2002,960,disturbance_before,0,0,float32,1,0,esa_fire_prep
 ESA_fire_2003,970,disturbance_before,0,0,float32,1,0,esa_fire_prep
