@@ -300,35 +300,6 @@ def glad_gfc_loss_per_year_prep():
 
 
 # MODIS_fire_2000 to MODIS_fire_< current year >
-# def modis_fire_prep():
-#     modis_fire = ee.ImageCollection("MODIS/061/MCD64A1")
-#     img_stack = None
-
-#     start_year = 2000  ## (starts 2019 in Africa, then 2020 for S America and Asia: https://data.globalforestwatch.org/datasets/gfw::deforestation-alerts-radd/about
-
-#     # current_year = datetime.now().year
-#     current_year = 2024
-
-#     for year in range(start_year, current_year + 1):
-#         date_st = str(year) + "-01-01"
-#         date_ed = str(year) + "-12-31"
-#         # print(date_st)
-#         modis_year = (
-#             modis_fire.filterDate(date_st, date_ed)
-#             .mosaic()
-#             .select(["BurnDate"])
-#             .gte(0)
-#             .rename("MODIS_fire_" + str(year))
-#         )
-
-#         if img_stack is None:
-#             img_stack = modis_year
-#         else:
-#             img_stack = img_stack.addBands(modis_year)
-#     return img_stack
-
-
-# MODIS_fire_2000 to MODIS_fire_< current year >
 def modis_fire_prep():
     modis_fire = ee.ImageCollection("MODIS/061/MCD64A1")
     start_year = 2000
@@ -382,27 +353,92 @@ def esa_fire_prep():
     return img_stack
 
 
-# # ESA_fire_2000 to ESA_fire_2020
-# def esa_fire_prep():
-#     esa_fire = ee.ImageCollection("ESA/CCI/FireCCI/5_1")
-#     img_stack = None
-#     for year in range(2001, 2020 + 1):
-#         date_st = str(year) + "-01-01"
-#         date_ed = str(year) + "-12-31"
-#         # print(date_st)
-#         esa_year = (
-#             esa_fire.filterDate(date_st, date_ed)
-#             .mosaic()
-#             .select(["BurnDate"])
-#             .gte(0)
-#             .rename("ESA_fire_" + str(year))
-#         )
+# DIST_alert_2024 to DIST_alert_< current year >
+# Notes:
+# 1) so far only available for 2024 onwards in GEE
+# TO DO - see if gee asset for pre 2020-2024 is available from GLAD team, else download from nasa and put in Whisp assets
+# 2) masked alerts (as dist alerts are for all vegetation) to JRC EUFO 2020 layer, as close to EUDR definition
+# TO DO - ask opinions on if others (such as treecover data from GLAD team) should be used instead
 
-#         if img_stack is None:
-#             img_stack = esa_year
-#         else:
-#             img_stack = img_stack.addBands(esa_year)
-#     return img_stack
+
+def glad_dist_year_prep():
+
+    # Load the vegetation disturbance collections
+
+    #  Vegetation disturbance status (0-8, class flag, 8-bit)
+    VEGDISTSTATUS = ee.ImageCollection(
+        "projects/glad/HLSDIST/current/VEG-DIST-STATUS"
+    ).mosaic()
+    # Initial vegetation disturbance date (>0: days since 2020-12-31, 16-bit)
+    VEGDISTDATE = ee.ImageCollection(
+        "projects/glad/HLSDIST/current/VEG-DIST-DATE"
+    ).mosaic()
+
+    # NB relies on initial date of disturbance - consider if last date needed? : VEGLASTDATE = ee.ImageCollection("projects/glad/HLSDIST/current/VEG-LAST-DATE").mosaic(); # Last assessed observation date (≥1, days, 16-bit)
+
+    # Key for high-confidence alerts (values 3, 6, 7, 8)
+    high_conf_values = [3, 6, 7, 8]
+    # where:
+    # 3 = <50% loss, high confidence, ongoing
+    # 6 = ≥50% loss, high confidence, ongoing
+    # 7 = <50% loss, high confidence, finished
+    # 8 = ≥50% loss, high confidence, finished
+    # Note could use <50% loss (i.e. only 6 and 7) for if want to be more strict
+
+    # Create high-confidence mask
+    dist_high_conf = VEGDISTSTATUS.remap(
+        high_conf_values, [1] * len(high_conf_values), 0
+    )
+
+    # Determine start year and current year dynamically
+    start_year = 2024  # Set the first year of interest
+    current_year = datetime.now().year
+
+    # Calculate days since December 31, 2020 for start and end dates (server-side)
+    start_of_2020 = ee.Date("2020-12-31").millis().divide(86400000).int()
+
+    # Create a list to hold the yearly images
+    yearly_images = []
+
+    for year in range(start_year, current_year + 1):
+        start_of_year = (
+            ee.Date(f"{year}-01-01")
+            .millis()
+            .divide(86400000)
+            .int()
+            .subtract(start_of_2020)
+        )
+        start_of_next_year = (
+            ee.Date(f"{year + 1}-01-01")
+            .millis()
+            .divide(86400000)
+            .int()
+            .subtract(start_of_2020)
+        )
+
+        # Filter VEG-DIST-DATE for the selected year
+        dist_year = VEGDISTDATE.gte(start_of_year).And(
+            VEGDISTDATE.lt(start_of_next_year)
+        )
+
+        # Apply high-confidence mask and rename the band
+        high_conf_year = dist_year.updateMask(dist_high_conf).rename(
+            f"DIST_year_{year}"
+        )
+
+        # Append the year's data to the list
+        yearly_images.append(high_conf_year)
+
+    # Combine all yearly images into a single image
+    img_stack = ee.Image.cat(yearly_images)
+
+    # Rename the bands correctly
+    band_names = [f"DIST_year_{year}" for year in range(start_year, current_year + 1)]
+    img_stack = img_stack.select(img_stack.bandNames(), band_names)
+
+    return img_stack.updateMask(
+        jrc_gfc_2020_prep()
+    )  # mask yearly dist alerts to forest cover in 2020
 
 
 #### disturbances combined (split into before and after 2020)
@@ -455,6 +491,53 @@ def radd_before_2020_prep():
         .rename("RADD_before_2020")
     )
 
+
+# DIST_after_2020
+# alerts only for after 2020 currently so need to use date
+def glad_dist_after_2020_prep():
+
+    # Load the vegetation disturbance collections
+    VEGDISTSTATUS = ee.ImageCollection(
+        "projects/glad/HLSDIST/current/VEG-DIST-STATUS"
+    ).mosaic()
+
+    # Key for high-confidence alerts (values 3, 6, 7, 8)
+    high_conf_values = [3, 6, 7, 8]
+
+    # Create high-confidence mask
+    dist_high_conf = VEGDISTSTATUS.remap(
+        high_conf_values, [1] * len(high_conf_values), 0
+    )
+
+    return dist_high_conf.updateMask(jrc_gfc_2020_prep()).rename(
+        "DIST_after_2020"
+    )  # Mask alerts to forest and rename band
+
+
+# # DIST_after_2020
+# def glad_dist_after_2020_prep():
+
+#     # Load the vegetation disturbance collections
+#     VEGDISTSTATUS = ee.ImageCollection("projects/glad/HLSDIST/current/VEG-DIST-STATUS").mosaic()
+#     VEGDISTDATE = ee.ImageCollection("projects/glad/HLSDIST/current/VEG-DIST-DATE").mosaic()
+
+#     # Key for high-confidence alerts (values 3, 6, 7, 8)
+#     high_conf_values = [3, 6, 7, 8]
+
+#     # Create high-confidence mask
+#     dist_high_conf = VEGDISTSTATUS.remap(high_conf_values, [1] * len(high_conf_values), 0)
+
+#     # Calculate days since December 31, 2020 for start and end dates (server-side)
+#     start_of_2020 = ee.Date('2020-12-31').millis().divide(86400000).int()
+#     current_date = ee.Date(datetime.now().strftime('%Y-%m-%d')).millis().divide(86400000).int()
+
+#     # Filter VEG-DIST-DATE for dates after December 31, 2020
+#     dist_after_2020 = VEGDISTDATE.gte(start_of_2020).And(VEGDISTDATE.lte(current_date))
+
+#     # Apply high-confidence mask
+#     high_conf_dist_after_2020 = dist_after_2020.updateMask(dist_high_conf)
+
+#     return high_conf_dist_after_2020.updateMask(jrc_gfc_2020_prep()).rename("DIST_after_2020")
 
 # TMF_deg_before_2020
 def tmf_deg_before_2020_prep():

@@ -9,6 +9,7 @@ from .datasets import combine_datasets
 from ..parameters.config_runtime import (
     percent_or_ha,
     plot_id_column,
+    geo_id_column,
     geometry_type_column,
     geometry_area_column,
     geometry_area_column_formatting,
@@ -32,7 +33,10 @@ from .reformat import (
 )
 
 
-def whisp_formatted_stats_geojson_to_df(geojson_filepath: Path | str) -> pd.DataFrame:
+def whisp_formatted_stats_geojson_to_df(
+    geojson_filepath: Path | str,
+    external_id_column=None,  # This variable is expected to be a string or None
+) -> pd.DataFrame:
     """
     Main function for most users.
     Converts a GeoJSON file to a pandas DataFrame containing Whisp stats for the input ROI.
@@ -50,10 +54,13 @@ def whisp_formatted_stats_geojson_to_df(geojson_filepath: Path | str) -> pd.Data
     """
     feature_collection = geojson_path_to_ee(str(geojson_filepath))
 
-    return whisp_formatted_stats_ee_to_df(feature_collection)
+    return whisp_formatted_stats_ee_to_df(feature_collection, external_id_column)
 
 
-def whisp_stats_geojson_to_df(geojson_filepath: Path | str) -> pd.DataFrame:
+def whisp_stats_geojson_to_df(
+    geojson_filepath: Path | str,
+    external_id_column=None,  # This variable is expected to be a string or None
+) -> pd.DataFrame:
     """
 
     Parameters
@@ -68,10 +75,13 @@ def whisp_stats_geojson_to_df(geojson_filepath: Path | str) -> pd.DataFrame:
     """
     feature_collection = geojson_path_to_ee(str(geojson_filepath))
 
-    return whisp_stats_ee_to_df(feature_collection)
+    return whisp_stats_ee_to_df(feature_collection, external_id_column)
 
 
-def whisp_stats_geojson_to_ee(geojson_filepath: Path | str) -> pd.DataFrame:
+def whisp_stats_geojson_to_ee(
+    geojson_filepath: Path | str,
+    external_id_column=None,  # This variable is expected to be a string or None
+) -> ee.FeatureCollection:
     """
 
     Parameters
@@ -86,10 +96,13 @@ def whisp_stats_geojson_to_ee(geojson_filepath: Path | str) -> pd.DataFrame:
     """
     feature_collection = geojson_path_to_ee(str(geojson_filepath))
 
-    return whisp_stats_ee_to_ee(feature_collection)
+    return whisp_stats_ee_to_ee(feature_collection, external_id_column)
 
 
-def whisp_stats_geojson_to_drive(geojson_filepath: Path | str):
+def whisp_stats_geojson_to_drive(
+    geojson_filepath: Path | str,
+    external_id_column=None,  # This variable is expected to be a string or None
+):
     """
     Parameters
     ----------
@@ -109,32 +122,141 @@ def whisp_stats_geojson_to_drive(geojson_filepath: Path | str):
         # Assuming geojson_to_ee is properly imported from data_conversion.py
         feature_collection = geojson_path_to_ee(str(geojson_filepath))
 
-        return whisp_stats_ee_to_drive(feature_collection)
+        return whisp_stats_ee_to_drive(feature_collection, external_id_column)
 
     except Exception as e:
         print(f"An error occurred: {e}")
 
 
-def whisp_stats_ee_to_ee(
-    feature_collection: ee.FeatureCollection,
-) -> ee.FeatureCollection:
-    """
+# def whisp_stats_ee_to_ee(
+#     feature_collection: ee.FeatureCollection,
+# ) -> ee.FeatureCollection:
+#     """
 
-    Parameters
-    ----------
-    feature_collection : ee.FeatureCollection
-        The feature collection of the ROI to analyze.
+#     Parameters
+#     ----------
+#     feature_collection : ee.FeatureCollection
+#         The feature collection of the ROI to analyze.
 
-    Returns
-    -------
-    feature_collection : ee.FeatureCollection
-        The dataframe containing the Whisp stats for the input ROI.
+#     Returns
+#     -------
+#     feature_collection : ee.FeatureCollection
+#         The dataframe containing the Whisp stats for the input ROI.
+#     """
+#     fc = get_stats(feature_collection)
+#     return add_id_to_feature_collection(dataset=fc, id_name=plot_id_column)
+
+
+# def whisp_stats_ee_to_ee(
+#     feature_collection: ee.FeatureCollection,
+#     external_id_column = None  # This variable is expected to be a string or None
+#     ) -> ee.FeatureCollection:
+#     """
+
+#     Parameters
+#     ----------
+#     feature_collection : ee.FeatureCollection
+#         The feature collection of the ROI to analyze.
+#     external_id_column : str, optional
+#         the name of the column to keep in the feature collection. The default is None.
+#         NB to provide a standardised output:
+#          1) the column is renamed to match the value of the geo_id_column variable
+#          2) the new column is string type to allow flexible input types,
+#            So, the user should be aware of
+#            a) which column was used and
+#            b) joins to input datasets may fail unless the input column was string
+#            (thus may require some data wrangling to reformat columns to match formats prior to joins)
+#     Returns
+#     -------
+#     feature_collection : ee.FeatureCollection
+#         The dataframe containing the Whisp stats for the input ROI.
+#     """
+#     if external_id_column is not None:
+#         try:
+#             feature_collection = feature_collection.map(lambda feature: feature.set(geo_id_column, ee.String(feature.get(external_id_column))))
+#         except:
+#             print (f"An error occurred when trying to set the external_id_column: {external_id_column}")
+#     fc = get_stats(feature_collection)
+#     return add_id_to_feature_collection(dataset=fc, id_name=plot_id_column)
+
+
+def whisp_stats_ee_to_ee(feature_collection, external_id_column):
     """
+    Process a feature collection to get statistics for each feature.
+
+    Parameters:
+        feature_collection (ee.FeatureCollection): The input feature collection.
+        external_id_column (str): The name of the external ID column to check.
+
+    Returns:
+        ee.FeatureCollection: The output feature collection with statistics.
+    """
+    # if external_id_column is not None:
+    # # Check if external_id_column is a property in feature_collection (server-side)
+    # def check_column_exists(feature):
+    #     return ee.Algorithms.If(
+    #         feature.propertyNames().contains(external_id_column),
+    #         feature,
+    #         ee.Feature(None)  # Return an empty feature if the column does not exist
+    #     )
+
+    # feature_collection_with_check = feature_collection.map(check_column_exists)
+    # valid_feature_count = feature_collection_with_check.filter(ee.Filter.notNull([external_id_column])).size()
+
+    # # Raise an error if the column does not exist in any feature
+    # if valid_feature_count.eq(0):
+    #     raise ValueError(f"The column '{external_id_column}' is not a property in the feature collection.")
+    # else:
+    # try:
+    #     feature_collection = feature_collection.map(lambda feature: feature.set(geo_id_column, ee.String(feature.get(external_id_column))))
+    # except Exception as e:
+    #     print (f"An error occurred when trying to set the external_id_column: {external_id_column}")
+
+    if external_id_column is not None:
+        try:
+            # Check if external_id_column is a property in feature_collection (server-side)
+            def check_column_exists(feature):
+                return ee.Algorithms.If(
+                    feature.propertyNames().contains(external_id_column),
+                    feature,
+                    ee.Feature(
+                        None
+                    ),  # Return an empty feature if the column does not exist
+                )
+
+            feature_collection_with_check = feature_collection.map(check_column_exists)
+            valid_feature_count = feature_collection_with_check.filter(
+                ee.Filter.notNull([external_id_column])
+            ).size()
+
+            # Raise an error if the column does not exist in any feature
+            if valid_feature_count.eq(0).getInfo():
+                raise ValueError(
+                    f"The column '{external_id_column}' is not a property in the feature collection."
+                )
+
+            # Set the geo_id_column
+            feature_collection = feature_collection.map(
+                lambda feature: feature.set(
+                    geo_id_column, ee.String(feature.get(external_id_column))
+                )
+            )
+
+        except Exception as e:
+            # Handle the exception and provide a helpful error message
+            print(
+                f"An error occurred when trying to set the external_id_column: {external_id_column}. Error: {e}"
+            )
+
     fc = get_stats(feature_collection)
+
     return add_id_to_feature_collection(dataset=fc, id_name=plot_id_column)
 
 
-def whisp_stats_ee_to_df(feature_collection: ee.FeatureCollection) -> pd.DataFrame:
+def whisp_stats_ee_to_df(
+    feature_collection: ee.FeatureCollection,
+    external_id_column=None,  # This variable is expected to be a string or None
+) -> pd.DataFrame:
     """
 
     Parameters
@@ -148,11 +270,12 @@ def whisp_stats_ee_to_df(feature_collection: ee.FeatureCollection) -> pd.DataFra
         The dataframe containing the Whisp stats for the input ROI.
     """
 
-    return ee_to_df(whisp_stats_ee_to_ee(feature_collection))
+    return ee_to_df(whisp_stats_ee_to_ee(feature_collection, external_id_column))
 
 
 def whisp_formatted_stats_ee_to_df(
     feature_collection: ee.FeatureCollection,
+    external_id_column=None,  # This variable is expected to be a string or None
 ) -> pd.DataFrame:
     """
     Parameters
@@ -165,7 +288,7 @@ def whisp_formatted_stats_ee_to_df(
     validated_df : pd.DataFrame
         The validated dataframe containing the Whisp stats for the input ROI.
     """
-    df_stats = ee_to_df(whisp_stats_ee_to_ee(feature_collection))
+    df_stats = ee_to_df(whisp_stats_ee_to_ee(feature_collection, external_id_column))
     validated_df = validate_dataframe_using_lookups(df_stats)
     return validated_df
 
@@ -174,7 +297,7 @@ def whisp_stats_ee_to_drive(feature_collection: ee.FeatureCollection):
 
     try:
         task = ee.batch.Export.table.toDrive(
-            collection=whisp_stats_ee_to_ee(feature_collection),
+            collection=whisp_stats_ee_to_ee(feature_collection, external_id_column),
             description="whisp_output_table",
             # folder="whisp_results",
             fileFormat="CSV",
@@ -212,7 +335,7 @@ def get_stats_fc(feature_col):
     out_feature_col = ee.FeatureCollection(
         feature_col.map(lambda feature: get_stats_feature(feature, img_combined))
     )
-    print(out_feature_col.first().getInfo())
+    # print(out_feature_col.first().getInfo()) # for testing
 
     return out_feature_col
 
