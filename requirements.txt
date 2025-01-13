@@ -70,8 +70,8 @@ kiwisolver==1.4.5
 markdown-it-py==3.0.0
 marko==2.1.2
 MarkupSafe==2.1.5
-matplotlib==3.9.1
-matplotlib-inline==0.1.7
+# matplotlib==3.9.1
+# matplotlib-inline==0.1.7
 mdurl==0.1.2
 multimethod==1.10
 mypy-extensions==1.0.0
@@ -109,11 +109,11 @@ Pygments==2.18.0
 pyogrio==0.10.0
 pyOpenSSL==24.2.1
 pyparsing==3.1.2
-pyperclip==1.9.0
+# pyperclip==1.9.0
 pyproj==3.7.0
 pyshp==2.3.1
 pytest==8.2.2
-python-box==7.2.0
+# python-box==7.2.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
 python-slugify==8.0.4
