@@ -38,7 +38,11 @@ from whisp.src.stats import (
     whisp_stats_geojson_to_drive,
     whisp_formatted_stats_ee_to_df,  # uses lookup tables to create schemas for reformatting
     whisp_formatted_stats_geojson_to_df,  # uses lookup tables to create schemas for reformatting
+    convert_iso3_to_iso2,  # temporary function to convert iso3 to iso2
 )
+
+# temporary parameters to be removed once isio3 to iso2 conversion server side is implemented
+from whisp.parameters.config_runtime import iso3_country_column, iso2_country_column
 
 from whisp.src.reformat import (
     validate_dataframe_using_lookups,

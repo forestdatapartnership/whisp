@@ -204,14 +204,9 @@ def whisp_stats_ee_to_df(
     """
     df_stats = ee_to_df(whisp_stats_ee_to_ee(feature_collection, external_id_column))
 
-    # Convert ISO3 to ISO2 and create a new column 'ProducerCountry'.
-    # Some iso3 codes are not present in the input feature collection. These are shown as numbers - due to disputed territories status, and in the new column 'ProducerCountry' they are shown as 'not found'.
-    # NB this is a temporary solution as the country_converter package is not available in the GEE Python API (could be replaced with a server-side solution in future, within 'whisp_stats_ee_to_ee')
-    df_stats[iso2_country_column] = df_stats[iso3_country_column].apply(
-        lambda x: coco.convert(names=x, to="ISO2")
+    return convert_iso3_to_iso2(
+        df=df_stats, iso3_column=iso3_country_column, iso2_column=iso2_country_column
     )
-
-    return df_stats
 
 
 def whisp_formatted_stats_ee_to_df(
@@ -495,43 +490,6 @@ def value_at_point_flag(point, image, band_name, output_name):
     return ee.Dictionary({output_name: result})  # .getInfo()
 
 
-# def reformat_whisp_fc(
-#     feature_collection,
-#     id_name=None,
-#     flag_positive=None,
-#     exclude_properties_from_output=None,
-# ):
-#     """
-#     Process a FeatureCollection with various reformatting operations.
-
-#     Args:
-#     - feature_collection: ee.FeatureCollection, the FeatureCollection to operate on.
-#     - id_name: str, optional. Name of the ID property.
-#     - flag_positive: list, optional. List of property names to flag positive values.
-#     - exclude_properties_from_output: list, optional. List of property names to exclude_from_output.
-
-#     Returns:
-#     - processed_features: ee.FeatureCollection, FeatureCollection after processing.
-#     """
-
-#     if id_name:
-#         feature_collection = add_id_to_feature_collection(feature_collection, id_name)
-
-#     # Flag positive values if specified
-#     if flag_positive:
-#         feature_collection = feature_collection.map(
-#             lambda feature: flag_positive_values(feature, flag_positive)
-#         )
-
-#     # Exclude properties if specified
-#     if exclude_properties_from_output:
-#         feature_collection = feature_collection.map(
-#             lambda feature: copy_properties_and_exclude(
-#                 feature, exclude_properties_from_output
-#             )
-#         )
-
-
 def add_id_to_feature_collection(dataset, id_name):
     """
     Adds an incremental (1,2,3 etc) 'id' property to each feature in the given FeatureCollection.
@@ -628,3 +586,27 @@ def keep_valid_images(image_list):
         if ee_image_checker(image):
             valid_imgs.append(image)
     return valid_imgs
+
+
+def convert_iso3_to_iso2(df, iso3_column, iso2_column):
+    """
+    Converts ISO3 country codes to ISO2 codes and adds a new column to the DataFrame.
+
+    Args:
+        df (pd.DataFrame): Input DataFrame containing ISO3 country codes.
+        iso3_column (str): The column name in the DataFrame with ISO3 country codes.
+        iso2_column (str): The new column name to store ISO2 country codes.
+
+    Returns:
+        pd.DataFrame: Updated DataFrame with the new ISO2 column.
+    """
+    import country_converter as coco
+
+    # Apply conversion from ISO3 to ISO2
+    df[iso2_column] = df[iso3_column].apply(
+        lambda x: coco.convert(names=x, to="ISO2")
+        if x
+        else "not found (disputed territory)"
+    )
+
+    return df
