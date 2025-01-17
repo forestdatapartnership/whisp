@@ -220,7 +220,7 @@ def create_schema_from_dataframe(schema_df: pd.DataFrame) -> pa.DataFrameSchema:
     if missing_columns:
         raise ValueError(f"Missing columns in schema DataFrame: {missing_columns}")
 
-    print("Schema DataFrame columns:", schema_df.columns)
+    # print("Schema DataFrame columns:", schema_df.columns)
 
     # Sort DataFrame by 'order' if it exists
     if "order" in schema_df.columns:
@@ -238,9 +238,9 @@ def create_schema_from_dataframe(schema_df: pd.DataFrame) -> pa.DataFrameSchema:
         is_nullable = row["is_nullable"] in (1, "1", True, "True")
         is_required = row["is_required"] in (1, "1", True, "True")
 
-        print(
-            f"Processing column: {col_name}, Type: {col_type}, Nullable: {is_nullable}, Required: {is_required}"
-        )
+        # print(
+        #     f"Processing column: {col_name}, Type: {col_type}, Nullable: {is_nullable}, Required: {is_required}"
+        # )
 
         # Map DataFrame types to Pandera types
         if col_type == "int64":
@@ -306,18 +306,18 @@ def log_missing_columns(df_stats: pd.DataFrame, template_schema: pa.DataFrameSch
     # Log results for missing columns in df_stats
     if missing_in_template:
         logger.warning(
-            f"The following columns in 'df_stats' did not match any columns in the schema: {', '.join(missing_in_template)}"
+            f"The following columns from the results dataframe did not match any columns in the schema: \n{', '.join(missing_in_template)}"
         )
     else:
-        logger.info("All columns from 'df_stats' found in the schema.")
+        logger.info("All columns from dataframe found in the schema.")
 
     # Log results for missing columns in template_df
     if missing_in_stats:
         logger.warning(
-            f"The following columns in the schema did not match any columns in 'df_stats': {', '.join(missing_in_stats)}"
+            f"The following columns in the schema did not match any columns from the results dataframe: \n{', '.join(missing_in_stats)}"
         )
     else:
-        logger.info("All columns from the schema found in 'df_stats'.")
+        logger.info("All columns from the schema found in the results dataframe.")
 
 
 def setup_logger(name):

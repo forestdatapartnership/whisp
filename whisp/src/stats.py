@@ -132,58 +132,6 @@ def whisp_stats_geojson_to_drive(
         print(f"An error occurred: {e}")
 
 
-# def whisp_stats_ee_to_ee(
-#     feature_collection: ee.FeatureCollection,
-# ) -> ee.FeatureCollection:
-#     """
-
-#     Parameters
-#     ----------
-#     feature_collection : ee.FeatureCollection
-#         The feature collection of the ROI to analyze.
-
-#     Returns
-#     -------
-#     feature_collection : ee.FeatureCollection
-#         The dataframe containing the Whisp stats for the input ROI.
-#     """
-#     fc = get_stats(feature_collection)
-#     return add_id_to_feature_collection(dataset=fc, id_name=plot_id_column)
-
-
-# def whisp_stats_ee_to_ee(
-#     feature_collection: ee.FeatureCollection,
-#     external_id_column = None  # This variable is expected to be a string or None
-#     ) -> ee.FeatureCollection:
-#     """
-
-#     Parameters
-#     ----------
-#     feature_collection : ee.FeatureCollection
-#         The feature collection of the ROI to analyze.
-#     external_id_column : str, optional
-#         the name of the column to keep in the feature collection. The default is None.
-#         NB to provide a standardised output:
-#          1) the column is renamed to match the value of the geo_id_column variable
-#          2) the new column is string type to allow flexible input types,
-#            So, the user should be aware of
-#            a) which column was used and
-#            b) joins to input datasets may fail unless the input column was string
-#            (thus may require some data wrangling to reformat columns to match formats prior to joins)
-#     Returns
-#     -------
-#     feature_collection : ee.FeatureCollection
-#         The dataframe containing the Whisp stats for the input ROI.
-#     """
-#     if external_id_column is not None:
-#         try:
-#             feature_collection = feature_collection.map(lambda feature: feature.set(geo_id_column, ee.String(feature.get(external_id_column))))
-#         except:
-#             print (f"An error occurred when trying to set the external_id_column: {external_id_column}")
-#     fc = get_stats(feature_collection)
-#     return add_id_to_feature_collection(dataset=fc, id_name=plot_id_column)
-
-
 def whisp_stats_ee_to_ee(feature_collection, external_id_column):
     """
     Process a feature collection to get statistics for each feature.
@@ -195,26 +143,6 @@ def whisp_stats_ee_to_ee(feature_collection, external_id_column):
     Returns:
         ee.FeatureCollection: The output feature collection with statistics.
     """
-    # if external_id_column is not None:
-    # # Check if external_id_column is a property in feature_collection (server-side)
-    # def check_column_exists(feature):
-    #     return ee.Algorithms.If(
-    #         feature.propertyNames().contains(external_id_column),
-    #         feature,
-    #         ee.Feature(None)  # Return an empty feature if the column does not exist
-    #     )
-
-    # feature_collection_with_check = feature_collection.map(check_column_exists)
-    # valid_feature_count = feature_collection_with_check.filter(ee.Filter.notNull([external_id_column])).size()
-
-    # # Raise an error if the column does not exist in any feature
-    # if valid_feature_count.eq(0):
-    #     raise ValueError(f"The column '{external_id_column}' is not a property in the feature collection.")
-    # else:
-    # try:
-    #     feature_collection = feature_collection.map(lambda feature: feature.set(geo_id_column, ee.String(feature.get(external_id_column))))
-    # except Exception as e:
-    #     print (f"An error occurred when trying to set the external_id_column: {external_id_column}")
 
     if external_id_column is not None:
         try:
@@ -229,14 +157,15 @@ def whisp_stats_ee_to_ee(feature_collection, external_id_column):
                 )
 
             feature_collection_with_check = feature_collection.map(check_column_exists)
+            size_fc = feature_collection.size()
             valid_feature_count = feature_collection_with_check.filter(
                 ee.Filter.notNull([external_id_column])
             ).size()
 
             # Raise an error if the column does not exist in any feature
-            if valid_feature_count.eq(0).getInfo():
+            if valid_feature_count.neq(size_fc).getInfo():
                 raise ValueError(
-                    f"The column '{external_id_column}' is not a property in the feature collection."
+                    f"The column '{external_id_column}' is not a property throughout the feature collection."
                 )
 
             # Set the geo_id_column
