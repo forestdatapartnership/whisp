@@ -56,7 +56,7 @@ def geojson_path_to_ee(geojson_filepath: Any) -> ee.FeatureCollection:
     Returns:
         ee.FeatureCollection: Earth Engine FeatureCollection created from the GeoJSON.
     """
-    print(f"Received geojson_filepath: {geojson_filepath}")
+    # print(f"Received geojson_filepath: {geojson_filepath}")
     if isinstance(geojson_filepath, (str, Path)):
         # Read the GeoJSON file
         file_path = os.path.abspath(geojson_filepath)
