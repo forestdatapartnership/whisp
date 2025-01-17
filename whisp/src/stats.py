@@ -6,6 +6,9 @@ from pathlib import Path
 
 from .datasets import combine_datasets
 
+
+import country_converter as coco
+
 from ..parameters.config_runtime import (
     percent_or_ha,
     plot_id_column,
@@ -15,7 +18,8 @@ from ..parameters.config_runtime import (
     geometry_area_column_formatting,
     centroid_x_coord_column,
     centroid_y_coord_column,
-    country_column,
+    iso3_country_column,
+    iso2_country_column,
     admin_1_column,
     stats_unit_type_column,
     stats_area_columns_formatting,
@@ -269,8 +273,16 @@ def whisp_stats_ee_to_df(
     df_stats : pd.DataFrame
         The dataframe containing the Whisp stats for the input ROI.
     """
+    df_stats = ee_to_df(whisp_stats_ee_to_ee(feature_collection, external_id_column))
 
-    return ee_to_df(whisp_stats_ee_to_ee(feature_collection, external_id_column))
+    # Convert ISO3 to ISO2 and create a new column 'ProducerCountry'.
+    # Some iso3 codes are not present in the input feature collection. These are shown as numbers - due to disputed territories status, and in the new column 'ProducerCountry' they are shown as 'not found'.
+    # NB this is a temporary solution as the country_converter package is not available in the GEE Python API (could be replaced with a server-side solution in future, within 'whisp_stats_ee_to_ee')
+    df_stats[iso2_country_column] = df_stats[iso3_country_column].apply(
+        lambda x: coco.convert(names=x, to="ISO2")
+    )
+
+    return df_stats
 
 
 def whisp_formatted_stats_ee_to_df(
@@ -288,12 +300,16 @@ def whisp_formatted_stats_ee_to_df(
     validated_df : pd.DataFrame
         The validated dataframe containing the Whisp stats for the input ROI.
     """
-    df_stats = ee_to_df(whisp_stats_ee_to_ee(feature_collection, external_id_column))
+    # Convert ee feature collection to a pandas dataframe
+    df_stats = whisp_stats_ee_to_df(feature_collection, external_id_column)
+
     validated_df = validate_dataframe_using_lookups(df_stats)
     return validated_df
 
 
-def whisp_stats_ee_to_drive(feature_collection: ee.FeatureCollection):
+def whisp_stats_ee_to_drive(
+    feature_collection: ee.FeatureCollection, external_id_column=None
+):
 
     try:
         task = ee.batch.Export.table.toDrive(
@@ -411,7 +427,7 @@ def get_type_and_location(feature):
 
     # Fetch location info from geoboundaries (country, admin)
     location = ee.Dictionary(get_geoboundaries_info(centroid))
-    country = ee.Dictionary({country_column: location.get("shapeGroup")})
+    country = ee.Dictionary({iso3_country_column: location.get("shapeGroup")})
 
     admin_1 = ee.Dictionary(
         {admin_1_column: location.get("shapeName")}

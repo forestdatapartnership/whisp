@@ -5,11 +5,13 @@ percent_or_ha = "ha"
 
 # output column names
 # The names need to align with whisp/parameters/lookup_context_and_metadata.csv
-geometry_area_column = "Plot_area_ha"
+geometry_area_column = "Area"
 
 stats_unit_type_column = "Unit"
 
-country_column = "Country"
+iso3_country_column = "Country"
+
+iso2_country_column = "ProducerCountry"
 
 admin_1_column = "Admin_Level_1"
 
