@@ -1,8 +1,8 @@
 import logging
 import pytest
 
-from whisp.src.utils import init_ee, clear_ee_credentials
-from whisp.src.logger import StdoutLogger
+from whisp.utils import init_ee, clear_ee_credentials
+from whisp.logger import StdoutLogger
 
 logger = StdoutLogger(__name__)
 

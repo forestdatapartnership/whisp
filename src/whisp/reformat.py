@@ -5,9 +5,9 @@ import os
 import logging
 
 
-from whisp.src.logger import StdoutLogger, FileLogger
+from whisp.logger import StdoutLogger, FileLogger
 
-from whisp.src.pd_schemas import data_lookup_type
+from whisp.pd_schemas import data_lookup_type
 
 
 from whisp.parameters.config_runtime import (
