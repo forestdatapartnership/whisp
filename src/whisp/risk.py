@@ -2,7 +2,7 @@ import pandas as pd
 
 from .pd_schemas import data_lookup_type
 
-from ..parameters.config_runtime import (
+from whisp.parameters.config_runtime import (
     percent_or_ha,
     geometry_area_column,
     DEFAULT_GEE_DATASETS_LOOKUP_TABLE_PATH,
