@@ -1,6 +1,5 @@
 <br>
 <br>
-<br>
 
 **Source list of the [layers used for risk evaluation](parameters/lookup_gee_datasets.csv), fore more info please scroll to the end of this ReadMe.**
 <br>
@@ -119,8 +118,7 @@ Centre d'Information Géographique et du Numérique / Bureau National d’Étude
 
 <br>
 <br>
-<br>
-<br>
+
 
 The sources listed in the table above are analyzed and disaggregated into 150 different layers by the Whisp algorithms, some of which are run directly on Google Earth Engine through *Forest Data Partnership's* account and some of which are in the Python codes of this repository. When a geometry (e.g., a polygon) is scanned with Whisp, the zonal statistics of each of these 150 layers are calculated for that geometry, producing a dataframe that holds the 150 different values for that specific geometry. The 150 layers are listed in [parameters/lookup_gee_datasets.csv](parameters/lookup_gee_datasets.csv). Whisping with [Whisp API](https://whisp.openforis.org/) produces a CSV holding all those values in 150 columns, as well as some metadata and crucially the results of the Whisp EUDR risk analysis, which is explained in the [ReadMe](README.md#whisp_datasets). This risk analysis is based on only 26 of the 150 layers, some of which are, however, aggregate layers that summarize the results from the other 124 layers. These 26 layers are marked for the EUDR risk analysis in [lookup_gee_datasets.csv](parameters/lookup_gee_datasets.csv) in the right-most column 'use_for_risk' by value '1'. All layers marked by no value or value '0' do not contribute directly to the EUDR risk analysis, but only indirectly by being part of the aggregate layers.
 Overall, the output CSV from Whisping a geometry therefore holds:
