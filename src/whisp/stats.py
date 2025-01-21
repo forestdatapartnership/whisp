@@ -9,7 +9,7 @@ from .datasets import combine_datasets
 
 import country_converter as coco
 
-from ..parameters.config_runtime import (
+from whisp.parameters.config_runtime import (
     percent_or_ha,
     plot_id_column,
     geo_id_column,
