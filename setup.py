@@ -9,6 +9,10 @@ setup(
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     python_requires=">=3.10",
+    include_package_data=True,
+    package_data={
+        "whisp.parameters": ["lookup_gee_datasets.csv", "lookup_context_and_metadata.csv"]
+    },
     install_requires=[
         "earthengine-api",
         "geemap",
