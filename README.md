@@ -6,7 +6,8 @@ whisp
 
 
 
-![Whisp_OpenForis_Banner_Github](https://github.com/user-attachments/assets/fe7a6505-2afa-40a2-8125-23f8d153be51)
+![Whisp_OpenForis_Banner_Github](https://github.com/user-attachments/assets/84f002fe-1848-46a1-814d-3949c22728cb)
+
 
 ## Convergence of Evidence <a name="whisp_coe"></a>
 ***Whisp*** stands for "***Wh****at* ***is*** *in that* ***p****lot*"? 
@@ -64,12 +65,14 @@ If one or more treecover datasets indicate tree cover on a plot by the end of 20
 
 If treecover datasets indicate tree cover on a plot by late 2020, no commodity datasets indicate agricultural use, but a disturbance datasets indicates disturbances before the end of 2020, **Whisp will deem the deforestation risk as <u>low</u>.** Such deforestation has happened before the EUDR cutoff date and therefore does not count as high risk for the EUDR.
 
-Now, if the datasets under 1., 2. & 3. indicate that there was tree cover, but no agriculture and no disturbances before or by the end of 2020, the Whisp algorithm checks whether degredation or deforestation have been reported in a disturbance dataset after 2020-12-31. If they have, **Whisp will deem the deforestation risk as <u>high</u>.** <br>
+Now, if the datasets under 1., 2. & 3. indicate that there was tree cover, but no agriculture and no disturbances before or by the end of 2020, the Whisp algorithm checks whether degredation or deforestation have been reported in a disturbance dataset after 2020-12-31. If they have, **Whisp will deem the deforestation risk as <u>high</u> ("Pay attention").** <br>
 However, under the same circumstances but with <u>no</u> disturbances reported after 2020-12-31 there is insufficient evidence and the **Whisp output will be "More info needed".** Such can be the case for, e.g., cocoa or coffee grown under the shade of treecover or agroforestry.
 
 
 *The Whisp algorithm visualized:*
-![Kopie von whisp_decision_tree_20240909](https://github.com/user-attachments/assets/6a49dac8-d3b0-4137-871e-37a879d0e173)
+![CoE_Graphic 5](https://github.com/user-attachments/assets/007b5f50-3939-4707-95fa-98be4d56745f)
+
+
 
 ## Run Whisp through Jupyter Notebooks <a name="whisp_notebooks"></a>
 
