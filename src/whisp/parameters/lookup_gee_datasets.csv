@@ -94,8 +94,8 @@ RADD_year_2022,920,disturbance_after,0,0,float32,1,0,radd_year_prep
 RADD_year_2023,930,disturbance_after,0,0,float32,1,0,radd_year_prep
 RADD_year_2024,940,disturbance_after,0,0,float32,1,0,radd_year_prep
 RADD_year_2025,941,disturbance_after,0,0,float32,1,0,radd_year_prep
-DIST_year_2024,945,disturbance_after,0,0,float32,1,0,glad_dist_year_prep
-DIST_year_2025,946,disturbance_after,0,0,float32,1,0,glad_dist_year_prep
+DIST_year_2024,945,disturbance_after,0,1,float32,1,0,glad_dist_year_prep
+DIST_year_2025,946,disturbance_after,0,1,float32,1,0,glad_dist_year_prep
 ESA_fire_2001,950,disturbance_before,0,0,float32,1,0,esa_fire_prep
 ESA_fire_2002,960,disturbance_before,0,0,float32,1,0,esa_fire_prep
 ESA_fire_2003,970,disturbance_before,0,0,float32,1,0,esa_fire_prep
@@ -152,4 +152,4 @@ TMF_def_after_2020,1470,disturbance_after,1,0,float32,1,0,tmf_def_after_2020_pre
 GFC_loss_after_2020,1480,disturbance_after,1,0,float32,1,0,glad_gfc_loss_after_2020_prep
 MODIS_fire_after_2020,1490,disturbance_after,1,0,float32,1,0,modis_fire_after_2020_prep
 RADD_after_2020,1500,disturbance_after,1,0,float32,1,0,RADD_after_2020_prep
-DIST_after_2020,1600,disturbance_after,1,0,float32,1,0,glad_dist_after_2020_prep
+DIST_after_2020,1600,disturbance_after,1,1,float32,1,0,glad_dist_after_2020_prep
