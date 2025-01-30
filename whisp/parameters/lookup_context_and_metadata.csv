@@ -10,3 +10,4 @@ Centroid_lon,-3,context_and_metadata,NA,NA,0,float64,1,1,centroid_x_coord_column
 Centroid_lat,-2,context_and_metadata,NA,NA,0,float64,1,1,centroid_y_coord_column
 Unit,-1,context_and_metadata,NA,NA,0,string,1,1,stats_unit_type_column
 In_waterbody,0,context_and_metadata,0,NA,0,bool,1,1,water_flag
+geo,9999,context_and_metadata,0,NA,0,string,1,1,geometry_column

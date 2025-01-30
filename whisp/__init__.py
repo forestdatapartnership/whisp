@@ -34,10 +34,13 @@ from whisp.src.stats import (
     whisp_stats_ee_to_df,
     whisp_stats_geojson_to_df,
     whisp_stats_geojson_to_ee,
+    whisp_stats_geojson_to_geojson,
     whisp_stats_ee_to_drive,
     whisp_stats_geojson_to_drive,
     whisp_formatted_stats_ee_to_df,  # uses lookup tables to create schemas for reformatting
+    whisp_formatted_stats_ee_to_geojson,  # uses lookup tables to create schemas for reformatting
     whisp_formatted_stats_geojson_to_df,  # uses lookup tables to create schemas for reformatting
+    whisp_formatted_stats_geojson_to_geojson,  # uses lookup tables to create schemas for reformatting
     convert_iso3_to_iso2,  # temporary function to convert iso3 to iso2
 )
 
@@ -50,6 +53,14 @@ from whisp.src.reformat import (
     create_schema_from_dataframe,
     load_schema_if_any_file_changed,
     # log_missing_columns,
+)
+
+from whisp.src.data_conversion import (
+    ee_to_df,
+    # geojson_to_df,
+    # geojson_to_ee,
+    csv_to_geojson,
+    ee_to_geojson,
 )
 
 from whisp.src.risk import whisp_risk
