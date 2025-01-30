@@ -1,17 +1,15 @@
-from typing import List, Any
-from geojson import Feature, FeatureCollection, Polygon, Point
-
-# import requests
-import json
-
+import pandas as pd
 import geojson
-
-import os
-
-import geopandas as gpd
-import ee
 from shapely.geometry import shape
 from pathlib import Path
+
+# Existing imports
+from typing import List, Any
+from geojson import Feature, FeatureCollection, Polygon, Point
+import json
+import os
+import geopandas as gpd
+import ee
 
 
 def ee_to_geojson(ee_object, filename=None, indent=2, **kwargs):
@@ -147,7 +145,7 @@ def shapefile_to_ee(shapefile_path):
 def ee_to_df(
     ee_object,
     columns=None,
-    remove_geom=True,
+    remove_geom=False,
     sort_columns=False,
     **kwargs,
 ):
@@ -188,8 +186,8 @@ def ee_to_df(
         if isinstance(columns, list):
             df = df[columns]
 
-        if remove_geom and ("geo" in df.columns):
-            df = df.drop(columns=["geo"], axis=1)
+        if remove_geom and ("geometry" in df.columns):
+            df = df.drop(columns=["geometry"], axis=1)
 
         if sort_columns:
             df = df.reindex(sorted(df.columns), axis=1)
@@ -210,9 +208,6 @@ def ee_to_shapefile(feature_collection, shapefile_path):
     Returns:
     - Path to the saved shapefile.
     """
-
-    # Initialize Earth Engine
-    # ee.Initialize()
 
     # Convert FeatureCollection to GeoJSON object using the function
     geojson = ee_to_geojson(feature_collection)
@@ -301,3 +296,97 @@ def create_feature_collection(geojson_obj: Any) -> FeatureCollection:
     features = []
     extract_features(geojson_obj, features)
     return FeatureCollection(features)
+
+
+def csv_to_geojson(csv_filepath: str, geojson_filepath: str, geo_column: str = "geo"):
+    """
+    Convert a CSV file with a geo column into a GeoJSON file.
+
+    Parameters
+    ----------
+    csv_filepath : str
+        The filepath to the input CSV file.
+    geojson_filepath : str
+        The filepath to save the output GeoJSON file.
+    geo_column : str, optional
+        The name of the column containing GeoJSON geometries, by default "geo".
+
+    Returns
+    -------
+    None
+    """
+    try:
+        # Read the CSV file into a DataFrame
+        df = pd.read_csv(csv_filepath)
+
+        # Convert the DataFrame to GeoJSON
+        df_to_geojson(df, geojson_filepath, geo_column)
+
+    except Exception as e:
+        print(f"An error occurred while converting CSV to GeoJSON: {e}")
+
+
+def df_to_geojson(df: pd.DataFrame, geojson_filepath: str, geo_column: str = "geo"):
+    """
+    Convert a DataFrame with a geo column into a GeoJSON file.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The DataFrame containing the data.
+    geojson_filepath : str
+        The filepath to save the output GeoJSON file.
+    geo_column : str, optional
+        The name of the column containing GeoJSON geometries, by default "geo".
+
+    Returns
+    -------
+    None
+    """
+    try:
+        # Check if the geo column exists
+        if geo_column not in df.columns:
+            raise ValueError(f"Geo column '{geo_column}' not found in the DataFrame.")
+
+        # Create a list to hold GeoJSON features
+        features = []
+
+        # Iterate over each row in the DataFrame
+        for index, row in df.iterrows():
+            try:
+                # Get the raw GeoJSON string
+                geojson_str = row[geo_column]
+                # print(f"Row {index} GeoJSON: {geojson_str}")  # Debugging: Print the raw GeoJSON string
+
+                # Replace single quotes with double quotes
+                geojson_str = geojson_str.replace("'", '"')
+
+                # Parse the geometry from the geo column
+                geometry = geojson.loads(geojson_str)
+
+                # Handle NaN values in properties
+                properties = row.drop(geo_column).to_dict()
+                properties = {
+                    k: (v if pd.notna(v) else None) for k, v in properties.items()
+                }
+
+                # Create a GeoJSON feature
+                feature = geojson.Feature(geometry=geometry, properties=properties)
+
+                # Add the feature to the list
+                features.append(feature)
+            except Exception as e:
+                # print(f"Error parsing GeoJSON at row {index}: {e}")
+                continue
+
+        # Create a GeoJSON FeatureCollection
+        feature_collection = geojson.FeatureCollection(features)
+
+        # Save the FeatureCollection to a GeoJSON file
+        with open(geojson_filepath, "w") as f:
+            geojson.dump(feature_collection, f, indent=2)
+
+        print(f"GeoJSON saved to {geojson_filepath}")
+
+    except Exception as e:
+        print(f"An error occurred while converting DataFrame to GeoJSON: {e}")

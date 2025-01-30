@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .datasets import combine_datasets
 
+import json
 
 import country_converter as coco
 
@@ -30,46 +31,161 @@ from ..parameters.config_runtime import (
 from .data_conversion import (
     ee_to_df,
     geojson_path_to_ee,
+    ee_to_geojson,
+    csv_to_geojson,
+    df_to_geojson,  # Import the new function
 )  # copied functions from whisp-api and geemap (accessed 2024) to avoid dependency
 
 from .reformat import (
     validate_dataframe_using_lookups,
 )
 
+# NB functions that included "formatted" in the name apply a schema for validation and reformatting of the output dataframe. The schema is created from lookup tables.
+
 
 def whisp_formatted_stats_geojson_to_df(
-    geojson_filepath: Path | str,
+    input_geojson_filepath: Path | str,
     external_id_column=None,  # This variable is expected to be a string or None
+    remove_geom=False,
 ) -> pd.DataFrame:
     """
     Main function for most users.
     Converts a GeoJSON file to a pandas DataFrame containing Whisp stats for the input ROI.
-    Output df is validated against a panderas schema (created on the fly from the two lookup csvs).
+    Output df is validated against a panderas schema (created on the fly from the two lookup CSVs).
+
+    This function first converts the provided GeoJSON file into an Earth Engine FeatureCollection.
+    It then processes the FeatureCollection to extract relevant Whisp statistics,
+    returning a structured DataFrame that aligns with the expected schema.
+
+    If `external_id_column` is provided, it will be used to link external identifiers
+    from the input GeoJSON to the output DataFrame.
 
     Parameters
     ----------
-    geojson_filepath : Path | str
+    input_geojson_filepath : Path | str
         The filepath to the GeoJSON of the ROI to analyze.
+    external_id_column : str, optional
+        The column in the GeoJSON containing external IDs to be preserved in the output DataFrame in the external_id column.
+    remove_geom : bool, default=True
+        If True, the geometry of the GeoJSON is removed from the output DataFrame.
 
     Returns
     -------
     df_stats : pd.DataFrame
-        The dataframe containing the Whisp stats for the input ROI.
+        The DataFrame containing the Whisp stats for the input ROI.
     """
-    feature_collection = geojson_path_to_ee(str(geojson_filepath))
+    feature_collection = geojson_path_to_ee(str(input_geojson_filepath))
 
-    return whisp_formatted_stats_ee_to_df(feature_collection, external_id_column)
+    return whisp_formatted_stats_ee_to_df(
+        feature_collection, external_id_column, remove_geom
+    )
+
+
+def whisp_formatted_stats_geojson_to_geojson(
+    input_geojson_filepath,
+    output_geojson_filepath,
+    external_id_column=None,
+    geo_column: str = "geo",
+):
+    """
+    Convert a formatted GeoJSON file with a geo column into a GeoJSON file containing Whisp stats.
+
+    Parameters
+    ----------
+    input_geojson_filepath : str
+        The filepath to the input GeoJSON file.
+    output_geojson_filepath : str
+        The filepath to save the output GeoJSON file.
+    external_id_column : str, optional
+        The name of the column containing external IDs, by default None.
+    geo_column : str, optional
+        The name of the column containing GeoJSON geometries, by default "geo".
+
+    Returns
+    -------
+    None
+    """
+    df = whisp_formatted_stats_geojson_to_df(
+        input_geojson_filepath=input_geojson_filepath,
+        external_id_column=external_id_column,
+    )
+    # Convert the df to GeoJSON
+    df_to_geojson(df, output_geojson_filepath, geo_column)
+
+    print(f"GeoJSON with Whisp stats saved to {output_geojson_filepath}")
+
+
+def whisp_formatted_stats_ee_to_geojson(
+    feature_collection: ee.FeatureCollection,
+    output_geojson_filepath: str,
+    external_id_column=None,  # This variable is expected to be a string or None
+    geo_column: str = "geo",
+):
+    """
+    Convert an Earth Engine FeatureCollection to a GeoJSON file containing Whisp stats.
+
+    Parameters
+    ----------
+    feature_collection : ee.FeatureCollection
+        The feature collection of the ROI to analyze.
+    output_geojson_filepath : str
+        The filepath to save the output GeoJSON file.
+    external_id_column : str, optional
+        The name of the column containing external IDs, by default None.
+    remove_geom : bool, optional
+        Whether to remove the geometry column, by default False.
+    geo_column : str, optional
+        The name of the column containing GeoJSON geometries, by default "geo".
+
+    Returns
+    -------
+    None
+    """
+    # Convert ee feature collection to a pandas dataframe
+    df_stats = whisp_formatted_stats_ee_to_df(feature_collection, external_id_column)
+
+    # Convert the df to GeoJSON
+    df_to_geojson(df_stats, output_geojson_filepath, geo_column)
+
+    print(f"GeoJSON with Whisp stats saved to {output_geojson_filepath}")
+
+
+def whisp_formatted_stats_ee_to_df(
+    feature_collection: ee.FeatureCollection,
+    external_id_column=None,  # This variable is expected to be a string or None
+    remove_geom=False,
+) -> pd.DataFrame:
+    """
+    Parameters
+    ----------
+    feature_collection : ee.FeatureCollection
+        The feature collection of the ROI to analyze.
+
+    Returns
+    -------
+    validated_df : pd.DataFrame
+        The validated dataframe containing the Whisp stats for the input ROI.
+    """
+    # Convert ee feature collection to a pandas dataframe
+    df_stats = whisp_stats_ee_to_df(feature_collection, external_id_column, remove_geom)
+
+    validated_df = validate_dataframe_using_lookups(df_stats)
+    return validated_df
+
+
+### functions without additional formatting (i.e., sue of schema for validation), are below.
 
 
 def whisp_stats_geojson_to_df(
-    geojson_filepath: Path | str,
+    input_geojson_filepath: Path | str,
     external_id_column=None,  # This variable is expected to be a string or None
+    remove_geom=False,
 ) -> pd.DataFrame:
     """
 
     Parameters
     ----------
-    geojson_filepath : Path | str
+    input_geojson_filepath : Path | str
         The filepath to the GeoJSON of the ROI to analyze.
 
     Returns
@@ -77,20 +193,20 @@ def whisp_stats_geojson_to_df(
     df_stats : pd.DataFrame
         The dataframe containing the Whisp stats for the input ROI.
     """
-    feature_collection = geojson_path_to_ee(str(geojson_filepath))
+    feature_collection = geojson_path_to_ee(str(input_geojson_filepath))
 
-    return whisp_stats_ee_to_df(feature_collection, external_id_column)
+    return whisp_stats_ee_to_df(feature_collection, external_id_column, remove_geom)
 
 
 def whisp_stats_geojson_to_ee(
-    geojson_filepath: Path | str,
+    input_geojson_filepath: Path | str,
     external_id_column=None,  # This variable is expected to be a string or None
 ) -> ee.FeatureCollection:
     """
 
     Parameters
     ----------
-    geojson_filepath : Path | str
+    input_geojson_filepath : Path | str
         The filepath to the GeoJSON of the ROI to analyze.
 
     Returns
@@ -98,13 +214,48 @@ def whisp_stats_geojson_to_ee(
     df_stats : pd.DataFrame
         The dataframe containing the Whisp stats for the input ROI.
     """
-    feature_collection = geojson_path_to_ee(str(geojson_filepath))
+    feature_collection = geojson_path_to_ee(str(input_geojson_filepath))
 
     return whisp_stats_ee_to_ee(feature_collection, external_id_column)
 
 
+def whisp_stats_geojson_to_geojson(
+    input_geojson_filepath, output_geojson_filepath, external_id_column=None
+):
+    """
+    Convert a GeoJSON file to a GeoJSON object containing Whisp stats for the input ROI.
+
+    Parameters
+    ----------
+    input_geojson_filepath : str
+        The filepath to the input GeoJSON file.
+    output_geojson_filepath : str
+        The filepath to save the output GeoJSON file.
+    external_id_column : str, optional
+        The name of the external ID column, by default None.
+
+    Returns
+    -------
+    None
+    """
+    # Convert GeoJSON to Earth Engine FeatureCollection
+    feature_collection = geojson_path_to_ee(input_geojson_filepath)
+
+    # Get stats as a FeatureCollection
+    stats_feature_collection = whisp_stats_ee_to_ee(
+        feature_collection, external_id_column
+    )
+
+    # Convert the stats FeatureCollection to GeoJSON
+    stats_geojson = ee_to_geojson(stats_feature_collection)
+
+    # Save the GeoJSON to a file
+    with open(output_geojson_filepath, "w") as f:
+        json.dump(stats_geojson, f, indent=2)
+
+
 def whisp_stats_geojson_to_drive(
-    geojson_filepath: Path | str,
+    input_geojson_filepath: Path | str,
     external_id_column=None,  # This variable is expected to be a string or None
 ):
     """
@@ -119,12 +270,12 @@ def whisp_stats_geojson_to_drive(
     """
 
     try:
-        geojson_filepath = Path(geojson_filepath)
-        if not geojson_filepath.exists():
-            raise FileNotFoundError(f"File {geojson_filepath} does not exist.")
+        input_geojson_filepath = Path(input_geojson_filepath)
+        if not input_geojson_filepath.exists():
+            raise FileNotFoundError(f"File {input_geojson_filepath} does not exist.")
 
         # Assuming geojson_to_ee is properly imported from data_conversion.py
-        feature_collection = geojson_path_to_ee(str(geojson_filepath))
+        feature_collection = geojson_path_to_ee(str(input_geojson_filepath))
 
         return whisp_stats_ee_to_drive(feature_collection, external_id_column)
 
@@ -189,46 +340,45 @@ def whisp_stats_ee_to_ee(feature_collection, external_id_column):
 def whisp_stats_ee_to_df(
     feature_collection: ee.FeatureCollection,
     external_id_column=None,  # This variable is expected to be a string or None
+    remove_geom=False,
 ) -> pd.DataFrame:
     """
+    Convert a Google Earth Engine FeatureCollection to a pandas DataFrame and convert ISO3 to ISO2 country codes.
 
     Parameters
     ----------
     feature_collection : ee.FeatureCollection
-        The filepath to the GeoJSON of the ROI to analyze.
+        The input FeatureCollection to analyze.
+    external_id_column : str, optional
+        The name of the external ID column, by default None.
+    remove_geom : bool, optional
+        Whether to remove the geometry column, by default True.
 
     Returns
     -------
     df_stats : pd.DataFrame
         The dataframe containing the Whisp stats for the input ROI.
     """
-    df_stats = ee_to_df(whisp_stats_ee_to_ee(feature_collection, external_id_column))
+    try:
+        df_stats = ee_to_df(
+            ee_object=whisp_stats_ee_to_ee(feature_collection, external_id_column),
+            remove_geom=remove_geom,
+        )
+    except Exception as e:
+        print(f"An error occurred during the conversion from EE to DataFrame: {e}")
+        return pd.DataFrame()  # Return an empty DataFrame in case of error
 
-    return convert_iso3_to_iso2(
-        df=df_stats, iso3_column=iso3_country_column, iso2_column=iso2_country_column
-    )
+    try:
+        df_stats = convert_iso3_to_iso2(
+            df=df_stats,
+            iso3_column=iso3_country_column,
+            iso2_column=iso2_country_column,
+        )
+    except Exception as e:
+        print(f"An error occurred during the ISO3 to ISO2 conversion: {e}")
+        return pd.DataFrame()  # Return an empty DataFrame in case of error
 
-
-def whisp_formatted_stats_ee_to_df(
-    feature_collection: ee.FeatureCollection,
-    external_id_column=None,  # This variable is expected to be a string or None
-) -> pd.DataFrame:
-    """
-    Parameters
-    ----------
-    feature_collection : ee.FeatureCollection
-        The feature collection of the ROI to analyze.
-
-    Returns
-    -------
-    validated_df : pd.DataFrame
-        The validated dataframe containing the Whisp stats for the input ROI.
-    """
-    # Convert ee feature collection to a pandas dataframe
-    df_stats = whisp_stats_ee_to_df(feature_collection, external_id_column)
-
-    validated_df = validate_dataframe_using_lookups(df_stats)
-    return validated_df
+    return df_stats
 
 
 def whisp_stats_ee_to_drive(
@@ -335,8 +485,8 @@ def get_stats_feature(feature, img_combined):
     # Choose whether to use hectares or percentage based on the `percent_or_ha` variable
     out_feature = ee.Algorithms.If(
         percent_or_ha == "ha",
-        feature.set(properties_ha).setGeometry(None),
-        feature.set(properties_percent).setGeometry(None),
+        feature.set(properties_ha),  # .setGeometry(None),
+        feature.set(properties_percent),  # .setGeometry(None),
     )
 
     return out_feature
