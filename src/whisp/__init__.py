@@ -29,25 +29,22 @@ try:
 except Exception as e:
     print("Error in default EE initialization:", e)
 
-from whisp.src.stats import (
+from whisp.stats import (
     whisp_stats_ee_to_ee,
     whisp_stats_ee_to_df,
     whisp_stats_geojson_to_df,
     whisp_stats_geojson_to_ee,
-    whisp_stats_geojson_to_geojson,
     whisp_stats_ee_to_drive,
     whisp_stats_geojson_to_drive,
     whisp_formatted_stats_ee_to_df,  # uses lookup tables to create schemas for reformatting
-    whisp_formatted_stats_ee_to_geojson,  # uses lookup tables to create schemas for reformatting
     whisp_formatted_stats_geojson_to_df,  # uses lookup tables to create schemas for reformatting
-    whisp_formatted_stats_geojson_to_geojson,  # uses lookup tables to create schemas for reformatting
     convert_iso3_to_iso2,  # temporary function to convert iso3 to iso2
 )
 
 # temporary parameters to be removed once isio3 to iso2 conversion server side is implemented
 from whisp.parameters.config_runtime import iso3_country_column, iso2_country_column
 
-from whisp.src.reformat import (
+from whisp.reformat import (
     validate_dataframe_using_lookups,
     validate_dataframe,
     create_schema_from_dataframe,
@@ -55,14 +52,6 @@ from whisp.src.reformat import (
     # log_missing_columns,
 )
 
-from whisp.src.data_conversion import (
-    ee_to_df,
-    # geojson_to_df,
-    # geojson_to_ee,
-    csv_to_geojson,
-    ee_to_geojson,
-)
+from whisp.risk import whisp_risk
 
-from whisp.src.risk import whisp_risk
-
-# from whisp.src.plot_generator import generate_plots_from_csv
+# from whisp.plot_generator import generate_plots_from_csv
