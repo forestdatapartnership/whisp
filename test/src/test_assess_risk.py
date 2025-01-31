@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from whisp.src.stats import whisp_stats_geojson_to_df
+from whisp.stats import whisp_stats_geojson_to_df
 
 import pandas as pd
 

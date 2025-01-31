@@ -1,8 +1,13 @@
 import logging
 import pytest
+import sys
+import os
 
-from whisp.src.utils import init_ee, clear_ee_credentials
-from whisp.src.logger import StdoutLogger
+# Add the src directory to the PYTHONPATH
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
+
+from whisp.utils import init_ee, clear_ee_credentials
+from whisp.logger import StdoutLogger
 
 logger = StdoutLogger(__name__)
 
