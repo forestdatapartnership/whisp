@@ -173,7 +173,7 @@ def whisp_formatted_stats_ee_to_df(
     return validated_df
 
 
-### functions without additional formatting (i.e., sue of schema for validation), are below.
+### functions without additional formatting below (i.e., raw output from GEE processing without schema validation step)
 
 
 def whisp_stats_geojson_to_df(
