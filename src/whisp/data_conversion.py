@@ -298,7 +298,7 @@ def create_feature_collection(geojson_obj: Any) -> FeatureCollection:
     return FeatureCollection(features)
 
 
-def csv_to_geojson(csv_filepath: str, geojson_filepath: str, geo_column: str = "geo"):
+def csv_to_geojson(csv_filepath: str, geojson_filepath: str, geo_column: str = "geojson"):
     """
     Convert a CSV file with a geo column into a GeoJSON file.
 
@@ -309,7 +309,7 @@ def csv_to_geojson(csv_filepath: str, geojson_filepath: str, geo_column: str = "
     geojson_filepath : str
         The filepath to save the output GeoJSON file.
     geo_column : str, optional
-        The name of the column containing GeoJSON geometries, by default "geo".
+        The name of the column containing GeoJSON geometries, by default "geojson".
 
     Returns
     -------
@@ -326,7 +326,7 @@ def csv_to_geojson(csv_filepath: str, geojson_filepath: str, geo_column: str = "
         print(f"An error occurred while converting CSV to GeoJSON: {e}")
 
 
-def df_to_geojson(df: pd.DataFrame, geojson_filepath: str, geo_column: str = "geo"):
+def df_to_geojson(df: pd.DataFrame, geojson_filepath: str, geo_column: str = "geojson"):
     """
     Convert a DataFrame with a geo column into a GeoJSON file.
 
@@ -337,7 +337,7 @@ def df_to_geojson(df: pd.DataFrame, geojson_filepath: str, geo_column: str = "ge
     geojson_filepath : str
         The filepath to save the output GeoJSON file.
     geo_column : str, optional
-        The name of the column containing GeoJSON geometries, by default "geo".
+        The name of the column containing GeoJSON geometries, by default "geojson".
 
     Returns
     -------
