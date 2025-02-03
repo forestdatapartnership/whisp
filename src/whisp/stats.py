@@ -85,7 +85,7 @@ def whisp_formatted_stats_geojson_to_geojson(
     input_geojson_filepath,
     output_geojson_filepath,
     external_id_column=None,
-    geo_column: str = "geo",
+    geo_column: str = "geojson",
 ):
     """
     Convert a formatted GeoJSON file with a geo column into a GeoJSON file containing Whisp stats.
@@ -99,7 +99,7 @@ def whisp_formatted_stats_geojson_to_geojson(
     external_id_column : str, optional
         The name of the column containing external IDs, by default None.
     geo_column : str, optional
-        The name of the column containing GeoJSON geometries, by default "geo".
+        The name of the column containing GeoJSON geometries, by default "geojson".
 
     Returns
     -------
@@ -119,7 +119,7 @@ def whisp_formatted_stats_ee_to_geojson(
     feature_collection: ee.FeatureCollection,
     output_geojson_filepath: str,
     external_id_column=None,  # This variable is expected to be a string or None
-    geo_column: str = "geo",
+    geo_column: str = "geojson",
 ):
     """
     Convert an Earth Engine FeatureCollection to a GeoJSON file containing Whisp stats.
@@ -135,7 +135,7 @@ def whisp_formatted_stats_ee_to_geojson(
     remove_geom : bool, optional
         Whether to remove the geometry column, by default False.
     geo_column : str, optional
-        The name of the column containing GeoJSON geometries, by default "geo".
+        The name of the column containing GeoJSON geometries, by default "geojson".
 
     Returns
     -------
