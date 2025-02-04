@@ -1,7 +1,7 @@
 whisp 
 =====
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/openforis/sepal/blob/master/license.txt)
-[![Privacy Policy](https://img.shields.io/badge/Privacy_Policy-FAO-lightblue.svg)](https://www.fao.org/contact-us/privacy-policy-applications-use/en)
+[![Privacy Policy](https://img.shields.io/badge/Privacy_Policy-FAO-lightblue.svg)](https://www.fao.org/contact-us/data-protection-and-privacy/en/)
 [![DOI](https://img.shields.io/badge/DOI-10.4060%2Fcd0957en-brightgreen.svg)](https://doi.org/10.4060/cd0957en)
 
 
