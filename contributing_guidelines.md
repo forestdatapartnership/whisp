@@ -2,7 +2,7 @@
 
 ## 1. Add type hints and docs for every new function/method written
 
-**TL;DR: Understanding what a function does  is so much easier when type hints and a docstring are available. This is true for newcomers, but also contributors re-discovering their own code after a while**
+**TL;DR: Understanding what a function does is so much easier when type hints and a docstring are available. This is true for newcomers, but also contributors re-discovering their own code after a while**
 
 Type hints allow the reader to understand what kind of arguments a function expects and therefore how it uses its arguments and what kind of value it returns. It also allows coding platforms to automatically analyze the code and detect inconsistencies within the codebase.
 
@@ -43,8 +43,11 @@ def some_function(
 
 In this example we follow the Numpy docs style, but other style exist that are widespread among the Python community. For consistency purposes, all docs should follow the same style conventions. This information should therefore be agreed upon by the development leading team and specified in the contributor's guide.
 
+## 2. Names must be explicit
 
-## 2. Imports must be transparent
+While in the docstring example we named our first argument `arg1`, this is actually poor practice in real code as it is a lost opportunity to bring clarity to the code. Whether it is a module, class, function, argument or even a function-scoped, intermediate-calculation varaible, always try to give it an explicit, concise name. That will improve readability for reviewers and contributors. And try to follow Python's naming conventions!
+
+## 3. Imports must be transparent
 
 Putting all imports into one module and then running `from my_big_imports_module import *` renders imports and dependencies completely untraceable. This has notorious consequences:
 - Readers cannot understand what dependencies a specific block requires in order to function
@@ -55,23 +58,4 @@ Python usually does a great job at handling duplicate imports from different mod
 
 
 ## 3. Notebooks are for demonstration purposes only
-
-Notebooks are great for experimenting and easily visualizing the intermediate states of sequential execution of blocks of code. But they lack the modularity and integration capabilities of regular modules. They also cannot be easily processed by code analysis/linting tools. Therefore they should not be used to store functionalities that may be required outside of them. Such functionalities belong to regular modules.
-
-On the other hands, notebooks are great demonstration platforms for new users to understand how to use your code and display examples of what it can do for them. Keep in mind that those notebooks must be maintained, i.e. tested to see if they still work once you made code modifications. You don't want your potential new users to feel disappointed and move on when they fail to run your demo!
-
-
-## 4. Names must be explicit
-
-While in the docstring example we named our first argument `arg1`, this is actually poor practice in real code as it is a lost opportunity to bring clarity to the code. Whether it is a module, class, function, argument or even a function-scoped, intermediate-calculation varaible, always try to give it an explicit, concise name. That will improve readability for reviewers and contributors. And try to follow Python's naming conventions!
-
-
-## 5. Configs
-
-Try to group config information in a small number of files, in order to avoid having to wade through numerous files to find one parameter, and limit the number of required imports.
-
-If some config parameters are intended to be user-customizable, do not include them in the codebase! Once the codebase is packaged, it would be very inconvenient if the user had to re-install the package every time they update a single config field!
-
-For small numbers of config fields, one can use argument parsers so that when a user runs a script, they can add the required arguments to the command line.
-
-Another option for when a script requires a lot of user-defined config is to expect a dedicated config file that the user must fill before running the script (common formats for these are YAML or JSON). In that case, it is good practice to include a template of such a config file in the codebase with dummy or reasonable values, in order to guide the user into how to fill the config.
+Notebooks are great demonstration platforms for new users to understand how to use your code and display examples of what it can do for them. Keep in mind that those notebooks must be maintained, i.e. tested to see if they still work once you made code modifications. You don't want your potential new users to feel disappointed and move on when they fail to run your demo!
