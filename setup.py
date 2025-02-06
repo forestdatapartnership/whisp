@@ -3,9 +3,12 @@ from setuptools import setup, find_packages
 setup(
     name="whisp",
     version="0.0.1 Alpha",
-    description="A description of the Whisp package",
     author="Andy Arnell",
     author_email="andrew.arnell@fao.org",
+    description="Whisp (What is in that plot) is an open-source solution which helps to produce relevant forest monitoring information and support compliance with deforestation-related regulations.",
+    long_description=open("README.md").read(),
+    long_description_content_type="text/markdown",
+    url="https://github.com/forestdatapartnership/whisp",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     python_requires=">=3.10",
