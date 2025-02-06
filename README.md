@@ -6,7 +6,7 @@ whisp
 
 
 
-![Whisp_OpenForis_Banner_Github](https://github.com/user-attachments/assets/fe7a6505-2afa-40a2-8125-23f8d153be51)
+![Whisp_OpenForis_Banner_Github](https://github.com/user-attachments/assets/84f002fe-1848-46a1-814d-3949c22728cb)
 
 ## Convergence of Evidence <a name="whisp_coe"></a>
 ***Whisp*** stands for "***Wh****at* ***is*** *in that* ***p****lot*"?
