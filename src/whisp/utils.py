@@ -4,6 +4,8 @@ import math
 import os
 import pandas as pd
 
+import importlib.resources as pkg_resources
+
 from dotenv import load_dotenv
 from pathlib import Path
 
@@ -11,6 +13,23 @@ from .logger import StdoutLogger
 
 
 logger = StdoutLogger(__name__)
+
+
+def get_example_data_path(filename):
+    """
+    Get the path to an example data file included in the package.
+
+    Parameters:
+    -----------
+    filename : str
+        The name of the example data file.
+
+    Returns:
+    --------
+    str
+        The path to the example data file.
+    """
+    return os.path.join("..", "tests", "fixtures", filename)
 
 
 def load_env_vars() -> None:

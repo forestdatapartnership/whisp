@@ -65,3 +65,5 @@ from whisp.data_conversion import (
 )
 
 from whisp.risk import whisp_risk
+
+from whisp.utils import get_example_data_path
