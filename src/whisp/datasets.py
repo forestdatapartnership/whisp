@@ -604,51 +604,6 @@ def esa_fire_before_2020_prep():
     )
 
 
-####### ancilliary datasets
-
-
-# WDPA
-# World Database on Protected areas
-
-# Temporarily removed - pending agreements for use in API. Results will likely only be included only in the Whisp API.
-# NB dataset is restricted for commercial use. Shown here using non-commercial release of the WDPA, for code tranparency only.
-
-# def wcmc_wdpa_protection_prep():
-#     wdpa_poly = ee.FeatureCollection("WCMC/WDPA/current/polygons")
-
-#     wdpa_filt = wdpa_poly.filter(
-#         ee.Filter.And(
-#             ee.Filter.neq("STATUS", "Proposed"),
-#             ee.Filter.neq("STATUS", "Not Reported"),
-#             ee.Filter.neq("DESIG_ENG", "UNESCO-MAB Biosphere Reserve"),
-#         )
-#     )
-#     wdpa_binary = ee.Image().paint(wdpa_filt, 1)
-
-#     return wdpa_binary.rename("WDPA")
-
-# Temporarily removed - pending agreements for use in API. Results will likely only be included only in the Whisp API.
-# NB dataset is restricted for commercial use.
-
-# KBA
-# Key Biodiversity Areas (KBAs)
-
-# Temporarily removed pending agreements for use in API.  Results will likely only be included only in the Whisp API.
-# NB dataset is restricted for commercial use. Shown here for code tranparency.
-# Results will be included only in the Whisp API where they will be restricted to a limited number of plots.
-
-# def birdlife_kbas_biodiversity_prep():
-
-#     ##uploaded data - Non-commercial. For queries with limited numbers of sites. Exact number to be confirmed.
-#     kbas_2023_poly = ee.FeatureCollection(
-#         "projects/ee-andyarnellgee/assets/p0004_commodity_mapper_support/raw/KBAsGlobal_2023_March_01_POL"
-#     )
-
-#     kba_2023_binary = ee.Image().paint(kbas_2023_poly, 1)
-
-#     return kba_2023_binary.rename("KBA")
-
-
 # ###Combining datasets
 
 

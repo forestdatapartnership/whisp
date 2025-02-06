@@ -2,10 +2,10 @@ from setuptools import setup, find_packages
 
 setup(
     name="whisp",
-    version="0.0.1",
+    version="0.0.1 Alpha",
     description="A description of the Whisp package",
-    author="Florent Scarpa",
-    author_email="florent.scarpa@sustaain.org",
+    author="Andy Arnell",
+    author_email="andrew.arnell@fao.org",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     python_requires=">=3.10",
