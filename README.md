@@ -6,7 +6,7 @@ whisp
 
 
 
-![Whisp_OpenForis_Banner_Github](https://github.com/user-attachments/assets/fe7a6505-2afa-40a2-8125-23f8d153be51)
+![Whisp_OpenForis_Banner_Github](https://github.com/user-attachments/assets/84f002fe-1848-46a1-814d-3949c22728cb)
 
 ## Convergence of Evidence <a name="whisp_coe"></a>
 ***Whisp*** stands for "***Wh****at* ***is*** *in that* ***p****lot*"?
@@ -77,7 +77,6 @@ However, under the same circumstances but with <u>no</u> disturbances reported a
 
 # Requirements
 
-- A Sepal account.
 - A Google Earth Engine (GEE) account.
 - A registered cloud GEE project.
 - Some experience in Python or a similar language.
@@ -90,6 +89,8 @@ python -m venv env
 ```
 More info on virtual environments here: https://docs.python.org/3/library/venv.html
 
+
+If installing from GitHUb
 Clone the Whisp repo and install the package:
 ```
 git clone https://github.com/forestdatapartnership/whisp.git
