@@ -131,7 +131,7 @@ def shapefile_to_ee(shapefile_path):
     #     zip_ref.extractall("shapefile")
 
     # Load the shapefile into a GeoDataFrame
-    gdf = gpd.read_file(shapefile_path)  # "shapefile/test_ceo_all.shp")
+    gdf = gpd.read_file(shapefile_path)
 
     # Convert GeoDataFrame to GeoJSON
     geo_json = gdf.to_json()

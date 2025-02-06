@@ -1,0 +1,12 @@
+black==24.10.0
+cfgv==3.4.0
+identify==2.6.0
+matplotlib==3.9.1
+matplotlib-inline==0.1.7
+pathspec==0.12.1
+pre-commit==3.7.1
+pytest==8.2.2
+python-box==7.2.0
+pyperclip==1.9.0
+ruff==0.5.2
+virtualenv==20.26.3

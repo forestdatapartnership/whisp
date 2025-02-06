@@ -2,14 +2,12 @@ altair==5.4.1
 annotated-types==0.7.0
 asttokens==2.4.1
 attrs==24.2.0
-black==24.10.0
 blinker==1.8.2
 bqplot==0.12.43
 branca==0.7.2
 cachetools==5.4.0
 certifi==2024.7.4
 cffi==1.17.1
-cfgv==3.4.0
 chardet==5.2.0
 charset-normalizer==3.3.2
 click==8.1.7
@@ -48,7 +46,6 @@ google-crc32c==1.5.0
 google-resumable-media==2.7.1
 googleapis-common-protos==1.63.2
 httplib2==0.22.0
-identify==2.6.0
 idna==3.7
 iniconfig==2.0.0
 ipyevents==2.0.2
@@ -71,8 +68,6 @@ kiwisolver==1.4.5
 markdown-it-py==3.0.0
 marko==2.1.2
 MarkupSafe==2.1.5
-# matplotlib==3.9.1
-# matplotlib-inline==0.1.7
 mdurl==0.1.2
 multimethod==1.10
 mypy-extensions==1.0.0
@@ -86,14 +81,10 @@ packaging==24.1
 pandas==2.2.2
 pandera==0.20.3
 parso==0.8.4
-pathspec==0.12.1
 petl==1.7.15
 pillow==10.4.0
 platformdirs==4.2.2
 plotly==5.22.0
-pluggy==1.5.0
-pre-commit==3.7.1
-prompt_toolkit==3.0.47
 proto-plus==1.24.0
 protobuf==5.27.2
 psutil==6.0.0
@@ -110,11 +101,8 @@ Pygments==2.18.0
 pyogrio==0.10.0
 pyOpenSSL==24.2.1
 pyparsing==3.1.2
-# pyperclip==1.9.0
 pyproj==3.7.0
 pyshp==2.3.1
-pytest==8.2.2
-# python-box==7.2.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
 python-slugify==8.0.4
@@ -130,7 +118,6 @@ rfc3986==2.0.0
 rich==13.9.2
 rpds-py==0.20.0
 rsa==4.9
-ruff==0.5.2
 scooby==0.10.0
 seaborn==0.13.2
 setuptools==71.0.1
@@ -157,7 +144,6 @@ tzdata==2024.1
 uritemplate==4.1.1
 urllib3==2.2.2
 validators==0.34.0
-virtualenv==20.26.3
 watchdog==5.0.3
 wcwidth==0.2.13
 widgetsnbextension==4.0.11
