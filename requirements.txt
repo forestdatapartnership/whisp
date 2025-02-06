@@ -160,7 +160,6 @@ validators==0.34.0
 virtualenv==20.26.3
 watchdog==5.0.3
 wcwidth==0.2.13
-# -e git+https://github.com/forestdatapartnership/whisp.git@40d38b6e9439b12af5fc6876c6fd7c64e17d0fb0#egg=whisp
 widgetsnbextension==4.0.11
 wrapt==1.16.0
 xyzservices==2024.6.0

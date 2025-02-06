@@ -37,11 +37,11 @@ from whisp.stats import (
     whisp_stats_geojson_to_geojson,
     whisp_stats_ee_to_drive,
     whisp_stats_geojson_to_drive,
-    whisp_formatted_stats_ee_to_df,  # uses lookup tables to create schemas for reformatting
-    whisp_formatted_stats_ee_to_geojson,  # uses lookup tables to create schemas for reformatting
-    whisp_formatted_stats_geojson_to_df,  # uses lookup tables to create schemas for reformatting
-    whisp_formatted_stats_geojson_to_geojson,  # uses lookup tables to create schemas for reformatting
-    convert_iso3_to_iso2,  # temporary function to convert iso3 to iso2
+    whisp_formatted_stats_ee_to_df,
+    whisp_formatted_stats_ee_to_geojson,
+    whisp_formatted_stats_geojson_to_df,
+    whisp_formatted_stats_geojson_to_geojson,
+    convert_iso3_to_iso2,
 )
 
 # temporary parameters to be removed once isio3 to iso2 conversion server side is implemented
@@ -65,5 +65,3 @@ from whisp.data_conversion import (
 )
 
 from whisp.risk import whisp_risk
-
-# from whisp.plot_generator import generate_plots_from_csv
