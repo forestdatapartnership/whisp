@@ -50,16 +50,6 @@ where = ["src"]
 [tool.setuptools.package-data]
 "whisp.parameters" = ["lookup_gee_datasets.csv", "lookup_context_and_metadata.csv"]
 
-[tool.setuptools.include]
-files = [
-    "README.md",
-    "LICENSE",
-    "requirements.txt",
-    "requirements-dev.txt",
-    "tests/fixtures/*.geojson",
-    "notebooks/*.ipynb"
-]
-
 [tool.pytest.ini_options]
 log_cli = true
 log_cli_level = "DEBUG"

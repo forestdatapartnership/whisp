@@ -1,0 +1,8 @@
+include README.md
+include LICENSE
+include requirements.txt
+include requirements-dev.txt
+recursive-include tests/fixtures *.geojson
+recursive-include notebooks *.ipynb
+include src/whisp/parameters/lookup_gee_datasets.csv
+include src/whisp/parameters/lookup_context_and_metadata.csv
