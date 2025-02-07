@@ -14,31 +14,6 @@ lookup_gee_datasets_df: data_lookup_type = pd.read_csv(
 )
 
 
-def clamp(
-    value: float | pd.Series, min_val: float, max_val: float
-) -> float | pd.Series:
-    """
-    Clamp a value or a Pandas Series within a specified range.
-
-    Args:
-        value (float | pd.Series): The value or series to be clamped.
-        min_val (float): The minimum value of the range.
-        max_val (float): The maximum value of the range.
-
-    Returns:
-        float | pd.Series: The clamped value or series within the range.
-    """
-    if isinstance(value, pd.Series):
-        return value.clip(lower=min_val, upper=max_val)
-    else:
-        return max(min_val, min(value, max_val))
-
-
-def check_range(value: float) -> None:
-    if not (0 <= value <= 100):
-        raise ValueError("Value must be between 0 and 100.")
-
-
 # requires lookup_gee_datasets_df
 
 
@@ -220,29 +195,28 @@ def add_indicator_column(
         data_lookup_type: The DataFrame with the new column added.
     """
     # Create a new column and initialize with low_name
-    df[new_column_name] = low_name
-
-    # if percent_or_ha == "ha": print ("output in hectares. Converting values to percent for indicator")
+    new_column = pd.Series(low_name, index=df.index, name=new_column_name)
 
     # Default behavior: use '>' for single column comparison
     if sum_comparison:
         # Sum all values in specified columns and compare to threshold
         sum_values = df[input_columns].sum(axis=1)
-        df.loc[sum_values > threshold, new_column_name] = high_name
+        new_column[sum_values > threshold] = high_name
     else:
         # Check if any values in specified columns are above the threshold and update the new column accordingly
         for col in input_columns:
             # So that threshold is always in percent, if outputs are in ha, the code converts to percent (based on dividing by the geometry_area_column column.
             # Clamping is needed due to differences in decimal places (meaning input values may go just over 100)
             if percent_or_ha == "ha":
-                # if df[geometry_area_column]<0.01: #to add in for when points, some warning message or similar
-
                 val_to_check = clamp(
                     ((df[col] / df[geometry_area_column]) * 100), 0, 100
                 )
             else:
                 val_to_check = df[col]
-            df.loc[val_to_check > threshold, new_column_name] = high_name
+            new_column[val_to_check > threshold] = high_name
+
+    # Concatenate the new column to the DataFrame
+    df = pd.concat([df, new_column], axis=1)
     return df
 
 
@@ -328,3 +302,28 @@ def get_cols_ind_4_dist_after_2020(lookup_gee_datasets_df):
             & (lookup_gee_datasets_df["theme"] == "disturbance_after")
         ]
     )
+
+
+def clamp(
+    value: float | pd.Series, min_val: float, max_val: float
+) -> float | pd.Series:
+    """
+    Clamp a value or a Pandas Series within a specified range.
+
+    Args:
+        value (float | pd.Series): The value or series to be clamped.
+        min_val (float): The minimum value of the range.
+        max_val (float): The maximum value of the range.
+
+    Returns:
+        float | pd.Series: The clamped value or series within the range.
+    """
+    if isinstance(value, pd.Series):
+        return value.clip(lower=min_val, upper=max_val)
+    else:
+        return max(min_val, min(value, max_val))
+
+
+def check_range(value: float) -> None:
+    if not (0 <= value <= 100):
+        raise ValueError("Value must be between 0 and 100.")

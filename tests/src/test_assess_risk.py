@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from whisp.stats import whisp_stats_geojson_to_df
+from whisp.stats import whisp_formatted_stats_geojson_to_df
+from whisp.risk import whisp_risk
 
 import pandas as pd
 
@@ -12,7 +13,8 @@ GEOJSON_EXAMPLE_FILEPATH = (
 
 def test_whisp_stats_geojson_to_df() -> None:
 
-    df_stats = whisp_stats_geojson_to_df(GEOJSON_EXAMPLE_FILEPATH)
-    assert isinstance(df_stats, pd.DataFrame)
-    assert len(df_stats) == 31
-    print(df_stats)
+    df_stats = whisp_formatted_stats_geojson_to_df(GEOJSON_EXAMPLE_FILEPATH)
+    df_stats_with_risk = whisp_risk(df_stats)
+    assert isinstance(df_stats_with_risk, pd.DataFrame)
+    assert len(df_stats_with_risk) == 31
+    print(df_stats_with_risk)
