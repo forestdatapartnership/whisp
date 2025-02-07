@@ -1,5 +1,0 @@
-include README.md
-include LICENSE
-include requirements.txt
-include requirements-dev.txt
-recursive-include tests/fixtures *.geojson

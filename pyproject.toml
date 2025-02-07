@@ -7,16 +7,18 @@ name = "whisp"
 description = "A description of the Whisp package"
 version = "0.0.1"
 authors = [
-    {name = "Florent Scarpa", email = "florent.scarpa@sustaain.org"}
+    {name = "Andy Arnell", email = "andrew.arnell@fao.org"}
 ]
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
 keywords = ["whisp", "geospatial", "data-processing"]
 classifiers = [
+    "Development Status :: 3 - Alpha",  # Indicate alpha release
     "Programming Language :: Python :: 3.10",
     "License :: OSI Approved :: MIT License",
     "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
     "Topic :: Software Development :: Libraries :: Python Modules"
 ]
 dependencies = [
@@ -40,9 +42,23 @@ dev = [
 
 [tool.setuptools]
 package-dir = {"" = "src"}
+include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"whisp.parameters" = ["lookup_gee_datasets.csv", "lookup_context_and_metadata.csv"]
+
+[tool.setuptools.include]
+files = [
+    "README.md",
+    "LICENSE",
+    "requirements.txt",
+    "requirements-dev.txt",
+    "tests/fixtures/*.geojson",
+    "notebooks/*.ipynb"
+]
 
 [tool.pytest.ini_options]
 log_cli = true
