@@ -5,7 +5,6 @@ def read_requirements(filename):
     with open(filename, encoding="utf-8") as req_file:
         return req_file.read().splitlines()
 
-
 setup(
     name="whisp",
     version="0.0.1",
@@ -14,7 +13,7 @@ setup(
     description="Whisp (What is in that plot) is an open-source solution which helps to produce relevant forest monitoring information and support compliance with deforestation-related regulations.",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
-    url="https://github.com/forestdatapartnership/whisp",
+    url="https://github.com/andyarnell/whisp",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     python_requires=">=3.10",
@@ -36,4 +35,5 @@ setup(
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
     ],
+    license_files=["LICENSE"]
 )

@@ -13,6 +13,7 @@ whisp_output_table.geojson
 temp_geo_id_lookup.csv
 tests/outputs/
 .env
+venv/
 whisp.egg-info/
 build/
 pre-commit.log
