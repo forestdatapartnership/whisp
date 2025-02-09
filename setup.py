@@ -1,3 +1,4 @@
+# filepath: /c:/Users/Arnell/Documents/GitHub/testpypi/whisp/setup.py
 from setuptools import setup, find_packages
 
 # Function to read the requirements.txt file
@@ -35,5 +36,4 @@ setup(
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
     ],
-
 )
