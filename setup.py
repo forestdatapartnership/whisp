@@ -35,5 +35,5 @@ setup(
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
     ],
-    license_files=["LICENSE"]
+
 )
