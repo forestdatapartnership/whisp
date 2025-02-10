@@ -1,45 +1,40 @@
 [build-system]
-requires = ["setuptools>=61.0.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
 
-[project]
+[tool.poetry]
 name = "whisp"
-description = "A description of the Whisp package"
 version = "0.0.1"
-authors = [
-    {name = "Andy Arnell", email = "andrew.arnell@fao.org"}
-]
+description = "Whisp (What is in that plot) is an open-source solution which helps to produce relevant forest monitoring information and support compliance with deforestation-related regulations."
+authors = ["Andy Arnell <andrew.arnell@fao.org>"]
 readme = "README.md"
-license = {text = "MIT"}
-requires-python = ">=3.10"
+license = "MIT"
 keywords = ["whisp", "geospatial", "data-processing"]
 classifiers = [
-    "Development Status :: 3 - Alpha",  # Indicate alpha release
+    "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3.10",
     "License :: OSI Approved :: MIT License",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Topic :: Software Development :: Libraries :: Python Modules"
 ]
-dependencies = [
-    "earthengine-api",
-    "geemap",
-    "numpy<2",  # https://github.com/unionai-oss/pandera/issues/1656
-    "pandas",
-    "pandera",
-    "country_converter",
-    "geojson",
-    "python-dotenv",
-    "setuptools"
-]
 
+[tool.poetry.dependencies]
+python = ">=3.10"
+earthengine-api = "*"
+geemap = "*"
+numpy = "<2"
+pandas = "*"
+pandera = "*"
+country_converter = "*"
+geojson = "*"
+python-dotenv = "*"
+setuptools = "*"
 
-[project.optional-dependencies]
-dev = [
-    "pytest",
-    "pre-commit",
-    "ruff"
-]
+[tool.poetry.dev-dependencies]
+pytest = "*"
+pre-commit = "*"
+ruff = "*"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
