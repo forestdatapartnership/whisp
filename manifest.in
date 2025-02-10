@@ -1,6 +1,7 @@
 include README.md
 include requirements.txt
 include requirements-dev.txt
+include LICENSE
 recursive-include tests/fixtures *.geojson
 recursive-include notebooks *.ipynb
 include src/whisp/parameters/lookup_gee_datasets.csv
