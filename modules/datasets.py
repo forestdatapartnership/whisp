@@ -52,7 +52,23 @@ def fdap_forest_prep():
     fdap_forest = fdap_forest_raw.gt(0.75)
     return fdap_forest.rename("Forest_FDaP")
 
+# EUFO JRC Global forest type - 3 layers, primary, naturally regenerating and planted/plantation forests
 
+def GFT_primary_prep():
+    gft_raw = ee.Image("JRC/GFC2020_subtypes/V0")
+    gft_primary = gft_raw.eq(10)
+    return gft_primary.rename("GFT_primary")
+
+def GFT_nat_regenerating_prep():
+    gft_raw = ee.Image("JRC/GFC2020_subtypes/V0")
+    gft_nat_reg = gft_raw.eq(1)
+    return gft_nat_reg.rename("GFT_naturally_regenerating")
+
+def GFT_plantation_prep():
+    gft_raw = ee.Image("JRC/GFC2020_subtypes/V0")
+    gft_plantation = gft_raw.eq(20)
+    return gft_plantation.rename("GFT_planted_plantation")
+    
 ############plantation data
 # # Oil_palm_Descals 
 # NB updated to Descals et al 2024 paper (as opposed to Descals et al 2021 paper)
@@ -453,6 +469,9 @@ def combine_datasets():
     img_combined = img_combined.addBands(try_access(tmf_deg_after_2020_prep)) # combined
     img_combined = img_combined.addBands(try_access(radd_after_2020_prep)) # combined
     img_combined = img_combined.addBands(try_access(radd_before_2020_prep)) # combined
+    img_combined = img_combined.addBands(try_access(gft_primary)) # combined
+    img_combined = img_combined.addBands(try_access(gft_nat_reg)) # combined
+    img_combined = img_combined.addBands(try_access(gft_plantation)) # combined
 
     
     
