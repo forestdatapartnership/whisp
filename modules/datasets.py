@@ -54,18 +54,18 @@ def fdap_forest_prep():
 
 # EUFO JRC Global forest type - 3 layers, primary, naturally regenerating and planted/plantation forests
 
-def GFT_primary_prep():
-    gft_raw = ee.Image("JRC/GFC2020_subtypes/V0")
+def gft_primary_prep():
+    gft_raw = ee.ImageCollection("JRC/GFC2020_subtypes/V0").mosaic()
     gft_primary = gft_raw.eq(10)
     return gft_primary.rename("GFT_primary")
 
-def GFT_nat_regenerating_prep():
-    gft_raw = ee.Image("JRC/GFC2020_subtypes/V0")
+def gft_nat_reg_prep():
+    gft_raw = ee.ImageCollection("JRC/GFC2020_subtypes/V0").mosaic()
     gft_nat_reg = gft_raw.eq(1)
     return gft_nat_reg.rename("GFT_naturally_regenerating")
 
-def GFT_plantation_prep():
-    gft_raw = ee.Image("JRC/GFC2020_subtypes/V0")
+def gft_plantation_prep():
+    gft_raw = ee.ImageCollection("JRC/GFC2020_subtypes/V0").mosaic()
     gft_plantation = gft_raw.eq(20)
     return gft_plantation.rename("GFT_planted_plantation")
     
@@ -469,9 +469,9 @@ def combine_datasets():
     img_combined = img_combined.addBands(try_access(tmf_deg_after_2020_prep)) # combined
     img_combined = img_combined.addBands(try_access(radd_after_2020_prep)) # combined
     img_combined = img_combined.addBands(try_access(radd_before_2020_prep)) # combined
-    img_combined = img_combined.addBands(try_access(gft_primary)) # combined
-    img_combined = img_combined.addBands(try_access(gft_nat_reg)) # combined
-    img_combined = img_combined.addBands(try_access(gft_plantation)) # combined
+    img_combined = img_combined.addBands(try_access(gft_primary_prep)) # combined
+    img_combined = img_combined.addBands(try_access(gft_nat_reg_prep)) # combined
+    img_combined = img_combined.addBands(try_access(gft_plantation_prep)) # combined
 
     
     
