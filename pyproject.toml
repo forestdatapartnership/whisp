@@ -31,7 +31,7 @@ geojson = ">=2.5.0,<3.0.0"
 python-dotenv = ">=1.0.1,<2.0.0"
 pydantic-core = ">=2.14.0,<3.0.0"  # Updated version constraint
 rsa = ">=4.2,<5.0.0"  # Updated version constraint
-ipykernel = "^6.29.3"
+ipykernel = ">=6.17.1,<7.0.0"  # Compatible with Colab
 shapely = "^2.0.2"
 
 [tool.poetry.group.dev.dependencies]
