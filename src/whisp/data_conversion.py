@@ -12,7 +12,7 @@ import geopandas as gpd
 import ee
 
 
-def ee_to_geojson(ee_object, filename=None, indent=2, **kwargs):
+def convert_ee_to_geojson(ee_object, filename=None, indent=2, **kwargs):
     """Converts Earth Engine object to geojson.
 
     Args:
@@ -44,7 +44,7 @@ def ee_to_geojson(ee_object, filename=None, indent=2, **kwargs):
         raise Exception(e)
 
 
-def geojson_path_to_ee(geojson_filepath: Any) -> ee.FeatureCollection:
+def convert_geojson_to_ee(geojson_filepath: Any) -> ee.FeatureCollection:
     """
     Reads a GeoJSON file from the given path and converts it to an Earth Engine FeatureCollection.
 
@@ -54,31 +54,25 @@ def geojson_path_to_ee(geojson_filepath: Any) -> ee.FeatureCollection:
     Returns:
         ee.FeatureCollection: Earth Engine FeatureCollection created from the GeoJSON.
     """
-    # print(f"Received geojson_filepath: {geojson_filepath}")
     if isinstance(geojson_filepath, (str, Path)):
-        # Read the GeoJSON file
         file_path = os.path.abspath(geojson_filepath)
         print(f"Reading GeoJSON file from: {file_path}")
 
-        # Read the GeoJSON file
         with open(file_path, "r") as f:
             geojson_data = json.load(f)
     else:
         raise ValueError("Input must be a file path (str or Path)")
 
-    # Validate the GeoJSON data
     validation_errors = validate_geojson(geojson_filepath)
     if validation_errors:
         raise ValueError(f"GeoJSON validation errors: {validation_errors}")
 
-    # Create a FeatureCollection from the GeoJSON data
-    # using the multipolygon splitting function extract_features
     feature_collection = ee.FeatureCollection(create_feature_collection(geojson_data))
 
     return feature_collection
 
 
-def geojson_to_shapefile(geojson_path, shapefile_output_path):
+def convert_geojson_to_shapefile(geojson_path, shapefile_output_path):
     """
     Convert a GeoJSON file to a Shapefile and save it to a file.
 
@@ -86,18 +80,15 @@ def geojson_to_shapefile(geojson_path, shapefile_output_path):
     - geojson_path: Path to the GeoJSON file.
     - shapefile_output_path: Path where the Shapefile will be saved.
     """
-    # Read the GeoJSON file
     with open(geojson_path, "r") as geojson_file:
         geojson = json.load(geojson_file)
 
-    # Convert to GeoDataFrame
     gdf = gpd.GeoDataFrame.from_features(geojson["features"])
 
-    # Save to Shapefile
     gdf.to_file(shapefile_output_path, driver="ESRI Shapefile")
 
 
-def shapefile_to_geojson(shapefile_path, geojson_output_path):
+def convert_shapefile_to_geojson(shapefile_path, geojson_output_path):
     """
     Convert a Shapefile to GeoJSON and save it to a file.
 
@@ -105,18 +96,15 @@ def shapefile_to_geojson(shapefile_path, geojson_output_path):
     - shapefile_path: Path to the Shapefile.
     - geojson_output_path: Path where the GeoJSON file will be saved.
     """
-    # Read the Shapefile
     gdf = gpd.read_file(shapefile_path)
 
-    # Convert to GeoJSON
     geojson_str = gdf.to_json()
 
-    # Write the GeoJSON string to a file
     with open(geojson_output_path, "w") as geojson_file:
         geojson_file.write(geojson_str)
 
 
-def shapefile_to_ee(shapefile_path):
+def convert_shapefile_to_ee(shapefile_path):
     """
     Convert a zipped shapefile to an Earth Engine FeatureCollection.
     NB Making this as existing Geemap function shp_to_ee wouldnt work.
@@ -126,23 +114,16 @@ def shapefile_to_ee(shapefile_path):
     Returns:
     - ee.FeatureCollection: Earth Engine FeatureCollection created from the shapefile.
     """
-    # Unzip the shapefile
-    # with zipfile.ZipFile(shapefile_path, "r") as zip_ref:
-    #     zip_ref.extractall("shapefile")
-
-    # Load the shapefile into a GeoDataFrame
     gdf = gpd.read_file(shapefile_path)
 
-    # Convert GeoDataFrame to GeoJSON
     geo_json = gdf.to_json()
 
-    # Create a FeatureCollection from GeoJSON
     roi = ee.FeatureCollection(json.loads(geo_json))
 
     return roi
 
 
-def ee_to_df(
+def convert_ee_to_df(
     ee_object,
     columns=None,
     remove_geom=False,
@@ -197,7 +178,7 @@ def ee_to_df(
         raise Exception(e)
 
 
-def ee_to_shapefile(feature_collection, shapefile_path):
+def convert_ee_to_shapefile(feature_collection, shapefile_path):
     """
     Export an Earth Engine FeatureCollection to a shapefile.
 
@@ -209,26 +190,18 @@ def ee_to_shapefile(feature_collection, shapefile_path):
     - Path to the saved shapefile.
     """
 
-    # Convert FeatureCollection to GeoJSON object using the function
-    geojson = ee_to_geojson(feature_collection)
+    geojson = convert_ee_to_geojson(feature_collection)
 
-    # Convert GeoJSON features to GeoPandas GeoDataFrame
     features = geojson["features"]
     geoms = [shape(feature["geometry"]) for feature in features]
     properties = [feature["properties"] for feature in features]
     gdf = gpd.GeoDataFrame(properties, geometry=geoms)
 
-    # Save GeoDataFrame as shapefile
     gdf.to_file(shapefile_path, driver="ESRI Shapefile")
 
     print(f"Shapefile saved to {shapefile_path}")
 
     return shapefile_path
-
-
-###########from Whisp-app code here to align approaches (05/11/2024):
-# https://github.com/forestdatapartnership/whisp-app/blob/main/src/utils/geojsonUtils.ts
-# #####converted to python
 
 
 def validate_geojson(input_data: Any) -> List[str]:
@@ -240,10 +213,8 @@ def validate_geojson(input_data: Any) -> List[str]:
     """
     errors = []
 
-    # Check if input_data is a file path
     if isinstance(input_data, (str, Path)):
         try:
-            # Read the GeoJSON file
             with open(input_data, "r") as f:
                 geojson_data = f.read()
         except Exception as e:
@@ -298,7 +269,7 @@ def create_feature_collection(geojson_obj: Any) -> FeatureCollection:
     return FeatureCollection(features)
 
 
-def csv_to_geojson(csv_filepath: str, geojson_filepath: str, geo_column: str = "geo"):
+def convert_csv_to_geojson(csv_filepath: str, geojson_filepath: str, geo_column: str = "geo"):
     """
     Convert a CSV file with a geo column into a GeoJSON file.
 
@@ -316,17 +287,15 @@ def csv_to_geojson(csv_filepath: str, geojson_filepath: str, geo_column: str = "
     None
     """
     try:
-        # Read the CSV file into a DataFrame
         df = pd.read_csv(csv_filepath)
 
-        # Convert the DataFrame to GeoJSON
         df_to_geojson(df, geojson_filepath, geo_column)
 
     except Exception as e:
         print(f"An error occurred while converting CSV to GeoJSON: {e}")
 
 
-def df_to_geojson(df: pd.DataFrame, geojson_filepath: str, geo_column: str = "geo"):
+def convert_df_to_geojson(df: pd.DataFrame, geojson_filepath: str, geo_column: str = "geo"):
     """
     Convert a DataFrame with a geo column into a GeoJSON file.
 
@@ -344,45 +313,32 @@ def df_to_geojson(df: pd.DataFrame, geojson_filepath: str, geo_column: str = "ge
     None
     """
     try:
-        # Check if the geo column exists
         if geo_column not in df.columns:
             raise ValueError(f"Geo column '{geo_column}' not found in the DataFrame.")
 
-        # Create a list to hold GeoJSON features
         features = []
 
-        # Iterate over each row in the DataFrame
         for index, row in df.iterrows():
             try:
-                # Get the raw GeoJSON string
                 geojson_str = row[geo_column]
-                # print(f"Row {index} GeoJSON: {geojson_str}")  # Debugging: Print the raw GeoJSON string
 
-                # Replace single quotes with double quotes
                 geojson_str = geojson_str.replace("'", '"')
 
-                # Parse the geometry from the geo column
                 geometry = geojson.loads(geojson_str)
 
-                # Handle NaN values in properties
                 properties = row.drop(geo_column).to_dict()
                 properties = {
                     k: (v if pd.notna(v) else None) for k, v in properties.items()
                 }
 
-                # Create a GeoJSON feature
                 feature = geojson.Feature(geometry=geometry, properties=properties)
 
-                # Add the feature to the list
                 features.append(feature)
             except Exception as e:
-                # print(f"Error parsing GeoJSON at row {index}: {e}")
                 continue
 
-        # Create a GeoJSON FeatureCollection
         feature_collection = geojson.FeatureCollection(features)
 
-        # Save the FeatureCollection to a GeoJSON file
         with open(geojson_filepath, "w") as f:
             geojson.dump(feature_collection, f, indent=2)
 
