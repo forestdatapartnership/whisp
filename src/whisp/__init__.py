@@ -56,12 +56,11 @@ from whisp.reformat import (
 )
 
 from whisp.data_conversion import (
-    ee_to_df,
-    # geojson_to_df,
-    # geojson_to_ee,
-    df_to_geojson,
-    csv_to_geojson,
-    ee_to_geojson,
+    convert_ee_to_df,
+    convert_geojson_to_ee,
+    convert_df_to_geojson,
+    convert_csv_to_geojson,
+    convert_ee_to_geojson,
 )
 
 from whisp.risk import whisp_risk

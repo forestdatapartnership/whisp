@@ -1,15 +1,9 @@
 import ee
-
 import pandas as pd
-
 from pathlib import Path
-
 from .datasets import combine_datasets
-
 import json
-
 import country_converter as coco
-
 from whisp.parameters.config_runtime import (
     percent_or_ha,
     plot_id_column,
@@ -27,18 +21,14 @@ from whisp.parameters.config_runtime import (
     stats_percent_columns_formatting,
     water_flag,
 )
-
 from .data_conversion import (
-    ee_to_df,
-    geojson_path_to_ee,
-    ee_to_geojson,
-    csv_to_geojson,
-    df_to_geojson,  # Import the new function
+    convert_ee_to_df,
+    convert_geojson_to_ee,
+    convert_ee_to_geojson,
+    # convert_csv_to_geojson,
+    convert_df_to_geojson,
 )  # copied functions from whisp-api and geemap (accessed 2024) to avoid dependency
-
-from .reformat import (
-    validate_dataframe_using_lookups,
-)
+from .reformat import validate_dataframe_using_lookups
 
 # NB functions that included "formatted" in the name apply a schema for validation and reformatting of the output dataframe. The schema is created from lookup tables.
 
@@ -74,7 +64,7 @@ def whisp_formatted_stats_geojson_to_df(
     df_stats : pd.DataFrame
         The DataFrame containing the Whisp stats for the input ROI.
     """
-    feature_collection = geojson_path_to_ee(str(input_geojson_filepath))
+    feature_collection = convert_geojson_to_ee(str(input_geojson_filepath))
 
     return whisp_formatted_stats_ee_to_df(
         feature_collection, external_id_column, remove_geom
@@ -110,7 +100,7 @@ def whisp_formatted_stats_geojson_to_geojson(
         external_id_column=external_id_column,
     )
     # Convert the df to GeoJSON
-    df_to_geojson(df, output_geojson_filepath, geo_column)
+    convert_df_to_geojson(df, output_geojson_filepath, geo_column)
 
     print(f"GeoJSON with Whisp stats saved to {output_geojson_filepath}")
 
@@ -145,7 +135,7 @@ def whisp_formatted_stats_ee_to_geojson(
     df_stats = whisp_formatted_stats_ee_to_df(feature_collection, external_id_column)
 
     # Convert the df to GeoJSON
-    df_to_geojson(df_stats, output_geojson_filepath, geo_column)
+    convert_df_to_geojson(df_stats, output_geojson_filepath, geo_column)
 
     print(f"GeoJSON with Whisp stats saved to {output_geojson_filepath}")
 
@@ -193,7 +183,7 @@ def whisp_stats_geojson_to_df(
     df_stats : pd.DataFrame
         The dataframe containing the Whisp stats for the input ROI.
     """
-    feature_collection = geojson_path_to_ee(str(input_geojson_filepath))
+    feature_collection = convert_geojson_to_ee(str(input_geojson_filepath))
 
     return whisp_stats_ee_to_df(feature_collection, external_id_column, remove_geom)
 
@@ -214,7 +204,7 @@ def whisp_stats_geojson_to_ee(
     df_stats : pd.DataFrame
         The dataframe containing the Whisp stats for the input ROI.
     """
-    feature_collection = geojson_path_to_ee(str(input_geojson_filepath))
+    feature_collection = convert_geojson_to_ee(str(input_geojson_filepath))
 
     return whisp_stats_ee_to_ee(feature_collection, external_id_column)
 
@@ -239,7 +229,7 @@ def whisp_stats_geojson_to_geojson(
     None
     """
     # Convert GeoJSON to Earth Engine FeatureCollection
-    feature_collection = geojson_path_to_ee(input_geojson_filepath)
+    feature_collection = convert_geojson_to_ee(input_geojson_filepath)
 
     # Get stats as a FeatureCollection
     stats_feature_collection = whisp_stats_ee_to_ee(
@@ -247,7 +237,7 @@ def whisp_stats_geojson_to_geojson(
     )
 
     # Convert the stats FeatureCollection to GeoJSON
-    stats_geojson = ee_to_geojson(stats_feature_collection)
+    stats_geojson = convert_ee_to_geojson(stats_feature_collection)
 
     # Save the GeoJSON to a file
     with open(output_geojson_filepath, "w") as f:
@@ -275,7 +265,7 @@ def whisp_stats_geojson_to_drive(
             raise FileNotFoundError(f"File {input_geojson_filepath} does not exist.")
 
         # Assuming geojson_to_ee is properly imported from data_conversion.py
-        feature_collection = geojson_path_to_ee(str(input_geojson_filepath))
+        feature_collection = convert_geojson_to_ee(str(input_geojson_filepath))
 
         return whisp_stats_ee_to_drive(feature_collection, external_id_column)
 
@@ -360,7 +350,7 @@ def whisp_stats_ee_to_df(
         The dataframe containing the Whisp stats for the input ROI.
     """
     try:
-        df_stats = ee_to_df(
+        df_stats = convert_ee_to_df(
             ee_object=whisp_stats_ee_to_ee(feature_collection, external_id_column),
             remove_geom=remove_geom,
         )
