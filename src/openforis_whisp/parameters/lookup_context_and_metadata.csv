@@ -1,0 +1,13 @@
+name,order,theme,use_for_risk,exclude_from_input,exclude_from_output,col_type,is_nullable,is_required,corresponding_variable
+plotId,-10,context_and_metadata,NA,NA,0,string,1,0,plot_id_column
+external_id,-9,context_and_metadata,NA,NA,0,string,1,0,geo_id_column
+Area,-8,context_and_metadata,NA,NA,0,float32,1,1,geometry_area_column
+Geometry_type,-7,context_and_metadata,NA,NA,0,string,1,1,geometry_type_column
+Country,-6,context_and_metadata,NA,NA,0,string,1,1,iso3_country_column
+ProducerCountry,-5,context_and_metadata,NA,NA,0,string,1,1,iso2_country_column
+Admin_Level_1,-4,context_and_metadata,NA,NA,0,string,1,1,admin_1_column
+Centroid_lon,-3,context_and_metadata,NA,NA,0,float64,1,1,centroid_x_coord_column
+Centroid_lat,-2,context_and_metadata,NA,NA,0,float64,1,1,centroid_y_coord_column
+Unit,-1,context_and_metadata,NA,NA,0,string,1,1,stats_unit_type_column
+In_waterbody,0,context_and_metadata,0,NA,0,bool,1,1,water_flag
+geo,9999,context_and_metadata,0,NA,0,string,1,1,geometry_column
