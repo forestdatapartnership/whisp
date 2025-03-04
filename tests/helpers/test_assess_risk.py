@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from whisp.stats import whisp_formatted_stats_geojson_to_df
-from whisp.risk import whisp_risk
+from openforis_whisp.stats import whisp_formatted_stats_geojson_to_df
+from openforis_whisp.risk import whisp_risk
 
 import pandas as pd
 

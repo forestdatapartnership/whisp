@@ -3,10 +3,10 @@ requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-name = "whisp"
-version = "0.0.11"
+name = "openforis-whisp"
+version = "0.0.1"
 description = "Whisp (What is in that plot) is an open-source solution which helps to produce relevant forest monitoring information and support compliance with deforestation-related regulations."
-authors = ["Andy Arnell <andrew.arnell@fao.org>"]
+authors = ["Andy Arnell <and.arnell@fao.org>"]
 readme = "README.md"
 license = "MIT"
 keywords = ["whisp", "geospatial", "data-processing"]

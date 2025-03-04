@@ -11,8 +11,8 @@ def pytest_configure():
     ] = "1"  # to stop deprecation warnigns related to jupyter path migration
 
 
-from whisp.utils import init_ee, clear_ee_credentials
-from whisp.logger import StdoutLogger
+from openforis_whisp.utils import init_ee, clear_ee_credentials
+from openforis_whisp.logger import StdoutLogger
 
 logger = StdoutLogger(__name__)
 
