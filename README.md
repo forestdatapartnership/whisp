@@ -5,7 +5,6 @@ whisp
 [![DOI](https://img.shields.io/badge/DOI-10.4060%2Fcd0957en-brightgreen.svg)](https://doi.org/10.4060/cd0957en)
 
 
-
 ![Whisp_OpenForis_Banner_Github](https://github.com/user-attachments/assets/84f002fe-1848-46a1-814d-3949c22728cb)
 
 ## Convergence of Evidence <a name="whisp_coe"></a>
@@ -34,13 +33,12 @@ The Forest Data Partnership promotes this approach for forest and commodities mo
 ***Whisp*** can currently be used directly or implemented in your own code through three different pathways:
 
 
-1. The Whisp App with its simple interface can be used [right here](https://whisp.openforis.org/) or called from other software by [API](https://whisp.openforis.org/documentation/api-guide). The Whisp App currently supports the processing of up to 500 geometries per job. The original JS & Python code behind the Whisp App and API can be found [here](https://github.com/forestdatapartnership/whisp-app).
+1. The Whisp App with its simple interface can be used [right here](https://whisp.openforis.org/) or called from other software by [API](https://whisp.openforis.org/documentation/api-guide). The Whisp App currently supports the processing of up to 1000 geometries per job. The original JS & Python code behind the Whisp App and API can be found [here](https://github.com/forestdatapartnership/whisp-app).
 
 2. [Whisp in Earthmap](https://whisp.earthmap.org/?aoi=WHISP&boundary=plot1&layers=%7B%22CocoaETH%22%3A%7B%22opacity%22%3A1%7D%2C%22JRCForestMask%22%3A%7B%22opacity%22%3A1%7D%2C%22planet_rgb%22%3A%7B%22opacity%22%3A1%2C%22date%22%3A%222020-12%22%7D%7D&map=%7B%22center%22%3A%7B%22lat%22%3A7%2C%22lng%22%3A4%7D%2C%22zoom%22%3A3%2C%22mapType%22%3A%22satellite%22%7D&statisticsOpen=true) supports the visualization of geometries on actual maps with the possibility to toggle different relevant map products around tree cover, commodities and deforestation. It is practical for demonstration purposes and spot checks of single geometries but not recommended for larger datasets.
 
-3. Datasets of any size, especially when holding more than 500 geometries, can be "whisped" through the [Jupyter Notebook](whisp_feature_collection.ipynb) in this repository. They can either be uploaded as GeoJSONs or accessed through GEE assets. For the detailed procedure please go to the section [Whisp notebooks](#whisp_notebooks).
+3. Datasets of any size, especially when holding more than 1000 geometries, can be "whisped" through the [python package on pip](https://pypi.org/project/openforis-whisp/). See [Colab notebook] (https://github.com/forestdatapartnership/whisp/blob/package-test-new-structure/notebooks/Colab_whisp_geojson_to_csv.ipynb) for example implementation with a geojson input. For the detailed procedure please go to the section [Whisp notebooks](#whisp_notebooks).
 
-<br>
 
 ## Whisp datasets <a name="whisp_datasets"></a>
 ***Whisp***  implements the convergence of evidence approach by providing a transparent and public processing flow using datasets covering the following categories:
@@ -75,143 +73,45 @@ However, under the same circumstances but with <u>no</u> disturbances reported a
 
 ![whisp convergence of proof](images/pol_story_agu.gif)
 
+
+![whisp convergence of proof](images/pol_story_agu.gif)
+
+## Run Whisp package using Python Notebooks
+
+For most users we suggest using the Whisp App to porcess their plots.
+
+For bespoke analyses using or implemetation in a python workflow you can sue the python package directly.
+
+See example [Colab notebook] (https://github.com/forestdatapartnership/whisp/blob/package-test-new-structure/notebooks/Colab_whisp_geojson_to_csv.ipynb) 
+
 # Requirements
 
 - A Google Earth Engine (GEE) account.
 - A registered cloud GEE project.
 - Some experience in Python or a similar language.
 
-# Setup
-Consider creating a virtual environment to keep your main python installation clean.
-This can be done through this command line
-```
-python -m venv env
-```
-More info on virtual environments here: https://docs.python.org/3/library/venv.html
+More info on Whisp can be found in [here](https://openknowledge.fao.org/items/e9284dc7-4b19-4f9c-b3e1-e6c142585865)
 
+# Python package installation
 
-If installing from GitHUb
-Clone the Whisp repo and install the package:
-```
-git clone https://github.com/forestdatapartnership/whisp.git
-cd whisp/
-pip install .
-```
+pip install openforis-whisp
 
-Create a `.env` file with the required information for Earth Engine login (you may copy and edit the `.env.template`
-file found in the root directory). The file must contain the following environment variables:
+...
+
+If running the package locally we recommend using a [virtual environment](https://docs.python.org/3/library/venv.html) to keep your main python installation clean.
+
 ```
+The package relies upon the earth engine api being setup correctly using a registered cloud project
+
 # Earth Engine project name
-PROJECT="my-ee-project"
+gee_project_name="my-ee-project"
 ```
-Where you must replace the GEE project name by your own.
+Where you must replace the GEE project in the 
+ee.Initialize(project=gee_project_name)
 
 Note: this should be a registered cloud project. If unsure of this check pic here: https://developers.google.com/earth-engine/cloud/assets
 
-
-# Contributing
-
-Install the package in editable mode with the additional dependencies required for testing and running pre-commit hooks:
-```
-git clone https://github.com/forestdatapartnership/whisp.git
-cd whisp/
-pip install -e .[dev]
-```
-
-Setup the pre-commit hooks:
-```
-pre-commit install
-```
-
-
-You should be able to run the Pytest suite by simple running the `pytest` command from the repo's root folder.
-
-Please read the ![contributing guidelines](contributing_guidelines.md) for good practice recommendations.
-
-
-# whisp pathways
-***whisp*** can be implemented through at least three pathways
-
-1. As an operationnal API in JS and Python
-
-2. Through mobile applications to enable smallholder in the field directly generate and own the monitoring data associated with their plots of land
-
-3. Integrated through Graphical User Interfaces for demonstration and verification purposes
-
-4. Python Notebook implementation.
-
 More info on Whisp can be found in [here](https://openknowledge.fao.org/items/e9284dc7-4b19-4f9c-b3e1-e6c142585865)
-
-## How to Whisp Your Data Using the Python Notebook Pathway
-
-The Python notebooks are currently set up to run in Sepal and to focus on polygon data provided by the user or geo_ids that allow the notebooks to access polygons stored and registered in the Asset Registry. NB: We value your feedback in terms of what input data we should support.
-
-If your data is available as a feature collection and the GitHub repo is cloned, you are ready to start processing. We suggest first familiarizing yourself with running the notebooks using the default inputs in the notebook code. This will allow you to understand the expected outputs and the general functionality, as well as check if the setup worked successfully.
-
-### Whisping a GeoJSON containing plot data
-
-1. Open Jupyter Lab (see Apps).
-2. Open the notebook `whisp_geojson.ipynb` from inside the "notebooks" folder.
-3. To run the notebook cells, press the Play icon, or use the Shift + Enter shortcut. For more info on Jupyter and controlling notebooks, see [here](https://jupyter.org/try-jupyter/lab/).
-4. Once you have initialised and agreed to the Google Earth Engine access requirements, you can process a geojson file containing plot informations.
-5. The outputs from the notebook can be set to where you want to store them.
-6. Outputs from the process include a CSV file `whisp_output_table.csv`.
-7. NB If the processing job is large this may take some time. IF the outputs fail to process due to memory or time out errors, you can use the alternative function 'whisp_stats_geojson_to_drive', that sends a csv outpout to your Google drive. We are developing functionality to upload the csv automatically. In the meantime manually downloading from Google Drive and saving the csv is required. You can then import the csv as a pandas dataframe and use the 'validate_dataframe_using_lookups' function to get the Whisp output format (i.e., using a set schema for a standardised output, useful for showing in Power Bi etc).
-
-### Adding risk indicators to your results
-8. Finally, functions at the end of the notebook allow the user to add EUDR risk indicators to the table. NB: these risk indicators are still at the experimental stage.
-
-### Output 1
-
-- A CSV called `whisp_output_table.csv` contains results from the whisp processing.
-
-### Output 2
-
-- A CSV called `whisp_output_table_w_risk.csv` contains results from the whisp processing and risk indicators.
-
-
-## Other Files
-
-### Parameters Folder
-
-A folder containing a series of Python scripts and a CSV. These files are used to define various parameters used in the analysis.
-
-Key files include:
-- `lookup_gee_datasets.csv` contains the list of input datasets, the order they will be displayed, which ones are to be excluded from the current analysis, and which ones are shown as flags (i.e., shown as presence or absence instead of figures for area/percentage coverage of the plot).
-- `config_runtime.py` contains parameters such as default file and column names. **WARNING: USERS SHOULD NOT EDIT PACKAGE CONFIG ; IF THEY WANT TO, THEY SHOULD INSTALL THE PACKAGE IN EDITABLE MODE IN ORDER TO BE ABLE TO MODIFY CONFIGS WITHOUT HAVING TO RE-INSTALL THE PACKGE EVERY TIME**
-
-### src code
-
-Various functions for the main Whisp analysis along with some for interacting with the AgStack Asset Registry.
-
-Key files:
-- `datasets.py` contains a series of functions related to the creation of a single multiband GEE image to be used in the Whisp summary statistics analysis.
-- `stats.py` contains functions to run the Whisp analysis for each of the various datasets and to provide results for coverage of each plot as a percentage (or as an area in hectares).
-
-## Setting Up Your System
-
-
-### Setting Up SEPAL
-
-SEPAL is closely linked to Google Earth Engine (GEE), a Google-powered Earth-observation cloud-computing platform, as it builds in many of its functionalities. Currently, you will need to have connected SEPAL and GEE accounts. SEPAL provides a stable processing environment and allows you to link up with your Google account saving time with permissions. Currently, we are supporting the use within SEPAL, but you can run the scripts outside of SEPAL if required, although this will require extra code to account for the various dependencies SEPAL already has built in.
-
-1. Login to SEPAL.
-2. Start an instance (see Terminal info) to provide you with free processing power.
-3. If you don’t have SEPAL set up:
-    - To create a SEPAL account, please follow the registration steps described [here](https://docs.sepal.io/en/latest/setup/register.html) and then familiarize yourself with the tool by exploring its interface.
-    - To create a Google Earth Engine (GEE) account, please follow these steps and don’t forget to initialize the home folder.
-
-### Setting Up the Whisp GitHub Repository
-
-1. Make sure you have a GitHub account set up.
-2. To run the Whisp notebooks in SEPAL, you need to copy the Whisp repository into your SEPAL files. The notebooks rely on functions and parameters that are stored in other files in this repository.
-3. To clone (i.e., copy) the GitHub repository so that it is accessible in SEPAL, type into the SEPAL terminal:
-
-    ```sh
-    git clone https://github.com/forestdatapartnership/whisp.git
-    ```
-
-4. If this works, on the left-hand pane you should now be able to view a Whisp folder containing Notebooks along with other supporting files and folders.
 
 
 ## How to add data layers to Whisp
@@ -219,12 +119,12 @@ SEPAL is closely linked to Google Earth Engine (GEE), a Google-powered Earth-obs
 There are two main approaches: to request a layer be incorporated into the core Whisp inputs, or to add in your own data directly to complement the core ones in Whisp
 
 ### Requesting a dataset addition
-If you think a particular dataset has wide applicability for Whisp users, you can request it be added to the main Whisp repository by logging as an issue in Github [here] (https://github.com/forestdatapartnership/whisp/issues/).
+If you think a particular dataset has wide applicability for Whisp users, you can request it be added to the main Whisp repository by logging as an issue in Github [here] (https://github.com/forestdatapartnership/whisp/issues/). Before requesting consider: 1) is the resolution high enough for plot level analysis (e.g. 30m or 10m resolution), 2) is there an indication of data quality (e.g. accuracy assessment detailed in a scientific publication) and 3) is there relevant metadata available. 
 
 ### Adding your own dataset for a bespoke Whisp analysis (using the Python Notebooks)
 Adding your To add other datasets, such as that are specific to your circumstances, or can’t be shared directly in GEE, follow the steps and guidance below.
 
-1)	Edit modules/datasets.py and add in a function to make a binary GEE image (i.e., where values are either 0 or 1*). Make sure the function name ends with "_prep", as only functions with this suffix are used.
+1)	Edit the datasets.py and add in a function to make a binary GEE image (i.e., where values are either 0 or 1*). Make sure the function name ends with "_prep", as only functions with this suffix are used.
 2)	Choose a name to represent the data layer in the final CSV output. Place in speech brackets  in the .rename() section at the end of the function. See examples elsewhere in the functions in this script.
 3)	Edit parameters/lookup_gee_datasets.csv to include the chosen dataset name in a new row. Make sure other relevant columns are filled in.
 
@@ -258,5 +158,33 @@ g. corresponding variable: the name of the function for creating the dataset in 
 •	A binary input image is expected, but non-integer values are allowed if they range between 0 and 1. This is most appropriate for datasets that have proportion of coverage in a pixel (e.g., a value of 0.5 would represent having half the pixel covered).
 •	If you are adding timeseries data, when creating the function you can use loops/mapping to compile a multiband input and to name each band accordingly.
 
+## Key files
+
+# Parameters:
+- `lookup_gee_datasets.csv` contains the list of input datasets, the order they will be displayed, which ones are to be excluded from the current analysis, and which ones are shown as flags (i.e., shown as presence or absence instead of figures).
+
+### src code
+
+Main Whisp analysis functions are found in the following files:
+- `datasets.py` functions for compiling GEE datasets into a single multiband image ready for input into the whisp analysis
+- `stats.py` functions to run Whisp analysis for each GEE dataset, providing results for coverage of each plot as an area in hectares
+-`risk.py` functions for estimating risk of deforestation.
+
 ## Contributing to the Whisp code base
 Contributions to the Whisp code in GitHub are welcome. They can be made by forking the repository making and pushing the required changes, then making a pull request to the Whisp repository. After briefly reviewing the request, we can make a branch for which to make a new pull request to. If in doubt get in contact first or log as an issue [here] (https://github.com/forestdatapartnership/whisp/issues/).
+
+Install the package in editable mode with the additional dependencies required for testing and running pre-commit hooks:
+```
+git clone https://github.com/forestdatapartnership/whisp.git
+cd whisp/
+pip install -e .[dev]
+```
+
+Setup the pre-commit hooks:
+```
+pre-commit install
+```
+
+You should be able to run the Pytest suite by simple running the `pytest` command from the repo's root folder.
+
+Please read the ![contributing guidelines](contributing_guidelines.md) for good practice recommendations.
