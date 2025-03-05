@@ -5,12 +5,14 @@ import ee
 
 from datetime import datetime
 
-from openforis_whisp.parameters.config_runtime import (
-    geometry_area_column,
-)  # ideally make relative import statement
+# from openforis_whisp.parameters.config_runtime import (
+#     geometry_area_column,
+# )  # ideally make relative import statement
+
+# defining here instead of importing from config_runtime, to allow functioning as more of a standalone script
+geometry_area_column = "Area"
 
 import inspect
-
 
 import logging
 

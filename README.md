@@ -93,7 +93,7 @@ https://pypi.org/project/openforis-whisp/
 It can be installed with one line of code:
 
 ```
-pip install openforis-whisp
+pip install -pre openforis-whisp
 ```
 
 If running locally we recommend a [virtual environment](https://docs.python.org/3/library/venv.html) to keep your main python installation clean.

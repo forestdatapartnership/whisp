@@ -5,7 +5,7 @@ percent_or_ha = "ha"
 
 # output column names
 # The names need to align with whisp/parameters/lookup_context_and_metadata.csv
-geometry_area_column = "Area"
+geometry_area_column = "Area" # Note: datasets.py defines this explicitly as "Area", to allow it to be a standalone script
 
 stats_unit_type_column = "Unit"
 

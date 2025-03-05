@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "openforis-whisp"
-version = "0.1.0a1"
+version = "0.1.0a4"
 description = "Whisp (What is in that plot) is an open-source solution which helps to produce relevant forest monitoring information and support compliance with deforestation-related regulations."
 repository = "https://github.com/forestdatapartnership/whisp"
 authors = ["Andy Arnell <and.arnell@fao.org>"]

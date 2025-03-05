@@ -29,6 +29,10 @@ try:
 except Exception as e:
     print("Error in default EE initialization:", e)
 
+from openforis_whisp.datasets import (
+    combine_datasets,
+    )
+
 from openforis_whisp.stats import (
     whisp_stats_ee_to_ee,
     whisp_stats_ee_to_df,
