@@ -1,4 +1,4 @@
-dataset_id,dataset_order,dataset_name,presence_only_flag,exclude,theme,use_for_risk
+sc,dataset_order,dataset_name,presence_only_flag,exclude,theme,use_for_risk
 10,10,EUFO_2020,0,0,treecover,1
 20,20,GLAD_Primary,0,0,treecover,1
 30,30,TMF_undist,0,0,treecover,1
@@ -149,6 +149,7 @@ dataset_id,dataset_order,dataset_name,presence_only_flag,exclude,theme,use_for_r
 1480,1480,GFC_loss_after_2020,0,0,disturbance_after,1
 1490,1490,MODIS_fire_after_2020,0,0,disturbance_after,1
 1500,1500,RADD_after_2020,0,0,disturbance_after,1
-1510,1510,GFT_planted_plantation,0,0,timber,
-1520,1520,GFT_naturally_regenerating,0,0,timber,
-1530,1530,GFT_primary,0,0,timber,
+1510,1510,GFT_planted_plantation,0,0,timber,1
+1520,1520,GFT_naturally_regenerating,0,0,timber,1
+1530,1530,GFT_primary,0,0,timber,1
+1540,1540,GLAD_Primary,0,0,timber,1

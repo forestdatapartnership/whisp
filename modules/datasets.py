@@ -68,6 +68,11 @@ def gft_plantation_prep():
     gft_raw = ee.ImageCollection("JRC/GFC2020_subtypes/V0").mosaic()
     gft_plantation = gft_raw.eq(20)
     return gft_plantation.rename("GFT_planted_plantation")
+
+# Intact Forest Landscape 2020
+def IFL_2020_prep():
+    IFL_2020 = ee.Image('users/potapovpeter/IFL_2020')
+    return IFL_2020.rename("IFL_2020")
     
 ############plantation data
 # # Oil_palm_Descals 
@@ -469,9 +474,10 @@ def combine_datasets():
     img_combined = img_combined.addBands(try_access(tmf_deg_after_2020_prep)) # combined
     img_combined = img_combined.addBands(try_access(radd_after_2020_prep)) # combined
     img_combined = img_combined.addBands(try_access(radd_before_2020_prep)) # combined
-    img_combined = img_combined.addBands(try_access(gft_primary_prep)) # combined
-    img_combined = img_combined.addBands(try_access(gft_nat_reg_prep)) # combined
-    img_combined = img_combined.addBands(try_access(gft_plantation_prep)) # combined
+    img_combined = img_combined.addBands(try_access(gft_primary_prep)) 
+    img_combined = img_combined.addBands(try_access(gft_nat_reg_prep)) 
+    img_combined = img_combined.addBands(try_access(gft_plantation_prep)) 
+    img_combined = img_combined.addBands(try_access(glad_pht_prep)) 
 
     
     

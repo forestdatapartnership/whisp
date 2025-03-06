@@ -374,8 +374,6 @@ def get_cols_ind_4_dist_after_2020(lookup_gee_datasets_df):
         (lookup_gee_datasets_df["theme"] == "disturbance_after")
     ])
 
-
-
 def add_indicator_column_from_csv(csv_file, input_columns, threshold, new_column_name,low_name='low', high_name='high', sum_comparison=False, output_file=None):
     """
     Read a CSV file into a DataFrame, add a new column based on specified columns and threshold,
@@ -510,7 +508,7 @@ def truncate_strings_in_list(input_list, max_length):
     """as name suggests, useful for exporting to shapefiles fort instance where col name length is limited"""
     return [string[:max_length] for string in input_list]
 
-###alternative vedrsion for clarity
+###alternative version for clarity
 # If 'Treecover_indicator' is "no", or 'Commodities_indicator' is "yes", or 'Disturbance_before_2020_indicator' is "yes", then set 'EUDR_risk' to "low".
 # If 'Disturbance_after_2020_indicator' is "yes", (and previous condition is not true), then set 'EUDR_risk' to "high".
 # If none of the above conditions are met, set 'EUDR_risk' to "more_info_needed".
