@@ -1,0 +1,85 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "openforis-whisp"
+version = "0.1.0a5"
+description = "Whisp (What is in that plot) is an open-source solution which helps to produce relevant forest monitoring information and support compliance with deforestation-related regulations."
+repository = "https://github.com/forestdatapartnership/whisp"
+authors = ["Andy Arnell <and.arnell@fao.org>"]
+readme = "README.md"
+license = "MIT"
+keywords = ["whisp", "geospatial", "data-processing"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3.10",
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+
+[tool.poetry.urls]
+"Documentation" = "https://github.com/forestdatapartnership/whisp#readme"
+"Development Branch" = "https://github.com/forestdatapartnership/whisp/tree/package-test-new-structure"
+"Issues" = "https://github.com/forestdatapartnership/whisp/issues"
+
+[tool.poetry.dependencies]
+python = ">=3.10"
+earthengine-api = "*"
+geemap = "*"
+numpy = ">=1.21.0,<3.0.0"  # Updated version constraint
+pandas = ">=1.3.0,<3.0.0"
+pandera = {extras = ["io"], version = ">=0.22.1,<1.0.0"}
+country_converter = ">=0.7,<2.0.0"
+geojson = ">=2.5.0,<3.0.0"
+python-dotenv = ">=1.0.1,<2.0.0"
+pydantic-core = ">=2.14.0,<3.0.0"  # Updated version constraint
+rsa = ">=4.2,<5.0.0"  # Updated version constraint
+ipykernel = ">=6.17.1,<7.0.0"  # Compatible with Colab
+shapely = "^2.0.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=6.2.5,<7.0.0"
+pre-commit = ">=2.15.0,<3.0.0"
+ruff = ">=0.0.1,<1.0.0"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"whisp.parameters" = ["lookup_gee_datasets.csv", "lookup_context_and_metadata.csv"]
+
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_level = "DEBUG"
+
+[tool.ruff]
+fix = true
+select = [
+    "A", "ANN", "ARG", "B", "C", "COM", "C90", "E", "ERA", "F", "I", "N", "PGH", "PL", "PLE", "PLR", "PLW", "PT",
+    "PTH", "Q", "RET", "RUF", "SLF", "SIM", "TID", "TRY", "UP", "W", "YTT"
+]
+ignore = [
+    "A003", "ANN002", "ANN003", "ANN101", "ANN102", "ANN401", "N805", "N818", "PLR0913", "RET504", "RET505"
+]
+fixable = [
+    "A", "ANN", "ARG", "B", "C", "COM", "C90", "E", "ERA", "F", "I", "PGH", "PL", "PLE", "PLR", "PLW", "PT",
+    "PTH", "Q", "RET", "RUF", "SLF", "SIM", "TID", "TRY", "UP", "W", "YTT"
+]
+unfixable = []
+
+exclude = [
+    ".bzr", ".direnv",
+]
+
+line-length = 120
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.mccabe]
+max-complexity = 10
