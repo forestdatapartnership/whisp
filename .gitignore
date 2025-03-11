@@ -8,8 +8,13 @@ __pycache__/
 *.zip
 temp*
 whisp_output_table.csv
+whisp_output_table_w_risk.csv
+whisp_output_table.geojson
 temp_geo_id_lookup.csv
-copy_whisp_output_table.csv
-copy_whisp_output_table_w_risk.csv
-parameters/config_gee.py
-whisp/
+tests/outputs/
+.env
+venv/
+whisp.egg-info/
+build/
+pre-commit.log
+credentials.json
