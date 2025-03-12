@@ -21,8 +21,8 @@ def whisp_risk(
     df: data_lookup_type,  # CHECK THIS
     ind_1_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_2_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
-    ind_3_pcent_threshold: float = 0,  # default values (draft decision tree and parameters)
-    ind_4_pcent_threshold: float = 0,  # default values (draft decision tree and parameters)
+    ind_3_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
+    ind_4_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_1_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_2_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_3_input_columns: pd.Series = None,  # see lookup_gee_datasets for details

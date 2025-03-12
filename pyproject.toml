@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "openforis-whisp"
-version = "0.1.0a5"
+version = "0.1.0a7"
 description = "Whisp (What is in that plot) is an open-source solution which helps to produce relevant forest monitoring information and support compliance with deforestation-related regulations."
 repository = "https://github.com/forestdatapartnership/whisp"
 authors = ["Andy Arnell <and.arnell@fao.org>"]
@@ -22,7 +22,7 @@ classifiers = [
 
 [tool.poetry.urls]
 "Documentation" = "https://github.com/forestdatapartnership/whisp#readme"
-"Development Branch" = "https://github.com/forestdatapartnership/whisp/tree/package-test-new-structure"
+"Development Branch" = "https://github.com/forestdatapartnership/whisp/tree/main"
 "Issues" = "https://github.com/forestdatapartnership/whisp/issues"
 
 [tool.poetry.dependencies]
@@ -39,6 +39,7 @@ pydantic-core = ">=2.14.0,<3.0.0"  # Updated version constraint
 rsa = ">=4.2,<5.0.0"  # Updated version constraint
 ipykernel = ">=6.17.1,<7.0.0"  # Compatible with Colab
 shapely = "^2.0.2"
+geopandas = "^1.0.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=6.2.5,<7.0.0"

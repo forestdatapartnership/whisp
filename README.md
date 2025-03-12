@@ -37,7 +37,7 @@ The Forest Data Partnership promotes this approach for forest and commodities mo
 
 2. [Whisp in Earthmap](https://whisp.earthmap.org/?aoi=WHISP&boundary=plot1&layers=%7B%22CocoaETH%22%3A%7B%22opacity%22%3A1%7D%2C%22JRCForestMask%22%3A%7B%22opacity%22%3A1%7D%2C%22planet_rgb%22%3A%7B%22opacity%22%3A1%2C%22date%22%3A%222020-12%22%7D%7D&map=%7B%22center%22%3A%7B%22lat%22%3A7%2C%22lng%22%3A4%7D%2C%22zoom%22%3A3%2C%22mapType%22%3A%22satellite%22%7D&statisticsOpen=true) supports the visualization of geometries on actual maps with the possibility to toggle different relevant map products around tree cover, commodities and deforestation. It is practical for demonstration purposes and spot checks of single geometries but not recommended for larger datasets.
 
-3. Datasets of any size, especially when holding more than 1000 geometries, can be "whisped" through the [python package on pip](https://pypi.org/project/openforis-whisp/). See example [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/package-test-new-structure/notebooks/Colab_whisp_geojson_to_csv.ipynb) for implementation with a geojson input. For the detailed procedure please go to the section [Whisp notebooks](#whisp_notebooks).
+3. Datasets of any size, especially when holding more than 1000 geometries, can be "whisped" through the [python package on pip](https://pypi.org/project/openforis-whisp/). See example [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/Colab_whisp_geojson_to_csv.ipynb) for implementation with a geojson input. For the detailed procedure please go to the section [Whisp notebooks](#whisp_notebooks).
 
 
 ## Whisp datasets <a name="whisp_datasets"></a>
@@ -74,7 +74,7 @@ However, under the same circumstances but with <u>no</u> disturbances reported a
 
 For most users we suggest using the Whisp App to process their plot data. But for some, using the python package directly will fit their workflow.
 
-A simple example of the package functionality can be seen in this [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/package-test-new-structure/notebooks/Colab_whisp_geojson_to_csv.ipynb) 
+A simple example of the package functionality can be seen in this [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/Colab_whisp_geojson_to_csv.ipynb)
 
 ## Requirements for running the package
 
@@ -86,7 +86,7 @@ More info on Whisp can be found in [here](https://openknowledge.fao.org/items/e9
 
 ## Python package installation
 
-The Whisp package is available on pip 
+The Whisp package is available on pip
 https://pypi.org/project/openforis-whisp/
 
 
@@ -107,7 +107,7 @@ More info on Whisp can be found in [here](https://openknowledge.fao.org/items/e9
 There are two main approaches: to request a layer be incorporated into the core Whisp inputs, or to add in your own data directly to complement the core ones in Whisp. Currently the latter approach is under revision since moving to implementation in a python package. In the meantime please contact us through the issues page if this is functionality is useful to you.
 
 ## Contributing to the Whisp code base
-Contributions to the Whisp code in GitHub are welcome. They can be made by forking the repository making and pushing the required changes, then making a pull request to the Whisp repository. After briefly reviewing the request, we can make a branch for which to make a new pull request to. If in doubt get in contact first or log as an issue [here](https://github.com/forestdatapartnership/whisp/issues/).
+Contributions to the Whisp code in GitHub are welcome. They can be made by forking the repository making and pushing the required changes, then making a pull request to the Whisp repository. After briefly reviewing the request, we can make a branch for which to make a new pull request to. After final checks we can then incorporate the code in main. If in doubt get in contact first or log as an issue [here](https://github.com/forestdatapartnership/whisp/issues/).
 
 Install the package in editable mode with the additional dependencies required for testing and running pre-commit hooks:
 ```
@@ -128,10 +128,10 @@ Please read the [contributing guidelines](contributing_guidelines.md) for good p
 
 ## Code of Conduct <a name="whisp_conduct"></a>
 
-**Purpose**  
+**Purpose**
 We are dedicated to maintaining a safe and respectful environment for all users. Harassment or abusive behavior will not be tolerated. <br>
 
-**Scope**  
+**Scope**
 This Code applies to all interactions on the repository and on the app.
 
 **Expectations** <br>
@@ -144,6 +144,6 @@ This Code applies to all interactions on the repository and on the app.
 *- Discrimination:* Any form of hate speech or exclusion based on race, gender, orientation, or other identities.<br>
 *- Inappropriate Content:* Posting offensive, harmful, or explicit material.
 
-**Reporting**  
+**Reporting**
 Users can report violations directly to us by emailing the address listed in the "Contact Us" section of the website:
 https://openforis.org/solutions/whisp/
