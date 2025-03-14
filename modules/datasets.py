@@ -53,27 +53,52 @@ def fdap_forest_prep():
     return fdap_forest.rename("Forest_FDaP")
 
 # EUFO JRC Global forest type - 3 layers, primary, naturally regenerating and planted/plantation forests
-
-def gft_primary_prep():
-    gft_raw = ee.ImageCollection("JRC/GFC2020_subtypes/V0").mosaic()
-    gft_primary = gft_raw.eq(10)
-    return gft_primary.rename("GFT_primary")
-
 def gft_nat_reg_prep():
     gft_raw = ee.ImageCollection("JRC/GFC2020_subtypes/V0").mosaic()
     gft_nat_reg = gft_raw.eq(1)
     return gft_nat_reg.rename("GFT_naturally_regenerating")
 
-def gft_plantation_prep():
-    gft_raw = ee.ImageCollection("JRC/GFC2020_subtypes/V0").mosaic()
-    gft_plantation = gft_raw.eq(20)
-    return gft_plantation.rename("GFT_planted_plantation")
 
+
+#########################TMF regrowth in 2023
+def tmf_regrowth_prep():
+    # Load the TMF Degradation annual product
+    TMF_AC=ee.ImageCollection('projects/JRC/TMF/v1_2023/AnnualChanges').mosaic()
+    TMF_AC_2023=TMF_AC.select('Dec2023')
+    Regrowth_TMF = TMF_AC_2023.eq(4)
+    return Regrowth_TMF.rename('TMF_regrowth_2023')
+
+#########################primary forest
+# EUFO JRC Global forest type 
+def gft_primary_prep():
+    gft_raw = ee.ImageCollection("JRC/GFC2020_subtypes/V0").mosaic()
+    gft_primary = gft_raw.eq(10)
+    return gft_primary.rename("GFT_primary")
+    
 # Intact Forest Landscape 2020
 def IFL_2020_prep():
     IFL_2020 = ee.Image('users/potapovpeter/IFL_2020')
     return IFL_2020.rename("IFL_2020")
+
+# European Primary Forest Dataset
+def EPFD_prep():
+    EPFD=ee.FeatureCollection("HU_BERLIN/EPFD/V2/polygons")
+    EPFD_binary = ee.Image().paint(EPFD,1)    
+    return EPFD_binary.rename('European_Primary_Forest')
+
+
+#########################planted and plantation forests
+def gft_plantation_prep():
+    gft_raw = ee.ImageCollection("JRC/GFC2020_subtypes/V0").mosaic()
+    gft_plantation = gft_raw.eq(20)
+    return gft_plantation.rename("GFT_planted_plantation")
     
+def IIASA_planted_prep():
+    iiasa = ee.Image('projects/tmf-monitoring/assets/IIASAForestManagement2015/FML');
+    iiasa_PL = iiasa.eq(31).Or(iiasa.eq(32))
+    return iiasa_PL.rename('IIASA_planted_plantation')
+
+
 ############plantation data
 # # Oil_palm_Descals 
 # NB updated to Descals et al 2024 paper (as opposed to Descals et al 2021 paper)
@@ -206,7 +231,7 @@ def tmf_deg_per_year_prep():
             img_stack = img_stack.addBands(tmf_def_year)
     return img_stack
 
-   
+
 # GFC_loss_year_2001 to GFC_loss_year_2023 (correct for version 11)
 def glad_gfc_loss_per_year_prep():
     # Load the Global Forest Change dataset
@@ -423,7 +448,14 @@ def birdlife_kbas_biodiversity_prep():
 
 
 
+#########################logging concessions
+#http://data.globalforestwatch.org/datasets?q=logging&sort_by=relevance
+def logging_concessions_prep():
+    logging_concessions=ee.FeatureCollection('projects/ee-astridverhegghen/assets/FAO/PEA_RCA')
+    logging_concessions_binary = ee.Image().paint(logging_concessions,1)
 
+    return logging_concessions_binary.rename('GFW_logging')
+    
 
 def try_access(asset_prep_func):
     try:
@@ -476,10 +508,12 @@ def combine_datasets():
     img_combined = img_combined.addBands(try_access(radd_before_2020_prep)) # combined
     img_combined = img_combined.addBands(try_access(gft_primary_prep)) 
     img_combined = img_combined.addBands(try_access(gft_nat_reg_prep)) 
-    img_combined = img_combined.addBands(try_access(gft_plantation_prep)) 
-    img_combined = img_combined.addBands(try_access(glad_pht_prep)) 
-
-    
+    img_combined = img_combined.addBands(try_access(gft_plantation_prep))
+    img_combined = img_combined.addBands(try_access(IFL_2020_prep))
+    img_combined = img_combined.addBands(try_access(EPFD_prep))
+    img_combined = img_combined.addBands(try_access(IIASA_planted_prep))
+    img_combined = img_combined.addBands(try_access(tmf_regrowth_prep))
+    img_combined = img_combined.addBands(try_access(logging_concessions_prep))
     
     img_combined = img_combined.multiply(ee.Image.pixelArea()) # multiple all bands by pixel area
     return img_combined

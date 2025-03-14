@@ -35,16 +35,35 @@ def whisp_risk(
     df,
     ind_1_pcent_threshold=10,  # default values (draft decision tree and parameters)
     ind_2_pcent_threshold=10,  # default values (draft decision tree and parameters)
-    ind_3_pcent_threshold=0,   # default values (draft decision tree and parameters)
-    ind_4_pcent_threshold=0,   # default values (draft decision tree and parameters)
+    ind_3_pcent_threshold=10,   # default values (draft decision tree and parameters)
+    ind_4_pcent_threshold=10,   # default values (draft decision tree and parameters)
+    ind_5_pcent_threshold=10,   # default values (draft decision tree and parameters)
+    ind_6_pcent_threshold=10,   # default values (draft decision tree and parameters)
+    ind_7_pcent_threshold=10,   # default values (draft decision tree and parameters)
+    ind_8_pcent_threshold=10,   # default values (draft decision tree and parameters)
+    ind_9_pcent_threshold=10,   # default values (draft decision tree and parameters)
+    ind_10_pcent_threshold=10,   # default values (draft decision tree and parameters)
     ind_1_input_columns=None,  # see lookup_gee_datasets for details
     ind_2_input_columns=None,  # see lookup_gee_datasets for details
     ind_3_input_columns=None,  # see lookup_gee_datasets for details
     ind_4_input_columns=None,  # see lookup_gee_datasets for details
+    ind_5_input_columns=None,  # see lookup_gee_datasets for details
+    ind_6_input_columns=None,  # see lookup_gee_datasets for details
+    ind_7_input_columns=None,  # see lookup_gee_datasets for details
+    ind_8_input_columns=None,  # see lookup_gee_datasets for details
+    ind_9_input_columns=None,  # see lookup_gee_datasets for details
+    ind_10_input_columns=None,  # see lookup_gee_datasets for details
     ind_1_name="Indicator_1_treecover",
     ind_2_name="Indicator_2_commodities",
     ind_3_name="Indicator_3_disturbance_before_2020",
     ind_4_name="Indicator_4_disturbance_after_2020",
+    ind_5_name="Indicator_5_primary_2020",
+    ind_6_name="Indicator_6_nat_reg_forest_2020",
+    ind_7_name="Indicator_7_planted_plantations_2020",
+    ind_8_name="Indicator_8_planted_plantations_post_2020",
+    ind_9_name="Indicator_9_treecover_post_2020",
+    ind_10_name="Indicator_10_treecover_post_2020",
+
     low_name="no",
     high_name="yes"
 ):
@@ -57,14 +76,35 @@ def whisp_risk(
         ind_2_pcent_threshold (int, optional): Percentage threshold for the second indicator. Defaults to 10.
         ind_3_pcent_threshold (int, optional): Percentage threshold for the third indicator. Defaults to 0.
         ind_4_pcent_threshold (int, optional): Percentage threshold for the fourth indicator. Defaults to 0.
+        ind_5_pcent_threshold (int, optional): Percentage threshold for the fifth indicator. Defaults to 0.
+        ind_6_pcent_threshold (int, optional): Percentage threshold for the sith indicator. Defaults to 0.
+        ind_7_pcent_threshold (int, optional): Percentage threshold for the seventh indicator. Defaults to 0.
+        ind_8_pcent_threshold (int, optional): Percentage threshold for the eight indicator. Defaults to 0.
+        ind_9_pcent_threshold (int, optional): Percentage threshold for the ninth indicator. Defaults to 0.
+        ind_10_pcent_threshold (int, optional): Percentage threshold for the ninth indicator. Defaults to 0.
+
         ind_1_input_columns (list, optional): List of input columns for the first indicator. Defaults to columns for the treecover theme.
         ind_2_input_columns (list, optional): List of input columns for the second indicator. Defaults to columns for the commodities theme.
         ind_3_input_columns (list, optional): List of input columns for the third indicator. Defaults to columns for disturbance before 2020.
         ind_4_input_columns (list, optional): List of input columns for the fourth indicator. Defaults to columns for disturbance after 2020.
+        ind_5_input_columns (list, optional): List of input columns for the fifth indicator. Defaults to columns for disturbance after 2020.
+        ind_6_input_columns (list, optional): List of input columns for the sixth indicator. Defaults to columns for disturbance after 2020.
+        ind_7_input_columns (list, optional): List of input columns for the seventh indicator. Defaults to columns for disturbance after 2020.
+        ind_8_input_columns (list, optional): List of input columns for the eight indicator. Defaults to columns for disturbance after 2020.
+        ind_9_input_columns (list, optional): List of input columns for the ninth indicator. Defaults to columns for disturbance after 2020.
+        ind_10_input_columns (list, optional): List of input columns for the ninth indicator. Defaults to columns for disturbance after 2020.
+
         ind_1_name (str, optional): Name of the first indicator column. Defaults to "Indicator_1_treecover".
         ind_2_name (str, optional): Name of the second indicator column. Defaults to "Indicator_2_commodities".
         ind_3_name (str, optional): Name of the third indicator column. Defaults to "Indicator_3_disturbance_before_2020".
         ind_4_name (str, optional): Name of the fourth indicator column. Defaults to "Indicator_4_disturbance_after_2020".
+        ind_5_name (str, optional): Name of the fourth indicator column. Defaults to "Indicator_4_disturbance_after_2020".
+        ind_6_name (str, optional): Name of the fourth indicator column. Defaults to "Indicator_4_disturbance_after_2020".
+        ind_7_name (str, optional): Name of the fourth indicator column. Defaults to "Indicator_4_disturbance_after_2020".
+        ind_8_name (str, optional): Name of the fourth indicator column. Defaults to "Indicator_4_disturbance_after_2020".
+        ind_9_name (str, optional): Name of the fourth indicator column. Defaults to "Indicator_4_disturbance_after_2020".
+        ind_10_name (str, optional): Name of the fourth indicator column. Defaults to "Indicator_4_disturbance_after_2020".
+
         low_name (str, optional): Value shown in table if less than or equal to the threshold. Defaults to "no".
         high_name (str, optional): Value shown in table if more than the threshold. Defaults to "yes".
 
@@ -80,12 +120,30 @@ def whisp_risk(
         ind_3_input_columns = get_cols_ind_3_dist_before_2020(lookup_gee_datasets_df)
     if ind_4_input_columns is None:
         ind_4_input_columns = get_cols_ind_4_dist_after_2020(lookup_gee_datasets_df)
-
+    if ind_5_input_columns is None:
+        ind_5_input_columns = get_cols_ind_5_primary_2020(lookup_gee_datasets_df)
+    if ind_6_input_columns is None:
+        ind_6_input_columns = get_cols_ind_6_nat_reg_2020(lookup_gee_datasets_df)
+    if ind_7_input_columns is None:
+        ind_7_input_columns = get_cols_ind_7_planted_2020(lookup_gee_datasets_df)    
+    if ind_8_input_columns is None:
+        ind_8_input_columns = get_cols_ind_8_planted_post_2020(lookup_gee_datasets_df)
+    if ind_9_input_columns is None:
+        ind_9_input_columns = get_cols_ind_9_treecover_post_2020(lookup_gee_datasets_df) 
+    if ind_10_input_columns is None:
+        ind_10_input_columns = get_cols_ind_10_logging(lookup_gee_datasets_df) 
+        
     # Check range of values
     check_range(ind_1_pcent_threshold)
     check_range(ind_2_pcent_threshold)
     check_range(ind_3_pcent_threshold)
     check_range(ind_4_pcent_threshold)
+    check_range(ind_5_pcent_threshold)
+    check_range(ind_6_pcent_threshold)
+    check_range(ind_7_pcent_threshold)
+    check_range(ind_8_pcent_threshold)
+    check_range(ind_9_pcent_threshold)
+    check_range(ind_10_pcent_threshold)
 
     df_w_indicators = add_indicators(
         df,
@@ -93,14 +151,32 @@ def whisp_risk(
         ind_2_pcent_threshold,
         ind_3_pcent_threshold,
         ind_4_pcent_threshold,
+        ind_5_pcent_threshold,
+        ind_6_pcent_threshold,
+        ind_7_pcent_threshold,
+        ind_8_pcent_threshold, 
+        ind_9_pcent_threshold,
+        ind_10_pcent_threshold,
         ind_1_input_columns,
         ind_2_input_columns,
         ind_3_input_columns,
         ind_4_input_columns,
+        ind_5_input_columns,
+        ind_6_input_columns,
+        ind_7_input_columns,
+        ind_8_input_columns,
+        ind_9_input_columns,
+        ind_10_input_columns,  
         ind_1_name,
         ind_2_name,
         ind_3_name,
         ind_4_name,
+        ind_5_name,
+        ind_6_name,
+        ind_7_name,
+        ind_8_name,
+        ind_9_name,
+        ind_10_name,
         low_name,
         high_name
     )
@@ -110,7 +186,13 @@ def whisp_risk(
         ind_1_name=ind_1_name, 
         ind_2_name=ind_2_name, 
         ind_3_name=ind_3_name, 
-        ind_4_name=ind_4_name
+        ind_4_name=ind_4_name,
+        ind_5_name=ind_5_name, 
+        ind_6_name=ind_6_name, 
+        ind_7_name=ind_7_name, 
+        ind_8_name=ind_8_name,
+        ind_9_name=ind_9_name,
+        ind_10_name=ind_10_name
     )
 
     return df_w_indicators_and_risk
@@ -120,7 +202,13 @@ def add_eudr_risk_col(
     ind_1_name="Indicator_1_treecover",
     ind_2_name="Indicator_2_commodities",
     ind_3_name="Indicator_3_disturbance_before_2020",
-    ind_4_name="Indicator_4_disturbance_after_2020"
+    ind_4_name="Indicator_4_disturbance_after_2020",
+    ind_5_name="Indicator_5_primary_2020",
+    ind_6_name="Indicator_6_nat_reg_forest_2020",
+    ind_7_name="Indicator_7_planted_plantations_2020",
+    ind_8_name="Indicator_8_planted_plantations_post_2020",
+    ind_9_name="Indicator_9_treecover_post_2020",
+    ind_10_name="Indicator_10_logging_concessions"
     ):
     """
     Adds the EUDR (European Union Deforestation Risk) column to the DataFrame based on indicator values.
@@ -146,7 +234,27 @@ def add_eudr_risk_col(
         # If none of the above conditions are met, set EUDR_risk to "high"
         else:
             df.at[index, 'EUDR_risk'] = "high"
-
+            
+    for index, row in df.iterrows():
+        # If there is a commodity or if there is planted-plantation in 2020, set EUDR_risk_degrad to "low"
+        if row[ind_3_name] == "yes" or row[ind_7_name] == "yes":
+            df.at[index, 'EUDR_risk_degrad'] = "low"
+        # If there is no tree cover, set EUDR_risk_degrad to "low"?
+        #if row[ind_1_name] == "no" or row[ind_3_name] == "yes" or row[ind_7_name] == "yes":
+        #    df.at[index, 'EUDR_risk_degrad'] = "low"
+        # If primary or naturally regenerating and an information on management practice or tree cover post 2020, set EUDR_risk_degrad to "low"
+        elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes") and (row[ind_9_name] == "yes" or row[ind_10_name] == "yes"):
+            df.at[index, 'EUDR_risk_degrad'] = "low"        
+        # If primary or naturally regenerating and no other info, set EUDR_risk to "more_info_needed"
+        elif row[ind_5_name] == "yes" or row[ind_6_name] == "yes" :
+            df.at[index, 'EUDR_risk_degrad'] = "more_info_needed"
+        #If primary or naturally regenerating and planted post 2020, set EUDR_risk to "high"
+        elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes") and row[ind_8_name] == "yes":
+            df.at[index, 'EUDR_risk_degrad'] = "high"        
+        # If none of the above conditions are met, set EUDR_risk to "high"
+        else:
+            df.at[index, 'EUDR_risk_degrad'] = "high"
+            
     return df
 
 
@@ -155,14 +263,32 @@ def add_indicators (df,
                     ind_2_pcent_threshold,
                     ind_3_pcent_threshold,
                     ind_4_pcent_threshold,
+                    ind_5_pcent_threshold,
+                    ind_6_pcent_threshold,
+                    ind_7_pcent_threshold,
+                    ind_8_pcent_threshold,
+                    ind_9_pcent_threshold,
+                    ind_10_pcent_threshold,
                     ind_1_input_columns,
                     ind_2_input_columns,
                     ind_3_input_columns,
                     ind_4_input_columns,
+                    ind_5_input_columns,
+                    ind_6_input_columns,
+                    ind_7_input_columns,
+                    ind_8_input_columns,
+                    ind_9_input_columns,
+                    ind_10_input_columns,
                     ind_1_name,
                     ind_2_name,
                     ind_3_name,
                     ind_4_name,
+                    ind_5_name,
+                    ind_6_name,
+                    ind_7_name,
+                    ind_8_name,
+                    ind_9_name,
+                    ind_10_name,
                     low_name,
                     high_name):
 
@@ -196,6 +322,48 @@ def add_indicators (df,
                                             input_columns=ind_4_input_columns,
                                             threshold=ind_4_pcent_threshold,
                                             new_column_name=ind_4_name,
+                                            low_name=low_name,
+                                            high_name=high_name)
+                    #Indicator_5_primary_2020
+                    df_w_indicators = add_indicator_column(df=df_w_indicators,
+                                            input_columns=ind_5_input_columns,
+                                            threshold=ind_5_pcent_threshold,
+                                            new_column_name=ind_5_name,
+                                            low_name=low_name,
+                                            high_name=high_name)
+                    #Indicator_6_nat_reg_2020
+                    df_w_indicators = add_indicator_column(df=df_w_indicators,
+                                            input_columns=ind_6_input_columns,
+                                            threshold=ind_6_pcent_threshold,
+                                            new_column_name=ind_6_name,
+                                            low_name=low_name,
+                                            high_name=high_name)
+                    #Indicator_7_planted_plantations_2020
+                    df_w_indicators = add_indicator_column(df=df_w_indicators,
+                                            input_columns=ind_7_input_columns,
+                                            threshold=ind_7_pcent_threshold,
+                                            new_column_name=ind_7_name,
+                                            low_name=low_name,
+                                            high_name=high_name)
+                    #Indicator_8_planted_plantations_post_2020
+                    df_w_indicators = add_indicator_column(df=df_w_indicators,
+                                            input_columns=ind_8_input_columns,
+                                            threshold=ind_8_pcent_threshold,
+                                            new_column_name=ind_8_name,
+                                            low_name=low_name,
+                                            high_name=high_name)
+                    #Indicator_9_treecover_post_2020
+                    df_w_indicators = add_indicator_column(df=df_w_indicators,
+                                            input_columns=ind_9_input_columns,
+                                            threshold=ind_9_pcent_threshold,
+                                            new_column_name=ind_9_name,
+                                            low_name=low_name,
+                                            high_name=high_name)
+                    #Indicator_10_logging_concessions
+                    df_w_indicators = add_indicator_column(df=df_w_indicators,
+                                            input_columns=ind_10_input_columns,
+                                            threshold=ind_10_pcent_threshold,
+                                            new_column_name=ind_10_name,
                                             low_name=low_name,
                                             high_name=high_name)
                     return df_w_indicators
@@ -374,6 +542,101 @@ def get_cols_ind_4_dist_after_2020(lookup_gee_datasets_df):
         (lookup_gee_datasets_df["theme"] == "disturbance_after")
     ])
 
+def get_cols_ind_5_primary_2020(lookup_gee_datasets_df):
+    """
+    Generate a list of dataset names for primary forest in 2020
+
+    Args:
+    lookup_gee_datasets_df (pd.DataFrame): DataFrame containing dataset information.
+
+    Returns:
+    list: List of dataset names set to be used in the risk calculations for the degradation - primary forest in 2020, excluding those marked for exclusion.
+    """
+    lookup_gee_datasets_df = lookup_gee_datasets_df[lookup_gee_datasets_df["exclude"] != 1]
+    return list(lookup_gee_datasets_df["dataset_name"][
+        (lookup_gee_datasets_df["use_for_risk_timber"] == 1) &
+        (lookup_gee_datasets_df["theme_timber"] == "primary")
+    ])
+
+def get_cols_ind_6_nat_reg_2020(lookup_gee_datasets_df):
+    """
+    Generate a list of dataset names for naturally_reg_2020 forest in 2020
+
+    Args:
+    lookup_gee_datasets_df (pd.DataFrame): DataFrame containing dataset information.
+
+    Returns:
+    list: List of dataset names set to be used in the risk calculations for the degradation - naturally_reg_2020 in 2020, excluding those marked for exclusion.
+    """
+    lookup_gee_datasets_df = lookup_gee_datasets_df[lookup_gee_datasets_df["exclude"] != 1]
+    return list(lookup_gee_datasets_df["dataset_name"][
+        (lookup_gee_datasets_df["use_for_risk_timber"] == 1) &
+        (lookup_gee_datasets_df["theme_timber"] == "naturally_reg_2020")
+    ])
+
+def get_cols_ind_7_planted_2020(lookup_gee_datasets_df):
+    """
+    Generate a list of dataset names for primary forest in 2020
+
+    Args:
+    lookup_gee_datasets_df (pd.DataFrame): DataFrame containing dataset information.
+
+    Returns:
+    list: List of dataset names set to be used in the risk calculations for the degradation - primary forest in 2020, excluding those marked for exclusion.
+    """
+    lookup_gee_datasets_df = lookup_gee_datasets_df[lookup_gee_datasets_df["exclude"] != 1]
+    return list(lookup_gee_datasets_df["dataset_name"][
+        (lookup_gee_datasets_df["use_for_risk_timber"] == 1) &
+        (lookup_gee_datasets_df["theme_timber"] == "planted_plantation_2020")
+    ])
+
+def get_cols_ind_8_planted_post_2020(lookup_gee_datasets_df):
+    """
+    Generate a list of dataset names for primary forest in 2020
+
+    Args:
+    lookup_gee_datasets_df (pd.DataFrame): DataFrame containing dataset information.
+
+    Returns:
+    list: List of dataset names set to be used in the risk calculations for the degradation - primary forest in 2020, excluding those marked for exclusion.
+    """
+    lookup_gee_datasets_df = lookup_gee_datasets_df[lookup_gee_datasets_df["exclude"] != 1]
+    return list(lookup_gee_datasets_df["dataset_name"][
+        (lookup_gee_datasets_df["use_for_risk_timber"] == 1) &
+        (lookup_gee_datasets_df["theme_timber"] == "planted_plantation_post_2020")
+    ])
+
+def get_cols_ind_9_treecover_post_2020(lookup_gee_datasets_df):
+    """
+    Generate a list of dataset names for primary forest in 2020
+
+    Args:
+    lookup_gee_datasets_df (pd.DataFrame): DataFrame containing dataset information.
+
+    Returns:
+    list: List of dataset names set to be used in the risk calculations for the degradation - primary forest in 2020, excluding those marked for exclusion.
+    """
+    lookup_gee_datasets_df = lookup_gee_datasets_df[lookup_gee_datasets_df["exclude"] != 1]
+    return list(lookup_gee_datasets_df["dataset_name"][
+        (lookup_gee_datasets_df["use_for_risk_timber"] == 1) &
+        (lookup_gee_datasets_df["theme_timber"] == "treecover_post2020")
+    ])
+        
+def get_cols_ind_10_logging(lookup_gee_datasets_df):
+    """
+    Generate a list of dataset names for primary forest in 2020
+
+    Args:
+    lookup_gee_datasets_df (pd.DataFrame): DataFrame containing dataset information.
+
+    Returns:
+    list: List of dataset names set to be used in the risk calculations for the degradation - primary forest in 2020, excluding those marked for exclusion.
+    """
+    lookup_gee_datasets_df = lookup_gee_datasets_df[lookup_gee_datasets_df["exclude"] != 1]
+    return list(lookup_gee_datasets_df["dataset_name"][
+        (lookup_gee_datasets_df["use_for_risk_timber"] == 1) &
+        (lookup_gee_datasets_df["theme_timber"] == "logging_concession")
+    ])  
 def add_indicator_column_from_csv(csv_file, input_columns, threshold, new_column_name,low_name='low', high_name='high', sum_comparison=False, output_file=None):
     """
     Read a CSV file into a DataFrame, add a new column based on specified columns and threshold,
