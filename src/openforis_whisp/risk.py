@@ -105,7 +105,7 @@ def whisp_risk(
         ind_4_name=ind_4_name,
     )
 
-    df_w_indicators_and_risk_soy = add_eudr_risk_col_soy(
+    df_w_indicators_and_risk_soy = add_eudr_risk_soy_col(
         df=df_w_indicators,
         ind_1_name=ind_1_name,
         ind_2_name=ind_2_name,
