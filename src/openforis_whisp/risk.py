@@ -105,7 +105,15 @@ def whisp_risk(
         ind_4_name=ind_4_name,
     )
 
-    return df_w_indicators_and_risk
+    df_w_indicators_and_risk_soy = add_eudr_risk_col_soy(
+        df=df_w_indicators,
+        ind_1_name=ind_1_name,
+        ind_2_name=ind_2_name,
+        ind_3_name=ind_3_name,
+        ind_4_name=ind_4_name,
+    )
+
+    return df_w_indicators_and_risk_soy
 
 
 def add_eudr_risk_col(
@@ -146,6 +154,41 @@ def add_eudr_risk_col(
 
     return df
 
+
+def add_eudr_risk_soy_col(
+    df: data_lookup_type,
+    ind_1_name: str,
+    ind_2_name: str,
+    ind_3_name: str,
+    ind_4_name: str,
+) -> data_lookup_type:
+    """
+    Adds the EUDR (European Union Deforestation Risk) column to the DataFrame based on indicator values.
+
+    Args:
+        df (DataFrame): Input DataFrame.
+        ind_1_name (str, optional): Name of first indicator column. Defaults to "Indicator_1_treecover".
+        ind_2_name (str, optional): Name of second indicator column. Defaults to "Indicator_2_commodities".
+        ind_3_name (str, optional): Name of third indicator column. Defaults to "Indicator_3_disturbance_before_2020".
+        ind_4_name (str, optional): Name of fourth indicator column. Defaults to "Indicator_4_disturbance_after_2020".
+
+    Returns:
+        DataFrame: DataFrame with added 'EUDR_risk' column.
+    """
+
+    # soy risk
+    for index, row in df.iterrows():
+        # If there is no tree cover in 2020, set EUDR_risk_soy to "low"
+        if row[ind_1_name] == "no" or row[ind_2_name] == "yes":
+            df.at[index, 'EUDR_risk_soy'] = "low"
+        # If there is tree cover in 2020 and distrubances post 2020, set EUDR_risk_soy to "high"
+        elif row[ind_1_name] == "yes" and row[ind_4_name] == "yes":
+            df.at[index, 'EUDR_risk_soy'] = "high"
+        # If tree cover and no disturbances post 2020, set EUDR_risk to "more_info_needed"
+        else :
+            df.at[index, 'EUDR_risk_soy'] = "more_info_needed"
+
+    return df
 
 def add_indicators(
     df: data_lookup_type,
