@@ -104,7 +104,22 @@ More info on Whisp can be found in [here](https://openknowledge.fao.org/items/e9
 
 
 ## How to add data layers to Whisp
-There are two main approaches: to request a layer be incorporated into the core Whisp inputs, or to add in your own data directly to complement the core ones in Whisp. Currently the latter approach is under revision since moving to implementation in a python package. In the meantime please contact us through the issues page if this is functionality is useful to you.
+There are two main approaches:
+1) Request that a layer be incorporated into the core Whisp inputs, or
+
+2) Add your own data directly to complement the core datasets.
+
+Currently the latter approach is under revision since moving to implementation in a python package. In the meantime please contact us through the issues page if this is functionality is useful to you.
+
+Requesting a layer addition:
+If you think a particular dataset has wide applicability for Whisp users, you can request it be added to the main Whisp repository by logging as an issue in Github [here] (https://github.com/forestdatapartnership/whisp/issues/). Before submitting a request, consider the following:
+
+ - Is the resolution high enough for plot-level analysis? (e.g., 30m or 10m resolution)
+
+ - Is there an indication of data quality? (e.g., accuracy assessment detailed in a scientific publication)
+
+ - Is there relevant metadata available?
+
 
 ## Contributing to the Whisp code base
 Contributions to the Whisp code in GitHub are welcome. They can be made by forking the repository making and pushing the required changes, then making a pull request to the Whisp repository. After briefly reviewing the request, we can make a branch for which to make a new pull request to. After final checks we can then incorporate the code in main. If in doubt get in contact first or log as an issue [here](https://github.com/forestdatapartnership/whisp/issues/).
