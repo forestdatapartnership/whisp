@@ -1,1 +1,1 @@
-gee_cloud_project="ee-andyarnellgee"
+gee_cloud_project = "your_project_id"
