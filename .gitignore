@@ -18,3 +18,4 @@ whisp.egg-info/
 build/
 pre-commit.log
 credentials.json
+config_gee.py
