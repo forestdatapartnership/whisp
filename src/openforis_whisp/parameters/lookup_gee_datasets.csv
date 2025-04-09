@@ -142,6 +142,7 @@ MODIS_fire_2021,1360,disturbance_after,,0,0,0,float32,1,0,modis_fire_prep
 MODIS_fire_2022,1370,disturbance_after,,0,0,0,float32,1,0,modis_fire_prep
 MODIS_fire_2023,1380,disturbance_after,,0,0,0,float32,1,0,modis_fire_prep
 MODIS_fire_2024,1390,disturbance_after,,0,0,0,float32,1,0,modis_fire_prep
+MODIS_fire_2025,1391,disturbance_after,,0,0,0,float32,1,0,modis_fire_prep
 TMF_deg_before_2020,1400,disturbance_before,,1,1,0,float32,1,0,tmf_deg_before_2020_prep
 TMF_def_before_2020,1410,disturbance_before,,1,1,0,float32,1,0,tmf_def_before_2020_prep
 GFC_loss_before_2020,1420,disturbance_before,,1,1,0,float32,1,0,glad_gfc_loss_before_2020_prep

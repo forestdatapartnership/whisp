@@ -69,6 +69,34 @@ However, under the same circumstances but with <u>no</u> disturbances reported a
 *The Whisp algorithm visualized:*
 ![CoE_Graphic 5](https://github.com/user-attachments/assets/007b5f50-3939-4707-95fa-98be4d56745f)
 
+## Whisp datasets for timber <a name="whisp_datasets_timber"></a>
+***Whisp***  implements the convergence of evidence approach by providing a transparent and public processing flow using datasets covering the following categories:
+1) Tree and forest cover (at the end of 2020);
+2) Commodities (i.e., crop plantations and other agricultural uses at the end of 2020);
+3) Disturbances **before 2020** (i.e., degradation or deforestation until 2020-12-31);
+4) Disturbances **after 2020** (i.e., degradation or deforestation from 2021-01-01 onward).
+5) Primary forests in 2020;
+6) Naturally regenerating forests in 2020;
+7) Planted and plantation forests in 2020;
+8) Planted and plantation forests in 2023;
+9) Treecover in 2023;
+10) Commodities or croplands in 2023.
+11) Logging concessions;
+
+There are multiple datasets for each category. Find the full current [list of datasets used in Whisp here](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md).
+ Whisp checks the plots provided by the user by running zonal statistics on them to answer the following questions:
+
+1) Was there tree cover in 2020?
+2) Were there commodity plantations or other agricultural uses in 2020?
+3) Were there disturbances until 2020-12-31?
+4) Were there disturbances after 2020-12-31 / starting 2021-01-01?
+5) Were there primary forests in 2020?
+6) Were there naturally regenerating forests in 2020?
+7) Were there planted and plantation forests in 2020?
+8) Were there planted and plantation forests in 2023?
+9) Was there treecover in 2023?
+10) Were there commodity plantations or other agricultural uses in 2023?
+11) Were there logging concessions?
 
 # Run Whisp python package from a notebook
 
