@@ -60,7 +60,7 @@ Centre d'Information Géographique et du Numérique / Bureau National d’Étude
     <tr></tr>
     <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/rubber/model_2024a")</td></tr>
     <tr><td colspan="3"><b>Annual crops:</b></td></tr>
-    <tr><td rowspan="3">Soybean expansion in South America for year 2020</td><td rowspan="3">Soya expansion per year, binary map for 2020 where 1 is soya.</td><td rowspan="2">Song, X.-P., Hansen, M.C., Potapov, P., Adusei, B., Pickering, J., Adami, M., Lima, A., Zalles, V., Stehman, S.V., Di Bella, C.M., Cecilia, C.M., Copati, E.J., Fernandes, L.B., Hernandez-Serna, A., Jantz,  S.M., Pickens, A.H., Turubanova, S., Tyukavina A. (2021). Massive soybean expansion in South America since 2000 and implications for conservation. Nature Sustainability, 4, 784–792
+    <tr><td rowspan="3">Soy_Song_2020</td><td rowspan="3">Soya expansion in South America 2000-2023, binary map for 2020 where 1 is soya.</td><td rowspan="2">Song, X.-P., Hansen, M.C., Potapov, P., Adusei, B., Pickering, J., Adami, M., Lima, A., Zalles, V., Stehman, S.V., Di Bella, C.M., Cecilia, C.M., Copati, E.J., Fernandes, L.B., Hernandez-Serna, A., Jantz,  S.M., Pickens, A.H., Turubanova, S., Tyukavina A. (2021). Massive soybean expansion in South America since 2000 and implications for conservation. Nature Sustainability, 4, 784–792
 https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection("projects/glad/soy_annual_SA/2020")</td></tr>      
@@ -100,6 +100,9 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr><td rowspan="3">IFL_2020</td><td rowspan="3"> Intact Forest Landscape binary map (1 is IFL).</td><td rowspan="2">Potapov, P., Hansen, M.C., Laestadius, L., Turubanova, S., Yaroshenko, A., Thies, C., Smith, W., Zhuravleva, I., Komarova, A., Minnemeyer, S., others, 2017. The last frontiers of wilderness: Tracking loss of intact forest landscapes from 2000 to 2013. Science Advances 3, e1600821. </td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection(“users/potapovpeter/IFL_2020”)</td></tr>
+    <tr><td rowspan="3">European_Primary_Forest</td><td rowspan="3"> Harmonized geodatabase of 48 datasets of primary forests spread across 33 European countries.</td><td rowspan="2">	Sabatini, F.M., Bluhm, H., Kun, Z., Aksenov, D., Atauri, J.A., Buchwald, E., Burrascano, S., Cateau, E., Diku, A., Duarte, I.M., Fernández López, Á.B., Garbarino, M., Grigoriadis, N., Horváth, F., Keren, S., Kitenberga, M., Kiš, A., Kraut, A., Ibisch, P.L., Larrieu, L., Lombardi, F., Matovic, B., Melu, R.N., Meyer, P., Midteng, R., Mikac, S., Mikoláš, M., Mozgeris, G., Panayotov, M., Pisek, R., Nunes, L., Ruete, A., Schickhofer, M., Simovski, B., Stillhard, J., Stojanovic, D., Szwagrzyk, J., Tikkanen, O.-P., Toromani, E., Volosyanchuk, R., Vrška, T., Waldherr, M., Yermokhin, M., Zlatanov, T., Zagidullina, A., Kuemmerle, T., 2021. European primary forest database v2.0. Sci Data 8, 220. https://doi.org/10.1038/s41597-021-00988-7 </td></tr>
+    <tr></tr>
+    <tr><td>ee.ImageCollection(“HU_BERLIN/EPFD/V2/polygons”)</td></tr>
       <tr><td colspan="3"><b>Plot location:</b></td></tr>
     <tr><td rowspan="3">Country</td><td rowspan="3">ISO3 code for the country based on plot centroid. Boundaries may contain errors and do not imply official endorsement or acceptance.</td><td rowspan="2">Runfola, D. et al. (2020) geoBoundaries: A global database of political administrative boundaries. <i> PLoS ONE </i> 15(4): e0231866. https://doi.org/10.1371/journal.pone.0231866 </td></tr>
     <tr></tr>
