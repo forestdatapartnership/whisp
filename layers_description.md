@@ -113,7 +113,7 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr><td>ee.ImageCollection(“JRC/GFC2020_subtypes/V0”)</td></tr>
     <tr><td rowspan="3">IIASA_planted_plantation</td><td rowspan="3"> Planted or plantation forests classes (31,32) of the IIASA Global Forest Management map.</td><td rowspan="2">	Lesiv, M., Schepaschenko, D., Buchhorn, M., See, L., Dürauer, M., Georgieva, I., Jung, M., Hofhansl, F., Schulze, K., Bilous, A., Blyshchyk, V., Mukhortova, L., Brenes, C.L.M., Krivobokov, L., Ntie, S., Tsogt, K., Pietsch, S.A., Tikhonova, E., Kim, M., Di Fulvio, F., Su, Y.-F., Zadorozhniuk, R., Sirbu, F.S., Panging, K., Bilous, S., Kovalevskii, S.B., Kraxner, F., Rabia, A.H., Vasylyshyn, R., Ahmed, R., Diachuk, P., Kovalevskyi, S.S., Bungnamei, K., Bordoloi, K., Churilov, A., Vasylyshyn, O., Sahariah, D., Tertyshnyi, A.P., Saikia, A., Malek, Ž., Singha, K., Feshchenko, R., Prestele, R., Akhtar, I. ul H., Sharma, K., Domashovets, G., Spawn-Lee, S.A., Blyshchyk, O., Slyva, O., Ilkiv, M., Melnyk, O., Sliusarchuk, V., Karpuk, A., Terentiev, A., Bilous, V., Blyshchyk, K., Bilous, M., Bogovyk, N., Blyshchyk, I., Bartalev, S., Yatskov, M., Smets, B., Visconti, P., Mccallum, I., Obersteiner, M., Fritz, S., 2022. Global forest management data for 2015 at a 100 m resolution. Sci Data 9, 199. https://doi.org/10.1038/s41597-022-01332-3 </td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection(“JRC/GFC2020_subtypes/V0”)</td></tr>
+    <tr><td>ee.ImageCollection(“projects/sat-io/open-datasets/GFM/FML_v3-2”)</td></tr>
     <tr><td colspan="3"><b>Tree cover post 2020:</b></td></tr>
     <tr><td colspan="3"><b>Agricultural land post 2020:</b></td></tr>
     <tr><td colspan="3"><b>logging concessions:</b></td></tr>
