@@ -97,6 +97,9 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr><td rowspan="3">GFT_primary</td><td rowspan="3"> Primary forest class (10) for the Global Forest Cover V1.</td><td rowspan="2">	European Commission: Joint Research Centre, BOURGOIN, C., VERHEGGHEN, A., CARBONI, S., DEGREVE, L., AMEZTOY ARAMENDI, I., CECCHERINI, G., COLDITZ, R. and ACHARD, F., Global Forest Maps for the Year 2020 to Support the EU Regulation on Deforestation-free Supply Chains, Publications Office of the European Union, Luxembourg, 2025, https://data.europa.eu/doi/10.2760/1975879, JRC141702. </td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection(“JRC/GFC2020_subtypes/V0”)</td></tr>
+    <tr><td rowspan="3">IFL_2020</td><td rowspan="3"> Intact Forest Landscape binary map (1 is IFL).</td><td rowspan="2">Potapov, P., Hansen, M.C., Laestadius, L., Turubanova, S., Yaroshenko, A., Thies, C., Smith, W., Zhuravleva, I., Komarova, A., Minnemeyer, S., others, 2017. The last frontiers of wilderness: Tracking loss of intact forest landscapes from 2000 to 2013. Science Advances 3, e1600821. </td></tr>
+    <tr></tr>
+    <tr><td>ee.ImageCollection(“users/potapovpeter/IFL_2020”)</td></tr>
       <tr><td colspan="3"><b>Plot location:</b></td></tr>
     <tr><td rowspan="3">Country</td><td rowspan="3">ISO3 code for the country based on plot centroid. Boundaries may contain errors and do not imply official endorsement or acceptance.</td><td rowspan="2">Runfola, D. et al. (2020) geoBoundaries: A global database of political administrative boundaries. <i> PLoS ONE </i> 15(4): e0231866. https://doi.org/10.1371/journal.pone.0231866 </td></tr>
     <tr></tr>
