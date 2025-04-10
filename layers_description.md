@@ -118,7 +118,13 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr><td rowspan="3">TMF_regrowth_2023</td><td rowspan="3"> Binary map of Regrowth class (4) for the TMF Annual change year 2023 </td><td rowspan="2">Vancutsem, C., Achard, F., Pekel, J.-F., Vieilledent, G., Carboni, S., Simonetti, D., Gallego, J., Aragão, L. E. O. C., & Nasi, R. (2021). Long-term (1990–2019) monitoring of forest cover changes in the humid tropics. Science Advances, 7(10). https://doi.org/10.1126/sciadv.abe1603 </td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection(“projects/JRC/TMF/v1_2023/AnnualChanges”)</td></tr>
+    <tr><td rowspan="3">ESRI_2023_TC</td><td rowspan="3"> Tree cover class (2) of the 2023 ESRI LC map </td><td rowspan="2">Karra, Kontgis, et al. “Global land use/land cover with Sentinel-2 and deep learning.”IGARSS 2021-2021 IEEE International Geoscience and Remote Sensing Symposium. IEEE, 2021. </td></tr>
+    <tr></tr>
+    <tr><td>ee.ImageCollection(“"projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS”)</td></tr>
     <tr><td colspan="3"><b>Agricultural land post 2020:</b></td></tr>
+    <tr><td rowspan="3">ESRI_2023_crop</td><td rowspan="3"> Crops class (5) of the 2023 ESRI LC map </td><td rowspan="2">Karra, Kontgis, et al. “Global land use/land cover with Sentinel-2 and deep learning.”IGARSS 2021-2021 IEEE International Geoscience and Remote Sensing Symposium. IEEE, 2021. </td></tr>
+    <tr></tr>
+    <tr><td>ee.ImageCollection(“"projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS”)</td></tr>
     <tr><td colspan="3"><b>logging concessions:</b></td></tr>
     <tr><td colspan="3"><b>Plot location:</b></td></tr>
     <tr><td rowspan="3">Country</td><td rowspan="3">ISO3 code for the country based on plot centroid. Boundaries may contain errors and do not imply official endorsement or acceptance.</td><td rowspan="2">Runfola, D. et al. (2020) geoBoundaries: A global database of political administrative boundaries. <i> PLoS ONE </i> 15(4): e0231866. https://doi.org/10.1371/journal.pone.0231866 </td></tr>
