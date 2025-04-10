@@ -103,7 +103,18 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr><td rowspan="3">European_Primary_Forest</td><td rowspan="3"> Harmonized geodatabase of 48 datasets of primary forests spread across 33 European countries.</td><td rowspan="2">	Sabatini, F.M., Bluhm, H., Kun, Z., Aksenov, D., Atauri, J.A., Buchwald, E., Burrascano, S., Cateau, E., Diku, A., Duarte, I.M., Fernández López, Á.B., Garbarino, M., Grigoriadis, N., Horváth, F., Keren, S., Kitenberga, M., Kiš, A., Kraut, A., Ibisch, P.L., Larrieu, L., Lombardi, F., Matovic, B., Melu, R.N., Meyer, P., Midteng, R., Mikac, S., Mikoláš, M., Mozgeris, G., Panayotov, M., Pisek, R., Nunes, L., Ruete, A., Schickhofer, M., Simovski, B., Stillhard, J., Stojanovic, D., Szwagrzyk, J., Tikkanen, O.-P., Toromani, E., Volosyanchuk, R., Vrška, T., Waldherr, M., Yermokhin, M., Zlatanov, T., Zagidullina, A., Kuemmerle, T., 2021. European primary forest database v2.0. Sci Data 8, 220. https://doi.org/10.1038/s41597-021-00988-7 </td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection(“HU_BERLIN/EPFD/V2/polygons”)</td></tr>
-      <tr><td colspan="3"><b>Plot location:</b></td></tr>
+    <tr><td colspan="3"><b>Naturally regenerating forests:</b></td></tr>
+    <tr><td rowspan="3">GFT_naturally_regenerating</td><td rowspan="3"> Naturally regenerating forest class (1) for the Global Forest Cover V1.</td><td rowspan="2">	European Commission: Joint Research Centre, BOURGOIN, C., VERHEGGHEN, A., CARBONI, S., DEGREVE, L., AMEZTOY ARAMENDI, I., CECCHERINI, G., COLDITZ, R. and ACHARD, F., Global Forest Maps for the Year 2020 to Support the EU Regulation on Deforestation-free Supply Chains, Publications Office of the European Union, Luxembourg, 2025, https://data.europa.eu/doi/10.2760/1975879, JRC141702. </td></tr>
+    <tr></tr>
+    <tr><td>ee.ImageCollection(“JRC/GFC2020_subtypes/V0”)</td></tr>
+    <tr><td colspan="3"><b>Planted/plantation forests:</b></td></tr>
+    <tr><td rowspan="3">GFT_planted_plantation</td><td rowspan="3"> Planted and plantations forest class (20) from the Global Forest Types map V0 (forest extent of GFC2020 V1).</td><td rowspan="2">	European Commission: Joint Research Centre, BOURGOIN, C., VERHEGGHEN, A., CARBONI, S., DEGREVE, L., AMEZTOY ARAMENDI, I., CECCHERINI, G., COLDITZ, R. and ACHARD, F., Global Forest Maps for the Year 2020 to Support the EU Regulation on Deforestation-free Supply Chains, Publications Office of the European Union, Luxembourg, 2025, https://data.europa.eu/doi/10.2760/1975879, JRC141702. </td></tr>
+    <tr></tr>
+    <tr><td>ee.ImageCollection(“JRC/GFC2020_subtypes/V0”)</td></tr>
+    <tr><td colspan="3"><b>Tree cover post 2020:</b></td></tr>
+    <tr><td colspan="3"><b>Agricultural land post 2020:</b></td></tr>
+    <tr><td colspan="3"><b>logging concessions:</b></td></tr>
+    <tr><td colspan="3"><b>Plot location:</b></td></tr>
     <tr><td rowspan="3">Country</td><td rowspan="3">ISO3 code for the country based on plot centroid. Boundaries may contain errors and do not imply official endorsement or acceptance.</td><td rowspan="2">Runfola, D. et al. (2020) geoBoundaries: A global database of political administrative boundaries. <i> PLoS ONE </i> 15(4): e0231866. https://doi.org/10.1371/journal.pone.0231866 </td></tr>
     <tr></tr>
     <tr><td>ee.FeatureCollection("WM/geoLab/geoBoundaries/600/ADM1")</td></tr>
