@@ -131,6 +131,15 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr><td rowspan="3">GLC_FCS30D_crop_2022</td><td rowspan="3"> Crop classes (10 to 20) of the GLC_FCS30D dataset year 2022 </td><td rowspan="2">Liangyun Liu, Xiao Zhang, & Tingting Zhao. (2023). GLC_FCS30D: the first global 30-m land-cover dynamic monitoring product with fine classification system from 1985 to 2022 [Data set]. Zenodo. https://doi.org/10.5281/zenodo.8239305. </td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection(“"projects/sat-io/open-datasets/GLC-FCS30D/annual"”)</td></tr>
+    <tr><td rowspan="3">Oil_palm_2023_FDaP</td><td rowspan="3"> Palm probability model. Filtered collection to 2023 data. Threshold set for Whisp based on the intersection of recall and precision in charts for accuracy.</td><td rowspan="2">FDaP (2024). Forest Data Partnership https://developers.google.com/earth-engine/datasets/publisher/forestdatapartnership </td></tr>
+    <tr></tr>
+    <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/palm/model_2024a")</td></tr>
+    <tr><td rowspan="3">Rubber_2023_FDaP</td><td rowspan="3"> Cocoa probability model. Filtered collection to 2023 data. Threshold set for Whisp based on the intersection of recall and precision in charts for accuracy. </td><td rowspan="2">FDaP (2024). Forest Data Partnership https://developers.google.com/earth-engine/datasets/publisher/forestdatapartnership </td></tr>
+    <tr></tr>
+    <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/cocoa/model_2024a")</td></tr>
+    <tr><td rowspan="3">Cocoa_2023_FDaP</td><td rowspan="3"> Rubber probability model. Filtered collection to 2023 data. Threshold set for Whisp based on the intersection of recall and precision in charts for accuracy. </td><td rowspan="2">FDaP (2024). Forest Data Partnership https://developers.google.com/earth-engine/datasets/publisher/forestdatapartnership </td></tr>
+    <tr></tr>
+    <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/rubber/model_2024a")</td></tr>
     <tr><td colspan="3"><b>logging concessions:</b></td></tr>
     <tr><td colspan="3"><b>Plot location:</b></td></tr>
     <tr><td rowspan="3">Country</td><td rowspan="3">ISO3 code for the country based on plot centroid. Boundaries may contain errors and do not imply official endorsement or acceptance.</td><td rowspan="2">Runfola, D. et al. (2020) geoBoundaries: A global database of political administrative boundaries. <i> PLoS ONE </i> 15(4): e0231866. https://doi.org/10.1371/journal.pone.0231866 </td></tr>
