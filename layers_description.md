@@ -115,6 +115,9 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection(“projects/sat-io/open-datasets/GFM/FML_v3-2”)</td></tr>
     <tr><td colspan="3"><b>Tree cover post 2020:</b></td></tr>
+    <tr><td rowspan="3">TMF_regrowth_2023</td><td rowspan="3"> Binary map of Regrowth class (4) for the TMF Annual change year 2023 </td><td rowspan="2">Vancutsem, C., Achard, F., Pekel, J.-F., Vieilledent, G., Carboni, S., Simonetti, D., Gallego, J., Aragão, L. E. O. C., & Nasi, R. (2021). Long-term (1990–2019) monitoring of forest cover changes in the humid tropics. Science Advances, 7(10). https://doi.org/10.1126/sciadv.abe1603 </td></tr>
+    <tr></tr>
+    <tr><td>ee.ImageCollection(“projects/JRC/TMF/v1_2023/AnnualChanges”)</td></tr>
     <tr><td colspan="3"><b>Agricultural land post 2020:</b></td></tr>
     <tr><td colspan="3"><b>logging concessions:</b></td></tr>
     <tr><td colspan="3"><b>Plot location:</b></td></tr>
