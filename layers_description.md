@@ -59,6 +59,11 @@ Centre d'Information Géographique et du Numérique / Bureau National d’Étude
     <tr><td rowspan="3">Rubber_FDaP</td><td rowspan="3">Rubber probability model. Filtered collection to 2020 data. Threshold set for Whisp based on the intersection of recall and precision in charts for accuracy.</td><td rowspan="2">FDaP (2024). Forest Data Partnership https://developers.google.com/earth-engine/datasets/publisher/forestdatapartnership</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/rubber/model_2024a")</td></tr>
+    <tr><td colspan="3"><b>Annual crops:</b></td></tr>
+    <tr><td rowspan="3">Soybean expansion in South America for year 2020</td><td rowspan="3">Soya expansion per year, binary map for 2020 where 1 is soya.</td><td rowspan="2">Song, X.-P., Hansen, M.C., Potapov, P., Adusei, B., Pickering, J., Adami, M., Lima, A., Zalles, V., Stehman, S.V., Di Bella, C.M., Cecilia, C.M., Copati, E.J., Fernandes, L.B., Hernandez-Serna, A., Jantz,  S.M., Pickens, A.H., Turubanova, S., Tyukavina A. (2021). Massive soybean expansion in South America since 2000 and implications for conservation. Nature Sustainability, 4, 784–792
+https://doi.org/10.1038/s41893-021-00729-z</td></tr>
+    <tr></tr>
+    <tr><td>ee.ImageCollection("projects/glad/soy_annual_SA/2020")</td></tr>      
     <tr><td colspan="3"><b>Datasets of disturbances before 2020-12-31:</b></td></tr>
     <tr><td rowspan="3">TMF_deg_before_2020 <br> TMF_def_before_2020</td><td rowspan="3">Binary masks of aggregate degradation & deforestation between 2000 and 2020.</td><td rowspan="2">Vancutsem, C., Achard, F., Pekel, J.-F., Vieilledent, G., Carboni, S., Simonetti, D., Gallego, J., Aragão, L. E. O. C., & Nasi, R. (2021). <i>Long-term (1990–2019) monitoring of forest cover changes in the humid tropics.</i> Science Advances, 7(10). https://doi.org/10.1126/sciadv.abe1603</td></tr>
     <tr></tr>
