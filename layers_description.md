@@ -144,8 +144,6 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr><td rowspan="3">GFW_logging</td><td rowspan="3"> Logging concessions from GFW (polygon data) </td><td rowspan="2">http://data.globalforestwatch.org/datasets?q=logging </td></tr>
     <tr></tr>
     <tr><td>ee.FeatureCollection('projects/ee-whisp/assets/logging/')</td></tr>
-
-    
     <tr><td colspan="3"><b>Plot location:</b></td></tr>
     <tr><td rowspan="3">Country</td><td rowspan="3">ISO3 code for the country based on plot centroid. Boundaries may contain errors and do not imply official endorsement or acceptance.</td><td rowspan="2">Runfola, D. et al. (2020) geoBoundaries: A global database of political administrative boundaries. <i> PLoS ONE </i> 15(4): e0231866. https://doi.org/10.1371/journal.pone.0231866 </td></tr>
     <tr></tr>
