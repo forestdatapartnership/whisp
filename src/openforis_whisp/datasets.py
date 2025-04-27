@@ -100,24 +100,28 @@ def fdap_forest_prep():
     fdap_forest = fdap_forest_raw.gt(0.75)
     return fdap_forest.rename("Forest_FDaP")
 
+
 #########################primary forest
 # EUFO JRC Global forest type - primary
 def gft_primary_prep():
     gft_raw = ee.ImageCollection("JRC/GFC2020_subtypes/V0").mosaic()
     gft_primary = gft_raw.eq(10)
     return gft_primary.rename("GFT_primary")
-    
+
+
 # Intact Forest Landscape 2020
 def IFL_2020_prep():
-    IFL_2020 = ee.Image('users/potapovpeter/IFL_2020')
+    IFL_2020 = ee.Image("users/potapovpeter/IFL_2020")
     return IFL_2020.rename("IFL_2020")
+
 
 # European Primary Forest Dataset
 def EPFD_prep():
-    EPFD=ee.FeatureCollection("HU_BERLIN/EPFD/V2/polygons")
-    EPFD_binary = ee.Image().paint(EPFD,1)    
-    return EPFD_binary.rename('European_Primary_Forest')
-    
+    EPFD = ee.FeatureCollection("HU_BERLIN/EPFD/V2/polygons")
+    EPFD_binary = ee.Image().paint(EPFD, 1)
+    return EPFD_binary.rename("European_Primary_Forest")
+
+
 # EUFO JRC Global forest type - naturally regenerating planted/plantation forests
 def gft_nat_reg_prep():
     gft_raw = ee.ImageCollection("JRC/GFC2020_subtypes/V0").mosaic()
@@ -132,20 +136,23 @@ def gft_plantation_prep():
     gft_raw = ee.ImageCollection("JRC/GFC2020_subtypes/V0").mosaic()
     gft_plantation = gft_raw.eq(20)
     return gft_plantation.rename("GFT_planted_plantation")
-    
+
+
 def IIASA_planted_prep():
-    iiasa = ee.Image('projects/sat-io/open-datasets/GFM/FML_v3-2');
+    iiasa = ee.Image("projects/sat-io/open-datasets/GFM/FML_v3-2")
     iiasa_PL = iiasa.eq(31).Or(iiasa.eq(32))
-    return iiasa_PL.rename('IIASA_planted_plantation')
-    
+    return iiasa_PL.rename("IIASA_planted_plantation")
+
+
 #########################TMF regrowth in 2023
 def tmf_regrowth_prep():
     # Load the TMF Degradation annual product
-    TMF_AC=ee.ImageCollection('projects/JRC/TMF/v1_2023/AnnualChanges').mosaic()
-    TMF_AC_2023=TMF_AC.select('Dec2023')
+    TMF_AC = ee.ImageCollection("projects/JRC/TMF/v1_2023/AnnualChanges").mosaic()
+    TMF_AC_2023 = TMF_AC.select("Dec2023")
     Regrowth_TMF = TMF_AC_2023.eq(4)
-    return Regrowth_TMF.rename('TMF_regrowth_2023')
-    
+    return Regrowth_TMF.rename("TMF_regrowth_2023")
+
+
 ############tree crops
 
 # TMF_plant (plantations in 2020)
@@ -209,14 +216,15 @@ def fdap_palm_prep():
     )
     return fdap_palm.rename("Oil_palm_FDaP")
 
+
 def fdap_palm_2023_prep():
-    fdap_palm2020_model_raw = ee.ImageCollection("projects/forestdatapartnership/assets/palm/model_2024a")
+    fdap_palm2020_model_raw = ee.ImageCollection(
+        "projects/forestdatapartnership/assets/palm/model_2024a"
+    )
     fdap_palm = (
-        fdap_palm2020_model_raw
-        .filterDate('2023-01-01', '2023-12-31')
+        fdap_palm2020_model_raw.filterDate("2023-01-01", "2023-12-31")
         .mosaic()
         .gt(0.83)  # Threshold for Oil Palm
-        
     )
     return fdap_palm.rename("Oil_palm_2023_FDaP")
 
@@ -233,16 +241,18 @@ def fdap_rubber_prep():
     )
     return fdap_rubber.rename("Rubber_FDaP")
 
+
 def fdap_rubber_2023_prep():
-    fdap_rubber2020_model_raw = ee.ImageCollection("projects/forestdatapartnership/assets/rubber/model_2024a")
+    fdap_rubber2020_model_raw = ee.ImageCollection(
+        "projects/forestdatapartnership/assets/rubber/model_2024a"
+    )
     fdap_rubber = (
-        fdap_rubber2020_model_raw
-        .filterDate('2023-01-01', '2023-12-31')
+        fdap_rubber2020_model_raw.filterDate("2023-01-01", "2023-12-31")
         .mosaic()
         .gt(0.93)  # Threshold for Rubber
-        
     )
     return fdap_rubber.rename("Rubber_2023_FDaP")
+
 
 # Cocoa FDaP
 def fdap_cocoa_prep():
@@ -256,16 +266,18 @@ def fdap_cocoa_prep():
     )
     return fdap_cocoa.rename("Cocoa_FDaP")
 
+
 def fdap_cocoa_2023_prep():
-    fdap_cocoa2020_model_raw = ee.ImageCollection("projects/forestdatapartnership/assets/cocoa/model_2024a")
+    fdap_cocoa2020_model_raw = ee.ImageCollection(
+        "projects/forestdatapartnership/assets/cocoa/model_2024a"
+    )
     fdap_cocoa = (
-        fdap_cocoa2020_model_raw
-        .filterDate('2023-01-01', '2023-12-31')
+        fdap_cocoa2020_model_raw.filterDate("2023-01-01", "2023-12-31")
         .mosaic()
         .gt(0.5)  # Threshold for Cocoa
-       
     )
     return fdap_cocoa.rename("Cocoa_2023_FDaP")
+
 
 # Cocoa_bnetd
 def civ_ocs2020_prep():
@@ -287,41 +299,69 @@ def rbge_rubber_prep():
         .rename("Rubber_RBGE")
     )
 
+
 ################## seasonal crops
 
-#soy 2020 Brazil
+# soy 2020 Brazil
 def soy_song_2020_prep():
-    return ee.Image('projects/glad/soy_annual_SA/2020').unmask().rename("Soy_Song_2020")
+    return ee.Image("projects/glad/soy_annual_SA/2020").unmask().rename("Soy_Song_2020")
+
+
 ##############2023
 # ESRI 2023
 # ESRI 2023 - Tree Cover
 def esri_2023_TC_prep():
-    esri_lulc10_raw = ee.ImageCollection("projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS")
-    esri_lulc10_TC = esri_lulc10_raw.filterDate('2023-01-01', '2023-12-31').mosaic().eq(2)
-    return esri_lulc10_TC.rename('ESRI_2023_TC')
-    
+    esri_lulc10_raw = ee.ImageCollection(
+        "projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS"
+    )
+    esri_lulc10_TC = (
+        esri_lulc10_raw.filterDate("2023-01-01", "2023-12-31").mosaic().eq(2)
+    )
+    return esri_lulc10_TC.rename("ESRI_2023_TC")
+
+
 # ESRI 2023 - Crop
 def esri_2023_crop_prep():
-    esri_lulc10_raw = ee.ImageCollection("projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS")
-    esri_lulc10_crop = esri_lulc10_raw.filterDate('2023-01-01', '2023-12-31').mosaic().eq(5)
-    return esri_lulc10_crop.rename('ESRI_2023_crop')
+    esri_lulc10_raw = ee.ImageCollection(
+        "projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS"
+    )
+    esri_lulc10_crop = (
+        esri_lulc10_raw.filterDate("2023-01-01", "2023-12-31").mosaic().eq(5)
+    )
+    return esri_lulc10_crop.rename("ESRI_2023_crop")
+
 
 # GLC_FCS30D 2022
 
 # GLC_FCS30D Tree Cover
 # forest classes + swamp + mangrove / what to do with shrubland?
 def GLC_FCS30D_TC_2022_prep():
-    GLC_FCS30D = ee.ImageCollection("projects/sat-io/open-datasets/GLC-FCS30D/annual").mosaic().select(22)
-    GLC_FCS30D_TC = (GLC_FCS30D.gte(51)).And(GLC_FCS30D.lte(92)).Or(GLC_FCS30D.eq(181)).Or(GLC_FCS30D.eq(185))
-    return GLC_FCS30D_TC.rename('GLC_FCS30D_TC_2022')
+    GLC_FCS30D = (
+        ee.ImageCollection("projects/sat-io/open-datasets/GLC-FCS30D/annual")
+        .mosaic()
+        .select(22)
+    )
+    GLC_FCS30D_TC = (
+        (GLC_FCS30D.gte(51))
+        .And(GLC_FCS30D.lte(92))
+        .Or(GLC_FCS30D.eq(181))
+        .Or(GLC_FCS30D.eq(185))
+    )
+    return GLC_FCS30D_TC.rename("GLC_FCS30D_TC_2022")
+
 
 # GLC_FCS30D crop
-# 10	Rainfed cropland; 11	Herbaceous cover; 12	Tree or shrub cover (Orchard); 20	Irrigated cropland	
+# 10	Rainfed cropland; 11	Herbaceous cover; 12	Tree or shrub cover (Orchard); 20	Irrigated cropland
 def GLC_FCS30D_crop_2022_prep():
-    GLC_FCS30D = ee.ImageCollection("projects/sat-io/open-datasets/GLC-FCS30D/annual").mosaic().select(22)
+    GLC_FCS30D = (
+        ee.ImageCollection("projects/sat-io/open-datasets/GLC-FCS30D/annual")
+        .mosaic()
+        .select(22)
+    )
     GLC_FCS30D_crop = GLC_FCS30D.gte(10).And(GLC_FCS30D.lte(20))
-    return GLC_FCS30D_crop.rename('GLC_FCS30D_crop_2022')
-    
+    return GLC_FCS30D_crop.rename("GLC_FCS30D_crop_2022")
+
+
 #### disturbances by year
 
 # RADD_year_2019 to RADD_year_< current year >
@@ -714,33 +754,130 @@ def esa_fire_before_2020_prep():
         .rename("ESA_fire_before_2020")
     )
 
+
 #########################logging concessions
-#http://data.globalforestwatch.org/datasets?q=logging&sort_by=relevance
+# http://data.globalforestwatch.org/datasets?q=logging&sort_by=relevance
 def logging_concessions_prep():
-    RCA=ee.FeatureCollection('projects/ee-whisp/assets/logging/RCA_Permis_dExploitation_et_dAmenagement')
-    RCA_binary = ee.Image().paint(RCA,1)
-    CMR=ee.FeatureCollection('projects/ee-whisp/assets/logging/Cameroon_Forest_Management_Units')
-    CMR_binary = ee.Image().paint(CMR,1)
-    Eq_G=ee.FeatureCollection('projects/ee-whisp/assets/logging/Equatorial_Guinea_logging_concessions')
-    Eq_G_binary = ee.Image().paint(Eq_G,1)
-    DRC=ee.FeatureCollection('projects/ee-whisp/assets/logging/DRC_Forest_concession_agreements')
-    DRC_binary = ee.Image().paint(DRC,1)
-    Liberia=ee.FeatureCollection('projects/ee-whisp/assets/logging/Liberia_Forest_Management_Contracts')
-    Liberia_binary = ee.Image().paint(Liberia,1)
-    RoC=ee.FeatureCollection('projects/ee-whisp/assets/logging/Republic_of_the_Congo_logging_concessions')
-    Roc_binary = ee.Image().paint(RoC,1)
-    Sarawak=ee.FeatureCollection('projects/ee-whisp/assets/logging/Sarawak_logging_concessions')
-    Sarawak_binary = ee.Image().paint(Sarawak,1)
-    logging_concessions_binary=ee.ImageCollection([RCA_binary, CMR_binary, Eq_G_binary,DRC_binary,Liberia_binary,Roc_binary,Sarawak_binary]).mosaic()
-    
-    return logging_concessions_binary.rename('GFW_logging')
+    RCA = ee.FeatureCollection(
+        "projects/ee-whisp/assets/logging/RCA_Permis_dExploitation_et_dAmenagement"
+    )
+    RCA_binary = ee.Image().paint(RCA, 1)
+    CMR = ee.FeatureCollection(
+        "projects/ee-whisp/assets/logging/Cameroon_Forest_Management_Units"
+    )
+    CMR_binary = ee.Image().paint(CMR, 1)
+    Eq_G = ee.FeatureCollection(
+        "projects/ee-whisp/assets/logging/Equatorial_Guinea_logging_concessions"
+    )
+    Eq_G_binary = ee.Image().paint(Eq_G, 1)
+    DRC = ee.FeatureCollection(
+        "projects/ee-whisp/assets/logging/DRC_Forest_concession_agreements"
+    )
+    DRC_binary = ee.Image().paint(DRC, 1)
+    Liberia = ee.FeatureCollection(
+        "projects/ee-whisp/assets/logging/Liberia_Forest_Management_Contracts"
+    )
+    Liberia_binary = ee.Image().paint(Liberia, 1)
+    RoC = ee.FeatureCollection(
+        "projects/ee-whisp/assets/logging/Republic_of_the_Congo_logging_concessions"
+    )
+    Roc_binary = ee.Image().paint(RoC, 1)
+    Sarawak = ee.FeatureCollection(
+        "projects/ee-whisp/assets/logging/Sarawak_logging_concessions"
+    )
+    Sarawak_binary = ee.Image().paint(Sarawak, 1)
+    logging_concessions_binary = ee.ImageCollection(
+        [
+            RCA_binary,
+            CMR_binary,
+            Eq_G_binary,
+            DRC_binary,
+            Liberia_binary,
+            Roc_binary,
+            Sarawak_binary,
+        ]
+    ).mosaic()
+
+    return logging_concessions_binary.unmask().rename("GFW_logging")
 
 
-# ###Combining datasets
+###Combining datasets
+
+# def combine_datasets():
+#     """Combines datasets into a single multiband image, with fallback if assets are missing."""
+#     img_combined = ee.Image(1).rename(geometry_area_column)
+
+#     # Combine images directly
+#     for img in [func() for func in list_functions()]:
+#         try:
+#             img_combined = img_combined.addBands(img)
+#         except ee.EEException as e:
+#             # logger.error(f"Error adding image: {e}")
+#             print(f"Error adding image: {e}")
+
+#     try:
+#         # Attempt to print band names to check for errors
+#         print(img_combined.bandNames().getInfo())
+#     except ee.EEException as e:
+#         # logger.error(f"Error printing band names: {e}")
+#         # logger.info("Running code for filtering to only valid datasets due to error in input")
+#         print("using valid datasets filter due to error in input")
+#         # Validate images
+#         images_to_test = [func() for func in list_functions()]
+#         valid_imgs = keep_valid_images(images_to_test)  # Validate images
+
+#         # Retry combining images after validation
+#         img_combined = ee.Image(1).rename(geometry_area_column)
+#         for img in valid_imgs:
+#             img_combined = img_combined.addBands(img)
+
+#     img_combined = img_combined.multiply(ee.Image.pixelArea())
+
+#     return img_combined
 
 
-def combine_datasets():
-    """Combines datasets into a single multiband image, with fallback if assets are missing."""
+def combine_datasets(pixel_area=True):
+    """
+    Combines all available Whisp datasets into a single multiband Earth Engine image.
+
+    This function automatically collects all dataset preparation functions (ending with '_prep')
+    in the current module and combines their outputs into a single multiband image. It includes
+    error handling to manage missing or invalid datasets, and provides two output
+    formats based on the pixel_area parameter.
+
+    Args:
+        pixel_area (bool, optional): Controls the output format of the combined image:
+            - When True (default): Returns pixel values multiplied by their area in square meters.
+              This is used for standard Whisp processing where area-weighted values are used
+              for accurate statistics calculation.
+            - When False: Returns values as int8 (binary 0/1 values) to produce a smaller image
+              for visualization or when raw presence/absence is needed without area weighting.
+
+    Returns:
+        ee.Image: A multiband Earth Engine image containing all valid datasets as separate bands.
+        The first band is always named using the geometry_area_column value (typically "Area").
+
+        When pixel_area=True:
+            - Values represent the area in square meters of each dataset within a pixel
+            - Useful for statistical analysis and area calculations
+
+        When pixel_area=False:
+            - Values are binary (0/1) represented as int8 data type
+            - More efficient for visualization and storage
+            - Useful when only presence/absence information is needed
+
+    Examples:
+        >>> # Get area-weighted image for statistics calculation
+        >>> area_weighted_image = combine_datasets()
+        >>> # Compute statistics with this image
+        >>> stats = ee.Image(area_weighted_image).reduceRegion(...)
+        >>>
+        >>> # Get binary presence/absence image for visualization
+        >>> binary_image = combine_datasets(pixel_area=False)
+        >>> # Use for visualization
+        >>> Map.addLayer(binary_image.select('GFC_TC_2020'), {'min': 0, 'max': 1}, 'Tree Cover 2020')
+    """
+
     img_combined = ee.Image(1).rename(geometry_area_column)
 
     # Combine images directly
@@ -767,7 +904,10 @@ def combine_datasets():
         for img in valid_imgs:
             img_combined = img_combined.addBands(img)
 
-    img_combined = img_combined.multiply(ee.Image.pixelArea())
+    if pixel_area:
+        img_combined = img_combined.multiply(ee.Image.pixelArea())
+    else:
+        img_combined = img_combined.unmask().int8()
 
     return img_combined
 
