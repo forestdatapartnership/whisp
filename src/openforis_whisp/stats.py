@@ -1,9 +1,33 @@
+import os
 import ee
 import pandas as pd
 from pathlib import Path
 from .datasets import combine_datasets
 import json
 import country_converter as coco
+
+import logging
+import time
+import requests
+import geopandas as gpd
+
+# import glob
+import pandas as pd
+from pathlib import Path
+from datetime import datetime
+import random
+import math
+import numpy as np
+from shapely.geometry import Polygon
+from shapely.validation import make_valid
+from shapely.geometry import mapping
+from exactextract import exact_extract
+import concurrent.futures
+from rio_vrt import build_vrt
+from exactextract import exact_extract
+import concurrent.futures
+import uuid
+
 from openforis_whisp.parameters.config_runtime import (
     percent_or_ha,
     plot_id_column,
@@ -21,6 +45,7 @@ from openforis_whisp.parameters.config_runtime import (
     stats_percent_columns_formatting,
     water_flag,
 )
+
 from .data_conversion import (
     convert_ee_to_df,
     convert_geojson_to_ee,
@@ -31,6 +56,24 @@ from .data_conversion import (
 from .reformat import validate_dataframe_using_lookups
 
 # NB functions that included "formatted" in the name apply a schema for validation and reformatting of the output dataframe. The schema is created from lookup tables.
+
+
+# Configure logging
+def setup_logging(log_level=logging.INFO):
+    """Set up logging with consistent formatting."""
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    return logging.getLogger("whisp_processor")
+
+
+logger = setup_logging()
+
+###############################################
+# functions for GEE stats processing (server side)
+###############################################
 
 
 def whisp_formatted_stats_geojson_to_df(
@@ -750,3 +793,1080 @@ def convert_iso3_to_iso2(df, iso3_column, iso2_column):
     )
 
     return df
+
+
+########################################
+# Client side downloading and processing
+##########################################
+
+
+def generate_random_polygon(
+    min_lon, min_lat, max_lon, max_lat, min_area_ha=1, max_area_ha=10, vertex_count=20
+):
+    """
+    Generate a random polygon within bounds with approximate area in the specified range.
+    Uses a robust approach that works well with high vertex counts and never falls back to squares.
+
+    Args:
+        min_lon, min_lat, max_lon, max_lat: Boundary coordinates
+        min_area_ha: Minimum area in hectares
+        max_area_ha: Maximum area in hectares
+        vertex_count: Number of vertices for the polygon
+    """
+    # Initialize variables to ensure they're always defined
+    poly = None
+    actual_area_ha = 0
+
+    # Simple function to approximate area in hectares (much faster)
+    def approximate_area_ha(polygon, center_lat):
+        # Get area in square degrees
+        area_sq_degrees = polygon.area
+
+        # Approximate conversion factor from square degrees to hectares
+        # This varies with latitude due to the Earth's curvature
+        lat_factor = 111320  # meters per degree latitude (approximately)
+        lon_factor = 111320 * math.cos(
+            math.radians(center_lat)
+        )  # meters per degree longitude
+
+        # Convert to square meters, then to hectares (1 ha = 10,000 sq m)
+        return area_sq_degrees * lat_factor * lon_factor / 10000
+
+    # Target area in hectares
+    target_area_ha = random.uniform(min_area_ha, max_area_ha)
+
+    # Select a center point within the bounds
+    center_lon = random.uniform(min_lon, max_lon)
+    center_lat = random.uniform(min_lat, max_lat)
+
+    # Initial size estimate (in degrees)
+    # Rough approximation: 0.01 degrees ~ 1km at equator
+    initial_radius = math.sqrt(target_area_ha / (math.pi * 100)) * 0.01
+
+    # Avoid generating too many points initially - cap vertex count for stability
+    effective_vertex_count = min(
+        vertex_count, 100
+    )  # Cap at 100 to avoid performance issues
+
+    # Primary approach: Create polygon using convex hull approach
+    for attempt in range(5):  # First method gets 5 attempts
+        try:
+            # Generate random points in a circle around center with varying distance
+            thetas = np.linspace(0, 2 * math.pi, effective_vertex_count, endpoint=False)
+
+            # Add randomness to angles - smaller randomness for higher vertex counts
+            angle_randomness = min(0.2, 2.0 / effective_vertex_count)
+            thetas += np.random.uniform(
+                -angle_randomness, angle_randomness, size=effective_vertex_count
+            )
+
+            # Randomize distances from center - less extreme for high vertex counts
+            distance_factor = min(0.3, 3.0 / effective_vertex_count) + 0.7
+            distances = initial_radius * np.random.uniform(
+                1.0 - distance_factor / 2,
+                1.0 + distance_factor / 2,
+                size=effective_vertex_count,
+            )
+
+            # Convert to cartesian coordinates
+            xs = center_lon + distances * np.cos(thetas)
+            ys = center_lat + distances * np.sin(thetas)
+
+            # Ensure points are within bounds
+            xs = np.clip(xs, min_lon, max_lon)
+            ys = np.clip(ys, min_lat, max_lat)
+
+            # Create vertices list
+            vertices = list(zip(xs, ys))
+
+            # Close the polygon
+            if vertices[0] != vertices[-1]:
+                vertices.append(vertices[0])
+
+            # Create polygon
+            poly = Polygon(vertices)
+
+            # Ensure it's valid
+            if not poly.is_valid:
+                poly = make_valid(poly)
+                if poly.geom_type != "Polygon":
+                    # If not a valid polygon, we'll try again
+                    continue
+
+            # Calculate approximate area
+            actual_area_ha = approximate_area_ha(poly, center_lat)
+
+            # Check if within target range
+            if min_area_ha * 0.8 <= actual_area_ha <= max_area_ha * 1.2:
+                return poly, actual_area_ha
+
+            # Adjust size for next attempt based on ratio
+            if actual_area_ha > 0:  # Avoid division by zero
+                scale_factor = math.sqrt(target_area_ha / actual_area_ha)
+                initial_radius *= scale_factor
+
+        except Exception as e:
+            print(f"Error in convex hull method (attempt {attempt+1}): {e}")
+
+    # Second approach: Star-like pattern with controlled randomness
+    # This is a fallback that will still create an irregular polygon, not a square
+    for attempt in range(5):  # Second method gets 5 attempts
+        try:
+            # Use fewer vertices for stability in the fallback
+            star_vertex_count = min(15, vertex_count)
+            vertices = []
+
+            # Create a star-like pattern with two radiuses
+            for i in range(star_vertex_count):
+                angle = 2 * math.pi * i / star_vertex_count
+
+                # Alternate between two distances to create star-like shape
+                if i % 2 == 0:
+                    distance = initial_radius * random.uniform(0.7, 0.9)
+                else:
+                    distance = initial_radius * random.uniform(0.5, 0.6)
+
+                # Add some irregularity to angles
+                angle += random.uniform(-0.1, 0.1)
+
+                # Calculate vertex position
+                lon = center_lon + distance * math.cos(angle)
+                lat = center_lat + distance * math.sin(angle)
+
+                # Ensure within bounds
+                lon = min(max(lon, min_lon), max_lon)
+                lat = min(max(lat, min_lat), max_lat)
+
+                vertices.append((lon, lat))
+
+            # Close the polygon
+            vertices.append(vertices[0])
+
+            # Create polygon
+            poly = Polygon(vertices)
+            if not poly.is_valid:
+                poly = make_valid(poly)
+                if poly.geom_type != "Polygon":
+                    continue
+
+            actual_area_ha = approximate_area_ha(poly, center_lat)
+
+            # We're less picky about size at this point, just return it
+            if actual_area_ha > 0:
+                return poly, actual_area_ha
+
+            # Still try to adjust if we get another attempt
+            if actual_area_ha > 0:
+                scale_factor = math.sqrt(target_area_ha / actual_area_ha)
+                initial_radius *= scale_factor
+
+        except Exception as e:
+            print(f"Error in star pattern method (attempt {attempt+1}): {e}")
+
+    # Last resort - create a perturbed circle (never a square)
+    try:
+        # Create a circle-like shape with small perturbations
+        final_vertices = []
+        perturbed_vertex_count = 8  # Use a modest number for stability
+
+        for i in range(perturbed_vertex_count):
+            angle = 2 * math.pi * i / perturbed_vertex_count
+            # Small perturbation
+            distance = initial_radius * random.uniform(0.95, 1.05)
+
+            # Calculate vertex position
+            lon = center_lon + distance * math.cos(angle)
+            lat = center_lat + distance * math.sin(angle)
+
+            # Ensure within bounds
+            lon = min(max(lon, min_lon), max_lon)
+            lat = min(max(lat, min_lat), max_lat)
+
+            final_vertices.append((lon, lat))
+
+        # Close the polygon
+        final_vertices.append(final_vertices[0])
+
+        # Create polygon
+        poly = Polygon(final_vertices)
+        if not poly.is_valid:
+            poly = make_valid(poly)
+
+        actual_area_ha = approximate_area_ha(poly, center_lat)
+
+    except Exception as e:
+        print(f"Error in final fallback method: {e}")
+        # If absolutely everything fails, create the simplest valid polygon (triangle)
+        # This is different from a square and should be more compatible with your code
+        offset = initial_radius / 2
+        poly = Polygon(
+            [
+                (center_lon, center_lat + offset),
+                (center_lon + offset, center_lat - offset),
+                (center_lon - offset, center_lat - offset),
+                (center_lon, center_lat + offset),
+            ]
+        )
+        actual_area_ha = approximate_area_ha(poly, center_lat)
+
+    # Return whatever we've created - never a simple square
+    return poly, actual_area_ha
+
+
+def generate_properties(area_ha, index):
+    """
+    Generate properties for features with sequential internal_id
+
+    Args:
+        area_ha: Area in hectares of the polygon
+        index: Index of the feature to use for sequential ID
+    """
+    return {
+        "internal_id": index + 1,  # Create sequential IDs starting from 1
+    }
+
+
+def create_geojson(
+    bounds,
+    num_polygons=25,
+    min_area_ha=1,
+    max_area_ha=10,
+    min_number_vert=10,
+    max_number_vert=20,
+):
+    """Create a GeoJSON file with random polygons within area range"""
+    min_lon, min_lat, max_lon, max_lat = bounds
+    # min_number_vert = 15
+    # max_number_vert = 20
+
+    features = []
+    for i in range(num_polygons):
+        # Random vertex count between 4 and 8
+        # vertices = random.randint(4, 8)
+        vertices = random.randint(min_number_vert, max_number_vert)
+
+        # Generate polygon with area control
+        polygon, actual_area = generate_random_polygon(
+            min_lon,
+            min_lat,
+            max_lon,
+            max_lat,
+            min_area_ha=min_area_ha,
+            max_area_ha=max_area_ha,
+            vertex_count=vertices,
+        )
+
+        # Create GeoJSON feature with actual area
+        properties = generate_properties(actual_area, index=i)
+        feature = {
+            "type": "Feature",
+            "properties": properties,
+            "geometry": mapping(polygon),
+        }
+
+        features.append(feature)
+
+    # Create the GeoJSON feature collection
+    geojson = {"type": "FeatureCollection", "features": features}
+
+    return geojson
+
+
+def reformat_geojson_properties(
+    geojson_path,
+    output_path=None,
+    id_field="internal_id",
+    start_index=1,
+    remove_properties=False,
+    add_uuid=False,
+):
+    """
+    Add numeric IDs to features in an existing GeoJSON file and optionally remove properties.
+
+    Args:
+        geojson_path: Path to input GeoJSON file
+        output_path: Path to save the output GeoJSON (if None, overwrites input)
+        id_field: Name of the ID field to add
+        start_index: Starting index for sequential IDs
+        remove_properties: Whether to remove all existing properties (default: False)
+        add_uuid: Whether to also add UUID field
+
+    Returns:
+        GeoDataFrame with updated features
+    """
+
+    # Read the GeoJSON
+    # print(f"Reading GeoJSON file: {geojson_path}")
+    gdf = gpd.read_file(geojson_path)
+
+    # Remove existing properties if requested
+    if remove_properties:
+        # Keep only the geometry column and drop all other columns
+        gdf = gdf[["geometry"]].copy()
+        # print(f"Removed all existing properties from features")
+
+    # Add sequential numeric IDs
+    gdf[id_field] = [i + start_index for i in range(len(gdf))]
+
+    # Optionally add UUIDs
+    if add_uuid:
+        gdf["uuid"] = [str(uuid.uuid4()) for _ in range(len(gdf))]
+
+    # Write the GeoJSON with added IDs
+    output_path = output_path or geojson_path
+    gdf.to_file(output_path, driver="GeoJSON")
+    print(f"Added {id_field} to GeoJSON and saved to {output_path}")
+
+    return None
+
+
+# //Load GeoJSON features and add unique IDs
+def convert_geojson_to_ee_bbox(geojson_filepath) -> ee.FeatureCollection:
+    """
+    Reads a GeoJSON file, creates bounding boxes for each feature,
+    and converts to Earth Engine FeatureCollection.
+
+    Args:
+        geojson_filepath (Any): The filepath to the GeoJSON file.
+
+    Returns:
+        ee.FeatureCollection: Earth Engine FeatureCollection of bounding boxes.
+    """
+    # import os
+    # from pathlib import Path
+    # import geopandas as gpd
+    # import ee
+
+    # Read the GeoJSON file using geopandas
+    if isinstance(geojson_filepath, (str, Path)):
+        file_path = os.path.abspath(geojson_filepath)
+        print(f"Reading GeoJSON file from: {file_path}")
+
+        try:
+            # Load GeoJSON directly with geopandas
+            gdf = gpd.read_file(file_path)
+        except Exception as e:
+            raise ValueError(f"Error reading GeoJSON file: {str(e)}")
+    else:
+        raise ValueError("Input must be a file path (str or Path)")
+
+    # Check if GeoDataFrame is empty
+    if len(gdf) == 0:
+        raise ValueError("GeoJSON contains no features")
+
+    # Add internal_id if not present
+    if "internal_id" not in gdf.columns:
+        gdf["internal_id"] = range(1, len(gdf) + 1)
+
+    # Create a new GeoDataFrame with bounding boxes
+    bbox_features = []
+    for idx, row in gdf.iterrows():
+        try:
+            # Get the bounds of the geometry (minx, miny, maxx, maxy)
+            minx, miny, maxx, maxy = row.geometry.bounds
+
+            # Create an Earth Engine Rectangle geometry
+            ee_geometry = ee.Geometry.Rectangle([minx, miny, maxx, maxy])
+
+            # Copy properties from the original feature
+            properties = {col: row[col] for col in gdf.columns if col != "geometry"}
+
+            # Convert numpy types to native Python types for proper serialization
+            for key, value in properties.items():
+                if hasattr(value, "item"):  # Check if it's a numpy type
+                    properties[key] = value.item()  # Convert to Python native type
+                elif pd.isna(value):
+                    properties[key] = None
+
+            # Create an Earth Engine feature with the bbox geometry
+            ee_feature = ee.Feature(ee_geometry, properties)
+            bbox_features.append(ee_feature)
+
+        except Exception as e:
+            print(f"Error processing feature {idx}: {str(e)}")
+
+    # Check if any features were created
+    if not bbox_features:
+        raise ValueError("No valid features found in GeoJSON")
+
+    # Create the Earth Engine FeatureCollection
+    feature_collection = ee.FeatureCollection(bbox_features)
+    print(
+        f"Created Earth Engine FeatureCollection with {len(bbox_features)} bounding box features"
+    )
+
+    return feature_collection
+
+
+# Download GeoTIFF for feature using Earth Engine
+def download_geotiff_for_feature(
+    ee_feature, image, output_dir, scale=10, max_retries=3, retry_delay=5
+):
+    """
+    Download a GeoTIFF for a specific Earth Engine feature by clipping the image.
+
+    Args:
+        ee_feature: Earth Engine feature to clip the image to
+        image: Earth Engine image to download (e.g., whisp.combine_datasets())
+        output_dir: Directory to save the GeoTIFF
+        scale: Resolution in meters (default 10m)
+        max_retries: Maximum number of retry attempts for download
+        retry_delay: Seconds to wait between retries
+
+    Returns:
+        output_path: Path to the downloaded GeoTIFF file
+    """
+    # Get the feature ID
+    try:
+        internal_id = ee_feature.get("internal_id").getInfo()
+        logger.info(f"Downloading GeoTIFF for feature {internal_id}")
+    except Exception as e:
+        logger.error(f"Error getting internal_id from feature: {str(e)}")
+        internal_id = f"unknown_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
+    # Ensure output directory exists
+    output_dir = Path(output_dir)
+    output_dir.mkdir(exist_ok=True, parents=True)
+
+    # Create a unique filename
+    filename = f"feature_{internal_id}.tif"
+    output_path = output_dir / filename
+
+    # If file already exists, don't re-download
+    if output_path.exists():
+        logger.info(f"File {filename} already exists, skipping download")
+        return output_path
+
+    # Track retries
+    retries = 0
+
+    while retries < max_retries:
+        try:
+            # Clip the image to the feature
+            clipped_image = image.clip(ee_feature.geometry())
+
+            # Generate the download URL with timeout handling
+            logger.debug(f"Generating download URL for feature {internal_id}")
+            start_time = time.time()
+            download_url = clipped_image.getDownloadURL(
+                {
+                    "format": "GeoTIFF",  # Note: Earth Engine accepts 'GeoTIFF'
+                    "region": ee_feature.geometry(),
+                    "scale": scale,
+                    "crs": "EPSG:4326",
+                }
+            )
+            url_time = time.time() - start_time
+            logger.debug(f"URL generated in {url_time:.2f}s: {download_url[:80]}...")
+
+            # Download the image with timeout
+            logger.info(f"Downloading to {output_path}")
+            response = requests.get(download_url, timeout=300)  # 5-minute timeout
+
+            if response.status_code == 200:
+                # Check if the response is actually a GeoTIFF
+                content_type = response.headers.get("Content-Type", "")
+                if "tiff" in content_type.lower() or "zip" in content_type.lower():
+                    with open(output_path, "wb") as f:
+                        f.write(response.content)
+                    logger.info(f"Successfully downloaded {filename}")
+                    return output_path
+                else:
+                    # Log error if the response isn't a GeoTIFF
+                    logger.error(f"Download returned non-TIFF content: {content_type}")
+                    # Save the response for debugging
+                    error_file = output_dir / f"error_{internal_id}.txt"
+                    with open(error_file, "wb") as f:
+                        f.write(
+                            response.content[:2000]
+                        )  # Save first part for debugging
+                    logger.error(f"Saved error content to {error_file}")
+                    retries += 1
+            else:
+                logger.error(
+                    f"Failed to download (status {response.status_code}): {response.text[:200]}"
+                )
+                retries += 1
+
+            # Wait before retrying
+            if retries < max_retries:
+                sleep_time = retry_delay * (2**retries)  # Exponential backoff
+                logger.info(
+                    f"Retrying in {sleep_time} seconds (attempt {retries+1}/{max_retries})"
+                )
+                time.sleep(sleep_time)
+
+        except Exception as e:
+            logger.error(
+                f"Error downloading feature {internal_id}: {str(e)}", exc_info=True
+            )
+            retries += 1
+            if retries < max_retries:
+                logger.info(
+                    f"Retrying in {retry_delay} seconds (attempt {retries+1}/{max_retries})"
+                )
+                time.sleep(retry_delay)
+
+    logger.error(f"Maximum retries reached for feature {internal_id}")
+    return None
+
+
+def download_geotiffs_for_feature_collection(
+    feature_collection,
+    image,
+    output_dir=None,
+    scale=10,
+    max_features=None,
+    max_workers=None,
+    max_retries=3,
+    retry_delay=5,
+):
+    """
+    Download GeoTIFFs for an entire Earth Engine FeatureCollection, with parallel processing option.
+
+    Args:
+        feature_collection: Earth Engine FeatureCollection to process
+        image: Earth Engine image to clip and download
+        output_dir: Directory to save the GeoTIFFs (default: ~/Downloads/whisp_features)
+        scale: Resolution in meters (default 10m)
+        max_features: Maximum number of features to process (default: all)
+        max_workers: Maximum number of parallel workers (default: None, sequential processing)
+        max_retries: Maximum number of retry attempts for each download
+        retry_delay: Base delay in seconds between retries (uses exponential backoff)
+
+    Returns:
+        List of paths to successfully downloaded GeoTIFF files
+    """
+    import logging
+    import concurrent.futures
+    from pathlib import Path
+    import ee
+
+    logger = logging.getLogger("whisp_processor")
+
+    # Set default output directory
+    if output_dir is None:
+        output_dir = Path.home() / "Downloads" / "whisp_features"
+
+    # Create directory if it doesn't exist
+    output_dir = Path(output_dir)
+    output_dir.mkdir(exist_ok=True, parents=True)
+
+    # Get collection size and limit if needed
+    collection_size = feature_collection.size().getInfo()
+    logger.info(
+        f"Processing Earth Engine FeatureCollection with {collection_size} features"
+    )
+
+    if max_features and max_features < collection_size:
+        feature_collection = feature_collection.limit(max_features)
+        collection_size = max_features
+        logger.info(f"Limited to processing first {max_features} features")
+
+    # Get features as a list
+    features = feature_collection.toList(collection_size)
+
+    # Create a function to download a single feature given its index
+    def download_feature(index):
+        try:
+            ee_feature = ee.Feature(features.get(index))
+            return download_geotiff_for_feature(
+                ee_feature=ee_feature,
+                image=image,
+                output_dir=output_dir,
+                scale=scale,
+                max_retries=max_retries,
+                retry_delay=retry_delay,
+            )
+        except Exception as e:
+            logger.error(
+                f"Error processing feature at index {index}: {str(e)}", exc_info=True
+            )
+            return None
+
+    results = []
+
+    # Parallel processing if max_workers is specified and > 1
+    if max_workers and max_workers > 1:
+        logger.info(f"Using parallel processing with {max_workers} workers")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all tasks
+            future_to_index = {
+                executor.submit(download_feature, i): i for i in range(collection_size)
+            }
+
+            # Process results as they complete
+            for future in concurrent.futures.as_completed(future_to_index):
+                index = future_to_index[future]
+                try:
+                    path = future.result()
+                    if path:
+                        results.append(path)
+                        logger.info(f"Completed feature {index+1}/{collection_size}")
+                    else:
+                        logger.warning(
+                            f"Failed to download feature {index+1}/{collection_size}"
+                        )
+                except Exception as e:
+                    logger.error(
+                        f"Exception occurred while processing feature {index+1}: {str(e)}"
+                    )
+    else:
+        # Sequential processing
+        logger.info("Processing features sequentially")
+        for i in range(collection_size):
+            logger.info(f"Processing feature {i+1}/{collection_size}")
+            path = download_feature(i)
+            if path:
+                results.append(path)
+
+    logger.info(
+        f"Completed downloading {len(results)}/{collection_size} features successfully"
+    )
+    return results
+
+
+def extend_bbox(minx, miny, maxx, maxy, extension_distance=None, extension_range=None):
+    """
+    Extends a bounding box by a fixed distance or a random distance within a range.
+
+    Args:
+        minx, miny, maxx, maxy: The original bounding box coordinates
+        extension_distance: Fixed distance to extend in all directions
+        extension_range: List [min_dist, max_dist] for random extension
+
+    Returns:
+        Tuple of (minx, miny, maxx, maxy) for the extended bounding box
+    """
+    import random
+
+    if extension_distance is None and extension_range is None:
+        return minx, miny, maxx, maxy
+
+    # Determine the extension distance
+    if extension_range is not None:
+        min_dist, max_dist = extension_range
+        dist = random.uniform(min_dist, max_dist)
+    else:
+        dist = extension_distance
+
+    # Extend the bounding box
+    extended_minx = minx - dist
+    extended_miny = miny - dist
+    extended_maxx = maxx + dist
+    extended_maxy = maxy + dist
+
+    return extended_minx, extended_miny, extended_maxx, extended_maxy
+
+
+def shift_bbox(minx, miny, maxx, maxy, max_shift_distance, pixel_length=0.0001):
+    """
+    Shifts a bounding box in a random direction within max_shift_distance.
+
+    Args:
+        minx, miny, maxx, maxy: The bounding box coordinates
+        max_shift_distance: Maximum distance to shift
+        pixel_length: Length of a pixel to avoid accuracy loss
+
+    Returns:
+        Tuple of (minx, miny, maxx, maxy) for the shifted bounding box
+    """
+    import random
+    import math
+
+    if max_shift_distance <= 0:
+        return minx, miny, maxx, maxy
+
+    # Calculate the effective max shift (max_shift - pixel_length)
+    effective_max_shift = max(0, max_shift_distance - pixel_length)
+
+    # Random shift distance (less than effective_max_shift)
+    shift_distance = random.uniform(0, effective_max_shift)
+
+    # Random angle in radians
+    angle = random.uniform(0, 2 * math.pi)
+
+    # Calculate shift components
+    dx = shift_distance * math.cos(angle)
+    dy = shift_distance * math.sin(angle)
+
+    # Apply shift
+    shifted_minx = minx + dx
+    shifted_miny = miny + dy
+    shifted_maxx = maxx + dx
+    shifted_maxy = maxy + dy
+
+    return shifted_minx, shifted_miny, shifted_maxx, shifted_maxy
+
+
+def generate_random_geometries(gdf, max_distance, proportion=0.5):
+    """
+    Generates random geometries near the original features in a GeoDataFrame.
+    Each random geometry is placed within the specified distance of a randomly selected
+    existing feature, rather than anywhere within the overall extent.
+
+    Args:
+        gdf: GeoDataFrame with the original features
+        max_distance: Maximum distance from original features
+        proportion: Proportion of extra geometries to create (relative to original count)
+
+    Returns:
+        List of Earth Engine features with random geometries
+    """
+
+    if proportion <= 0 or max_distance <= 0 or len(gdf) == 0:
+        return []
+
+    random_features = []
+
+    # Get the dimensions and centroids from original features
+    feature_info = []
+
+    for idx, row in gdf.iterrows():
+        minx, miny, maxx, maxy = row.geometry.bounds
+        width = maxx - minx
+        height = maxy - miny
+        centroid_x = (minx + maxx) / 2
+        centroid_y = (miny + maxy) / 2
+        feature_info.append(
+            {
+                "width": width,
+                "height": height,
+                "center_x": centroid_x,
+                "center_y": centroid_y,
+                "bounds": (minx, miny, maxx, maxy),
+            }
+        )
+
+    # Calculate number of random features to create
+    num_random_features = max(1, int(len(gdf) * proportion))
+
+    # Generate random features
+    for i in range(num_random_features):
+        # Select a random original feature to be near
+        random_feature_idx = random.randint(0, len(feature_info) - 1)
+        selected_feature = feature_info[random_feature_idx]
+
+        # Get the original feature's dimensions
+        width = selected_feature["width"]
+        height = selected_feature["height"]
+        orig_x = selected_feature["center_x"]
+        orig_y = selected_feature["center_y"]
+
+        # Add some variation to dimensions (± 20%)
+        width_variation = random.uniform(0.8, 1.2)
+        height_variation = random.uniform(0.8, 1.2)
+        width *= width_variation
+        height *= height_variation
+
+        # Generate a random position within max_distance of the selected feature
+        # First, select a random angle
+        angle = random.uniform(0, 2 * math.pi)
+
+        # Then, select a random distance (within max_distance)
+        distance = random.uniform(0, max_distance)
+
+        # Calculate the new center point
+        center_x = orig_x + (distance * math.cos(angle))
+        center_y = orig_y + (distance * math.sin(angle))
+
+        # Calculate corners for the random rectangle
+        r_minx = center_x - (width / 2)
+        r_miny = center_y - (height / 2)
+        r_maxx = center_x + (width / 2)
+        r_maxy = center_y + (height / 2)
+
+        # Create Earth Engine Rectangle geometry
+        ee_geometry = ee.Geometry.Rectangle([r_minx, r_miny, r_maxx, r_maxy])
+
+        # Create random properties
+        properties = {
+            "random_feature": True,
+            "internal_id": f"random_{i + 1000}",  # Use high numbers to avoid conflicts
+            "obscured": True,
+            "near_feature_id": random_feature_idx + 1,  # Store which feature it's near
+        }
+
+        # Create an Earth Engine feature
+        ee_feature = ee.Feature(ee_geometry, properties)
+        random_features.append(ee_feature)
+
+    return random_features
+
+
+def create_vrt_from_folder(folder_path, exclude_pattern="random"):
+    """
+    Create a virtual raster (VRT) file from all TIF files in a folder,
+    excluding any files with the specified pattern in the filename.
+
+    Args:
+        folder_path (str or Path): Path to the folder containing TIF files
+        exclude_pattern (str): String pattern to exclude from filenames (default: "random")
+
+    Returns:
+        str: Path to the created VRT file
+    """
+    # Convert to Path object if it's a string
+    folder = Path(folder_path)
+
+    # Get list of TIFF files, excluding those with the exclude_pattern in the filename
+    tif_files = []
+    for ext in ["*.tif", "*.tiff"]:
+        for file_path in folder.glob(ext):
+            if exclude_pattern.lower() not in file_path.name.lower():
+                tif_files.append(str(file_path))
+
+    # Check if any files were found
+    if not tif_files:
+        print(f"No suitable TIF files found in {folder_path}")
+        return None
+
+    # Print the files that will be included
+    print(f"Found {len(tif_files)} TIF files to include in the VRT")
+
+    # Output VRT path
+    output_vrt = str(folder / "combined_rasters.vrt")
+
+    # Create the VRT file
+    vrt_file = build_vrt(output_vrt, tif_files)
+
+    print(f"VRT file created at: {output_vrt}")
+    return output_vrt
+
+
+def convert_geojson_to_ee_bbox_obscured(
+    geojson_filepath,
+    extension_distance=None,
+    extension_range=None,
+    shift_geometries=False,
+    shift_proportion=0.5,  # NEW: Control how much of extension is used for shifting
+    pixel_length=0.0001,
+    add_random_features=False,
+    max_distance=0.1,
+    random_proportion=0.5,
+) -> ee.FeatureCollection:
+    """
+    Reads a GeoJSON file, creates bounding boxes for each feature,
+    and converts to Earth Engine FeatureCollection with options to obscure locations.
+
+    Args:
+        geojson_filepath (str or Path): The filepath to the GeoJSON file
+        extension_distance (float): Fixed distance to extend bounding boxes
+        extension_range (list): [min_dist, max_dist] for random extension
+        shift_geometries (bool): Whether to shift bounding boxes randomly
+        shift_proportion (float): How much of extension can be used for shifting (0-1, default 0.5)
+        pixel_length (float): Length of a pixel to avoid accuracy loss
+        add_random_features (bool): Whether to add random decoy features
+        max_distance (float): Maximum distance for random features
+        random_proportion (float): Proportion of random features to add
+
+    Returns:
+        ee.FeatureCollection: Earth Engine FeatureCollection of bounding boxes
+    """
+
+    # Read the GeoJSON file using geopandas
+    if isinstance(geojson_filepath, (str, Path)):
+        file_path = os.path.abspath(geojson_filepath)
+        print(f"Reading GeoJSON file from: {file_path}")
+
+        try:
+            # Load GeoJSON directly with geopandas
+            gdf = gpd.read_file(file_path)
+        except Exception as e:
+            raise ValueError(f"Error reading GeoJSON file: {str(e)}")
+    else:
+        raise ValueError("Input must be a file path (str or Path)")
+
+    # Check if GeoDataFrame is empty
+    if len(gdf) == 0:
+        raise ValueError("GeoJSON contains no features")
+
+    # Add internal_id if not present
+    if "internal_id" not in gdf.columns:
+        gdf["internal_id"] = range(1, len(gdf) + 1)
+
+    # Create a new list with bounding boxes
+    bbox_features = []
+
+    # Validate shift_proportion to be between 0 and 1
+    shift_proportion = max(0, min(1, shift_proportion))
+
+    for idx, row in gdf.iterrows():
+        try:
+            # Get the bounds of the geometry (minx, miny, maxx, maxy)
+            minx, miny, maxx, maxy = row.geometry.bounds
+
+            # Apply bounding box extension if requested
+            if extension_distance is not None or extension_range is not None:
+                minx, miny, maxx, maxy = extend_bbox(
+                    minx,
+                    miny,
+                    maxx,
+                    maxy,
+                    extension_distance=extension_distance,
+                    extension_range=extension_range,
+                )
+
+            # Apply random shift if requested
+            if shift_geometries:
+                # Determine max shift distance - limit by shift_proportion
+                max_shift = 0
+                if extension_distance is not None:
+                    max_shift = extension_distance * shift_proportion
+                elif extension_range is not None:
+                    max_shift = (
+                        extension_range[1] * shift_proportion
+                    )  # Use max of range
+
+                if max_shift > 0:
+                    minx, miny, maxx, maxy = shift_bbox(
+                        minx, miny, maxx, maxy, max_shift, pixel_length
+                    )
+                else:
+                    print(
+                        f"Warning: No shifting applied to feature {idx} due to missing extension parameters"
+                    )
+
+            # Create an Earth Engine Rectangle geometry
+            ee_geometry = ee.Geometry.Rectangle([minx, miny, maxx, maxy])
+
+            # Copy properties from the original feature
+            properties = {col: row[col] for col in gdf.columns if col != "geometry"}
+
+            # Convert numpy types to native Python types for proper serialization
+            for key, value in properties.items():
+                if hasattr(value, "item"):  # Check if it's a numpy type
+                    properties[key] = value.item()  # Convert to Python native type
+                elif pd.isna(value):
+                    properties[key] = None
+
+            # Create an Earth Engine feature with the bbox geometry
+            ee_feature = ee.Feature(ee_geometry, properties)
+            bbox_features.append(ee_feature)
+
+        except Exception as e:
+            print(f"Error processing feature {idx}: {str(e)}")
+
+    # Check if any features were created
+    if not bbox_features:
+        raise ValueError("No valid features found in GeoJSON")
+
+    # Add random decoy features if requested
+    if add_random_features:
+        random_features = generate_random_geometries(
+            gdf, max_distance, random_proportion
+        )
+
+        if random_features:
+            bbox_features.extend(random_features)
+            print(
+                f"Added {len(random_features)} random decoy features to obscure real locations"
+            )
+
+    # Create the Earth Engine FeatureCollection
+    feature_collection = ee.FeatureCollection(bbox_features)
+    print(
+        f"Created Earth Engine FeatureCollection with {len(bbox_features)} bounding box features"
+    )
+
+    return feature_collection
+
+
+def exact_extract_in_chunks_parallel(
+    rasters, vector_file, chunk_size=25, ops=["sum"], max_workers=4
+):
+    """
+    Process exactextract in parallel chunks of features
+
+    Args:
+        rasters: List of raster files or single raster path
+        vector_file: Path to vector file (GeoJSON, shapefile, etc.)
+        chunk_size: Number of features to process in each chunk
+        ops: List of operations to perform
+        max_workers: Maximum number of parallel processes/threads to use
+
+    Returns:
+        pd.DataFrame: Combined results
+    """
+    start_time = time.time()
+
+    # Read the vector file
+    print(f"Reading vector file: {vector_file}")
+    gdf = gpd.read_file(vector_file)
+    total_features = len(gdf)
+    print(f"Total features to process: {total_features}")
+
+    # Calculate number of chunks
+    num_chunks = (total_features + chunk_size - 1) // chunk_size  # Ceiling division
+    print(f"Processing in {num_chunks} chunks of up to {chunk_size} features each")
+    print(f"Using {max_workers} parallel workers")
+
+    # Function to process a single chunk
+    def process_chunk(chunk_idx):
+        start_idx = chunk_idx * chunk_size
+        end_idx = min(start_idx + chunk_size, total_features)
+
+        print(
+            f"Starting chunk {chunk_idx+1}/{num_chunks} (features {start_idx+1}-{end_idx})"
+        )
+        chunk_start_time = time.time()
+
+        # Extract the chunk
+        chunk_gdf = gdf.iloc[start_idx:end_idx].copy()
+
+        try:
+            # Process this chunk
+            chunk_results = exact_extract(
+                progress=False,  # Disable progress bar for parallel processing to avoid mixed output
+                rast=rasters,
+                vec=chunk_gdf,
+                # strategy="feature-sequential",
+                ops=ops,
+                output="pandas",
+            )
+
+            chunk_time = time.time() - chunk_start_time
+            print(f"Completed chunk {chunk_idx+1}/{num_chunks} in {chunk_time:.2f}s")
+            return chunk_results
+
+        except Exception as e:
+            print(f"Error processing chunk {chunk_idx+1}/{num_chunks}: {str(e)}")
+            return None
+
+    # Initialize empty DataFrame for results
+    all_results = pd.DataFrame()
+
+    # Process chunks in parallel
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all chunks for processing
+        future_to_chunk = {
+            executor.submit(process_chunk, chunk_idx): chunk_idx
+            for chunk_idx in range(num_chunks)
+        }
+
+        # Process results as they complete
+        for future in concurrent.futures.as_completed(future_to_chunk):
+            chunk_idx = future_to_chunk[future]
+            try:
+                result = future.result()
+                if result is not None:
+                    if all_results.empty:
+                        all_results = result
+                    else:
+                        # Append to existing results
+                        all_results = pd.concat(
+                            [all_results, result], ignore_index=True
+                        )
+
+                    print(f"Chunk {chunk_idx+1} integrated into results")
+            except Exception as e:
+                print(f"Exception in chunk {chunk_idx+1}: {str(e)}")
+
+    total_time = time.time() - start_time
+    processed_count = len(all_results) if not all_results.empty else 0
+
+    print(
+        f"Processing complete. Processed {processed_count}/{total_features} features in {total_time:.2f}s"
+    )
+
+    return all_results
