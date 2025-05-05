@@ -1772,101 +1772,425 @@ def convert_geojson_to_ee_bbox_obscured(
     return feature_collection
 
 
+# def exact_extract_in_chunks_parallel(
+#     rasters, vector_file, chunk_size=25, ops=["sum"], max_workers=4
+# ):
+#     """
+#     Process exactextract in parallel chunks of features
+
+#     Args:
+#         rasters: List of raster files or single raster path
+#         vector_file: Path to vector file (GeoJSON, shapefile, etc.)
+#         chunk_size: Number of features to process in each chunk
+#         ops: List of operations to perform
+#         max_workers: Maximum number of parallel processes/threads to use
+
+#     Returns:
+#         pd.DataFrame: Combined results
+#     """
+#     start_time = time.time()
+
+#     # Read the vector file
+#     print(f"Reading vector file: {vector_file}")
+#     gdf = gpd.read_file(vector_file)
+#     total_features = len(gdf)
+#     print(f"Total features to process: {total_features}")
+
+#     # Calculate number of chunks
+#     num_chunks = (total_features + chunk_size - 1) // chunk_size  # Ceiling division
+#     print(f"Processing in {num_chunks} chunks of up to {chunk_size} features each")
+#     print(f"Using {max_workers} parallel workers")
+
+#     # Function to process a single chunk
+#     def process_chunk(chunk_idx):
+#         start_idx = chunk_idx * chunk_size
+#         end_idx = min(start_idx + chunk_size, total_features)
+
+#         print(
+#             f"Starting chunk {chunk_idx+1}/{num_chunks} (features {start_idx+1}-{end_idx})"
+#         )
+#         chunk_start_time = time.time()
+
+#         # Extract the chunk
+#         chunk_gdf = gdf.iloc[start_idx:end_idx].copy()
+
+#         try:
+#             # Process this chunk
+#             chunk_results = exact_extract(
+#                 progress=False,  # Disable progress bar for parallel processing to avoid mixed output
+#                 rast=rasters,
+#                 vec=chunk_gdf,
+#                 # strategy="feature-sequential",
+#                 ops=ops,
+#                 output="pandas",
+#             )
+
+#             chunk_time = time.time() - chunk_start_time
+#             print(f"Completed chunk {chunk_idx+1}/{num_chunks} in {chunk_time:.2f}s")
+#             return chunk_results
+
+#         except Exception as e:
+#             print(f"Error processing chunk {chunk_idx+1}/{num_chunks}: {str(e)}")
+#             return None
+
+#     # Initialize empty DataFrame for results
+#     all_results = pd.DataFrame()
+
+#     # Process chunks in parallel
+#     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+#         # Submit all chunks for processing
+#         future_to_chunk = {
+#             executor.submit(process_chunk, chunk_idx): chunk_idx
+#             for chunk_idx in range(num_chunks)
+#         }
+
+#         # Process results as they complete
+#         for future in concurrent.futures.as_completed(future_to_chunk):
+#             chunk_idx = future_to_chunk[future]
+#             try:
+#                 result = future.result()
+#                 if result is not None:
+#                     if all_results.empty:
+#                         all_results = result
+#                     else:
+#                         # Append to existing results
+#                         all_results = pd.concat(
+#                             [all_results, result], ignore_index=True
+#                         )
+
+#                     print(f"Chunk {chunk_idx+1} integrated into results")
+#             except Exception as e:
+#                 print(f"Exception in chunk {chunk_idx+1}: {str(e)}")
+
+#     total_time = time.time() - start_time
+#     processed_count = len(all_results) if not all_results.empty else 0
+
+#     print(
+#         f"Processing complete. Processed {processed_count}/{total_features} features in {total_time:.2f}s"
+#     )
+
+#     return all_results
+
+
+# alternative implementation  and attempting to close files
+
+# def exact_extract_in_chunks_parallel(
+#     rasters, vector_file, chunk_size=25, ops=["sum"], max_workers=4
+# ):
+#     """
+#     Process exactextract in parallel chunks of features with enhanced resource cleanup
+#     to prevent file locks remaining after processing.
+
+#     Args:
+#         rasters: List of raster files or single raster path
+#         vector_file: Path to vector file (GeoJSON, shapefile, etc.)
+#         chunk_size: Number of features to process in each chunk
+#         ops: List of operations to perform
+#         max_workers: Maximum number of parallel processes/threads to use
+
+#     Returns:
+#         pd.DataFrame: Combined results
+#     """
+#     import os
+#     import time
+#     import gc
+#     import pandas as pd
+#     import geopandas as gpd
+#     from exactextract import exact_extract
+#     import concurrent.futures
+
+#     # Configure GDAL for multithreaded environment
+#     os.environ['GDAL_DISABLE_READDIR_ON_OPEN'] = 'EMPTY_DIR'
+#     os.environ['CPL_VSIL_CURL_ALLOWED_EXTENSIONS'] = '.tif,.vrt'
+#     os.environ['VSI_CACHE'] = 'TRUE'
+#     os.environ['VSI_CACHE_SIZE'] = '50000000'  # 50MB cache
+
+#     start_time = time.time()
+
+#     # Read the vector file
+#     print(f"Reading vector file: {vector_file}")
+#     gdf = gpd.read_file(vector_file)
+#     total_features = len(gdf)
+#     print(f"Total features to process: {total_features}")
+
+#     # Calculate number of chunks
+#     num_chunks = (total_features + chunk_size - 1) // chunk_size  # Ceiling division
+#     print(f"Processing in {num_chunks} chunks of up to {chunk_size} features each")
+#     print(f"Using {max_workers} parallel workers")
+
+#     # Keep track of active readers to ensure they're closed
+#     raster_readers = []
+
+#     # Function to process a single chunk
+#     def process_chunk(chunk_idx):
+#         start_idx = chunk_idx * chunk_size
+#         end_idx = min(start_idx + chunk_size, total_features)
+
+#         print(
+#             f"Starting chunk {chunk_idx+1}/{num_chunks} (features {start_idx+1}-{end_idx})"
+#         )
+#         chunk_start_time = time.time()
+
+#         # Extract the chunk and create an independent copy to avoid threading issues
+#         chunk_gdf = gdf.iloc[start_idx:end_idx].copy()
+
+#         try:
+#             # Process this chunk
+#             chunk_results = exact_extract(
+#                 progress=False,  # Disable progress bar for parallel processing
+#                 rast=rasters,
+#                 vec=chunk_gdf,
+#                 ops=ops,
+#                 output='pandas'
+#             )
+
+#             # Explicitly cleanup after processing
+#             chunk_gdf = None  # Release reference
+#             gc.collect()  # Force garbage collection
+
+#             chunk_time = time.time() - chunk_start_time
+#             print(f"Completed chunk {chunk_idx+1}/{num_chunks} in {chunk_time:.2f}s")
+#             return chunk_results
+
+#         except Exception as e:
+#             print(f"Error processing chunk {chunk_idx+1}/{num_chunks}: {str(e)}")
+#             return None
+#         finally:
+#             # Try to release any resources used by this chunk
+#             chunk_gdf = None
+#             gc.collect()
+
+#     # List to store results - better for memory management than growing a DataFrame
+#     all_results = []
+
+#     # Process chunks in parallel with ThreadPoolExecutor
+#     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+#
+#         # Submit all chunks for processing
+#         future_to_chunk = {
+#             executor.submit(process_chunk, chunk_idx): chunk_idx
+#             for chunk_idx in range(num_chunks)
+#         }
+
+#         # Process results as they complete
+#         for future in concurrent.futures.as_completed(future_to_chunk):
+#             chunk_idx = future_to_chunk[future]
+#             try:
+#                 result = future.result()
+#                 if result is not None and not result.empty:
+#                     all_results.append(result)
+#                     print(f"Results from chunk {chunk_idx+1} stored")
+#             except Exception as e:
+#                 print(f"Exception in chunk {chunk_idx+1}: {str(e)}")
+
+#     # Close the vector file
+#     gdf = None
+
+#     # Final cleanup to release file handles
+#     try:
+#         # Try to release GDAL resources
+#         from osgeo import gdal
+#         gdal.UseExceptions()
+#         gdal.GDALDestroyDriverManager()
+#     except (ImportError, AttributeError):
+#         print("GDAL not available or function doesn't exist")
+#         pass  # GDAL not available or function doesn't exist
+
+#     # Force garbage collection again
+#     gc.collect()
+
+#     # Combine all results at once (more efficient)
+#     combined_df = pd.DataFrame()
+#     if all_results:
+#         print(f"Combining results from {len(all_results)} chunks...")
+#         combined_df = pd.concat(all_results, ignore_index=True)
+
+#         # Release memory from individual results
+#         all_results = []
+#         gc.collect()
+
+#     total_time = time.time() - start_time
+#     processed_count = len(combined_df) if not combined_df.empty else 0
+
+#     print(
+#         f"Processing complete. Processed {processed_count}/{total_features} features in {total_time:.2f}s"
+#     )
+
+#     return combined_df
+
+# def process_chunk(chunk_idx, gdf, rasters, ops, chunk_size, total_features, num_chunks):
+#     import gc
+#     from exactextract import exact_extract
+#     import pandas as pd
+#     import time
+
+#     start_idx = chunk_idx * chunk_size
+#     end_idx = min(start_idx + chunk_size, total_features)
+#     print(f"Starting chunk {chunk_idx+1}/{num_chunks} (features {start_idx+1}-{end_idx})")
+#     chunk_start_time = time.time()
+
+#     chunk_gdf = gdf.iloc[start_idx:end_idx].copy()
+#     try:
+#         chunk_results = exact_extract(
+#             progress=False,
+#             rast=rasters,
+#             vec=chunk_gdf,
+#             ops=ops,
+#             output='pandas'
+#         )
+#         chunk_gdf = None
+#         gc.collect()
+#         chunk_time = time.time() - chunk_start_time
+#         print(f"Completed chunk {chunk_idx+1}/{num_chunks} in {chunk_time:.2f}s")
+#         return chunk_results
+#     except Exception as e:
+#         print(f"Error processing chunk {chunk_idx+1}/{num_chunks}: {str(e)}")
+#         return None
+#     finally:
+#         chunk_gdf = None
+#         gc.collect()
+
+# def exact_extract_in_chunks_parallel(
+#     rasters, vector_file, chunk_size=25, ops=["sum"], max_workers=4
+# ):
+#     import os
+#     import time
+#     import gc
+#     import pandas as pd
+#     import geopandas as gpd
+#     import concurrent.futures
+
+#     os.environ['GDAL_DISABLE_READDIR_ON_OPEN'] = 'EMPTY_DIR'
+#     os.environ['CPL_VSIL_CURL_ALLOWED_EXTENSIONS'] = '.tif,.vrt'
+#     os.environ['VSI_CACHE'] = 'TRUE'
+#     os.environ['VSI_CACHE_SIZE'] = '50000000'
+
+#     start_time = time.time()
+#     print(f"Reading vector file: {vector_file}")
+#     gdf = gpd.read_file(vector_file)
+#     total_features = len(gdf)
+#     num_chunks = (total_features + chunk_size - 1) // chunk_size
+#     print(f"Processing in {num_chunks} chunks of up to {chunk_size} features each")
+#     print(f"Using {max_workers} parallel workers")
+
+#     all_results = []
+#     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+#         futures = [
+#             executor.submit(
+#                 process_chunk, chunk_idx, gdf, rasters, ops, chunk_size, total_features, num_chunks
+#             )
+#             for chunk_idx in range(num_chunks)
+#         ]
+#         for i, future in enumerate(concurrent.futures.as_completed(futures)):
+#             try:
+#                 result = future.result()
+#                 if result is not None and not result.empty:
+#                     all_results.append(result)
+#                     print(f"Results from chunk {i+1} stored")
+#             except Exception as e:
+#                 print(f"Exception in chunk {i+1}: {str(e)}")
+
+#     gdf = None
+#     # try:
+#     #     from osgeo import gdal
+#     #     gdal.UseExceptions()
+#     #     gdal.GDALDestroyDriverManager()
+#     # except (ImportError, AttributeError):
+#     #     print("GDAL not available or function doesn't exist")
+#     #     pass
+#     # gc.collect()
+
+#     combined_df = pd.DataFrame()
+#     if all_results:
+#         print(f"Combining results from {len(all_results)} chunks...")
+#         combined_df = pd.concat(all_results, ignore_index=True)
+#         all_results = []
+#         gc.collect()
+
+#     total_time = time.time() - start_time
+#     processed_count = len(combined_df) if not combined_df.empty else 0
+#     print(f"Processing complete. Processed {processed_count}/{total_features} features in {total_time:.2f}s")
+#     return combined_df
+
+
+## chatgpt "optimised" version
+def process_chunk_df(chunk_gdf, rasters, ops, chunk_idx, num_chunks):
+    import gc
+    from exactextract import exact_extract
+    import time
+
+    print(f"Starting chunk {chunk_idx+1}/{num_chunks} (features {len(chunk_gdf)})")
+    chunk_start_time = time.time()
+    try:
+        chunk_results = exact_extract(
+            progress=False, rast=rasters, vec=chunk_gdf, ops=ops, output="pandas"
+        )
+        gc.collect()
+        chunk_time = time.time() - chunk_start_time
+        print(f"Completed chunk {chunk_idx+1}/{num_chunks} in {chunk_time:.2f}s")
+        return chunk_results
+    except Exception as e:
+        print(f"Error processing chunk {chunk_idx+1}/{num_chunks}: {str(e)}")
+        return None
+    finally:
+        gc.collect()
+
+
 def exact_extract_in_chunks_parallel(
     rasters, vector_file, chunk_size=25, ops=["sum"], max_workers=4
 ):
-    """
-    Process exactextract in parallel chunks of features
+    import os
+    import time
+    import gc
+    import pandas as pd
+    import geopandas as gpd
+    import concurrent.futures
 
-    Args:
-        rasters: List of raster files or single raster path
-        vector_file: Path to vector file (GeoJSON, shapefile, etc.)
-        chunk_size: Number of features to process in each chunk
-        ops: List of operations to perform
-        max_workers: Maximum number of parallel processes/threads to use
+    os.environ["GDAL_DISABLE_READDIR_ON_OPEN"] = "EMPTY_DIR"
+    os.environ["CPL_VSIL_CURL_ALLOWED_EXTENSIONS"] = ".tif,.vrt"
+    os.environ["VSI_CACHE"] = "TRUE"
+    os.environ["VSI_CACHE_SIZE"] = "50000000"
 
-    Returns:
-        pd.DataFrame: Combined results
-    """
     start_time = time.time()
-
-    # Read the vector file
     print(f"Reading vector file: {vector_file}")
     gdf = gpd.read_file(vector_file)
     total_features = len(gdf)
-    print(f"Total features to process: {total_features}")
-
-    # Calculate number of chunks
-    num_chunks = (total_features + chunk_size - 1) // chunk_size  # Ceiling division
+    num_chunks = (total_features + chunk_size - 1) // chunk_size
     print(f"Processing in {num_chunks} chunks of up to {chunk_size} features each")
     print(f"Using {max_workers} parallel workers")
 
-    # Function to process a single chunk
-    def process_chunk(chunk_idx):
-        start_idx = chunk_idx * chunk_size
-        end_idx = min(start_idx + chunk_size, total_features)
+    # Split the GeoDataFrame into chunks to avoid pickling the whole gdf
+    chunks = [
+        gdf.iloc[i * chunk_size : min((i + 1) * chunk_size, total_features)].copy()
+        for i in range(num_chunks)
+    ]
 
-        print(
-            f"Starting chunk {chunk_idx+1}/{num_chunks} (features {start_idx+1}-{end_idx})"
-        )
-        chunk_start_time = time.time()
-
-        # Extract the chunk
-        chunk_gdf = gdf.iloc[start_idx:end_idx].copy()
-
-        try:
-            # Process this chunk
-            chunk_results = exact_extract(
-                progress=False,  # Disable progress bar for parallel processing to avoid mixed output
-                rast=rasters,
-                vec=chunk_gdf,
-                # strategy="feature-sequential",
-                ops=ops,
-                output="pandas",
-            )
-
-            chunk_time = time.time() - chunk_start_time
-            print(f"Completed chunk {chunk_idx+1}/{num_chunks} in {chunk_time:.2f}s")
-            return chunk_results
-
-        except Exception as e:
-            print(f"Error processing chunk {chunk_idx+1}/{num_chunks}: {str(e)}")
-            return None
-
-    # Initialize empty DataFrame for results
-    all_results = pd.DataFrame()
-
-    # Process chunks in parallel
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Submit all chunks for processing
-        future_to_chunk = {
-            executor.submit(process_chunk, chunk_idx): chunk_idx
-            for chunk_idx in range(num_chunks)
-        }
-
-        # Process results as they complete
-        for future in concurrent.futures.as_completed(future_to_chunk):
-            chunk_idx = future_to_chunk[future]
+    all_results = []
+    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = [
+            executor.submit(process_chunk_df, chunk, rasters, ops, i, num_chunks)
+            for i, chunk in enumerate(chunks)
+        ]
+        for i, future in enumerate(concurrent.futures.as_completed(futures)):
             try:
                 result = future.result()
-                if result is not None:
-                    if all_results.empty:
-                        all_results = result
-                    else:
-                        # Append to existing results
-                        all_results = pd.concat(
-                            [all_results, result], ignore_index=True
-                        )
-
-                    print(f"Chunk {chunk_idx+1} integrated into results")
+                if result is not None and not result.empty:
+                    all_results.append(result)
+                    print(f"Results from chunk {i+1} stored")
             except Exception as e:
-                print(f"Exception in chunk {chunk_idx+1}: {str(e)}")
+                print(f"Exception in chunk {i+1}: {str(e)}")
+
+    gdf = None
+    combined_df = pd.DataFrame()
+    if all_results:
+        print(f"Combining results from {len(all_results)} chunks...")
+        combined_df = pd.concat(all_results, ignore_index=True)
+        all_results = []
+        gc.collect()
 
     total_time = time.time() - start_time
-    processed_count = len(all_results) if not all_results.empty else 0
-
+    processed_count = len(combined_df) if not combined_df.empty else 0
     print(
         f"Processing complete. Processed {processed_count}/{total_features} features in {total_time:.2f}s"
     )
-
-    return all_results
+    return combined_df
