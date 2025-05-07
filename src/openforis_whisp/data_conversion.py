@@ -44,12 +44,16 @@ def convert_ee_to_geojson(ee_object, filename=None, indent=2, **kwargs):
         raise Exception(e)
 
 
-def convert_geojson_to_ee(geojson_filepath: Any) -> ee.FeatureCollection:
+def convert_geojson_to_ee(
+    geojson_filepath: Any, enforce_wgs84: bool = True
+) -> ee.FeatureCollection:
     """
     Reads a GeoJSON file from the given path and converts it to an Earth Engine FeatureCollection.
+    Optionally checks and converts the CRS to WGS 84 (EPSG:4326) if needed.
 
     Args:
         geojson_filepath (Any): The filepath to the GeoJSON file.
+        enforce_wgs84 (bool): Whether to enforce WGS 84 projection (EPSG:4326). Defaults to True.
 
     Returns:
         ee.FeatureCollection: Earth Engine FeatureCollection created from the GeoJSON.
@@ -58,12 +62,23 @@ def convert_geojson_to_ee(geojson_filepath: Any) -> ee.FeatureCollection:
         file_path = os.path.abspath(geojson_filepath)
         print(f"Reading GeoJSON file from: {file_path}")
 
-        with open(file_path, "r") as f:
-            geojson_data = json.load(f)
+        # Use GeoPandas to read the file and handle CRS
+        gdf = gpd.read_file(file_path)
+
+        # Check and convert CRS if needed
+        if enforce_wgs84:
+            if gdf.crs is None:
+                print("Warning: Input GeoJSON has no CRS defined, assuming WGS 84")
+            elif gdf.crs != "EPSG:4326":
+                print(f"Converting CRS from {gdf.crs} to WGS 84 (EPSG:4326)")
+                gdf = gdf.to_crs("EPSG:4326")
+
+        # Convert to GeoJSON
+        geojson_data = json.loads(gdf.to_json())
     else:
         raise ValueError("Input must be a file path (str or Path)")
 
-    validation_errors = validate_geojson(geojson_filepath)
+    validation_errors = validate_geojson(geojson_data)
     if validation_errors:
         raise ValueError(f"GeoJSON validation errors: {validation_errors}")
 
@@ -208,7 +223,7 @@ def validate_geojson(input_data: Any) -> List[str]:
     """
     Validates GeoJSON data and filters out certain non-critical errors.
 
-    :param input_data: GeoJSON data as a string or a file path
+    :param input_data: GeoJSON data as a string, dict, or a file path
     :return: List of validation errors
     """
     errors = []
@@ -217,18 +232,22 @@ def validate_geojson(input_data: Any) -> List[str]:
         try:
             with open(input_data, "r") as f:
                 geojson_data = f.read()
+                geojson_obj = json.loads(geojson_data)
         except Exception as e:
             errors.append(f"Error reading file: {e}")
             return errors
+    elif isinstance(input_data, dict):
+        geojson_obj = input_data
     else:
         geojson_data = input_data
+        try:
+            geojson_obj = json.loads(geojson_data)
+        except ValueError as e:
+            errors.append(f"Invalid GeoJSON: {e}")
+            return errors
 
-    try:
-        geojson_obj = json.loads(geojson_data)
-        if "type" not in geojson_obj:
-            errors.append("Missing 'type' field in GeoJSON.")
-    except ValueError as e:
-        errors.append(f"Invalid GeoJSON: {e}")
+    if "type" not in geojson_obj:
+        errors.append("Missing 'type' field in GeoJSON.")
 
     return errors
 
@@ -269,7 +288,9 @@ def create_feature_collection(geojson_obj: Any) -> FeatureCollection:
     return FeatureCollection(features)
 
 
-def convert_csv_to_geojson(csv_filepath: str, geojson_filepath: str, geo_column: str = "geo"):
+def convert_csv_to_geojson(
+    csv_filepath: str, geojson_filepath: str, geo_column: str = "geo"
+):
     """
     Convert a CSV file with a geo column into a GeoJSON file.
 
@@ -295,7 +316,9 @@ def convert_csv_to_geojson(csv_filepath: str, geojson_filepath: str, geo_column:
         print(f"An error occurred while converting CSV to GeoJSON: {e}")
 
 
-def convert_df_to_geojson(df: pd.DataFrame, geojson_filepath: str, geo_column: str = "geo"):
+def convert_df_to_geojson(
+    df: pd.DataFrame, geojson_filepath: str, geo_column: str = "geo"
+):
     """
     Convert a DataFrame with a geo column into a GeoJSON file.
 
