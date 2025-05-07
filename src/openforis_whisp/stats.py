@@ -1499,6 +1499,17 @@ def shift_bbox(minx, miny, maxx, maxy, max_shift_distance, pixel_length=0.0001):
     return shifted_minx, shifted_miny, shifted_maxx, shifted_maxy
 
 
+def ee_featurecollection_to_gdf(fc):
+    """
+    Convert an Earth Engine FeatureCollection to a GeoPandas GeoDataFrame.
+    """
+    # Get GeoJSON from Earth Engine
+    geojson = fc.getInfo()
+    # Convert to GeoDataFrame
+    gdf = gpd.GeoDataFrame.from_features(geojson["features"])
+    return gdf
+
+
 def generate_random_geometries(gdf, max_distance, proportion=0.5):
     """
     Generates random geometries near the original features in a GeoDataFrame.
@@ -1754,7 +1765,10 @@ def convert_geojson_to_ee_bbox_obscured(
     # Add random decoy features if requested
     if add_random_features:
         random_features = generate_random_geometries(
-            gdf, max_distance, random_proportion
+            gdf,
+            max_distance,
+            random_proportion
+            # ee_featurecollection_to_gdf(bbox_features), max_distance, random_proportion
         )
 
         if random_features:
