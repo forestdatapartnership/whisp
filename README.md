@@ -68,6 +68,31 @@ However, under the same circumstances but with <u>no</u> disturbances reported a
 
 *The Whisp algorithm visualized:*
 ![CoE_Graphic 5](https://github.com/user-attachments/assets/007b5f50-3939-4707-95fa-98be4d56745f)
+The Whisp algorithm outputs multiple statistical columns with disaggregated data from the input datasets, followed by aggregated indicator columns, and the final risk assessment columns. 
+
+The **relevant risk assessment column depends on the commodity** in question:
+<table>
+  <tr>
+    <th>Commodity</th>
+    <th>Risk Assessment Column</th>
+  </tr>
+  <tr>
+    <td>Coffee</td>
+    <td rowspan="4">Risk_PCrop</td>
+  </tr>
+  <tr><td>Cocoa</td></tr>
+  <tr><td>Rubber</td></tr>
+  <tr><td>Oil palm</td></tr>
+  <tr><td>Soy</td><td>Risk_ACrop</td></tr>
+  <tr><td>Livestock</td><td>Risk_Livestock</td></tr>
+  <tr><td>Timber</td><td>Risk_Timber</td></tr>
+</table>
+
+<br>
+The decision tree for the timber risk assessment slightly differs from the above. For more information see below.
+
+
+
 
 ## Whisp datasets for timber <a name="whisp_datasets_timber"></a>
 ***Whisp***  implements the convergence of evidence approach by providing a transparent and public processing flow using datasets covering the following categories:
