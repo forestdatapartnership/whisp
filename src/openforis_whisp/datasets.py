@@ -100,9 +100,53 @@ def fdap_forest_prep():
     fdap_forest = fdap_forest_raw.gt(0.75)
     return fdap_forest.rename("Forest_FDaP")
 
+#########################primary forest
+# EUFO JRC Global forest type - primary
+def gft_primary_prep():
+    gft_raw = ee.ImageCollection("JRC/GFC2020_subtypes/V0").mosaic()
+    gft_primary = gft_raw.eq(10)
+    return gft_primary.rename("GFT_primary")
+    
+# Intact Forest Landscape 2020
+def IFL_2020_prep():
+    IFL_2020 = ee.Image('users/potapovpeter/IFL_2020')
+    return IFL_2020.rename("IFL_2020")
 
-############plantation data
+# European Primary Forest Dataset
+def EPFD_prep():
+    EPFD=ee.FeatureCollection("HU_BERLIN/EPFD/V2/polygons")
+    EPFD_binary = ee.Image().paint(EPFD,1)    
+    return EPFD_binary.rename('European_Primary_Forest')
+    
+# EUFO JRC Global forest type - naturally regenerating planted/plantation forests
+def gft_nat_reg_prep():
+    gft_raw = ee.ImageCollection("JRC/GFC2020_subtypes/V0").mosaic()
+    gft_nat_reg = gft_raw.eq(1)
+    return gft_nat_reg.rename("GFT_naturally_regenerating")
 
+
+#########################planted and plantation forests
+
+# EUFO JRC Global forest type - planted/plantation forests
+def gft_plantation_prep():
+    gft_raw = ee.ImageCollection("JRC/GFC2020_subtypes/V0").mosaic()
+    gft_plantation = gft_raw.eq(20)
+    return gft_plantation.rename("GFT_planted_plantation")
+    
+def IIASA_planted_prep():
+    iiasa = ee.Image('projects/sat-io/open-datasets/GFM/FML_v3-2');
+    iiasa_PL = iiasa.eq(31).Or(iiasa.eq(32))
+    return iiasa_PL.rename('IIASA_planted_plantation')
+    
+#########################TMF regrowth in 2023
+def tmf_regrowth_prep():
+    # Load the TMF Degradation annual product
+    TMF_AC=ee.ImageCollection('projects/JRC/TMF/v1_2023/AnnualChanges').mosaic()
+    TMF_AC_2023=TMF_AC.select('Dec2023')
+    Regrowth_TMF = TMF_AC_2023.eq(4)
+    return Regrowth_TMF.rename('TMF_regrowth_2023')
+    
+############tree crops
 
 # TMF_plant (plantations in 2020)
 def jrc_tmf_plantation_prep():
@@ -165,6 +209,17 @@ def fdap_palm_prep():
     )
     return fdap_palm.rename("Oil_palm_FDaP")
 
+def fdap_palm_2023_prep():
+    fdap_palm2020_model_raw = ee.ImageCollection("projects/forestdatapartnership/assets/palm/model_2024a")
+    fdap_palm = (
+        fdap_palm2020_model_raw
+        .filterDate('2023-01-01', '2023-12-31')
+        .mosaic()
+        .gt(0.83)  # Threshold for Oil Palm
+        
+    )
+    return fdap_palm.rename("Oil_palm_2023_FDaP")
+
 
 # Rubber FDaP
 def fdap_rubber_prep():
@@ -178,6 +233,16 @@ def fdap_rubber_prep():
     )
     return fdap_rubber.rename("Rubber_FDaP")
 
+def fdap_rubber_2023_prep():
+    fdap_rubber2020_model_raw = ee.ImageCollection("projects/forestdatapartnership/assets/rubber/model_2024a")
+    fdap_rubber = (
+        fdap_rubber2020_model_raw
+        .filterDate('2023-01-01', '2023-12-31')
+        .mosaic()
+        .gt(0.93)  # Threshold for Rubber
+        
+    )
+    return fdap_rubber.rename("Rubber_2023_FDaP")
 
 # Cocoa FDaP
 def fdap_cocoa_prep():
@@ -191,6 +256,16 @@ def fdap_cocoa_prep():
     )
     return fdap_cocoa.rename("Cocoa_FDaP")
 
+def fdap_cocoa_2023_prep():
+    fdap_cocoa2020_model_raw = ee.ImageCollection("projects/forestdatapartnership/assets/cocoa/model_2024a")
+    fdap_cocoa = (
+        fdap_cocoa2020_model_raw
+        .filterDate('2023-01-01', '2023-12-31')
+        .mosaic()
+        .gt(0.5)  # Threshold for Cocoa
+       
+    )
+    return fdap_cocoa.rename("Cocoa_2023_FDaP")
 
 # Cocoa_bnetd
 def civ_ocs2020_prep():
@@ -212,7 +287,41 @@ def rbge_rubber_prep():
         .rename("Rubber_RBGE")
     )
 
+################## seasonal crops
 
+#soy 2020 Brazil
+def soy_song_2020_prep():
+    return ee.Image('projects/glad/soy_annual_SA/2020').unmask().rename("Soy_Song_2020")
+##############2023
+# ESRI 2023
+# ESRI 2023 - Tree Cover
+def esri_2023_TC_prep():
+    esri_lulc10_raw = ee.ImageCollection("projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS")
+    esri_lulc10_TC = esri_lulc10_raw.filterDate('2023-01-01', '2023-12-31').mosaic().eq(2)
+    return esri_lulc10_TC.rename('ESRI_2023_TC')
+    
+# ESRI 2023 - Crop
+def esri_2023_crop_prep():
+    esri_lulc10_raw = ee.ImageCollection("projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS")
+    esri_lulc10_crop = esri_lulc10_raw.filterDate('2023-01-01', '2023-12-31').mosaic().eq(5)
+    return esri_lulc10_crop.rename('ESRI_2023_crop')
+
+# GLC_FCS30D 2022
+
+# GLC_FCS30D Tree Cover
+# forest classes + swamp + mangrove / what to do with shrubland?
+def GLC_FCS30D_TC_2022_prep():
+    GLC_FCS30D = ee.ImageCollection("projects/sat-io/open-datasets/GLC-FCS30D/annual").mosaic().select(22)
+    GLC_FCS30D_TC = (GLC_FCS30D.gte(51)).And(GLC_FCS30D.lte(92)).Or(GLC_FCS30D.eq(181)).Or(GLC_FCS30D.eq(185))
+    return GLC_FCS30D_TC.rename('GLC_FCS30D_TC_2022')
+
+# GLC_FCS30D crop
+# 10	Rainfed cropland; 11	Herbaceous cover; 12	Tree or shrub cover (Orchard); 20	Irrigated cropland	
+def GLC_FCS30D_crop_2022_prep():
+    GLC_FCS30D = ee.ImageCollection("projects/sat-io/open-datasets/GLC-FCS30D/annual").mosaic().select(22)
+    GLC_FCS30D_crop = GLC_FCS30D.gte(10).And(GLC_FCS30D.lte(20))
+    return GLC_FCS30D_crop.rename('GLC_FCS30D_crop_2022')
+    
 #### disturbances by year
 
 # RADD_year_2019 to RADD_year_< current year >
@@ -604,6 +713,27 @@ def esa_fire_before_2020_prep():
         .gte(0)
         .rename("ESA_fire_before_2020")
     )
+
+#########################logging concessions
+#http://data.globalforestwatch.org/datasets?q=logging&sort_by=relevance
+def logging_concessions_prep():
+    RCA=ee.FeatureCollection('projects/ee-whisp/assets/logging/RCA_Permis_dExploitation_et_dAmenagement')
+    RCA_binary = ee.Image().paint(RCA,1)
+    CMR=ee.FeatureCollection('projects/ee-whisp/assets/logging/Cameroon_Forest_Management_Units')
+    CMR_binary = ee.Image().paint(CMR,1)
+    Eq_G=ee.FeatureCollection('projects/ee-whisp/assets/logging/Equatorial_Guinea_logging_concessions')
+    Eq_G_binary = ee.Image().paint(Eq_G,1)
+    DRC=ee.FeatureCollection('projects/ee-whisp/assets/logging/DRC_Forest_concession_agreements')
+    DRC_binary = ee.Image().paint(DRC,1)
+    Liberia=ee.FeatureCollection('projects/ee-whisp/assets/logging/Liberia_Forest_Management_Contracts')
+    Liberia_binary = ee.Image().paint(Liberia,1)
+    RoC=ee.FeatureCollection('projects/ee-whisp/assets/logging/Republic_of_the_Congo_logging_concessions')
+    Roc_binary = ee.Image().paint(RoC,1)
+    Sarawak=ee.FeatureCollection('projects/ee-whisp/assets/logging/Sarawak_logging_concessions')
+    Sarawak_binary = ee.Image().paint(Sarawak,1)
+    logging_concessions_binary=ee.ImageCollection([RCA_binary, CMR_binary, Eq_G_binary,DRC_binary,Liberia_binary,Roc_binary,Sarawak_binary]).mosaic()
+    
+    return logging_concessions_binary.rename('GFW_logging')
 
 
 # ###Combining datasets

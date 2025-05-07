@@ -60,7 +60,7 @@ If no treecover dataset indicates any tree cover for a plot by the end of 2020, 
 
 If one or more treecover datasets indicate tree cover on a plot by the end of 2020, but a commodity dataset indicates agricultural use by the end of 2020, **Whisp will categorize the deforestation risk as low.**
 
-If treecover datasets indicate tree cover on a plot by late 2020, no commodity datasets indicate agricultural use, but a disturbance dataset indicates disturbances before the end of 2020, **Whisp will categorize the deforestation risk as <u>low</u>.** Such deforestation has happened before the EUDR cutoff date and is therefore not considered high risk for the EUDR.
+If treecover datasets indicate tree cover on a plot by late 2020, no commodity datasets indicate agricultural use, but a disturbance dataset indicates disturbances before the end of 2020, **Whisp will categorize the deforestation risk as <u>low</u>.** Such deforestation has happened before 2020, which aligns with the cutoff date for legislation such as EUDR, and is therefore not considered high risk.
 
 Now, if the datasets under 1., 2. & 3. indicate that there was tree cover, but no agriculture and no disturbances before or by the end of 2020, the Whisp algorithm checks whether degradation or deforestation have been reported in a disturbance dataset after 2020-12-31. If they have, **Whisp will categorize the deforestation risk as <u>high</u>.** <br>
 However, under the same circumstances but with <u>no</u> disturbances reported after 2020-12-31 there is insufficient evidence and the **Whisp output will be "More info needed".** Such can be the case for, e.g., cocoa or coffee grown under the shade of treecover or agroforestry.
@@ -68,7 +68,60 @@ However, under the same circumstances but with <u>no</u> disturbances reported a
 
 *The Whisp algorithm visualized:*
 ![CoE_Graphic 5](https://github.com/user-attachments/assets/007b5f50-3939-4707-95fa-98be4d56745f)
+The Whisp algorithm outputs multiple statistical columns with disaggregated data from the input datasets, followed by aggregated indicator columns, and the final risk assessment columns. 
 
+The **relevant risk assessment column depends on the commodity** in question:
+<table>
+  <tr>
+    <th>Commodity</th>
+    <th>Risk Assessment Column</th>
+  </tr>
+  <tr>
+    <td>Coffee</td>
+    <td rowspan="4">Risk_PCrop</td>
+  </tr>
+  <tr><td>Cocoa</td></tr>
+  <tr><td>Rubber</td></tr>
+  <tr><td>Oil palm</td></tr>
+  <tr><td>Soy</td><td>Risk_ACrop</td></tr>
+  <tr><td>Livestock</td><td>Risk_Livestock</td></tr>
+  <tr><td>Timber</td><td>Risk_Timber</td></tr>
+</table>
+
+<br>
+The decision tree for the timber risk assessment slightly differs from the above. For more information see below.
+
+
+
+
+## Whisp datasets for timber <a name="whisp_datasets_timber"></a>
+***Whisp***  implements the convergence of evidence approach by providing a transparent and public processing flow using datasets covering the following categories:
+1) Tree and forest cover (at the end of 2020);
+2) Commodities (i.e., crop plantations and other agricultural uses at the end of 2020);
+3) Disturbances **before 2020** (i.e., degradation or deforestation until 2020-12-31);
+4) Disturbances **after 2020** (i.e., degradation or deforestation from 2021-01-01 onward).
+5) Primary forests in 2020;
+6) Naturally regenerating forests in 2020;
+7) Planted and plantation forests in 2020;
+8) Planted and plantation forests in 2023;
+9) Treecover in 2023;
+10) Commodities or croplands in 2023.
+11) Logging concessions;
+
+There are multiple datasets for each category. Find the full current [list of datasets used in Whisp here](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md).
+ Whisp checks the plots provided by the user by running zonal statistics on them to answer the following questions:
+
+1) Was there tree cover in 2020?
+2) Were there commodity plantations or other agricultural uses in 2020?
+3) Were there disturbances until 2020-12-31?
+4) Were there disturbances after 2020-12-31 / starting 2021-01-01?
+5) Were there primary forests in 2020?
+6) Were there naturally regenerating forests in 2020?
+7) Were there planted and plantation forests in 2020?
+8) Were there planted and plantation forests in 2023?
+9) Was there treecover in 2023?
+10) Were there commodity plantations or other agricultural uses in 2023?
+11) Were there logging concessions?
 
 # Run Whisp python package from a notebook
 
@@ -93,7 +146,7 @@ https://pypi.org/project/openforis-whisp/
 It can be installed with one line of code:
 
 ```
-pip install -pre openforis-whisp
+pip install --pre openforis-whisp
 ```
 
 If running locally we recommend a [virtual environment](https://docs.python.org/3/library/venv.html) to keep your main python installation clean.
@@ -104,7 +157,22 @@ More info on Whisp can be found in [here](https://openknowledge.fao.org/items/e9
 
 
 ## How to add data layers to Whisp
-There are two main approaches: to request a layer be incorporated into the core Whisp inputs, or to add in your own data directly to complement the core ones in Whisp. Currently the latter approach is under revision since moving to implementation in a python package. In the meantime please contact us through the issues page if this is functionality is useful to you.
+There are two main approaches:
+1) Request that a layer be incorporated into the core Whisp inputs, or
+
+2) Add your own data directly to complement the core datasets.
+
+Currently the latter approach is under revision since moving to implementation in a python package. In the meantime please contact us through the issues page if this is functionality is useful to you.
+
+Requesting a layer addition:
+If you think a particular dataset has wide applicability for Whisp users, you can request it be added to the main Whisp repository by logging as an issue in Github [here] (https://github.com/forestdatapartnership/whisp/issues/). Before submitting a request, consider the following:
+
+ - Is the resolution high enough for plot-level analysis? (e.g., 30m or 10m resolution)
+
+ - Is there an indication of data quality? (e.g., accuracy assessment detailed in a scientific publication)
+
+ - Is there relevant metadata available?
+
 
 ## Contributing to the Whisp code base
 Contributions to the Whisp code in GitHub are welcome. They can be made by forking the repository making and pushing the required changes, then making a pull request to the Whisp repository. After briefly reviewing the request, we can make a branch for which to make a new pull request to. After final checks we can then incorporate the code in main. If in doubt get in contact first or log as an issue [here](https://github.com/forestdatapartnership/whisp/issues/).
