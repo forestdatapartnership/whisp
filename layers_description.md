@@ -1,5 +1,7 @@
 **Source list of the [layers used for risk evaluation](parameters/lookup_gee_datasets.csv)**
 
+To view the layers in action, go to [https://whisp.earthmap.org/](https://whisp.earthmap.org/).
+
 
 <table>
   <thead>
