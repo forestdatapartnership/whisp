@@ -267,15 +267,6 @@ def fdap_cocoa_2023_prep():
     )
     return fdap_cocoa.rename("Cocoa_2023_FDaP")
 
-# Cocoa_bnetd
-def civ_ocs2020_prep():
-    return (
-        ee.Image("BNETD/land_cover/v1/2020")
-        .select("classification")
-        .eq(9)
-        .rename("Cocoa_bnetd")
-    )  # cocoa from national land cover map for Côte d'Ivoire
-
 
 # Rubber_RBGE  - from Royal Botanical Gardens of Edinburgh (RBGE) NB for 2021
 def rbge_rubber_prep():
@@ -735,8 +726,24 @@ def logging_concessions_prep():
     
     return logging_concessions_binary.rename('GFW_logging')
 
+#########################national datasets
+#nCO - Colombia
 
-# ###Combining datasets
+def nco_ideam_forest_2020_prep():
+    ideam_forest_raw = ee.Image("projects/ee-whisp/assets/nCO/ideam_2020_geo")
+    ideam_forest = ideam_forest_raw.eq(1) # get forest class
+    return ideam_forest.rename("nCO_ideam_forest_2020")
+
+# Cocoa_bnetd
+def nci_ocs2020_prep():
+    return (
+        ee.Image("BNETD/land_cover/v1/2020")
+        .select("classification")
+        .eq(9)
+        .rename("nCI_Cocoa_bnetd")
+    )  # cocoa from national land cover map for Côte d'Ivoire
+
+###Combining datasets
 
 
 def combine_datasets():
