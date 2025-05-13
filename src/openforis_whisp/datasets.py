@@ -803,7 +803,34 @@ def nbr_mapbiomasc9_f20_prep():
     mapbiomasc9_20 = ee.Image('projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1').select('classification_2020')
     mapbiomasc9_20_forest = mapbiomasc9_20.eq(3).Or(mapbiomasc9_20.eq(4)).Or(mapbiomasc9_20.eq(5)).Or(mapbiomasc9_20.eq(6)).Or(mapbiomasc9_20.eq(49))
     return mapbiomasc9_20_forest.rename("nBR_MapBiomas_col9_forest_Brazil_2020")   
-    
+
+# ### NBR plantation forest in 2020:
+
+# [Official NFMS dataset] INPE/EMBRAPA TerraClass land use/cover in the Amazon biome, 2020
+# Subsetting criteria: silviculture (DN=9)
+# the resulting dataset shows monospecific commercial plantations, mostly eucalyptus and pinus.
+def nbr_terraclass_amz20_silv_prep():
+    tcamz20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_amz_2020")
+    tcamz20_silviculture = tcamz20.eq(9)
+    return tcamz20_silviculture.rename("nBR_INPE_TCsilviculture_Amazon_2020")
+
+# [Official NFMS dataset] INPE/EMBRAPA TerraClass land use/cover in the Cerrado biome, 2020
+# Subsetting criteria: silviculture (DN=9)
+# the resulting dataset shows monospecific commercial plantations, mostly eucalyptus and pinus.
+def nbr_terraclass_silv_cer20_prep():
+    tccer20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_cer_2020")
+    tccer20_silviculture = tccer20.eq(9)
+    return tccer20_silviculture.rename("nBR_INPE_TCsilviculture_Cerrado_2020")
+
+# [non-official dataset by MapBiomas multisector initiative]
+# land use/cover from 1985 up to 2023, collection 9
+# Subsetting criteria: 'classification_2020' = Forest plantation (DN=9) 
+# the resulting dataset shows forest plantation in 2020
+def nbr_mapbiomasc9_silv20_prep():
+    mapbiomasc9_20 = ee.Image('projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1').select('classification_2020')
+    mapbiomasc9_20_silviculture = mapbiomasc9_20.eq(9)
+    return mapbiomasc9_20_silviculture.rename("nBR_MapBiomas_col9_silviculture_Brazil_2020")
+
 # ###Combining datasets
 
 
