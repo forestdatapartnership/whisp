@@ -735,7 +735,75 @@ def logging_concessions_prep():
     
     return logging_concessions_binary.rename('GFW_logging')
 
+#########################national datasets
+#nBR Brazil
 
+# ### nBR Natural forests in 2020:
+
+# %%
+# [Official NFMS dataset] INPE/EMBRAPA TerraClass land use/cover in the Amazon biome, 2020
+# Subsetting criteria: primary forests (DN=1) and secondary forests (DN=2) // secondary forests are those recovering from deforestation 
+# the resulting dataset shows primary and secondary forest cover in 2020 (mostly by August 2020)
+
+##########################primary forests###############################################
+def nbr_terraclass_amz20_primary_prep():
+    tcamz20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_amz_2020")
+    tcamz20_f = tcamz20.eq(1)
+    return tcamz20_f.rename("nBR_INPE_TC_primary_forest_Amazon_2020")
+
+# [Official NFMS dataset] Brazilian Forest Service dataset on natural forest cover from PRODES and TerraClass data, base year 2022
+# Subsetting criteria: ano_desmat > 2020 and nom_class = 'Floresta' 
+# the resulting datasets show primary forest cover in 2020 for the Pantanal, Caatinga, Atlantic Forest and Pampa biomes. 
+# the resulting dataset shows primary and secondary forest cover in 2020 for the Cerrado biome (TerraClass 2020)
+# For the Amazon, best to use Terraclass 2020 directly, because the BFS used TerraClass 2014. 
+
+# Pantanal
+def nbr_bfs_ptn_f20_prep():
+    bfs_fptn20 = ee.FeatureCollection("projects/ee-whisp/assets/NBR/bfs_ptn_2020")
+    bfs_fptn20_binary = ee.Image().paint(bfs_fptn20,1)
+    return bfs_fptn20_binary.rename("nBR_BFS_primary_forest_Pantanal_2020")
+
+# Caatinga - filtered with QGIS because the original geodatabase is too large to export as a shapefile (GEE accepted format) 
+## couldn't convert it to asset, working on it (Error: Primary geometry of feature '306862' has 2454627 vertices, above the limit of 1000000 vertices. (Error code: 3)
+def nbr_bfs_caat_f20_prep():
+    bfs_fcaat20 = ee.FeatureCollection("projects/ee-whisp/assets/NBR/bfs_caat_2020")
+    bfs_fcaat20_binary = ee.Image().paint(bfs_fcaat20,1)
+    return bfs_fcaat20_binary.rename("nBR_BFS_primary_forest_Caatinga_2020")
+
+# Atlantic Forest - filtered with QGIS because the original geodatabase is too large to export as a shapefile (GEE accepted format)
+def nbr_bfs_atlf_f20_prep():
+    bfs_fatlf20 = ee.FeatureCollection("projects/ee-whisp/assets/NBR/bfs_atlf_2020")
+    bfs_fatlf20_binary = ee.Image().paint(bfs_fatlf20,1)
+    return bfs_fatlf20_binary.rename("nBR_BFS_primary_forest_AtlanticForest_2020")
+
+# Pampa - filtered in QGIS to save some storage space
+def nbr_bfs_pmp_f20_prep():
+    bfs_fpmp20 = ee.FeatureCollection("projects/ee-whisp/assets/NBR/bfs_pmp_2020")
+    bfs_fpmp20_binary = ee.Image().paint(bfs_fpmp20,1)
+    return bfs_fpmp20_binary.rename("nBR_BFS_primary_forest_Pampa_2020")
+    
+##########################secondary forests###############################################
+def nbr_terraclass_amz20_secondary_prep():
+    tcamz20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_amz_2020")
+    tcamz20_f = tcamz20.eq(2)
+    return tcamz20_f.rename("nBR_INPE_TC_secondary_forest_Amazon_2020")
+
+# Cerrado - filtered with QGIS because the original geodatabase is too large to export as a shapefile (GEE accepted format)
+def nbr_bfs_cer_f20_prep():
+    bfs_fcer20 = ee.FeatureCollection("projects/ee-whisp/assets/NBR/bfs_pmp_2020")
+    bfs_fcer20_binary = ee.Image().paint(bfs_fcer20,1)
+    return bfs_fcer20_binary.rename("nBR_BFS_primary&secondary_forest_Cerrado_2020")
+
+# %%
+# [non-official dataset by MapBiomas multisector initiative]
+# land use/cover from 1985 up to 2023, collection 9
+# Subsetting criteria: classification_2020 = Forest formation (DN=3), Savanna Formation (DN=4, forest according to BR definition), Mangrove (DN=5), Floodable Forest (DN=6), Wooded Sandbank veg (DN=49) 
+# the resulting dataset shows forest cover in 2020, without distinguishing between primary and secondary forests
+def nbr_mapbiomasc9_f20_prep():
+    mapbiomasc9_20 = ee.Image('projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1').select('classification_2020')
+    mapbiomasc9_20_forest = mapbiomasc9_20.eq(3).Or(mapbiomasc9_20.eq(4)).Or(mapbiomasc9_20.eq(5)).Or(mapbiomasc9_20.eq(6)).Or(mapbiomasc9_20.eq(49))
+    return mapbiomasc9_20_forest.rename("nBR_MapBiomas_col9_forest_Brazil_2020")   
+    
 # ###Combining datasets
 
 
