@@ -846,7 +846,6 @@ def nbr_prodes_upto2020_prep():
     
 ## Caution: 1) includes deforestation and conversion of other wooded land and grassland
 
-# %%
 # [Official NFMS dataset] INPE.DETER data from 2nd August 2016 up to the 04th of April 2025
 # Subsetting criteria: forest degradation classes ['CICATRIZ_DE_QUEIMADA', 'CS_DESORDENADO', 'DEGRADACAO'] and view_date until 2020-12-31
 # 'CS_GEOMETRICO' excluded to align with FREL
@@ -868,10 +867,7 @@ def nbr_deter_amazon_upto2020_prep():
     return deter_deg_binary.rename("nBR_DETER_forestdegradation_Amazon_upto2020")
 
 
-# %% [markdown]
-# ### NBR Disturbances after 2020:
-
-# %%
+################ ### NBR Disturbances after 2020:########################################
 # [Official NFMS dataset] INPE PRODES data up to 2023
 # Subsetting criteria: DN = [21, 22, 23, 61, 62, 63];
 # the resulting dataset shows deforestation and conversion of OWL and OL up to 2020 (mostly August 2020), including residues (omission errors corrections) 
