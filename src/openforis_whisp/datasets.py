@@ -289,7 +289,7 @@ def rbge_rubber_prep():
 
 ################## seasonal crops
 
-#soy 2020 Brazil
+#soy 2020 South America
 def soy_song_2020_prep():
     return ee.Image('projects/glad/soy_annual_SA/2020').unmask().rename("Soy_Song_2020")
 ##############2023
@@ -900,10 +900,115 @@ def nbr_deter_amazon_after2020_prep():
     deter_deg_binary = ee.Image().paint(deter_deg, 1)
     return deter_deg_binary.rename("nBR_DETER_forestdegradation_Amazon_after2020")
     
+# ########################## NBR commodities - permanent/perennial crops in 2020:###############################
+# [Official NFMS dataset] INPE/EMBRAPA TerraClass land use/cover in the Amazon biome, 2020
+# OR [Official NFMS dataset] INPE/EMBRAPA TerraClass land use/cover in the Cerrado biome, 2020
+# Subsetting criteria: perennial (DN=12) and semi-perennial (DN=13) crops
+# the resulting dataset shows perennial and semi-perennial crops in 2020
+def nbr_terraclass_amz_cer20_pc_prep():
+    tcamz20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_amz_2020")
+    tcamz20_pc = tcamz20.eq(12).Or(tcamz20.eq(13))
+    tccer20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_cer_2020")
+    tccer20_pc = tccer20.eq(12).Or(tccer20.eq(13))
+    tc_pc=ee.ImageCollection([tc_amz_pc,tc_cer_pc]).mosaic()
+    return tc_pc.rename("nBR_INPE_TCamz_cer_perennial_2020")
 
+
+# [non-official dataset by MapBiomas multisector initiative]
+# land use/cover from 1985 up to 2023, collection 9
+# Subsetting criteria: 'classification_2020' = coffee (DN=46) <================== COFFEE
+# the resulting dataset shows coffee area in 2020
+def nbr_mapbiomasc9_cof_prep():
+    mapbiomasc9_20 = ee.Image('projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1').select('classification_2020')
+    mapbiomasc9_20_coffee = mapbiomasc9_20.eq(46)
+    return mapbiomasc9_20_coffee.rename("nBR_MapBiomas_col9_coffee_2020")
+
+# [non-official dataset by MapBiomas multisector initiative]
+# land use/cover from 1985 up to 2023, collection 9
+# Subsetting criteria: 'classification_2020' = palm oil (DN=35) <================= PALM OIL
+# the resulting dataset shows palm oil area in 2020
+def nbr_mapbiomasc9_po_prep():
+    mapbiomasc9_20 = ee.Image('projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1').select('classification_2020')
+    mapbiomasc9_20_palm = mapbiomasc9_20.eq(35)
+    return mapbiomasc9_20_palm.rename("nBR_MapBiomas_col9_palmoil_2020")
+
+# [non-official dataset by MapBiomas multisector initiative]
+# land use/cover from 1985 up to 2023, collection 9
+# Subsetting criteria: 'classification_2020' = other perennial crops (DN=48)  
+# the resulting dataset shows citrus and perennial crops other than coffee and palm oil in 2020
+def nbr_mapbiomasc9_pc_prep():
+    mapbiomasc9_20 = ee.Image('projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1').select('classification_2020')
+    mapbiomasc9_20_pc = mapbiomasc9_20.eq(35).Or(mapbiomasc9_20.eq(46))
+    return mapbiomasc9_20_pc.rename("nBR_MapBiomas_col9_pc_2020")
+
+
+# ######################## NBR commodities - annual crops in 2020:##############################
+
+# %%
+# [Official NFMS dataset] INPE/EMBRAPA TerraClass land use/cover in the Amazon biome, 2020
+# [Official NFMS dataset] INPE/EMBRAPA TerraClass land use/cover in the Cerrado biome, 2020
+# Subsetting criteria: annual/temporary 1 cycle (DN=14) or more than 1 cycle (DN=15)
+# the resulting dataset shows temporary crop in 2020
+def nbr_terraclass_amz_cer20_ac_prep():
+    tcamz20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_amz_2020")
+    tcamz20_ac = tcamz20.eq(14).Or(tcamz20.eq(15))
+    tccer20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_cer_2020")
+    tccer20_ac = tccer20.eq(14).Or(tccer20.eq(15))
+    tc_ac=ee.ImageCollection([tcamz20_ac,tccer20_ac]).mosaic()
+    return tc_ac.rename("nBR_INPE_TCamz_cer_annual_2020")
+
+# [non-official dataset by MapBiomas multisector initiative]
+# land use/cover from 1985 up to 2023, collection 9
+# Subsetting criteria: 'classification_2020' = soybean (DN=39) <================== SOY
+# the resulting dataset shows soybean plantation area in 2020
+def nbr_mapbiomasc9_soy_prep():
+    mapbiomasc9_20 = ee.Image('projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1').select('classification_2020')
+    mapbiomasc9_20_soy = mapbiomasc9_20.eq(39)
+    return mapbiomasc9_20_soy.rename("nBR_MapBiomas_col9_soy_2020")
+
+# [non-official dataset by MapBiomas multisector initiative]
+# land use/cover from 1985 up to 2023, collection 9
+# Subsetting criteria: 'classification_2020' = other temporary crops (DN=41)
+# Subsetting criteria: 'classification_2020' = sugar cane (DN=20) 
+# Subsetting criteria: 'classification_2020' = rice (DN=40) 
+# Subsetting criteria: 'classification_2020' = cotton (beta version, DN=62) 
+# the resulting dataset shows temporary crop area other than soy, includes sugar cane, rice, and cotton
+def nbr_mapbiomasc9_ac_prep():
+    mapbiomasc9_20 = ee.Image('projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1').select('classification_2020')
+    mapbiomasc9_20_ac = mapbiomasc9_20.eq(41).Or(mapbiomasc9_20.eq(20)).Or(mapbiomasc9_20.eq(40)).Or(mapbiomasc9_20.eq(62))
+    return mapbiomasc9_20_ac.rename("nBR_MapBiomas_col9_annual_crops_2020")
+
+# ################################### NBR commodities - pasture/livestock in 2020:##############################
+
+# %%
+# [Official NFMS dataset] INPE/EMBRAPA TerraClass land use/cover in the Amazon biome, 2020
+# Subsetting criteria: BUSH/SHRUB PASTURE (DN=10) or HERBACEOUS PASTURE (DN=11)
+# the resulting dataset shows 2020 pasture area in the Amazon 
+def nbr_terraclass_amz20_pasture_prep():
+    tcamz20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_amz_2020")
+    tcamz20_pasture = tcamz20.eq(10).Or(tcamz20.eq(11))
+    return tcamz20_pasture.rename("nBR_INPE_TCamz_pasture_2020")
+
+# %%
+# [Official NFMS dataset] INPE/EMBRAPA TerraClass land use/cover in the Cerrado biome, 2020
+# Subsetting criteria: PASTURE (DN=11)
+# the resulting dataset shows 2020 pasture area in the Cerrado 
+def nbr_terraclass_cer20_ac_prep():
+    tccer20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_cer_2020")
+    tccer20_pasture = tccer20.eq(11)
+    return tccer20_pasture.rename("nBR_INPE_TCcer_pasture_2020")
+
+# %%
+# [non-official dataset by MapBiomas multisector initiative]
+# land use/cover from 1985 up to 2023, collection 9
+# Subsetting criteria: 'classification_2020' = pasture (DN=15)
+# the resulting dataset shows pasture area in 2020 in Brazil
+def nbr_mapbiomasc9_pasture_prep():
+    mapbiomasc9_20 = ee.Image('projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1').select('classification_2020')
+    mapbiomasc9_20_pasture = mapbiomasc9_20.eq(15)
+    return mapbiomasc9_20_pasture.rename("nBR_MapBiomas_col9_pasture_2020")
 
 # ###Combining datasets
-
 
 def combine_datasets():
     """Combines datasets into a single multiband image, with fallback if assets are missing."""
