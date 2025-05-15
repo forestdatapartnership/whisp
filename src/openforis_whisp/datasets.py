@@ -1,4 +1,4 @@
-import ee
+nabrimport ee
 
 # ee.Authenticate()
 # ee.Initialize()
@@ -804,7 +804,7 @@ def nbr_mapbiomasc9_f20_prep():
     mapbiomasc9_20_forest = mapbiomasc9_20.eq(3).Or(mapbiomasc9_20.eq(4)).Or(mapbiomasc9_20.eq(5)).Or(mapbiomasc9_20.eq(6)).Or(mapbiomasc9_20.eq(49))
     return mapbiomasc9_20_forest.rename("nBR_MapBiomas_col9_forest_Brazil_2020")   
 
-# ### NBR plantation forest in 2020:
+# ### ########################NBR plantation forest in 2020:#######################################
 
 # [Official NFMS dataset] INPE/EMBRAPA TerraClass land use/cover in the Amazon biome, 2020
 # Subsetting criteria: silviculture (DN=9)
@@ -830,6 +830,81 @@ def nbr_mapbiomasc9_silv20_prep():
     mapbiomasc9_20 = ee.Image('projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1').select('classification_2020')
     mapbiomasc9_20_silviculture = mapbiomasc9_20.eq(9)
     return mapbiomasc9_20_silviculture.rename("nBR_MapBiomas_col9_silviculture_Brazil_2020")
+
+################ ### NBR Disturbances before 2020:########################################
+
+# [Official NFMS dataset] INPE PRODES data up to 2023
+# Subsetting criteria: DN = [0, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60];
+# the resulting dataset shows deforestation and conversion of OWL and OL up to 2020 (mostly August 2020), including residues (omission errors corrections) 
+
+def nbr_prodes_upto2020_prep():
+    prodes = ee.Image('projects/ee-whisp/assets/NBR/prodes_brasil_2023')
+    prodes_upto20_dn = [0, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60];
+    prodes_upto20_mask = prodes.remap(prodes_upto20_dn, [1]*len(prodes_upto20_dn)).eq(1)
+    prodes_upto20 = prodes.updateMask(prodes_upto20_mask)
+    return prodes_upto20.rename("nBR_PRODES_deforestation_Brazil_upto2020")
+    
+## Caution: 1) includes deforestation and conversion of other wooded land and grassland
+
+# %%
+# [Official NFMS dataset] INPE.DETER data from 2nd August 2016 up to the 04th of April 2025
+# Subsetting criteria: forest degradation classes ['CICATRIZ_DE_QUEIMADA', 'CS_DESORDENADO', 'DEGRADACAO'] and view_date until 2020-12-31
+# 'CS_GEOMETRICO' excluded to align with FREL
+ 
+def nbr_deter_amazon_upto2020_prep():
+    deteramz = ee.FeatureCollection("projects/ee-whisp/assets/NBR/deter_amz_16apr2025")
+    degradation_classes = ['CICATRIZ_DE_QUEIMADA', 'CS_DESORDENADO', 'DEGRADACAO']
+
+    # Add a formatted date field based on VIEW_DATE
+    def add_formatted_date(feature):
+        return feature.set('formatted_date', ee.Date(feature.get('VIEW_DATE')))
+    deteramz = deteramz.map(add_formatted_date)
+
+    deter_deg = deteramz \
+        .filter(ee.Filter.inList('CLASSNAME', degradation_classes)) \
+        .filter(ee.Filter.lt('formatted_date', ee.Date('2020-12-31')))
+   
+    deter_deg_binary = ee.Image().paint(deter_deg, 1)
+    return deter_deg_binary.rename("nBR_DETER_forestdegradation_Amazon_upto2020")
+
+
+# %% [markdown]
+# ### NBR Disturbances after 2020:
+
+# %%
+# [Official NFMS dataset] INPE PRODES data up to 2023
+# Subsetting criteria: DN = [21, 22, 23, 61, 62, 63];
+# the resulting dataset shows deforestation and conversion of OWL and OL up to 2020 (mostly August 2020), including residues (omission errors corrections) 
+
+def nbr_prodes_after2020_prep():
+    prodes = ee.Image('projects/ee-whisp/assets/NBR/prodes_brasil_2023')
+    prodes_post20_dn = [21, 22, 23, 61, 62, 63];
+    prodes_post20_mask = prodes.remap(prodes_post20_dn, [1]*len(prodes_post20_dn)).eq(1)
+    prodes_post20 = prodes.updateMask(prodes_post20_mask)
+    return prodes_post20.rename("nBR_PRODES_deforestation_Brazil_post2020")
+
+# %%
+# [Official NFMS dataset] INPE.DETER data from 2nd August 2016 up to the 04th of April 2025
+# Subsetting criteria: forest degradation classes ['CICATRIZ_DE_QUEIMADA', 'CS_DESORDENADO', 'DEGRADACAO'] and view_date from 2021-01-01 onward
+# 'CS_GEOMETRICO' excluded to align with FREL
+
+def nbr_deter_amazon_after2020_prep():
+    deteramz = ee.FeatureCollection("projects/ee-whisp/assets/NBR/deter_amz_16apr2025")
+    degradation_classes = ['CICATRIZ_DE_QUEIMADA', 'CS_DESORDENADO','DEGRADACAO']
+
+    # Add a formatted date field based on VIEW_DATE
+    def add_formatted_date(feature):
+        return feature.set('formatted_date', ee.Date(feature.get('VIEW_DATE')))
+    deteramz = deteramz.map(add_formatted_date)
+
+    deter_deg = deteramz \
+        .filter(ee.Filter.inList('CLASSNAME', degradation_classes)) \
+        .filter(ee.Filter.gt('formatted_date', ee.Date('2021-01-01')))
+   
+    deter_deg_binary = ee.Image().paint(deter_deg, 1)
+    return deter_deg_binary.rename("nBR_DETER_forestdegradation_Amazon_after2020")
+    
+
 
 # ###Combining datasets
 
