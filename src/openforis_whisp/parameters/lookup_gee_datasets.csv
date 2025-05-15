@@ -186,3 +186,13 @@ nBR_PRODES_deforestation_Brazil_upto2020,2411,BR,disturbance_before,,1,1,0,float
 nBR_DETER_forestdegradation_Amazon_upto2020,2412,BR,disturbance_before,,1,1,0,float32,1,0,nbr_deter_amazon_upto2020_prep
 nBR_PRODES_deforestation_Brazil_post2020,2413,BR,disturbance_after,,1,1,0,float32,1,0,nbr_prodes_after2020_prep
 nBR_DETER_forestdegradation_Amazon_after2020,2414,BR,disturbance_after,,1,1,0,float32,1,0,nbr_deter_amazon_after2020_prep
+nBR_INPE_TCamz_cer_perennial_2020,2415,BR,commodities,,1,1,0,float32,1,0,nbr_terraclass_amz_cer20_pc_prep
+nBR_MapBiomas_col9_coffee_2020,2416,BR,commodities,,1,1,0,float32,1,0,nbr_mapbiomasc9_cof_prep
+nBR_MapBiomas_col9_palmoil_2020,2417,BR,commodities,,1,1,0,float32,1,0,nbr_mapbiomasc9_po_prep
+nBR_MapBiomas_col9_pc_2020,2418,BR,commodities,,1,1,0,float32,1,0,nbr_mapbiomasc9_pc_prep
+nBR_INPE_TCamz_cer_annual_2020,2419,BR,commodities,,1,1,0,float32,1,0,nbr_terraclass_amz_cer20_ac_prep
+nBR_MapBiomas_col9_soy_2020,2420,BR,commodities,,1,1,0,float32,1,0,nbr_mapbiomasc9_soy_prep
+nBR_MapBiomas_col9_annual_crops_2020,2421,BR,commodities,,1,1,0,float32,1,0,nbr_mapbiomasc9_ac_prep
+nBR_INPE_TCamz_pasture_2020,2422,BR,commodities,,1,1,0,float32,1,0,nbr_terraclass_amz20_pasture_prep
+nBR_INPE_TCcer_pasture_2020,2423,BR,commodities,,1,1,0,float32,1,0,nbr_terraclass_cer20_ac_prep
+nBR_MapBiomas_col9_pasture_2020,2424,BR,commodities,,1,1,0,float32,1,0,nbr_mapbiomasc9_pasture_prep
