@@ -1,4 +1,4 @@
-nabrimport ee
+import ee
 
 # ee.Authenticate()
 # ee.Initialize()
@@ -840,8 +840,8 @@ def nbr_mapbiomasc9_silv20_prep():
 def nbr_prodes_upto2020_prep():
     prodes = ee.Image('projects/ee-whisp/assets/NBR/prodes_brasil_2023')
     prodes_upto20_dn = [0, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60];
-    prodes_upto20_mask = prodes.remap(prodes_upto20_dn, [1]*len(prodes_upto20_dn)).eq(1)
-    prodes_upto20 = prodes.updateMask(prodes_upto20_mask)
+    prodes_upto20_mask = prodes.remap(prodes_upto20_dn, [1]*len(prodes_upto20_dn))#.eq(1)
+    prodes_upto20 = prodes_upto20_mask.selfMask()
     return prodes_upto20.rename("nBR_PRODES_deforestation_Brazil_upto2020")
     
 ## Caution: 1) includes deforestation and conversion of other wooded land and grassland
@@ -875,8 +875,8 @@ def nbr_deter_amazon_upto2020_prep():
 def nbr_prodes_after2020_prep():
     prodes = ee.Image('projects/ee-whisp/assets/NBR/prodes_brasil_2023')
     prodes_post20_dn = [21, 22, 23, 61, 62, 63];
-    prodes_post20_mask = prodes.remap(prodes_post20_dn, [1]*len(prodes_post20_dn)).eq(1)
-    prodes_post20 = prodes.updateMask(prodes_post20_mask)
+    prodes_post20_mask = prodes.remap(prodes_post20_dn, [1]*len(prodes_post20_dn))#.eq(1)
+    prodes_post20 = prodes_post20_mask.selfMask()
     return prodes_post20.rename("nBR_PRODES_deforestation_Brazil_post2020")
 
 # %%
@@ -910,7 +910,7 @@ def nbr_terraclass_amz_cer20_pc_prep():
     tcamz20_pc = tcamz20.eq(12).Or(tcamz20.eq(13))
     tccer20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_cer_2020")
     tccer20_pc = tccer20.eq(12).Or(tccer20.eq(13))
-    tc_pc=ee.ImageCollection([tc_amz_pc,tc_cer_pc]).mosaic()
+    tc_pc=ee.ImageCollection([tcamz20_pc,tccer20_pc]).mosaic()
     return tc_pc.rename("nBR_INPE_TCamz_cer_perennial_2020")
 
 
