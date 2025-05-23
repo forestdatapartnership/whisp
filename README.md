@@ -66,7 +66,7 @@ Now, if the datasets under 1., 2. & 3. indicate that there was tree cover, but n
 However, under the same circumstances but with <u>no</u> disturbances reported after 2020-12-31 there is insufficient evidence and the **Whisp output will be "More info needed".** Such can be the case for, e.g., cocoa or coffee grown under the shade of treecover or agroforestry.
 
 
-*The Whisp algorithm visualized:*
+*The Whisp algorithm for **Perennial Crops** visualized:*
 ![CoE_Graphic 5](https://github.com/user-attachments/assets/007b5f50-3939-4707-95fa-98be4d56745f)
 The Whisp algorithm outputs multiple statistical columns with disaggregated data from the input datasets, followed by aggregated indicator columns, and the final risk assessment columns. 
 
