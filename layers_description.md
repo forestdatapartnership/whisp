@@ -125,7 +125,7 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr><td>ee.ImageCollection(“"projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS”)</td></tr>
     <tr><td rowspan="3">GLC_FCS30D_TC_2022</td><td rowspan="3"> Forest classes (51 to 92, 181, 185) of the GLC_FCS30D dataset year 2022 </td><td rowspan="2">Liangyun Liu, Xiao Zhang, & Tingting Zhao. (2023). GLC_FCS30D: the first global 30-m land-cover dynamic monitoring product with fine classification system from 1985 to 2022 [Data set]. Zenodo. https://doi.org/10.5281/zenodo.8239305. </td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection(“"projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS”)</td></tr>
+    <tr><td>ee.ImageCollection(“"projects/sat-io/open-datasets/GLC-FCS30D/annual”)</td></tr>
     <tr><td colspan="3"><b>Agricultural land post 2020:</b></td></tr>
     <tr><td rowspan="3">ESRI_2023_crop</td><td rowspan="3"> Crops class (5) of the 2023 ESRI LC map </td><td rowspan="2">Karra, Kontgis, et al. “Global land use/land cover with Sentinel-2 and deep learning.”IGARSS 2021-2021 IEEE International Geoscience and Remote Sensing Symposium. IEEE, 2021. </td></tr>
     <tr></tr>
