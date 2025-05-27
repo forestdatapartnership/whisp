@@ -11,7 +11,7 @@ Oil_palm_Descals,90,,commodities,,1,1,0,float32,1,0,creaf_descals_palm_prep
 Oil_palm_FDaP,100,,commodities,,1,1,0,float32,1,0,fdap_palm_prep
 Cocoa_FDaP,110,,commodities,,1,1,0,float32,1,0,fdap_cocoa
 Cocoa_ETH,120,,commodities,,1,1,0,float32,1,0,eth_kalischek_cocoa_prep
-nCI_Cocoa_bnetd,130,CI,commodities,,1,1,0,float32,1,0,nci_ocs2020_prep
+nCI_Cocoa_bnetd,130,CI,commodities,,1,1,1,float32,1,0,nci_ocs2020_prep
 Rubber_FDaP,140,,commodities,,1,1,0,float32,1,0,fdap_rubber_prep
 Rubber_RBGE,150,,commodities,,1,1,0,float32,1,0,rbge_rubber_prep
 Soy_Song_2020,155,,commodities,,1,1,0,float32,1,0,soy_song_2020_prep
@@ -154,7 +154,7 @@ TMF_def_after_2020,1470,,disturbance_after,,1,1,0,float32,1,0,tmf_def_after_2020
 GFC_loss_after_2020,1480,,disturbance_after,,1,1,0,float32,1,0,glad_gfc_loss_after_2020_prep
 MODIS_fire_after_2020,1490,,disturbance_after,,1,1,0,float32,1,0,modis_fire_after_2020_prep
 RADD_after_2020,1500,,disturbance_after,,1,1,0,float32,1,0,radd_after_2020_prep
-DIST_after_2020,1600,,disturbance_after,,1,1,0,float32,1,0,glad_dist_after_2020_prep
+DIST_after_2020,1600,,disturbance_after,,1,1,1,float32,1,0,glad_dist_after_2020_prep
 GFT_primary,1700,,,primary,,1,0,float32,1,0,gft_primary_prep
 IFL_2020,1710,,,primary,,1,0,float32,1,0,ifl_2020_prep
 European_Primary_Forest,1720,,,primary,,1,0,float32,1,0,epfd_prep
@@ -170,7 +170,7 @@ Cocoa_2023_FDaP,2120,,,agri_post_2020,,1,0,float32,1,0,fdap_cocoa_2023_prep
 ESRI_2023_crop,2130,,,agri_post_2020,,1,0,float32,1,0,esri_2023_crop_prep
 GLC_FCS30D_crop_2022,2140,,,agri_post_2020,,1,0,float32,1,0,glc_fcs30d_crop_2022_prep
 GFW_logging,2200,,,logging_concession,,1,0,float32,1,0,logging_concessions_prep
-nCO_ideam_forest_2020,2310,CO,treecover,naturally_reg_2020,1,1,0,float32,1,0,ideam_forest_2020_prep
+nCO_ideam_forest_2020,2310,CO,treecover,naturally_reg_2020,1,1,1,float32,1,0,ideam_forest_2020_prep
 nBR_INPE_TC_primary_forest_Amazon_2020,2400,BR,treecover,primary,1,1,0,float32,1,0,nbr_terraclass_amz20_primary_prep
 nBR_INPE_TC_secondary_forest_Amazon_2020,2401,BR,treecover,naturally_reg_2020,1,1,0,float32,1,0,nbr_terraclass_amz20_secondary_prep
 nBR_BFS_primary_forest_Pantanal_2020,2402,BR,treecover,primary,1,1,0,float32,1,0,nbr_bfs_ptn_f20_prep
