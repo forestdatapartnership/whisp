@@ -734,6 +734,11 @@ def nco_ideam_forest_2020_prep():
     ideam_forest = ideam_forest_raw.eq(1) # get forest class
     return ideam_forest.rename("nCO_ideam_forest_2020")
 
+def nco_ideam_agroforest_2020_prep():
+    ideam_agroforest_raw = ee.Image("projects/ee-whisp/assets/nCO/ideam_2020_geo_EUFO")
+    ideam_agroforest = ideam_agroforest_raw.eq(4) # get forest class
+    return ideam_agroforest.rename("nCO_ideam_agroforest_2020")
+    
 # Cocoa_bnetd
 def nci_ocs2020_prep():
     return (
