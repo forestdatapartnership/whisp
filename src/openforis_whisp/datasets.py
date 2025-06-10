@@ -108,12 +108,12 @@ def gft_primary_prep():
     return gft_primary.rename("GFT_primary")
     
 # Intact Forest Landscape 2020
-def IFL_2020_prep():
+def ifl_2020_prep():
     IFL_2020 = ee.Image('users/potapovpeter/IFL_2020')
     return IFL_2020.rename("IFL_2020")
 
 # European Primary Forest Dataset
-def EPFD_prep():
+def epfd_prep():
     EPFD=ee.FeatureCollection("HU_BERLIN/EPFD/V2/polygons")
     EPFD_binary = ee.Image().paint(EPFD,1)    
     return EPFD_binary.rename('European_Primary_Forest')
@@ -133,7 +133,7 @@ def gft_plantation_prep():
     gft_plantation = gft_raw.eq(20)
     return gft_plantation.rename("GFT_planted_plantation")
     
-def IIASA_planted_prep():
+def iiasa_planted_prep():
     iiasa = ee.Image('projects/sat-io/open-datasets/GFM/FML_v3-2');
     iiasa_PL = iiasa.eq(31).Or(iiasa.eq(32))
     return iiasa_PL.rename('IIASA_planted_plantation')
@@ -267,15 +267,6 @@ def fdap_cocoa_2023_prep():
     )
     return fdap_cocoa.rename("Cocoa_2023_FDaP")
 
-# Cocoa_bnetd
-def civ_ocs2020_prep():
-    return (
-        ee.Image("BNETD/land_cover/v1/2020")
-        .select("classification")
-        .eq(9)
-        .rename("Cocoa_bnetd")
-    )  # cocoa from national land cover map for Côte d'Ivoire
-
 
 # Rubber_RBGE  - from Royal Botanical Gardens of Edinburgh (RBGE) NB for 2021
 def rbge_rubber_prep():
@@ -295,7 +286,7 @@ def soy_song_2020_prep():
 ##############2023
 # ESRI 2023
 # ESRI 2023 - Tree Cover
-def esri_2023_TC_prep():
+def esri_2023_tc_prep():
     esri_lulc10_raw = ee.ImageCollection("projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS")
     esri_lulc10_TC = esri_lulc10_raw.filterDate('2023-01-01', '2023-12-31').mosaic().eq(2)
     return esri_lulc10_TC.rename('ESRI_2023_TC')
@@ -310,14 +301,14 @@ def esri_2023_crop_prep():
 
 # GLC_FCS30D Tree Cover
 # forest classes + swamp + mangrove / what to do with shrubland?
-def GLC_FCS30D_TC_2022_prep():
+def glc_fcs30d_tc_2022_prep():
     GLC_FCS30D = ee.ImageCollection("projects/sat-io/open-datasets/GLC-FCS30D/annual").mosaic().select(22)
     GLC_FCS30D_TC = (GLC_FCS30D.gte(51)).And(GLC_FCS30D.lte(92)).Or(GLC_FCS30D.eq(181)).Or(GLC_FCS30D.eq(185))
     return GLC_FCS30D_TC.rename('GLC_FCS30D_TC_2022')
 
 # GLC_FCS30D crop
 # 10	Rainfed cropland; 11	Herbaceous cover; 12	Tree or shrub cover (Orchard); 20	Irrigated cropland	
-def GLC_FCS30D_crop_2022_prep():
+def glc_fcs30d_crop_2022_prep():
     GLC_FCS30D = ee.ImageCollection("projects/sat-io/open-datasets/GLC-FCS30D/annual").mosaic().select(22)
     GLC_FCS30D_crop = GLC_FCS30D.gte(10).And(GLC_FCS30D.lte(20))
     return GLC_FCS30D_crop.rename('GLC_FCS30D_crop_2022')
@@ -736,6 +727,7 @@ def logging_concessions_prep():
     return logging_concessions_binary.rename('GFW_logging')
 
 #########################national datasets
+
 #nBR Brazil
 
 # ### nBR Natural forests in 2020:
@@ -1008,7 +1000,32 @@ def nbr_mapbiomasc9_pasture_prep():
     mapbiomasc9_20_pasture = mapbiomasc9_20.eq(15)
     return mapbiomasc9_20_pasture.rename("nBR_MapBiomas_col9_pasture_2020")
 
-# ###Combining datasets
+  
+  
+################################################################### 
+#nCO - Colombia
+
+def nco_ideam_forest_2020_prep():
+    ideam_forest_raw = ee.Image("projects/ee-whisp/assets/nCO/ideam_2020_geo")
+    ideam_forest = ideam_forest_raw.eq(1) # get forest class
+    return ideam_forest.rename("nCO_ideam_forest_2020")
+
+def nco_ideam_agroforest_2020_prep():
+    ideam_agroforest_raw = ee.Image("projects/ee-whisp/assets/nCO/ideam_2020_geo_EUFO")
+    ideam_agroforest = ideam_agroforest_raw.eq(4) # get forest class
+    return ideam_agroforest.rename("nCO_ideam_agroforest_2020")
+    
+# Cocoa_bnetd
+def nci_ocs2020_prep():
+    return (
+        ee.Image("BNETD/land_cover/v1/2020")
+        .select("classification")
+        .eq(9)
+        .rename("nCI_Cocoa_bnetd")
+    )  # cocoa from national land cover map for Côte d'Ivoire
+
+
+###Combining datasets
 
 def combine_datasets():
     """Combines datasets into a single multiband image, with fallback if assets are missing."""
