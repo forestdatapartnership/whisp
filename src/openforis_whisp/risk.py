@@ -3,9 +3,9 @@ import pandas as pd
 from .pd_schemas import data_lookup_type
 
 from openforis_whisp.parameters.config_runtime import (
-    percent_or_ha,
     geometry_area_column,
     DEFAULT_GEE_DATASETS_LOOKUP_TABLE_PATH,
+    stats_unit_type_column,  # Add this import
 )
 
 # could embed this in each function below that uses lookup_gee_datasets_df.
@@ -17,6 +17,59 @@ lookup_gee_datasets_df: data_lookup_type = pd.read_csv(
 # requires lookup_gee_datasets_df
 
 
+# Add function to detect unit type from dataframe
+def detect_unit_type(df, explicit_unit_type=None):
+    """
+    Determine the unit type from the dataframe or use the override value.
+
+    Args:
+        df (DataFrame): Input DataFrame.
+        explicit_unit_type (str, optional): Override unit type ('ha' or 'percent').
+
+    Returns:
+        str: The unit type to use for calculations.
+
+    Raises:
+        ValueError: If the unit type can't be determined and no override is provided,
+                   or if there are mixed unit types in the dataframe.
+    """
+    # If override is provided, use it
+    if explicit_unit_type is not None:
+        if explicit_unit_type not in ["ha", "percent"]:
+            raise ValueError(
+                f"Invalid unit type: {explicit_unit_type}. Must be 'ha' or 'percent'."
+            )
+        return explicit_unit_type
+
+    # Check if unit type column exists in the dataframe
+    if stats_unit_type_column not in df.columns:
+        raise ValueError(
+            f"Column '{stats_unit_type_column}' not found in dataframe. "
+            "Please provide 'explicit_unit_type' parameter to specify the unit type."
+        )
+
+    # Get unique values from the column
+    unit_types = df[stats_unit_type_column].unique()
+
+    # Check for mixed unit types
+    if len(unit_types) > 1:
+        raise ValueError(
+            f"Mixed unit types in dataframe: {unit_types}. All rows must use the same unit type."
+        )
+
+    # Get the single unit type
+    unit_type = unit_types[0]
+
+    # Validate that the unit type is recognized
+    if unit_type not in ["ha", "percent"]:
+        raise ValueError(
+            f"Unrecognized unit type: {unit_type}. Must be 'ha' or 'percent'."
+        )
+
+    return unit_type
+
+
+# Update whisp_risk to accept and pass the unit_type parameter
 def whisp_risk(
     df: data_lookup_type,  # CHECK THIS
     ind_1_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
@@ -54,6 +107,7 @@ def whisp_risk(
     ind_11_name: str ="Ind_11_logging_concession",
     low_name: str = "no",
     high_name: str = "yes",
+    explicit_unit_type: str = None,
 ) -> data_lookup_type:
     """
     Adds the EUDR (European Union Deforestation Risk) column to the DataFrame based on indicator values.
@@ -74,11 +128,18 @@ def whisp_risk(
         ind_4_name (str, optional): Name of the fourth indicator column. Defaults to "Indicator_4_disturbance_after_2020".
         low_name (str, optional): Value shown in table if less than or equal to the threshold. Defaults to "no".
         high_name (str, optional): Value shown in table if more than the threshold. Defaults to "yes".
+        explicit_unit_type (str, optional): Override the autodetected unit type ('ha' or 'percent').
+                                      If not provided, will detect from dataframe 'unit' column.
 
     Returns:
         data_lookup_type: DataFrame with added 'EUDR_risk' column.
     """
+    # Determine the unit type to use based on input data and overrid
+    unit_type = detect_unit_type(df, explicit_unit_type)
 
+    print(f"Using unit type: {unit_type}")
+
+    # Rest of the function remains the same, but pass unit_type to add_indicators
     if ind_1_input_columns is None:
         ind_1_input_columns = get_cols_ind_01_treecover(lookup_gee_datasets_df)
     if ind_2_input_columns is None:
@@ -152,6 +213,7 @@ def whisp_risk(
         names,
         low_name,
         high_name,
+        unit_type,  # Pass the unit type
     )
 
     df_w_indicators_and_risk_pcrop = add_eudr_risk_pcrop_col(
@@ -326,6 +388,7 @@ def add_indicators(
     names: list[str],
     low_name: str = "no",
     high_name: str = "yes",
+    unit_type: str = None,
 ) -> data_lookup_type:
     for input_col, threshold, name in zip(input_cols, thresholds, names):
         df = add_indicator_column(
@@ -335,19 +398,22 @@ def add_indicators(
             new_column_name=name,
             low_name=low_name,
             high_name=high_name,
+            sum_comparison=False,
+            unit_type=unit_type,  # Pass the unit type
         )
-
     return df
 
 
+# Update add_indicator_column to use the unit_type parameter
 def add_indicator_column(
     df: data_lookup_type,
     input_columns: list[str],
     threshold: float,
     new_column_name: str,
-    low_name: str = "yes",
-    high_name: str = "no",
+    low_name: str = "no",
+    high_name: str = "yes",
     sum_comparison: bool = False,
+    unit_type: str = None,  # unit_type parameter
 ) -> data_lookup_type:
     """
     Add a new column to the DataFrame based on the specified columns, threshold, and comparison sign.
@@ -362,6 +428,7 @@ def add_indicator_column(
         low_name (str): The name for the value when below or equal to threshold (default is 'no').
         high_name (str): The name for the value when above threshold (default is 'yes').
         sum_comparison (bool): If True, sum all values in input_columns and compare to threshold (default is False).
+        unit_type (str): Whether values are in "ha" or "percent".
 
     Returns:
         data_lookup_type: The DataFrame with the new column added.
@@ -379,7 +446,10 @@ def add_indicator_column(
         for col in input_columns:
             # So that threshold is always in percent, if outputs are in ha, the code converts to percent (based on dividing by the geometry_area_column column.
             # Clamping is needed due to differences in decimal places (meaning input values may go just over 100)
-            if percent_or_ha == "ha":
+            if unit_type == "ha":
+                df[geometry_area_column] = pd.to_numeric(
+                    df[geometry_area_column], errors="coerce"
+                )
                 val_to_check = clamp(
                     ((df[col] / df[geometry_area_column]) * 100), 0, 100
                 )
