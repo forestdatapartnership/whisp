@@ -104,7 +104,7 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr><td>ee.ImageCollection(“users/potapovpeter/IFL_2020”)</td></tr>
     <tr><td rowspan="3">European_Primary_Forest</td><td rowspan="3"> Harmonized geodatabase of 48 datasets of primary forests spread across 33 European countries.</td><td rowspan="2">	Sabatini, F.M., Bluhm, H., Kun, Z., Aksenov, D., Atauri, J.A., Buchwald, E., Burrascano, S., Cateau, E., Diku, A., Duarte, I.M., Fernández López, Á.B., Garbarino, M., Grigoriadis, N., Horváth, F., Keren, S., Kitenberga, M., Kiš, A., Kraut, A., Ibisch, P.L., Larrieu, L., Lombardi, F., Matovic, B., Melu, R.N., Meyer, P., Midteng, R., Mikac, S., Mikoláš, M., Mozgeris, G., Panayotov, M., Pisek, R., Nunes, L., Ruete, A., Schickhofer, M., Simovski, B., Stillhard, J., Stojanovic, D., Szwagrzyk, J., Tikkanen, O.-P., Toromani, E., Volosyanchuk, R., Vrška, T., Waldherr, M., Yermokhin, M., Zlatanov, T., Zagidullina, A., Kuemmerle, T., 2021. European primary forest database v2.0. Sci Data 8, 220. https://doi.org/10.1038/s41597-021-00988-7 </td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection(“HU_BERLIN/EPFD/V2/polygons”)</td></tr>
+    <tr><td>ee.FeatureCollection(“HU_BERLIN/EPFD/V2/polygons”)</td></tr>
     <tr><td colspan="3"><b>Naturally regenerating forests:</b></td></tr>
     <tr><td rowspan="3">GFT_naturally_regenerating</td><td rowspan="3"> Naturally regenerating forest class (1) from the Global Forest Types map V0 (forest extent of GFC2020 V1).</td><td rowspan="2">	European Commission: Joint Research Centre, BOURGOIN, C., VERHEGGHEN, A., CARBONI, S., DEGREVE, L., AMEZTOY ARAMENDI, I., CECCHERINI, G., COLDITZ, R. and ACHARD, F., Global Forest Maps for the Year 2020 to Support the EU Regulation on Deforestation-free Supply Chains, Publications Office of the European Union, Luxembourg, 2025, https://data.europa.eu/doi/10.2760/1975879, JRC141702. </td></tr>
     <tr></tr>
@@ -125,7 +125,7 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr><td>ee.ImageCollection(“"projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS”)</td></tr>
     <tr><td rowspan="3">GLC_FCS30D_TC_2022</td><td rowspan="3"> Forest classes (51 to 92, 181, 185) of the GLC_FCS30D dataset year 2022 </td><td rowspan="2">Liangyun Liu, Xiao Zhang, & Tingting Zhao. (2023). GLC_FCS30D: the first global 30-m land-cover dynamic monitoring product with fine classification system from 1985 to 2022 [Data set]. Zenodo. https://doi.org/10.5281/zenodo.8239305. </td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection(“"projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS”)</td></tr>
+    <tr><td>ee.ImageCollection(“"projects/sat-io/open-datasets/GLC-FCS30D/annual”)</td></tr>
     <tr><td colspan="3"><b>Agricultural land post 2020:</b></td></tr>
     <tr><td rowspan="3">ESRI_2023_crop</td><td rowspan="3"> Crops class (5) of the 2023 ESRI LC map </td><td rowspan="2">Karra, Kontgis, et al. “Global land use/land cover with Sentinel-2 and deep learning.”IGARSS 2021-2021 IEEE International Geoscience and Remote Sensing Symposium. IEEE, 2021. </td></tr>
     <tr></tr>
