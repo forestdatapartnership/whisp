@@ -36,6 +36,7 @@ def whisp_formatted_stats_geojson_to_df(
     input_geojson_filepath: Path | str,
     external_id_column=None,
     remove_geom=False,
+    national_codes=None,
     unit_type="ha",
 ) -> pd.DataFrame:
     """
@@ -58,10 +59,12 @@ def whisp_formatted_stats_geojson_to_df(
         The column in the GeoJSON containing external IDs to be preserved in the output DataFrame.
     remove_geom : bool, default=False
         If True, the geometry of the GeoJSON is removed from the output DataFrame.
-    unit_type : str, optional
+    national_codes : list, optional
+        List of ISO2 country codes to include national datasets.
+    unit_type: str, optional
         Whether to use hectares ("ha") or percentage ("percent"), by default "ha".
 
-    Returns
+Returns
     -------
     df_stats : pd.DataFrame
         The DataFrame containing the Whisp stats for the input ROI.
@@ -69,7 +72,11 @@ def whisp_formatted_stats_geojson_to_df(
     feature_collection = convert_geojson_to_ee(str(input_geojson_filepath))
 
     return whisp_formatted_stats_ee_to_df(
-        feature_collection, external_id_column, remove_geom, unit_type
+        feature_collection,
+        external_id_column,
+        remove_geom,
+        national_codes=national_codes,
+        unit_type
     )
 
 
@@ -78,6 +85,7 @@ def whisp_formatted_stats_geojson_to_geojson(
     output_geojson_filepath,
     external_id_column=None,
     geo_column: str = "geo",
+    national_codes=None,
     unit_type="ha",
 ):
     """
@@ -93,6 +101,8 @@ def whisp_formatted_stats_geojson_to_geojson(
         The name of the column containing external IDs, by default None.
     geo_column : str, optional
         The name of the column containing GeoJSON geometries, by default "geo".
+    national_codes : list, optional
+        List of ISO2 country codes to include national datasets.
     unit_type : str, optional
         Whether to use hectares ("ha") or percentage ("percent"), by default "ha".
 
@@ -103,6 +113,7 @@ def whisp_formatted_stats_geojson_to_geojson(
     df = whisp_formatted_stats_geojson_to_df(
         input_geojson_filepath=input_geojson_filepath,
         external_id_column=external_id_column,
+        national_codes=national_codes,
         unit_type=unit_type,
     )
     # Convert the df to GeoJSON
@@ -114,8 +125,9 @@ def whisp_formatted_stats_geojson_to_geojson(
 def whisp_formatted_stats_ee_to_geojson(
     feature_collection: ee.FeatureCollection,
     output_geojson_filepath: str,
-    external_id_column=None,  # This variable is expected to be a string or None
+    external_id_column=None,
     geo_column: str = "geo",
+    national_codes=None,
     unit_type="ha",
 ):
     """
@@ -129,20 +141,19 @@ def whisp_formatted_stats_ee_to_geojson(
         The filepath to save the output GeoJSON file.
     external_id_column : str, optional
         The name of the column containing external IDs, by default None.
-    remove_geom : bool, optional
-        Whether to remove the geometry column, by default False.
     geo_column : str, optional
         The name of the column containing GeoJSON geometries, by default "geo".
+    national_codes : list, optional
+        List of ISO2 country codes to include national datasets.
     unit_type : str, optional
         Whether to use hectares ("ha") or percentage ("percent"), by default "ha".
-
     Returns
     -------
     None
     """
     # Convert ee feature collection to a pandas dataframe
     df_stats = whisp_formatted_stats_ee_to_df(
-        feature_collection, external_id_column, unit_type=unit_type
+        feature_collection, external_id_column, national_codes=national_codes, unit_type=unit_type
     )
 
     # Convert the df to GeoJSON
@@ -153,15 +164,26 @@ def whisp_formatted_stats_ee_to_geojson(
 
 def whisp_formatted_stats_ee_to_df(
     feature_collection: ee.FeatureCollection,
-    external_id_column=None,  # This variable is expected to be a string or None
+    external_id_column=None,
     remove_geom=False,
+    national_codes=None,
     unit_type="ha",
 ) -> pd.DataFrame:
     """
+    Convert a feature collection to a validated DataFrame with Whisp statistics.
+
     Parameters
     ----------
     feature_collection : ee.FeatureCollection
         The feature collection of the ROI to analyze.
+    external_id_column : str, optional
+        The name of the external ID column, by default None.
+    remove_geom : bool, optional
+        Whether to remove the geometry column, by default False.
+    national_codes : list, optional
+        List of ISO2 country codes to include national datasets.
+    unit_type : str, optional
+        Whether to use hectares ("ha") or percentage ("percent"), by default "ha".
 
     Returns
     -------
@@ -170,10 +192,17 @@ def whisp_formatted_stats_ee_to_df(
     """
     # Convert ee feature collection to a pandas dataframe
     df_stats = whisp_stats_ee_to_df(
-        feature_collection, external_id_column, remove_geom, unit_type
+        feature_collection,
+        external_id_column,
+        remove_geom,
+        national_codes=national_codes,
+        unit_type,
     )
 
-    validated_df = validate_dataframe_using_lookups(df_stats)
+    # Pass national_codes to validation function to filter schema
+    validated_df = validate_dataframe_using_lookups(
+        df_stats, national_codes=national_codes
+    )
     return validated_df
 
 
@@ -182,11 +211,13 @@ def whisp_formatted_stats_ee_to_df(
 
 def whisp_stats_geojson_to_df(
     input_geojson_filepath: Path | str,
-    external_id_column=None,  # This variable is expected to be a string or None
+    external_id_column=None,
     remove_geom=False,
+    national_codes=None,
     unit_type="ha",
 ) -> pd.DataFrame:
     """
+    Convert a GeoJSON file to a pandas DataFrame with Whisp statistics.
 
     Parameters
     ----------
@@ -196,6 +227,8 @@ def whisp_stats_geojson_to_df(
         The name of the external ID column, by default None.
     remove_geom : bool, optional
         Whether to remove the geometry column, by default False.
+    national_codes : list, optional
+        List of ISO2 country codes to include national datasets.
     unit_type : str, optional
         Whether to use hectares ("ha") or percentage ("percent"), by default "ha".
 
@@ -207,33 +240,48 @@ def whisp_stats_geojson_to_df(
     feature_collection = convert_geojson_to_ee(str(input_geojson_filepath))
 
     return whisp_stats_ee_to_df(
-        feature_collection, external_id_column, remove_geom, unit_type
+        feature_collection,
+        external_id_column,
+        remove_geom,
+        national_codes=national_codes,
+        unit_type
     )
 
 
 def whisp_stats_geojson_to_ee(
     input_geojson_filepath: Path | str,
-    external_id_column=None,  # This variable is expected to be a string or None
+    external_id_column=None,
+    national_codes=None,
 ) -> ee.FeatureCollection:
     """
+    Convert a GeoJSON file to an Earth Engine FeatureCollection with Whisp statistics.
 
     Parameters
     ----------
     input_geojson_filepath : Path | str
         The filepath to the GeoJSON of the ROI to analyze.
+    external_id_column : str, optional
+        The name of the external ID column, by default None.
+    national_codes : list, optional
+        List of ISO2 country codes to include national datasets.
 
     Returns
     -------
-    df_stats : pd.DataFrame
-        The dataframe containing the Whisp stats for the input ROI.
+    ee.FeatureCollection
+        The feature collection containing the Whisp stats for the input ROI.
     """
     feature_collection = convert_geojson_to_ee(str(input_geojson_filepath))
 
-    return whisp_stats_ee_to_ee(feature_collection, external_id_column)
+    return whisp_stats_ee_to_ee(
+        feature_collection, external_id_column, national_codes=national_codes
+    )
 
 
 def whisp_stats_geojson_to_geojson(
-    input_geojson_filepath, output_geojson_filepath, external_id_column=None
+    input_geojson_filepath,
+    output_geojson_filepath,
+    external_id_column=None,
+    national_codes=None,
 ):
     """
     Convert a GeoJSON file to a GeoJSON object containing Whisp stats for the input ROI.
@@ -245,7 +293,9 @@ def whisp_stats_geojson_to_geojson(
     output_geojson_filepath : str
         The filepath to save the output GeoJSON file.
     external_id_column : str, optional
-        The name of the external ID column, by default None.
+        The name of the column containing external IDs, by default None.
+    national_codes : list, optional
+        List of ISO2 country codes to include national datasets.
 
     Returns
     -------
@@ -256,7 +306,7 @@ def whisp_stats_geojson_to_geojson(
 
     # Get stats as a FeatureCollection
     stats_feature_collection = whisp_stats_ee_to_ee(
-        feature_collection, external_id_column
+        feature_collection, external_id_column, national_codes=national_codes
     )
 
     # Convert the stats FeatureCollection to GeoJSON
@@ -269,46 +319,58 @@ def whisp_stats_geojson_to_geojson(
 
 def whisp_stats_geojson_to_drive(
     input_geojson_filepath: Path | str,
-    external_id_column=None,  # This variable is expected to be a string or None
+    external_id_column=None,
+    national_codes=None,
 ):
     """
+    Export Whisp statistics for a GeoJSON file to Google Drive.
+
     Parameters
     ----------
-    geojson_filepath : Path | str
+    input_geojson_filepath : Path | str
         The filepath to the GeoJSON of the ROI to analyze.
+    external_id_column : str, optional
+        The name of the external ID column, by default None.
+    national_codes : list, optional
+        List of ISO2 country codes to include national datasets.
 
     Returns
     -------
     Message showing location of file in Google Drive
     """
-
     try:
         input_geojson_filepath = Path(input_geojson_filepath)
         if not input_geojson_filepath.exists():
             raise FileNotFoundError(f"File {input_geojson_filepath} does not exist.")
 
-        # Assuming geojson_to_ee is properly imported from data_conversion.py
         feature_collection = convert_geojson_to_ee(str(input_geojson_filepath))
 
-        return whisp_stats_ee_to_drive(feature_collection, external_id_column)
+        return whisp_stats_ee_to_drive(
+            feature_collection, external_id_column, national_codes=national_codes
+        )
 
     except Exception as e:
         print(f"An error occurred: {e}")
 
 
-def whisp_stats_ee_to_ee(feature_collection, external_id_column, unit_type="ha"):
+def whisp_stats_ee_to_ee(
+    feature_collection,
+    external_id_column,
+    national_codes=None,
+    unit_type="ha"
+):
     """
     Process a feature collection to get statistics for each feature.
 
     Parameters:
         feature_collection (ee.FeatureCollection): The input feature collection.
         external_id_column (str): The name of the external ID column to check.
+        national_codes (list, optional): List of ISO2 country codes to include national datasets.
         unit_type (str): Whether to use hectares ("ha") or percentage ("percent"), default "ha".
 
     Returns:
         ee.FeatureCollection: The output feature collection with statistics.
     """
-
     if external_id_column is not None:
         try:
             # Check if external_id_column is a property in feature_collection (server-side)
@@ -346,15 +408,16 @@ def whisp_stats_ee_to_ee(feature_collection, external_id_column, unit_type="ha")
                 f"An error occurred when trying to set the external_id_column: {external_id_column}. Error: {e}"
             )
 
-    fc = get_stats(feature_collection, unit_type=unit_type)
+    fc = get_stats(feature_collection, national_codes=national_codes,unit_type=unit_type)
 
     return add_id_to_feature_collection(dataset=fc, id_name=plot_id_column)
 
 
 def whisp_stats_ee_to_df(
     feature_collection: ee.FeatureCollection,
-    external_id_column=None,  # This variable is expected to be a string or None
+    external_id_column=None,
     remove_geom=False,
+    national_codes=None,
     unit_type="ha",
 ) -> pd.DataFrame:
     """
@@ -368,6 +431,8 @@ def whisp_stats_ee_to_df(
         The name of the external ID column, by default None.
     remove_geom : bool, optional
         Whether to remove the geometry column, by default True.
+    national_codes : list, optional
+        List of ISO2 country codes to include national datasets.
     unit_type : str, optional
         Whether to use hectares ("ha") or percentage ("percent"), by default "ha".
 
@@ -379,7 +444,7 @@ def whisp_stats_ee_to_df(
     try:
         df_stats = convert_ee_to_df(
             ee_object=whisp_stats_ee_to_ee(
-                feature_collection, external_id_column, unit_type
+                feature_collection, external_id_column, national_codes=national_codes, unit_type
             ),
             remove_geom=remove_geom,
         )
@@ -401,12 +466,33 @@ def whisp_stats_ee_to_df(
 
 
 def whisp_stats_ee_to_drive(
-    feature_collection: ee.FeatureCollection, external_id_column=None
+    feature_collection: ee.FeatureCollection,
+    external_id_column=None,
+    national_codes=None,
+    unit_type="ha",
 ):
+    """
+    Export Whisp statistics for a feature collection to Google Drive.
 
+    Parameters
+    ----------
+    feature_collection : ee.FeatureCollection
+        The feature collection to analyze.
+    external_id_column : str, optional
+        The name of the external ID column, by default None.
+    national_codes : list, optional
+        List of ISO2 country codes to include national datasets.
+   unit_type : str, optional
+        Whether to use hectares ("ha") or percentage ("percent"), by default "ha".
+    Returns
+    -------
+    None
+    """
     try:
         task = ee.batch.Export.table.toDrive(
-            collection=whisp_stats_ee_to_ee(feature_collection, external_id_column),
+            collection=whisp_stats_ee_to_ee(
+                feature_collection, external_id_column, national_codes=national_codes, unit_type,
+            ),
             description="whisp_output_table",
             # folder="whisp_results",
             fileFormat="CSV",
@@ -423,25 +509,63 @@ def whisp_stats_ee_to_drive(
 
 
 # Get stats for a feature or feature collection
-def get_stats(feature_or_feature_col, unit_type="ha"):
+def get_stats(feature_or_feature_col, national_codes=None, unit_type="ha"):
+    """
+    Get stats for a feature or feature collection with optional filtering by national codes.
+
+    Parameters
+    ----------
+    feature_or_feature_col : ee.Feature or ee.FeatureCollection
+        The input feature or feature collection to analyze
+    national_codes : list, optional
+        List of ISO2 country codes to include national datasets
+   unit_type : str, optional
+        Whether to use hectares ("ha") or percentage ("percent"), by default "ha".
+    Returns
+    -------
+    ee.FeatureCollection
+        Feature collection with calculated statistics
+    """
     # Check if the input is a Feature or a FeatureCollection
     if isinstance(feature_or_feature_col, ee.Feature):
         # If the input is a Feature, call the server-side function for processing
         print("feature")
+        # For a single feature, we need to combine datasets with the national_codes filter
+        img_combined = combine_datasets(national_codes=national_codes)
         output = ee.FeatureCollection(
-            [get_stats_feature(feature_or_feature_col, unit_type=unit_type)]
+            [get_stats_feature(feature_or_feature_col, img_combined, unit_type=unit_type)]
         )
     elif isinstance(feature_or_feature_col, ee.FeatureCollection):
         # If the input is a FeatureCollection, call the server-side function for processing
-        output = get_stats_fc(feature_or_feature_col, unit_type=unit_type)
+        output = get_stats_fc(feature_or_feature_col, national_codes=national_codes unit_type=unit_type)
     else:
         output = "Check inputs: not an ee.Feature or ee.FeatureCollection"
     return output
 
 
 # Get statistics for a feature collection
-def get_stats_fc(feature_col, unit_type="ha"):
-    img_combined = combine_datasets()  # imported function
+def get_stats_fc(feature_col, national_codes=None,unit_type="ha"):
+    """
+    Calculate statistics for a feature collection using Whisp datasets.
+
+    Parameters
+    ----------
+    feature_col : ee.FeatureCollection
+        The input feature collection to analyze
+    national_codes : list, optional
+        List of ISO2 country codes (e.g., ["BR", "US"]) to include national datasets.
+        If provided, only national datasets for these countries and global datasets will be used.
+        If None (default), only global datasets will be used.
+   unit_type : str, optional
+        Whether to use hectares ("ha") or percentage ("percent"), by default "ha".
+    Returns
+    -------
+    ee.FeatureCollection
+        Feature collection with calculated statistics
+    """
+    img_combined = combine_datasets(
+        national_codes=national_codes
+    )  # Pass national_codes to combine_datasets
 
     out_feature_col = ee.FeatureCollection(
         feature_col.map(
@@ -456,10 +580,25 @@ def get_stats_fc(feature_col, unit_type="ha"):
 
 
 # Get statistics for a single feature
-def get_stats_feature(feature, img_combined=None, unit_type="ha"):
-    if img_combined is None:
-        img_combined = combine_datasets()
 
+def get_stats_feature(feature, img_combined,unit_type="ha"):
+    """
+    Get statistics for a single feature using a pre-combined image.
+
+    Parameters
+    ----------
+    feature : ee.Feature
+        The feature to analyze
+    img_combined : ee.Image
+        Pre-combined image with all the datasets
+    unit_type : str, optional
+        Whether to use hectares ("ha") or percentage ("percent"), by default "ha".
+
+    Returns
+    -------
+    ee.Feature
+        Feature with calculated statistics
+    """
     reduce = img_combined.reduceRegion(
         reducer=ee.Reducer.sum(),
         geometry=feature.geometry(),
