@@ -37,10 +37,12 @@ The Forest Data Partnership promotes this approach for forest and commodities mo
 
 2. [Whisp in Earthmap](https://whisp.earthmap.org/?aoi=WHISP&boundary=plot1&layers=%7B%22CocoaETH%22%3A%7B%22opacity%22%3A1%7D%2C%22JRCForestMask%22%3A%7B%22opacity%22%3A1%7D%2C%22planet_rgb%22%3A%7B%22opacity%22%3A1%2C%22date%22%3A%222020-12%22%7D%7D&map=%7B%22center%22%3A%7B%22lat%22%3A7%2C%22lng%22%3A4%7D%2C%22zoom%22%3A3%2C%22mapType%22%3A%22satellite%22%7D&statisticsOpen=true) supports the visualization of geometries on actual maps with the possibility to toggle different relevant map products around tree cover, commodities and deforestation. It is practical for demonstration purposes and spot checks of single geometries but not recommended for larger datasets.
 
-3. Datasets of any size, especially when holding more than 1000 geometries, can be "whisped" through the [python package on pip](https://pypi.org/project/openforis-whisp/). See example [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/Colab_whisp_geojson_to_csv.ipynb) for implementation with a geojson input. For the detailed procedure please go to the section [Whisp notebooks](#whisp_notebooks).
+3. Datasets of any size, especially when holding more than 1000 geometries, can be analyzed with Whisp through the [python package on pip](https://pypi.org/project/openforis-whisp/). See example [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/Colab_whisp_geojson_to_csv.ipynb) for implementation with a geojson input. For the detailed procedure please go to the section [Whisp notebooks](#whisp_notebooks).
 
 
 ## Whisp datasets <a name="whisp_datasets"></a>
+All output columns from Whisp are described in [this excel file](https://github.com/forestdatapartnership/whisp/blob/main/whisp_columns.xlsx)
+
 ***Whisp***  implements the convergence of evidence approach by providing a transparent and public processing flow using datasets covering the following categories:
 
 1) Tree and forest cover (at the end of 2020);
