@@ -59,7 +59,7 @@ def g_jaxa_forest_prep():
 
 # GFC_TC_2020
 def g_glad_gfc_10pc_prep():
-    gfc = ee.Image("UMD/hansen/global_forest_change_2023_v1_11")
+    gfc = ee.Image("UMD/hansen/global_forest_change_2024_v1_12")
     gfc_treecover2000 = gfc.select(["treecover2000"])
     gfc_loss2001_2020 = gfc.select(["lossyear"]).lte(20)
     gfc_treecover2020 = gfc_treecover2000.where(gfc_loss2001_2020.eq(1), 0)
@@ -74,7 +74,7 @@ def g_glad_pht_prep():
     primary_ht_forests2001 = (
         primary_ht_forests2001_raw.select("Primary_HT_forests").mosaic().selfMask()
     )
-    gfc = ee.Image("UMD/hansen/global_forest_change_2023_v1_11")
+    gfc = ee.Image("UMD/hansen/global_forest_change_2024_v1_12")
     gfc_loss2001_2020 = gfc.select(["lossyear"]).lte(20)
     return primary_ht_forests2001.where(gfc_loss2001_2020.eq(1), 0).rename(
         "GLAD_Primary"
@@ -290,11 +290,12 @@ def g_rbge_rubber_prep():
     )
 
 
-#soy 2020 South America
+# soy 2020 South America
 def g_soy_song_2020_prep():
-    return ee.Image('projects/glad/soy_annual_SA/2020').unmask().rename("Soy_Song_2020")
+    return ee.Image("projects/glad/soy_annual_SA/2020").unmask().rename("Soy_Song_2020")
 
-  ##############2023
+
+##############2023
 # ESRI 2023
 # ESRI 2023 - Tree Cover
 def g_esri_2023_tc_prep():
@@ -422,10 +423,10 @@ def g_tmf_deg_per_year_prep():
 # GFC_loss_year_2001 to GFC_loss_year_2023 (correct for version 11)
 def g_glad_gfc_loss_per_year_prep():
     # Load the Global Forest Change dataset
-    gfc = ee.Image("UMD/hansen/global_forest_change_2023_v1_11")
+    gfc = ee.Image("UMD/hansen/global_forest_change_2024_v1_12")
     img_stack = None
     # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
-    for i in range(1, 23 + 1):
+    for i in range(1, 24 + 1):
         gfc_loss_year = (
             gfc.select(["lossyear"]).eq(i).And(gfc.select(["treecover2000"]).gt(10))
         )
@@ -679,7 +680,7 @@ def g_tmf_def_after_2020_prep():
 # GFC_loss_before_2020 (loss within 10 percent cover; includes 2020; correct for version 11)
 def g_glad_gfc_loss_before_2020_prep():
     # Load the Global Forest Change dataset
-    gfc = ee.Image("UMD/hansen/global_forest_change_2023_v1_11")
+    gfc = ee.Image("UMD/hansen/global_forest_change_2024_v1_12")
     gfc_loss = (
         gfc.select(["lossyear"]).lte(20).And(gfc.select(["treecover2000"]).gt(10))
     )
@@ -689,7 +690,7 @@ def g_glad_gfc_loss_before_2020_prep():
 # GFC_loss_after_2020 (loss within 10 percent cover; correct for version 11)
 def g_glad_gfc_loss_after_2020_prep():
     # Load the Global Forest Change dataset
-    gfc = ee.Image("UMD/hansen/global_forest_change_2023_v1_11")
+    gfc = ee.Image("UMD/hansen/global_forest_change_2024_v1_12")
     gfc_loss = gfc.select(["lossyear"]).gt(20).And(gfc.select(["treecover2000"]).gt(10))
     return gfc_loss.rename("GFC_loss_after_2020")
 
@@ -790,7 +791,7 @@ def g_logging_concessions_prep():
 
 #########################national datasets
 
-#nBR Brazil
+# nBR Brazil
 
 # ### nBR Natural forests in 2020:
 
@@ -805,38 +806,42 @@ def nbr_terraclass_amz20_primary_prep():
     tcamz20_f = tcamz20.eq(1)
     return tcamz20_f.rename("nBR_INPE_TC_primary_forest_Amazon_2020")
 
+
 # [Official NFMS dataset] Brazilian Forest Service dataset on natural forest cover from PRODES and TerraClass data, base year 2022
-# Subsetting criteria: ano_desmat > 2020 and nom_class = 'Floresta' 
-# the resulting datasets show primary forest cover in 2020 for the Pantanal, Caatinga, Atlantic Forest and Pampa biomes. 
+# Subsetting criteria: ano_desmat > 2020 and nom_class = 'Floresta'
+# the resulting datasets show primary forest cover in 2020 for the Pantanal, Caatinga, Atlantic Forest and Pampa biomes.
 # the resulting dataset shows primary and secondary forest cover in 2020 for the Cerrado biome (TerraClass 2020)
-# For the Amazon, best to use Terraclass 2020 directly, because the BFS used TerraClass 2014. 
+# For the Amazon, best to use Terraclass 2020 directly, because the BFS used TerraClass 2014.
 
 # Pantanal
 def nbr_bfs_ptn_f20_prep():
     bfs_fptn20 = ee.FeatureCollection("projects/ee-whisp/assets/NBR/bfs_ptn_2020")
 
-    bfs_fptn20_binary = ee.Image().paint(bfs_fptn20,1)
+    bfs_fptn20_binary = ee.Image().paint(bfs_fptn20, 1)
     return bfs_fptn20_binary.rename("nBR_BFS_primary_forest_Pantanal_2020")
 
-# Caatinga - filtered with QGIS because the original geodatabase is too large to export as a shapefile (GEE accepted format) 
+
+# Caatinga - filtered with QGIS because the original geodatabase is too large to export as a shapefile (GEE accepted format)
 ## couldn't convert it to asset, working on it (Error: Primary geometry of feature '306862' has 2454627 vertices, above the limit of 1000000 vertices. (Error code: 3)
 def nbr_bfs_caat_f20_prep():
     bfs_fcaat20 = ee.FeatureCollection("projects/ee-whisp/assets/NBR/bfs_caat_2020")
-    bfs_fcaat20_binary = ee.Image().paint(bfs_fcaat20,1)
+    bfs_fcaat20_binary = ee.Image().paint(bfs_fcaat20, 1)
     return bfs_fcaat20_binary.rename("nBR_BFS_primary_forest_Caatinga_2020")
+
 
 # Atlantic Forest - filtered with QGIS because the original geodatabase is too large to export as a shapefile (GEE accepted format)
 def nbr_bfs_atlf_f20_prep():
     bfs_fatlf20 = ee.FeatureCollection("projects/ee-whisp/assets/NBR/bfs_atlf_2020")
-    bfs_fatlf20_binary = ee.Image().paint(bfs_fatlf20,1)
+    bfs_fatlf20_binary = ee.Image().paint(bfs_fatlf20, 1)
     return bfs_fatlf20_binary.rename("nBR_BFS_primary_forest_AtlanticForest_2020")
+
 
 # Pampa - filtered in QGIS to save some storage space
 def nbr_bfs_pmp_f20_prep():
     bfs_fpmp20 = ee.FeatureCollection("projects/ee-whisp/assets/NBR/bfs_pmp_2020")
-    bfs_fpmp20_binary = ee.Image().paint(bfs_fpmp20,1)
+    bfs_fpmp20_binary = ee.Image().paint(bfs_fpmp20, 1)
     return bfs_fpmp20_binary.rename("nBR_BFS_primary_forest_Pampa_2020")
-    
+
 
 ##########################secondary forests###############################################
 def nbr_terraclass_amz20_secondary_prep():
@@ -844,21 +849,32 @@ def nbr_terraclass_amz20_secondary_prep():
     tcamz20_f = tcamz20.eq(2)
     return tcamz20_f.rename("nBR_INPE_TC_secondary_forest_Amazon_2020")
 
+
 # Cerrado - filtered with QGIS because the original geodatabase is too large to export as a shapefile (GEE accepted format)
 def nbr_bfs_cer_f20_prep():
     bfs_fcer20 = ee.FeatureCollection("projects/ee-whisp/assets/NBR/bfs_pmp_2020")
-    bfs_fcer20_binary = ee.Image().paint(bfs_fcer20,1)
+    bfs_fcer20_binary = ee.Image().paint(bfs_fcer20, 1)
     return bfs_fcer20_binary.rename("nBR_BFS_primary&secondary_forest_Cerrado_2020")
+
 
 # %%
 # [non-official dataset by MapBiomas multisector initiative]
 # land use/cover from 1985 up to 2023, collection 9
-# Subsetting criteria: classification_2020 = Forest formation (DN=3), Savanna Formation (DN=4, forest according to BR definition), Mangrove (DN=5), Floodable Forest (DN=6), Wooded Sandbank veg (DN=49) 
+# Subsetting criteria: classification_2020 = Forest formation (DN=3), Savanna Formation (DN=4, forest according to BR definition), Mangrove (DN=5), Floodable Forest (DN=6), Wooded Sandbank veg (DN=49)
 # the resulting dataset shows forest cover in 2020, without distinguishing between primary and secondary forests
 def nbr_mapbiomasc9_f20_prep():
-    mapbiomasc9_20 = ee.Image('projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1').select('classification_2020')
-    mapbiomasc9_20_forest = mapbiomasc9_20.eq(3).Or(mapbiomasc9_20.eq(4)).Or(mapbiomasc9_20.eq(5)).Or(mapbiomasc9_20.eq(6)).Or(mapbiomasc9_20.eq(49))
-    return mapbiomasc9_20_forest.rename("nBR_MapBiomas_col9_forest_Brazil_2020")   
+    mapbiomasc9_20 = ee.Image(
+        "projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1"
+    ).select("classification_2020")
+    mapbiomasc9_20_forest = (
+        mapbiomasc9_20.eq(3)
+        .Or(mapbiomasc9_20.eq(4))
+        .Or(mapbiomasc9_20.eq(5))
+        .Or(mapbiomasc9_20.eq(6))
+        .Or(mapbiomasc9_20.eq(49))
+    )
+    return mapbiomasc9_20_forest.rename("nBR_MapBiomas_col9_forest_Brazil_2020")
+
 
 # ### ########################NBR plantation forest in 2020:#######################################
 
@@ -870,6 +886,7 @@ def nbr_terraclass_amz20_silv_prep():
     tcamz20_silviculture = tcamz20.eq(9)
     return tcamz20_silviculture.rename("nBR_INPE_TCsilviculture_Amazon_2020")
 
+
 # [Official NFMS dataset] INPE/EMBRAPA TerraClass land use/cover in the Cerrado biome, 2020
 # Subsetting criteria: silviculture (DN=9)
 # the resulting dataset shows monospecific commercial plantations, mostly eucalyptus and pinus.
@@ -878,47 +895,88 @@ def nbr_terraclass_silv_cer20_prep():
     tccer20_silviculture = tccer20.eq(9)
     return tccer20_silviculture.rename("nBR_INPE_TCsilviculture_Cerrado_2020")
 
+
 # [non-official dataset by MapBiomas multisector initiative]
 # land use/cover from 1985 up to 2023, collection 9
-# Subsetting criteria: 'classification_2020' = Forest plantation (DN=9) 
+# Subsetting criteria: 'classification_2020' = Forest plantation (DN=9)
 # the resulting dataset shows forest plantation in 2020
 def nbr_mapbiomasc9_silv20_prep():
-    mapbiomasc9_20 = ee.Image('projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1').select('classification_2020')
+    mapbiomasc9_20 = ee.Image(
+        "projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1"
+    ).select("classification_2020")
     mapbiomasc9_20_silviculture = mapbiomasc9_20.eq(9)
-    return mapbiomasc9_20_silviculture.rename("nBR_MapBiomas_col9_silviculture_Brazil_2020")
+    return mapbiomasc9_20_silviculture.rename(
+        "nBR_MapBiomas_col9_silviculture_Brazil_2020"
+    )
+
 
 ################ ### NBR Disturbances before 2020:########################################
 
 # [Official NFMS dataset] INPE PRODES data up to 2023
 # Subsetting criteria: DN = [0, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60];
 
-# the resulting dataset shows deforestation and conversion of OWL and OL up to 2020 (mostly August 2020), including residues (omission errors corrections) 
+# the resulting dataset shows deforestation and conversion of OWL and OL up to 2020 (mostly August 2020), including residues (omission errors corrections)
 def nbr_prodes_upto2020_prep():
-    prodes = ee.Image('projects/ee-whisp/assets/NBR/prodes_brasil_2023')
-    prodes_upto20_dn = [0, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60];
-    prodes_upto20_mask = prodes.remap(prodes_upto20_dn, [1]*len(prodes_upto20_dn))#.eq(1)
+    prodes = ee.Image("projects/ee-whisp/assets/NBR/prodes_brasil_2023")
+    prodes_upto20_dn = [
+        0,
+        2,
+        4,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+    ]
+    prodes_upto20_mask = prodes.remap(
+        prodes_upto20_dn, [1] * len(prodes_upto20_dn)
+    )  # .eq(1)
     prodes_upto20 = prodes_upto20_mask.selfMask()
     return prodes_upto20.rename("nBR_PRODES_deforestation_Brazil_upto2020")
-    
+
+
 ## Caution: 1) includes deforestation and conversion of other wooded land and grassland
 
 # [Official NFMS dataset] INPE.DETER data from 2nd August 2016 up to the 04th of April 2025
 # Subsetting criteria: forest degradation classes ['CICATRIZ_DE_QUEIMADA', 'CS_DESORDENADO', 'DEGRADACAO'] and view_date until 2020-12-31
 # 'CS_GEOMETRICO' excluded to align with FREL
- 
+
+
 def nbr_deter_amazon_upto2020_prep():
     deteramz = ee.FeatureCollection("projects/ee-whisp/assets/NBR/deter_amz_16apr2025")
-    degradation_classes = ['CICATRIZ_DE_QUEIMADA', 'CS_DESORDENADO', 'DEGRADACAO']
+    degradation_classes = ["CICATRIZ_DE_QUEIMADA", "CS_DESORDENADO", "DEGRADACAO"]
 
     # Add a formatted date field based on VIEW_DATE
     def add_formatted_date(feature):
-        return feature.set('formatted_date', ee.Date(feature.get('VIEW_DATE')))
+        return feature.set("formatted_date", ee.Date(feature.get("VIEW_DATE")))
+
     deteramz = deteramz.map(add_formatted_date)
 
-    deter_deg = deteramz \
-        .filter(ee.Filter.inList('CLASSNAME', degradation_classes)) \
-        .filter(ee.Filter.lt('formatted_date', ee.Date('2020-12-31')))
-   
+    deter_deg = deteramz.filter(
+        ee.Filter.inList("CLASSNAME", degradation_classes)
+    ).filter(ee.Filter.lt("formatted_date", ee.Date("2020-12-31")))
+
     deter_deg_binary = ee.Image().paint(deter_deg, 1)
     return deter_deg_binary.rename("nBR_DETER_forestdegradation_Amazon_upto2020")
 
@@ -927,14 +985,18 @@ def nbr_deter_amazon_upto2020_prep():
 # [Official NFMS dataset] INPE PRODES data up to 2023
 # Subsetting criteria: DN = [21, 22, 23, 61, 62, 63];
 
-# the resulting dataset shows deforestation and conversion of OWL and OL up to 2020 (mostly August 2020), including residues (omission errors corrections) 
+# the resulting dataset shows deforestation and conversion of OWL and OL up to 2020 (mostly August 2020), including residues (omission errors corrections)
+
 
 def nbr_prodes_after2020_prep():
-    prodes = ee.Image('projects/ee-whisp/assets/NBR/prodes_brasil_2023')
-    prodes_post20_dn = [21, 22, 23, 61, 62, 63];
-    prodes_post20_mask = prodes.remap(prodes_post20_dn, [1]*len(prodes_post20_dn))#.eq(1)
+    prodes = ee.Image("projects/ee-whisp/assets/NBR/prodes_brasil_2023")
+    prodes_post20_dn = [21, 22, 23, 61, 62, 63]
+    prodes_post20_mask = prodes.remap(
+        prodes_post20_dn, [1] * len(prodes_post20_dn)
+    )  # .eq(1)
     prodes_post20 = prodes_post20_mask.selfMask()
     return prodes_post20.rename("nBR_PRODES_deforestation_Brazil_post2020")
+
 
 # %%
 # [Official NFMS dataset] INPE.DETER data from 2nd August 2016 up to the 04th of April 2025
@@ -942,20 +1004,21 @@ def nbr_prodes_after2020_prep():
 # 'CS_GEOMETRICO' excluded to align with FREL
 def nbr_deter_amazon_after2020_prep():
     deteramz = ee.FeatureCollection("projects/ee-whisp/assets/NBR/deter_amz_16apr2025")
-    degradation_classes = ['CICATRIZ_DE_QUEIMADA', 'CS_DESORDENADO','DEGRADACAO']
+    degradation_classes = ["CICATRIZ_DE_QUEIMADA", "CS_DESORDENADO", "DEGRADACAO"]
 
     # Add a formatted date field based on VIEW_DATE
     def add_formatted_date(feature):
-        return feature.set('formatted_date', ee.Date(feature.get('VIEW_DATE')))
+        return feature.set("formatted_date", ee.Date(feature.get("VIEW_DATE")))
+
     deteramz = deteramz.map(add_formatted_date)
 
-    deter_deg = deteramz \
-        .filter(ee.Filter.inList('CLASSNAME', degradation_classes)) \
-        .filter(ee.Filter.gt('formatted_date', ee.Date('2021-01-01')))
-   
+    deter_deg = deteramz.filter(
+        ee.Filter.inList("CLASSNAME", degradation_classes)
+    ).filter(ee.Filter.gt("formatted_date", ee.Date("2021-01-01")))
+
     deter_deg_binary = ee.Image().paint(deter_deg, 1)
     return deter_deg_binary.rename("nBR_DETER_forestdegradation_Amazon_after2020")
-    
+
 
 # ########################## NBR commodities - permanent/perennial crops in 2020:###############################
 # [Official NFMS dataset] INPE/EMBRAPA TerraClass land use/cover in the Amazon biome, 2020
@@ -967,7 +1030,7 @@ def nbr_terraclass_amz_cer20_pc_prep():
     tcamz20_pc = tcamz20.eq(12).Or(tcamz20.eq(13))
     tccer20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_cer_2020")
     tccer20_pc = tccer20.eq(12).Or(tccer20.eq(13))
-    tc_pc=ee.ImageCollection([tcamz20_pc,tccer20_pc]).mosaic()
+    tc_pc = ee.ImageCollection([tcamz20_pc, tccer20_pc]).mosaic()
     return tc_pc.rename("nBR_INPE_TCamz_cer_perennial_2020")
 
 
@@ -976,25 +1039,33 @@ def nbr_terraclass_amz_cer20_pc_prep():
 # Subsetting criteria: 'classification_2020' = coffee (DN=46) <================== COFFEE
 # the resulting dataset shows coffee area in 2020
 def nbr_mapbiomasc9_cof_prep():
-    mapbiomasc9_20 = ee.Image('projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1').select('classification_2020')
+    mapbiomasc9_20 = ee.Image(
+        "projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1"
+    ).select("classification_2020")
     mapbiomasc9_20_coffee = mapbiomasc9_20.eq(46)
     return mapbiomasc9_20_coffee.rename("nBR_MapBiomas_col9_coffee_2020")
 
-  # [non-official dataset by MapBiomas multisector initiative]
+
+# [non-official dataset by MapBiomas multisector initiative]
 # land use/cover from 1985 up to 2023, collection 9
 # Subsetting criteria: 'classification_2020' = palm oil (DN=35) <================= PALM OIL
 # the resulting dataset shows palm oil area in 2020
 def nbr_mapbiomasc9_po_prep():
-    mapbiomasc9_20 = ee.Image('projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1').select('classification_2020')
+    mapbiomasc9_20 = ee.Image(
+        "projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1"
+    ).select("classification_2020")
     mapbiomasc9_20_palm = mapbiomasc9_20.eq(35)
     return mapbiomasc9_20_palm.rename("nBR_MapBiomas_col9_palmoil_2020")
 
+
 # [non-official dataset by MapBiomas multisector initiative]
 # land use/cover from 1985 up to 2023, collection 9
-# Subsetting criteria: 'classification_2020' = other perennial crops (DN=48)  
+# Subsetting criteria: 'classification_2020' = other perennial crops (DN=48)
 # the resulting dataset shows citrus and perennial crops other than coffee and palm oil in 2020
 def nbr_mapbiomasc9_pc_prep():
-    mapbiomasc9_20 = ee.Image('projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1').select('classification_2020')
+    mapbiomasc9_20 = ee.Image(
+        "projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1"
+    ).select("classification_2020")
     mapbiomasc9_20_pc = mapbiomasc9_20.eq(35).Or(mapbiomasc9_20.eq(46))
     return mapbiomasc9_20_pc.rename("nBR_MapBiomas_col9_pc_2020")
 
@@ -1011,29 +1082,41 @@ def nbr_terraclass_amz_cer20_ac_prep():
     tcamz20_ac = tcamz20.eq(14).Or(tcamz20.eq(15))
     tccer20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_cer_2020")
     tccer20_ac = tccer20.eq(14).Or(tccer20.eq(15))
-    tc_ac=ee.ImageCollection([tcamz20_ac,tccer20_ac]).mosaic()
+    tc_ac = ee.ImageCollection([tcamz20_ac, tccer20_ac]).mosaic()
     return tc_ac.rename("nBR_INPE_TCamz_cer_annual_2020")
+
 
 # [non-official dataset by MapBiomas multisector initiative]
 # land use/cover from 1985 up to 2023, collection 9
 # Subsetting criteria: 'classification_2020' = soybean (DN=39) <================== SOY
 # the resulting dataset shows soybean plantation area in 2020
 def nbr_mapbiomasc9_soy_prep():
-    mapbiomasc9_20 = ee.Image('projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1').select('classification_2020')
+    mapbiomasc9_20 = ee.Image(
+        "projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1"
+    ).select("classification_2020")
     mapbiomasc9_20_soy = mapbiomasc9_20.eq(39)
     return mapbiomasc9_20_soy.rename("nBR_MapBiomas_col9_soy_2020")
+
 
 # [non-official dataset by MapBiomas multisector initiative]
 # land use/cover from 1985 up to 2023, collection 9
 # Subsetting criteria: 'classification_2020' = other temporary crops (DN=41)
-# Subsetting criteria: 'classification_2020' = sugar cane (DN=20) 
-# Subsetting criteria: 'classification_2020' = rice (DN=40) 
-# Subsetting criteria: 'classification_2020' = cotton (beta version, DN=62) 
+# Subsetting criteria: 'classification_2020' = sugar cane (DN=20)
+# Subsetting criteria: 'classification_2020' = rice (DN=40)
+# Subsetting criteria: 'classification_2020' = cotton (beta version, DN=62)
 # the resulting dataset shows temporary crop area other than soy, includes sugar cane, rice, and cotton
 def nbr_mapbiomasc9_ac_prep():
-    mapbiomasc9_20 = ee.Image('projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1').select('classification_2020')
-    mapbiomasc9_20_ac = mapbiomasc9_20.eq(41).Or(mapbiomasc9_20.eq(20)).Or(mapbiomasc9_20.eq(40)).Or(mapbiomasc9_20.eq(62))
+    mapbiomasc9_20 = ee.Image(
+        "projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1"
+    ).select("classification_2020")
+    mapbiomasc9_20_ac = (
+        mapbiomasc9_20.eq(41)
+        .Or(mapbiomasc9_20.eq(20))
+        .Or(mapbiomasc9_20.eq(40))
+        .Or(mapbiomasc9_20.eq(62))
+    )
     return mapbiomasc9_20_ac.rename("nBR_MapBiomas_col9_annual_crops_2020")
+
 
 # ################################### NBR commodities - pasture/livestock in 2020:##############################
 
@@ -1041,21 +1124,24 @@ def nbr_mapbiomasc9_ac_prep():
 # [Official NFMS dataset] INPE/EMBRAPA TerraClass land use/cover in the Amazon biome, 2020
 # Subsetting criteria: BUSH/SHRUB PASTURE (DN=10) or HERBACEOUS PASTURE (DN=11)
 
-# the resulting dataset shows 2020 pasture area in the Amazon 
+# the resulting dataset shows 2020 pasture area in the Amazon
 def nbr_terraclass_amz20_pasture_prep():
     tcamz20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_amz_2020")
     tcamz20_pasture = tcamz20.eq(10).Or(tcamz20.eq(11))
     return tcamz20_pasture.rename("nBR_INPE_TCamz_pasture_2020")
 
+
 # %%
 # [Official NFMS dataset] INPE/EMBRAPA TerraClass land use/cover in the Cerrado biome, 2020
 # Subsetting criteria: PASTURE (DN=11)
-# the resulting dataset shows 2020 pasture area in the Cerrado 
+# the resulting dataset shows 2020 pasture area in the Cerrado
+
 
 def nbr_terraclass_cer20_ac_prep():
     tccer20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_cer_2020")
     tccer20_pasture = tccer20.eq(11)
     return tccer20_pasture.rename("nBR_INPE_TCcer_pasture_2020")
+
 
 # %%
 # [non-official dataset by MapBiomas multisector initiative]
@@ -1063,14 +1149,16 @@ def nbr_terraclass_cer20_ac_prep():
 # Subsetting criteria: 'classification_2020' = pasture (DN=15)
 # the resulting dataset shows pasture area in 2020 in Brazil
 def nbr_mapbiomasc9_pasture_prep():
-    mapbiomasc9_20 = ee.Image('projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1').select('classification_2020')
+    mapbiomasc9_20 = ee.Image(
+        "projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1"
+    ).select("classification_2020")
     mapbiomasc9_20_pasture = mapbiomasc9_20.eq(15)
     return mapbiomasc9_20_pasture.rename("nBR_MapBiomas_col9_pasture_2020")
 
-  
-  
-################################################################### 
-#nCO - Colombia
+
+###################################################################
+# nCO - Colombia
+
 
 def nco_ideam_forest_2020_prep():
     ideam_forest_raw = ee.Image("projects/ee-whisp/assets/nCO/ideam_2020_geo")
@@ -1080,9 +1168,10 @@ def nco_ideam_forest_2020_prep():
 
 def nco_ideam_agroforest_2020_prep():
     ideam_agroforest_raw = ee.Image("projects/ee-whisp/assets/nCO/ideam_2020_geo_EUFO")
-    ideam_agroforest = ideam_agroforest_raw.eq(4) # get forest class
+    ideam_agroforest = ideam_agroforest_raw.eq(4)  # get forest class
     return ideam_agroforest.rename("nCO_ideam_agroforest_2020")
-    
+
+
 # Cocoa_bnetd
 def nci_ocs2020_prep():
     return (
@@ -1091,6 +1180,7 @@ def nci_ocs2020_prep():
         .eq(9)
         .rename("nCI_Cocoa_bnetd")
     )  # cocoa from national land cover map for Côte d'Ivoire
+
 
 ###Combining datasets
 
