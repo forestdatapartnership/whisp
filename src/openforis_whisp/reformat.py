@@ -24,20 +24,22 @@ cached_file_mtimes = {}
 
 
 def validate_dataframe_using_lookups(
-    df_stats: pd.DataFrame, file_paths: list = None
+    df_stats: pd.DataFrame, file_paths: list = None, national_codes: list = None
 ) -> pd.DataFrame:
     """
     Load the schema if any file in the list has changed and validate the DataFrame against the loaded schema.
+    Optionally filter columns by country code.
 
     Args:
         df_stats (pd.DataFrame): The DataFrame to validate.
         file_paths (list): List of paths to schema files.
+        national_codes (list, optional): List of ISO2 country codes to include.
 
     Returns:
         pd.DataFrame: The validated DataFrame.
     """
     # Load the schema
-    schema = load_schema_if_any_file_changed(file_paths)
+    schema = load_schema_if_any_file_changed(file_paths, national_codes=national_codes)
 
     # Validate the DataFrame
     validated_df = validate_dataframe(df_stats, schema)
@@ -45,9 +47,18 @@ def validate_dataframe_using_lookups(
     return validated_df
 
 
-# NB uses default inputs. If you want to use custom inputs, you can pass them as arguments
-def load_schema_if_any_file_changed(file_paths):
-    """Load schema only if any file in the list has changed."""
+def load_schema_if_any_file_changed(file_paths=None, national_codes=None):
+    """
+    Load schema only if any file in the list has changed,
+    optionally filtering by country codes.
+
+    Args:
+        file_paths (list): List of paths to schema files.
+        national_codes (list, optional): List of ISO2 country codes to include.
+
+    Returns:
+        pa.DataFrameSchema: The schema for validation.
+    """
     global cached_schema, cached_file_mtimes
 
     if file_paths is None:
@@ -56,43 +67,54 @@ def load_schema_if_any_file_changed(file_paths):
             DEFAULT_CONTEXT_LOOKUP_TABLE_PATH,
         ]
 
-    # Flag to indicate if any file has changed
+    # Check if we need to update schema due to changed files
     schema_needs_update = False
-
-    # Check each file's modification time
     for file_path in file_paths:
         current_mtime = os.path.getmtime(file_path)
-
-        # If the file is new or has been modified, mark schema for update
         if (
             file_path not in cached_file_mtimes
             or current_mtime != cached_file_mtimes[file_path]
         ):
             print(f"File {file_path} changed, updating schema...")
             schema_needs_update = True
-            cached_file_mtimes[
-                file_path
-            ] = current_mtime  # Update the modification time
+            cached_file_mtimes[file_path] = current_mtime
 
-    # If any file has changed, update the schema
+    # If any file has changed or schema not cached, update the schema
     if schema_needs_update or cached_schema is None:
-        print("Creating or updating schema based on changed files...")
-        # You can combine the files as needed; here we assume one schema file
-        # If you want to handle multiple schema files differently, adjust this
+        print("Creating schema...")
+        # Combine the lookup files
+        combined_lookup_df = append_csvs_to_dataframe(file_paths)
 
-        # add checks on lookup inputs (i.e. a dataframe in type format: data_lookup_type)
-        combined_lookup_df: data_lookup_type = append_csvs_to_dataframe(
-            file_paths
-        )  # concatonates input lookup files
+        # Filter the lookup DataFrame based on national_codes if provided
+        if national_codes:
+            combined_lookup_df = filter_lookup_by_country_codes(
+                combined_lookup_df, national_codes
+            )
 
-        cached_schema = create_schema_from_dataframe(
-            combined_lookup_df
-        )  # create cached schema
-
+        # Create the schema from the filtered DataFrame
+        cached_schema = create_schema_from_dataframe(combined_lookup_df)
     else:
         print("Using cached schema.")
 
     return cached_schema
+
+
+def _check_files_changed(file_paths):
+    """Check if any file has changed since last check."""
+    global cached_file_mtimes
+
+    schema_needs_update = False
+    for file_path in file_paths:
+        current_mtime = os.path.getmtime(file_path)
+        if (
+            file_path not in cached_file_mtimes
+            or current_mtime != cached_file_mtimes[file_path]
+        ):
+            print(f"File {file_path} changed, updating schema...")
+            schema_needs_update = True
+            cached_file_mtimes[file_path] = current_mtime
+
+    return schema_needs_update
 
 
 def validate_dataframe(
@@ -126,53 +148,53 @@ def validate_dataframe(
     return validated_df
 
 
-def load_schema_if_any_file_changed(file_paths):
-    """Load schema only if any file in the list has changed."""
-    global cached_schema, cached_file_mtimes
+# def load_schema_if_any_file_changed(file_paths):
+#     """Load schema only if any file in the list has changed."""
+#     global cached_schema, cached_file_mtimes
 
-    if file_paths is None:
-        file_paths = [
-            DEFAULT_GEE_DATASETS_LOOKUP_TABLE_PATH,
-            DEFAULT_CONTEXT_LOOKUP_TABLE_PATH,
-        ]
+#     if file_paths is None:
+#         file_paths = [
+#             DEFAULT_GEE_DATASETS_LOOKUP_TABLE_PATH,
+#             DEFAULT_CONTEXT_LOOKUP_TABLE_PATH,
+#         ]
 
-    # Flag to indicate if any file has changed
-    schema_needs_update = False
+#     # Flag to indicate if any file has changed
+#     schema_needs_update = False
 
-    # Check each file's modification time
-    for file_path in file_paths:
-        current_mtime = os.path.getmtime(file_path)
+#     # Check each file's modification time
+#     for file_path in file_paths:
+#         current_mtime = os.path.getmtime(file_path)
 
-        # If the file is new or has been modified, mark schema for update
-        if (
-            file_path not in cached_file_mtimes
-            or current_mtime != cached_file_mtimes[file_path]
-        ):
-            print(f"File {file_path} changed, updating schema...")
-            schema_needs_update = True
-            cached_file_mtimes[
-                file_path
-            ] = current_mtime  # Update the modification time
+#         # If the file is new or has been modified, mark schema for update
+#         if (
+#             file_path not in cached_file_mtimes
+#             or current_mtime != cached_file_mtimes[file_path]
+#         ):
+#             print(f"File {file_path} changed, updating schema...")
+#             schema_needs_update = True
+#             cached_file_mtimes[
+#                 file_path
+#             ] = current_mtime  # Update the modification time
 
-    # If any file has changed, update the schema
-    if schema_needs_update or cached_schema is None:
-        print("Creating or updating schema based on changed files...")
-        # You can combine the files as needed; here we assume one schema file
-        # If you want to handle multiple schema files differently, adjust this
+#     # If any file has changed, update the schema
+#     if schema_needs_update or cached_schema is None:
+#         print("Creating or updating schema based on changed files...")
+#         # You can combine the files as needed; here we assume one schema file
+#         # If you want to handle multiple schema files differently, adjust this
 
-        # add checks on lookup inputs (i.e. a dataframe in type format: data_lookup_type)
-        combined_lookup_df: data_lookup_type = append_csvs_to_dataframe(
-            file_paths
-        )  # concatonates input lookup files
+#         # add checks on lookup inputs (i.e. a dataframe in type format: data_lookup_type)
+#         combined_lookup_df: data_lookup_type = append_csvs_to_dataframe(
+#             file_paths
+#         )  # concatonates input lookup files
 
-        cached_schema = create_schema_from_dataframe(
-            combined_lookup_df
-        )  # create cached schema
+#         cached_schema = create_schema_from_dataframe(
+#             combined_lookup_df
+#         )  # create cached schema
 
-    else:
-        print("Using cached schema.")
+#     else:
+#         print("Using cached schema.")
 
-    return cached_schema
+#     return cached_schema
 
 
 # example code to convert schema to JSON format if want to export (note pandera[io] required)
@@ -344,3 +366,70 @@ def setup_logger(name):
         logger.addHandler(file_handler)
 
     return logger
+
+
+def filter_lookup_by_country_codes(
+    lookup_df: pd.DataFrame, national_codes: list
+) -> pd.DataFrame:
+    """
+    Filter lookup DataFrame to include only:
+    1. Global columns (prefixed with 'g_')
+    2. General columns (not country-specific)
+    3. Country-specific columns matching the provided ISO2 codes
+
+    Args:
+        lookup_df (pd.DataFrame): The lookup DataFrame used to create the schema
+        national_codes (list): List of ISO2 country codes to include
+
+    Returns:
+        pd.DataFrame: Filtered lookup DataFrame
+    """
+    if not national_codes:
+        return lookup_df
+
+    # Normalize national_codes to lowercase for case-insensitive comparison
+    normalized_codes = [
+        code.lower() for code in national_codes if isinstance(code, str)
+    ]
+
+    # Keep track of rows to filter out
+    rows_to_remove = []
+
+    # Process each row in the lookup DataFrame
+    for idx, row in lookup_df.iterrows():
+        col_name = row["name"]
+
+        # Skip if not a column name entry
+        if pd.isna(col_name):
+            continue
+
+        # Always keep global columns (g_) and columns that aren't country-specific
+        if col_name.startswith("g_"):
+            continue
+
+        # Check if this is a country-specific column (nXX_)
+        is_country_column = False
+        matched_country = False
+
+        # Look for pattern nXX_ which would indicate a country-specific column
+        for i in range(len(col_name) - 3):
+            if (
+                col_name[i : i + 1].lower() == "n"
+                and len(col_name) > i + 3
+                and col_name[i + 3 : i + 4] == "_"
+            ):
+                country_code = col_name[i + 1 : i + 3].lower()
+                is_country_column = True
+                if country_code in normalized_codes:
+                    matched_country = True
+                break
+
+        # If it's a country column but doesn't match our list, flag for removal
+        if is_country_column and not matched_country:
+            rows_to_remove.append(idx)
+
+    # Filter out rows for countries not in our list
+    if rows_to_remove:
+        return lookup_df.drop(rows_to_remove)
+
+    return lookup_df
