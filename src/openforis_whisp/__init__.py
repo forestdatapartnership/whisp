@@ -31,7 +31,7 @@ except Exception as e:
 
 from openforis_whisp.datasets import (
     combine_datasets,
-    )
+)
 
 from openforis_whisp.stats import (
     whisp_stats_ee_to_ee,
@@ -49,7 +49,10 @@ from openforis_whisp.stats import (
 )
 
 # temporary parameters to be removed once isio3 to iso2 conversion server side is implemented
-from openforis_whisp.parameters.config_runtime import iso3_country_column, iso2_country_column
+from openforis_whisp.parameters.config_runtime import (
+    iso3_country_column,
+    iso2_country_column,
+)
 
 from openforis_whisp.reformat import (
     validate_dataframe_using_lookups,
@@ -67,6 +70,6 @@ from openforis_whisp.data_conversion import (
     convert_ee_to_geojson,
 )
 
-from openforis_whisp.risk import whisp_risk
+from openforis_whisp.risk import whisp_risk, detect_unit_type
 
 from openforis_whisp.utils import get_example_data_path

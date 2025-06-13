@@ -1,7 +1,7 @@
 whisp
 =====
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/openforis/sepal/blob/master/license.txt)
-[![Privacy Policy](https://img.shields.io/badge/Privacy_Policy-FAO-lightblue.svg)](https://www.fao.org/contact-us/privacy-policy-applications-use/en)
+[![Data Protection Policy](https://img.shields.io/badge/Data_Protection_and_Privacy-FAO-lightblue.svg)](https://www.fao.org/contact-us/data-protection-and-privacy/en/)
 [![DOI](https://img.shields.io/badge/DOI-10.4060%2Fcd0957en-brightgreen.svg)](https://doi.org/10.4060/cd0957en)
 
 
@@ -37,10 +37,12 @@ The Forest Data Partnership promotes this approach for forest and commodities mo
 
 2. [Whisp in Earthmap](https://whisp.earthmap.org/?aoi=WHISP&boundary=plot1&layers=%7B%22CocoaETH%22%3A%7B%22opacity%22%3A1%7D%2C%22JRCForestMask%22%3A%7B%22opacity%22%3A1%7D%2C%22planet_rgb%22%3A%7B%22opacity%22%3A1%2C%22date%22%3A%222020-12%22%7D%7D&map=%7B%22center%22%3A%7B%22lat%22%3A7%2C%22lng%22%3A4%7D%2C%22zoom%22%3A3%2C%22mapType%22%3A%22satellite%22%7D&statisticsOpen=true) supports the visualization of geometries on actual maps with the possibility to toggle different relevant map products around tree cover, commodities and deforestation. It is practical for demonstration purposes and spot checks of single geometries but not recommended for larger datasets.
 
-3. Datasets of any size, especially when holding more than 1000 geometries, can be "whisped" through the [python package on pip](https://pypi.org/project/openforis-whisp/). See example [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/Colab_whisp_geojson_to_csv.ipynb) for implementation with a geojson input. For the detailed procedure please go to the section [Whisp notebooks](#whisp_notebooks).
+3. Datasets of any size, especially when holding more than 1000 geometries, can be analyzed with Whisp through the [python package on pip](https://pypi.org/project/openforis-whisp/). See example [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/Colab_whisp_geojson_to_csv.ipynb) for implementation with a geojson input. For the detailed procedure please go to the section [Whisp notebooks](#whisp_notebooks).
 
 
 ## Whisp datasets <a name="whisp_datasets"></a>
+All output columns from Whisp are described in [this excel file](https://github.com/forestdatapartnership/whisp/blob/main/whisp_columns.xlsx)
+
 ***Whisp***  implements the convergence of evidence approach by providing a transparent and public processing flow using datasets covering the following categories:
 
 1) Tree and forest cover (at the end of 2020);
@@ -66,8 +68,33 @@ Now, if the datasets under 1., 2. & 3. indicate that there was tree cover, but n
 However, under the same circumstances but with <u>no</u> disturbances reported after 2020-12-31 there is insufficient evidence and the **Whisp output will be "More info needed".** Such can be the case for, e.g., cocoa or coffee grown under the shade of treecover or agroforestry.
 
 
-*The Whisp algorithm visualized:*
+*The Whisp algorithm for **Perennial Crops** visualized:*
 ![CoE_Graphic 5](https://github.com/user-attachments/assets/007b5f50-3939-4707-95fa-98be4d56745f)
+The Whisp algorithm outputs multiple statistical columns with disaggregated data from the input datasets, followed by aggregated indicator columns, and the final risk assessment columns. 
+
+The **relevant risk assessment column depends on the commodity** in question:
+<table>
+  <tr>
+    <th>Commodity</th>
+    <th>Risk Assessment Column</th>
+  </tr>
+  <tr>
+    <td>Coffee</td>
+    <td rowspan="4">Risk_PCrop</td>
+  </tr>
+  <tr><td>Cocoa</td></tr>
+  <tr><td>Rubber</td></tr>
+  <tr><td>Oil palm</td></tr>
+  <tr><td>Soy</td><td>Risk_ACrop</td></tr>
+  <tr><td>Livestock</td><td>Risk_Livestock</td></tr>
+  <tr><td>Timber</td><td>Risk_Timber</td></tr>
+</table>
+
+<br>
+The decision tree for the timber risk assessment slightly differs from the above. For more information see below.
+
+
+
 
 ## Whisp datasets for timber <a name="whisp_datasets_timber"></a>
 ***Whisp***  implements the convergence of evidence approach by providing a transparent and public processing flow using datasets covering the following categories:

@@ -13,6 +13,7 @@ Cocoa_FDaP,110,,commodities,,1,1,0,float32,1,0,fdap_cocoa
 Cocoa_ETH,120,,commodities,,1,1,0,float32,1,0,eth_kalischek_cocoa_prep
 Rubber_FDaP,140,,commodities,,1,1,0,float32,1,0,fdap_rubber_prep
 Rubber_RBGE,150,,commodities,,1,1,0,float32,1,0,rbge_rubber_prep
+Soy_song_2020_prep,160,,commodities,,1,1,0,float32,1,0,soy_song_2020_prep
 TMF_def_2000,180,,disturbance_before,,0,0,0,float32,1,0,tmf_def_per_year_prep
 TMF_def_2001,190,,disturbance_before,,0,0,0,float32,1,0,tmf_def_per_year_prep
 TMF_def_2002,200,,disturbance_before,,0,0,0,float32,1,0,tmf_def_per_year_prep
@@ -193,5 +194,4 @@ nBR_MapBiomas_col9_annual_crops_2020,2421,BR,commodities,,1,1,0,float32,1,0,nbr_
 nBR_INPE_TCamz_pasture_2020,2422,BR,commodities,,1,1,0,float32,1,0,nbr_terraclass_amz20_pasture_prep
 nBR_INPE_TCcer_pasture_2020,2423,BR,commodities,,1,1,0,float32,1,0,nbr_terraclass_cer20_ac_prep
 nBR_MapBiomas_col9_pasture_2020,2424,BR,commodities,,1,1,0,float32,1,0,nbr_mapbiomasc9_pasture_prep
-nBR_soy_song_2020_prep,2425,,commodities,,1,1,0,float32,1,0,nbr_soy_song_2020_prep
 nCI_Cocoa_bnetd,3000,CI,commodities,,1,1,0,float32,1,0,nci_ocs2020_prep
