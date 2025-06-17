@@ -46,6 +46,8 @@ from openforis_whisp.stats import (
     whisp_formatted_stats_geojson_to_df,
     whisp_formatted_stats_geojson_to_geojson,
     convert_iso3_to_iso2,
+    create_geojson,
+    reformat_geojson_properties,
 )
 
 # temporary parameters to be removed once isio3 to iso2 conversion server side is implemented

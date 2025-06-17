@@ -4,6 +4,16 @@ from pathlib import Path
 from .datasets import combine_datasets
 import json
 import country_converter as coco
+
+import geopandas as gpd  # for random polygon generation in tests
+import random  # for random polygon generation in tests
+import math  # for random polygon generation in tests
+import numpy as np  # for random polygon generation in tests
+from shapely.geometry import Polygon  # for random polygon generation in tests
+from shapely.validation import make_valid
+from shapely.geometry import mapping  # for random polygon generation in tests
+
+
 from openforis_whisp.parameters.config_runtime import (
     plot_id_column,
     geo_id_column,
@@ -951,3 +961,323 @@ def convert_iso3_to_iso2(df, iso3_column, iso2_column):
     )
 
     return df
+
+
+def generate_random_polygon(
+    min_lon, min_lat, max_lon, max_lat, min_area_ha=1, max_area_ha=10, vertex_count=20
+):
+    """
+    Generate a random polygon within bounds with approximate area in the specified range.
+    Uses a robust approach that works well with high vertex counts and never falls back to squares.
+
+    Args:
+        min_lon, min_lat, max_lon, max_lat: Boundary coordinates
+        min_area_ha: Minimum area in hectares
+        max_area_ha: Maximum area in hectares
+        vertex_count: Number of vertices for the polygon
+    """
+    # Initialize variables to ensure they're always defined
+    poly = None
+    actual_area_ha = 0
+
+    # Simple function to approximate area in hectares (much faster)
+    def approximate_area_ha(polygon, center_lat):
+        # Get area in square degrees
+        area_sq_degrees = polygon.area
+
+        # Approximate conversion factor from square degrees to hectares
+        # This varies with latitude due to the Earth's curvature
+        lat_factor = 111320  # meters per degree latitude (approximately)
+        lon_factor = 111320 * math.cos(
+            math.radians(center_lat)
+        )  # meters per degree longitude
+
+        # Convert to square meters, then to hectares (1 ha = 10,000 sq m)
+        return area_sq_degrees * lat_factor * lon_factor / 10000
+
+    # Target area in hectares
+    target_area_ha = random.uniform(min_area_ha, max_area_ha)
+
+    # Select a center point within the bounds
+    center_lon = random.uniform(min_lon, max_lon)
+    center_lat = random.uniform(min_lat, max_lat)
+
+    # Initial size estimate (in degrees)
+    # Rough approximation: 0.01 degrees ~ 1km at equator
+    initial_radius = math.sqrt(target_area_ha / (math.pi * 100)) * 0.01
+
+    # Avoid generating too many points initially - cap vertex count for stability
+    effective_vertex_count = min(
+        vertex_count, 100
+    )  # Cap at 100 to avoid performance issues
+
+    # Primary approach: Create polygon using convex hull approach
+    for attempt in range(5):  # First method gets 5 attempts
+        try:
+            # Generate random points in a circle around center with varying distance
+            thetas = np.linspace(0, 2 * math.pi, effective_vertex_count, endpoint=False)
+
+            # Add randomness to angles - smaller randomness for higher vertex counts
+            angle_randomness = min(0.2, 2.0 / effective_vertex_count)
+            thetas += np.random.uniform(
+                -angle_randomness, angle_randomness, size=effective_vertex_count
+            )
+
+            # Randomize distances from center - less extreme for high vertex counts
+            distance_factor = min(0.3, 3.0 / effective_vertex_count) + 0.7
+            distances = initial_radius * np.random.uniform(
+                1.0 - distance_factor / 2,
+                1.0 + distance_factor / 2,
+                size=effective_vertex_count,
+            )
+
+            # Convert to cartesian coordinates
+            xs = center_lon + distances * np.cos(thetas)
+            ys = center_lat + distances * np.sin(thetas)
+
+            # Ensure points are within bounds
+            xs = np.clip(xs, min_lon, max_lon)
+            ys = np.clip(ys, min_lat, max_lat)
+
+            # Create vertices list
+            vertices = list(zip(xs, ys))
+
+            # Close the polygon
+            if vertices[0] != vertices[-1]:
+                vertices.append(vertices[0])
+
+            # Create polygon
+            poly = Polygon(vertices)
+
+            # Ensure it's valid
+            if not poly.is_valid:
+                poly = make_valid(poly)
+                if poly.geom_type != "Polygon":
+                    # If not a valid polygon, we'll try again
+                    continue
+
+            # Calculate approximate area
+            actual_area_ha = approximate_area_ha(poly, center_lat)
+
+            # Check if within target range
+            if min_area_ha * 0.8 <= actual_area_ha <= max_area_ha * 1.2:
+                return poly, actual_area_ha
+
+            # Adjust size for next attempt based on ratio
+            if actual_area_ha > 0:  # Avoid division by zero
+                scale_factor = math.sqrt(target_area_ha / actual_area_ha)
+                initial_radius *= scale_factor
+
+        except Exception as e:
+            print(f"Error in convex hull method (attempt {attempt+1}): {e}")
+
+    # Second approach: Star-like pattern with controlled randomness
+    # This is a fallback that will still create an irregular polygon, not a square
+    for attempt in range(5):  # Second method gets 5 attempts
+        try:
+            # Use fewer vertices for stability in the fallback
+            star_vertex_count = min(15, vertex_count)
+            vertices = []
+
+            # Create a star-like pattern with two radiuses
+            for i in range(star_vertex_count):
+                angle = 2 * math.pi * i / star_vertex_count
+
+                # Alternate between two distances to create star-like shape
+                if i % 2 == 0:
+                    distance = initial_radius * random.uniform(0.7, 0.9)
+                else:
+                    distance = initial_radius * random.uniform(0.5, 0.6)
+
+                # Add some irregularity to angles
+                angle += random.uniform(-0.1, 0.1)
+
+                # Calculate vertex position
+                lon = center_lon + distance * math.cos(angle)
+                lat = center_lat + distance * math.sin(angle)
+
+                # Ensure within bounds
+                lon = min(max(lon, min_lon), max_lon)
+                lat = min(max(lat, min_lat), max_lat)
+
+                vertices.append((lon, lat))
+
+            # Close the polygon
+            vertices.append(vertices[0])
+
+            # Create polygon
+            poly = Polygon(vertices)
+            if not poly.is_valid:
+                poly = make_valid(poly)
+                if poly.geom_type != "Polygon":
+                    continue
+
+            actual_area_ha = approximate_area_ha(poly, center_lat)
+
+            # We're less picky about size at this point, just return it
+            if actual_area_ha > 0:
+                return poly, actual_area_ha
+
+            # Still try to adjust if we get another attempt
+            if actual_area_ha > 0:
+                scale_factor = math.sqrt(target_area_ha / actual_area_ha)
+                initial_radius *= scale_factor
+
+        except Exception as e:
+            print(f"Error in star pattern method (attempt {attempt+1}): {e}")
+
+    # Last resort - create a perturbed circle (never a square)
+    try:
+        # Create a circle-like shape with small perturbations
+        final_vertices = []
+        perturbed_vertex_count = 8  # Use a modest number for stability
+
+        for i in range(perturbed_vertex_count):
+            angle = 2 * math.pi * i / perturbed_vertex_count
+            # Small perturbation
+            distance = initial_radius * random.uniform(0.95, 1.05)
+
+            # Calculate vertex position
+            lon = center_lon + distance * math.cos(angle)
+            lat = center_lat + distance * math.sin(angle)
+
+            # Ensure within bounds
+            lon = min(max(lon, min_lon), max_lon)
+            lat = min(max(lat, min_lat), max_lat)
+
+            final_vertices.append((lon, lat))
+
+        # Close the polygon
+        final_vertices.append(final_vertices[0])
+
+        # Create polygon
+        poly = Polygon(final_vertices)
+        if not poly.is_valid:
+            poly = make_valid(poly)
+
+        actual_area_ha = approximate_area_ha(poly, center_lat)
+
+    except Exception as e:
+        print(f"Error in final fallback method: {e}")
+        # If absolutely everything fails, create the simplest valid polygon (triangle)
+        # This is different from a square and should be more compatible with your code
+        offset = initial_radius / 2
+        poly = Polygon(
+            [
+                (center_lon, center_lat + offset),
+                (center_lon + offset, center_lat - offset),
+                (center_lon - offset, center_lat - offset),
+                (center_lon, center_lat + offset),
+            ]
+        )
+        actual_area_ha = approximate_area_ha(poly, center_lat)
+
+    # Return whatever we've created - never a simple square
+    return poly, actual_area_ha
+
+
+def generate_properties(area_ha, index):
+    """
+    Generate properties for features with sequential internal_id
+
+    Args:
+        area_ha: Area in hectares of the polygon
+        index: Index of the feature to use for sequential ID
+    """
+    return {
+        "internal_id": index + 1,  # Create sequential IDs starting from 1
+    }
+
+
+def create_geojson(
+    bounds,
+    num_polygons=25,
+    min_area_ha=1,
+    max_area_ha=10,
+    min_number_vert=10,
+    max_number_vert=20,
+):
+    """Create a GeoJSON file with random polygons within area range"""
+    min_lon, min_lat, max_lon, max_lat = bounds
+    # min_number_vert = 15
+    # max_number_vert = 20
+
+    features = []
+    for i in range(num_polygons):
+        # Random vertex count between 4 and 8
+        # vertices = random.randint(4, 8)
+        vertices = random.randint(min_number_vert, max_number_vert)
+
+        # Generate polygon with area control
+        polygon, actual_area = generate_random_polygon(
+            min_lon,
+            min_lat,
+            max_lon,
+            max_lat,
+            min_area_ha=min_area_ha,
+            max_area_ha=max_area_ha,
+            vertex_count=vertices,
+        )
+
+        # Create GeoJSON feature with actual area
+        properties = generate_properties(actual_area, index=i)
+        feature = {
+            "type": "Feature",
+            "properties": properties,
+            "geometry": mapping(polygon),
+        }
+
+        features.append(feature)
+
+    # Create the GeoJSON feature collection
+    geojson = {"type": "FeatureCollection", "features": features}
+
+    return geojson
+
+
+def reformat_geojson_properties(
+    geojson_path,
+    output_path=None,
+    id_field="internal_id",
+    start_index=1,
+    remove_properties=False,
+    add_uuid=False,
+):
+    """
+    Add numeric IDs to features in an existing GeoJSON file and optionally remove properties.
+
+    Args:
+        geojson_path: Path to input GeoJSON file
+        output_path: Path to save the output GeoJSON (if None, overwrites input)
+        id_field: Name of the ID field to add
+        start_index: Starting index for sequential IDs
+        remove_properties: Whether to remove all existing properties (default: False)
+        add_uuid: Whether to also add UUID field
+
+    Returns:
+        GeoDataFrame with updated features
+    """
+
+    # Read the GeoJSON
+    # print(f"Reading GeoJSON file: {geojson_path}")
+    gdf = gpd.read_file(geojson_path)
+
+    # Remove existing properties if requested
+    if remove_properties:
+        # Keep only the geometry column and drop all other columns
+        gdf = gdf[["geometry"]].copy()
+        # print(f"Removed all existing properties from features")
+
+    # Add sequential numeric IDs
+    gdf[id_field] = [i + start_index for i in range(len(gdf))]
+
+    # Optionally add UUIDs
+    if add_uuid:
+        gdf["uuid"] = [str(uuid.uuid4()) for _ in range(len(gdf))]
+
+    # Write the GeoJSON with added IDs
+    output_path = output_path or geojson_path
+    gdf.to_file(output_path, driver="GeoJSON")
+    print(f"Added {id_field} to GeoJSON and saved to {output_path}")
+
+    return None
