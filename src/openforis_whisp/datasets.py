@@ -209,7 +209,7 @@ def g_eth_kalischek_cocoa_prep():
 # Oil Palm FDaP
 def g_fdap_palm_prep():
     fdap_palm2020_model_raw = ee.ImageCollection(
-        "projects/forestdatapartnership/assets/palm/model_2024a"
+        "projects/forestdatapartnership/assets/palm/model_2025a"
     )
     fdap_palm = (
         fdap_palm2020_model_raw.filterDate("2020-01-01", "2020-12-31")
@@ -221,7 +221,7 @@ def g_fdap_palm_prep():
 
 def g_fdap_palm_2023_prep():
     fdap_palm2020_model_raw = ee.ImageCollection(
-        "projects/forestdatapartnership/assets/palm/model_2024a"
+        "projects/forestdatapartnership/assets/palm/model_2025a"
     )
     fdap_palm = (
         fdap_palm2020_model_raw.filterDate("2023-01-01", "2023-12-31")
@@ -234,7 +234,7 @@ def g_fdap_palm_2023_prep():
 # Rubber FDaP
 def g_fdap_rubber_prep():
     fdap_rubber2020_model_raw = ee.ImageCollection(
-        "projects/forestdatapartnership/assets/rubber/model_2024a"
+        "projects/forestdatapartnership/assets/rubber/model_2025a"
     )
     fdap_rubber = (
         fdap_rubber2020_model_raw.filterDate("2020-01-01", "2020-12-31")
@@ -246,7 +246,7 @@ def g_fdap_rubber_prep():
 
 def g_fdap_rubber_2023_prep():
     fdap_rubber2020_model_raw = ee.ImageCollection(
-        "projects/forestdatapartnership/assets/rubber/model_2024a"
+        "projects/forestdatapartnership/assets/rubber/model_2025a"
     )
     fdap_rubber = (
         fdap_rubber2020_model_raw.filterDate("2023-01-01", "2023-12-31")
@@ -259,7 +259,7 @@ def g_fdap_rubber_2023_prep():
 # Cocoa FDaP
 def g_fdap_cocoa_prep():
     fdap_cocoa2020_model_raw = ee.ImageCollection(
-        "projects/forestdatapartnership/assets/cocoa/model_2024a"
+        "projects/forestdatapartnership/assets/cocoa/model_2025a"
     )
     fdap_cocoa = (
         fdap_cocoa2020_model_raw.filterDate("2020-01-01", "2020-12-31")
@@ -271,7 +271,7 @@ def g_fdap_cocoa_prep():
 
 def g_fdap_cocoa_2023_prep():
     fdap_cocoa2020_model_raw = ee.ImageCollection(
-        "projects/forestdatapartnership/assets/cocoa/model_2024a"
+        "projects/forestdatapartnership/assets/cocoa/model_2025a"
     )
     fdap_cocoa = (
         fdap_cocoa2020_model_raw.filterDate("2023-01-01", "2023-12-31")
