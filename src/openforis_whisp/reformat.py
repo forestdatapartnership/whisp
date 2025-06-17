@@ -3,7 +3,7 @@ import pandera as pa
 import pandas as pd
 import os
 import logging
-
+from pathlib import Path  # Add this import
 
 from openforis_whisp.logger import StdoutLogger, FileLogger
 
@@ -48,18 +48,7 @@ def validate_dataframe_using_lookups(
 
 
 def load_schema_if_any_file_changed(file_paths=None, national_codes=None):
-    """
-    Load schema only if any file in the list has changed,
-    optionally filtering by country codes.
-
-    Args:
-        file_paths (list): List of paths to schema files.
-        national_codes (list, optional): List of ISO2 country codes to include.
-
-    Returns:
-        pa.DataFrameSchema: The schema for validation.
-    """
-    global cached_schema, cached_file_mtimes
+    """Load schema if files changed OR if national_codes changed"""
 
     if file_paths is None:
         file_paths = [
@@ -67,54 +56,53 @@ def load_schema_if_any_file_changed(file_paths=None, national_codes=None):
             DEFAULT_CONTEXT_LOOKUP_TABLE_PATH,
         ]
 
-    # Check if we need to update schema due to changed files
-    schema_needs_update = False
+    # Include national_codes in cache key (including None case)
+    cache_key_parts = []
     for file_path in file_paths:
-        current_mtime = os.path.getmtime(file_path)
-        if (
-            file_path not in cached_file_mtimes
-            or current_mtime != cached_file_mtimes[file_path]
-        ):
-            print(f"File {file_path} changed, updating schema...")
-            schema_needs_update = True
-            cached_file_mtimes[file_path] = current_mtime
+        if Path(file_path).exists():
+            mtime = Path(file_path).stat().st_mtime
+            cache_key_parts.append(f"{file_path}:{mtime}")
+        else:
+            cache_key_parts.append(f"{file_path}:missing")
 
-    # If any file has changed or schema not cached, update the schema
-    if schema_needs_update or cached_schema is None:
-        print("Creating schema...")
-        # Combine the lookup files
+    # Always include national_codes in cache key (even if None)
+    national_codes_key = (
+        str(sorted(national_codes)) if national_codes else "no_countries"
+    )
+    cache_key_parts.append(f"national_codes:{national_codes_key}")
+
+    current_cache_key = "|".join(cache_key_parts)
+
+    # Check cache
+    if (
+        not hasattr(load_schema_if_any_file_changed, "_cached_schema")
+        or not hasattr(load_schema_if_any_file_changed, "_last_cache_key")
+        or load_schema_if_any_file_changed._last_cache_key != current_cache_key
+    ):
+
+        print(f"Creating schema for national_codes: {national_codes}")
+
+        # Load and combine lookup files
         combined_lookup_df = append_csvs_to_dataframe(file_paths)
 
-        # Filter the lookup DataFrame based on national_codes if provided
-        if national_codes:
-            combined_lookup_df = filter_lookup_by_country_codes(
-                combined_lookup_df, national_codes
-            )
+        # ALWAYS filter by national codes (even if None - this removes all country columns)
+        filtered_lookup_df = filter_lookup_by_country_codes(
+            lookup_df=combined_lookup_df,
+            filter_col="ISO2_code",
+            national_codes=national_codes,
+        )
 
-        # Create the schema from the filtered DataFrame
-        cached_schema = create_schema_from_dataframe(combined_lookup_df)
+        # Create schema from filtered lookup
+        schema = create_schema_from_dataframe(filtered_lookup_df)
+
+        # Cache the results
+        load_schema_if_any_file_changed._cached_schema = schema
+        load_schema_if_any_file_changed._last_cache_key = current_cache_key
+
+        return schema
     else:
-        print("Using cached schema.")
-
-    return cached_schema
-
-
-def _check_files_changed(file_paths):
-    """Check if any file has changed since last check."""
-    global cached_file_mtimes
-
-    schema_needs_update = False
-    for file_path in file_paths:
-        current_mtime = os.path.getmtime(file_path)
-        if (
-            file_path not in cached_file_mtimes
-            or current_mtime != cached_file_mtimes[file_path]
-        ):
-            print(f"File {file_path} changed, updating schema...")
-            schema_needs_update = True
-            cached_file_mtimes[file_path] = current_mtime
-
-    return schema_needs_update
+        print(f"Using cached schema for national_codes: {national_codes}")
+        return load_schema_if_any_file_changed._cached_schema
 
 
 def validate_dataframe(
@@ -146,61 +134,6 @@ def validate_dataframe(
     validated_df = validated_df.reindex(schema.columns.keys(), axis=1)
 
     return validated_df
-
-
-# def load_schema_if_any_file_changed(file_paths):
-#     """Load schema only if any file in the list has changed."""
-#     global cached_schema, cached_file_mtimes
-
-#     if file_paths is None:
-#         file_paths = [
-#             DEFAULT_GEE_DATASETS_LOOKUP_TABLE_PATH,
-#             DEFAULT_CONTEXT_LOOKUP_TABLE_PATH,
-#         ]
-
-#     # Flag to indicate if any file has changed
-#     schema_needs_update = False
-
-#     # Check each file's modification time
-#     for file_path in file_paths:
-#         current_mtime = os.path.getmtime(file_path)
-
-#         # If the file is new or has been modified, mark schema for update
-#         if (
-#             file_path not in cached_file_mtimes
-#             or current_mtime != cached_file_mtimes[file_path]
-#         ):
-#             print(f"File {file_path} changed, updating schema...")
-#             schema_needs_update = True
-#             cached_file_mtimes[
-#                 file_path
-#             ] = current_mtime  # Update the modification time
-
-#     # If any file has changed, update the schema
-#     if schema_needs_update or cached_schema is None:
-#         print("Creating or updating schema based on changed files...")
-#         # You can combine the files as needed; here we assume one schema file
-#         # If you want to handle multiple schema files differently, adjust this
-
-#         # add checks on lookup inputs (i.e. a dataframe in type format: data_lookup_type)
-#         combined_lookup_df: data_lookup_type = append_csvs_to_dataframe(
-#             file_paths
-#         )  # concatonates input lookup files
-
-#         cached_schema = create_schema_from_dataframe(
-#             combined_lookup_df
-#         )  # create cached schema
-
-#     else:
-#         print("Using cached schema.")
-
-#     return cached_schema
-
-
-# example code to convert schema to JSON format if want to export (note pandera[io] required)
-# cached_schema.to_yaml(output_file_path)
-
-# loaded_schema = io.from_yaml(output_file_path)
 
 
 def append_csvs_to_dataframe(csv_paths):
@@ -368,68 +301,195 @@ def setup_logger(name):
     return logger
 
 
+# def filter_lookup_by_country_codes(
+#     lookup_df: pd.DataFrame, national_codes: list
+# ) -> pd.DataFrame:
+#     """
+#     Filter lookup DataFrame to include only:
+#     1. Global columns (prefixed with 'g_')
+#     2. General columns (not country-specific)
+#     3. Country-specific columns matching the provided ISO2 codes
+
+#     Args:
+#         lookup_df (pd.DataFrame): The lookup DataFrame used to create the schema
+#         national_codes (list): List of ISO2 country codes to include
+
+#     Returns:
+#         pd.DataFrame: Filtered lookup DataFrame
+#     """
+#     if not national_codes:
+#         return lookup_df
+
+#     # Normalize national_codes to lowercase for case-insensitive comparison
+#     normalized_codes = [
+#         code.lower() for code in national_codes if isinstance(code, str)
+#     ]
+
+#     # Keep track of rows to filter out
+#     rows_to_remove = []
+
+#     # Process each row in the lookup DataFrame
+#     for idx, row in lookup_df.iterrows():
+#         col_name = row["name"]
+
+#         # Skip if not a column name entry
+#         if pd.isna(col_name):
+#             continue
+
+#         # Always keep global columns (g_) and columns that aren't country-specific
+#         if col_name.startswith("g_"):
+#             continue
+
+#         # Check if this is a country-specific column (nXX_)
+#         is_country_column = False
+#         matched_country = False
+
+#         # Look for pattern nXX_ which would indicate a country-specific column
+#         for i in range(len(col_name) - 3):
+#             if (
+#                 col_name[i : i + 1].lower() == "n"
+#                 and len(col_name) > i + 3
+#                 and col_name[i + 3 : i + 4] == "_"
+#             ):
+#                 country_code = col_name[i + 1 : i + 3].lower()
+#                 is_country_column = True
+#                 if country_code in normalized_codes:
+#                     matched_country = True
+#                 break
+
+#         # If it's a country column but doesn't match our list, flag for removal
+#         if is_country_column and not matched_country:
+#             rows_to_remove.append(idx)
+
+#     # Filter out rows for countries not in our list
+#     if rows_to_remove:
+#         return lookup_df.drop(rows_to_remove)
+
+# #     return lookup_df
+# def filter_lookup_by_country_codes(
+#     lookup_df: pd.DataFrame, national_codes: list = None
+# ) -> pd.DataFrame:
+#     """
+#     Filter lookup DataFrame to include only:
+#     1. Global columns (prefixed with 'g_')
+#     2. General columns (not country-specific)
+#     3. Country-specific columns matching the provided ISO2 codes (if national_codes provided)
+
+#     If no national_codes are provided, ALL country-specific columns are filtered out.
+
+#     Args:
+#         lookup_df (pd.DataFrame): The lookup DataFrame used to create the schema
+#         national_codes (list, optional): List of ISO2 country codes to include.
+#                                        If None, all country-specific columns are removed.
+
+#     Returns:
+#         pd.DataFrame: Filtered lookup DataFrame
+#     """
+
+#     # Normalize national_codes to lowercase for case-insensitive comparison
+#     if national_codes:
+#         normalized_codes = [
+#             code.lower() for code in national_codes if isinstance(code, str)
+#         ]
+#     else:
+#         normalized_codes = []
+
+#     # Keep track of rows to remove
+#     rows_to_remove = []
+
+#     # Process each row in the lookup DataFrame
+#     for idx, row in lookup_df.iterrows():
+#         col_name = row["name"]
+
+#         # Skip if not a column name entry
+#         if pd.isna(col_name):
+#             continue
+
+#         # Always keep global columns (g_) and general columns
+#         if col_name.startswith("g_"):
+#             continue
+
+#         # Check if this is a country-specific column (nXX_)
+#         is_country_column = False
+#         matched_country = False
+
+#         # Look for pattern nXX_ which indicates a country-specific column
+#         for i in range(len(col_name) - 3):
+#             if (
+#                 col_name[i : i + 1].lower() == "n"
+#                 and len(col_name) > i + 3
+#                 and col_name[i + 3 : i + 4] == "_"
+#             ):
+#                 country_code = col_name[i + 1 : i + 3].lower()
+#                 is_country_column = True
+
+#                 # Only match if we have national_codes AND this country is in the list
+#                 if national_codes and country_code in normalized_codes:
+#                     matched_country = True
+#                 break
+
+#         # Remove country-specific columns that don't match our criteria:
+#         # - If no national_codes provided: remove ALL country columns
+#         # - If national_codes provided: remove country columns NOT in the list
+#         if is_country_column and not matched_country:
+#             rows_to_remove.append(idx)
+
+#     # Filter out flagged rows
+#     if rows_to_remove:
+#         print(f"Filtering out {(rows_to_remove)} country-specific row(s) not matching criteria")
+#         filtered_df = lookup_df.drop(rows_to_remove)
+
+#         # Filter out flagged rows
+#     if rows_to_remove:
+#         # Create detailed debug info
+#         removed_rows_info = []
+#         for idx in rows_to_remove:
+#             row_name = lookup_df.loc[idx, "name"]
+#             removed_rows_info.append({
+#                 'index': idx,
+#                 'name': row_name
+#             })
+
+#         # Extract just the column names for easy viewing
+#         removed_column_names = [info['name'] for info in removed_rows_info]
+
+
+#         print(f"Filtered out {len(rows_to_remove)} country-specific row(s) not matching criteria")
+#         print(f"Removed column names: {removed_column_names}")
+#         return filtered_df
+
+#     return lookup_df
+
+
 def filter_lookup_by_country_codes(
-    lookup_df: pd.DataFrame, national_codes: list
-) -> pd.DataFrame:
-    """
-    Filter lookup DataFrame to include only:
-    1. Global columns (prefixed with 'g_')
-    2. General columns (not country-specific)
-    3. Country-specific columns matching the provided ISO2 codes
+    lookup_df: pd.DataFrame, filter_col, national_codes: list = None
+):
+    """Filter by actual ISO2 column values instead of column name patterns"""
 
-    Args:
-        lookup_df (pd.DataFrame): The lookup DataFrame used to create the schema
-        national_codes (list): List of ISO2 country codes to include
-
-    Returns:
-        pd.DataFrame: Filtered lookup DataFrame
-    """
     if not national_codes:
-        return lookup_df
+        # Remove all rows with country codes
+        rows_with_country_codes = ~lookup_df[filter_col].isna()
+        removed_names = lookup_df[rows_with_country_codes]["name"].tolist()
+        logger.debug(
+            f"No national codes provided - removing {len(removed_names)} rows with country codes"
+        )
+        logger.debug(f"Removed column names: {removed_names}")
+        return lookup_df[lookup_df[filter_col].isna()]
 
-    # Normalize national_codes to lowercase for case-insensitive comparison
-    normalized_codes = [
-        code.lower() for code in national_codes if isinstance(code, str)
-    ]
+    logger.debug(f"Filtering for national codes: {national_codes}")
+    logger.debug(f"Total rows before filtering: {len(lookup_df)}")
 
-    # Keep track of rows to filter out
-    rows_to_remove = []
+    # Keep rows with no country code (global) OR matching country codes
+    normalized_codes = [code.lower() for code in national_codes]
 
-    # Process each row in the lookup DataFrame
-    for idx, row in lookup_df.iterrows():
-        col_name = row["name"]
+    mask = lookup_df[filter_col].isna() | lookup_df[  # Global datasets
+        filter_col
+    ].str.lower().isin(
+        normalized_codes
+    )  # Matching countries
 
-        # Skip if not a column name entry
-        if pd.isna(col_name):
-            continue
+    logger.debug(
+        f"Filtering lookup by country codes: {national_codes}, keeping {mask.sum()} rows"
+    )
 
-        # Always keep global columns (g_) and columns that aren't country-specific
-        if col_name.startswith("g_"):
-            continue
-
-        # Check if this is a country-specific column (nXX_)
-        is_country_column = False
-        matched_country = False
-
-        # Look for pattern nXX_ which would indicate a country-specific column
-        for i in range(len(col_name) - 3):
-            if (
-                col_name[i : i + 1].lower() == "n"
-                and len(col_name) > i + 3
-                and col_name[i + 3 : i + 4] == "_"
-            ):
-                country_code = col_name[i + 1 : i + 3].lower()
-                is_country_column = True
-                if country_code in normalized_codes:
-                    matched_country = True
-                break
-
-        # If it's a country column but doesn't match our list, flag for removal
-        if is_country_column and not matched_country:
-            rows_to_remove.append(idx)
-
-    # Filter out rows for countries not in our list
-    if rows_to_remove:
-        return lookup_df.drop(rows_to_remove)
-
-    return lookup_df
+    return lookup_df[mask]
