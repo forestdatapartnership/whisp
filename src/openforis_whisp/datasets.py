@@ -191,13 +191,6 @@ def g_creaf_descals_palm_prep():
     plantation_2020 = oil_palm_plantation_year.lte(2020).selfMask()
     return plantation_2020.rename("Oil_palm_Descals")
 
-    # Calculate the year of plantation
-    oil_palm_plantation_year = img.divide(365).add(1970).floor().lte(2020)
-
-    # Create a mask for plantations in the year 2020 or earlier
-    plantation_2020 = oil_palm_plantation_year.lte(2020).selfMask()
-    return plantation_2020.rename("Oil_palm_Descals")
-
 
 # Cocoa_ETH
 def g_eth_kalischek_cocoa_prep():
@@ -205,6 +198,10 @@ def g_eth_kalischek_cocoa_prep():
         "Cocoa_ETH"
     )
 
+
+# fdap datasets
+
+# Thresholds and model info here https://github.com/google/forest-data-partnership/blob/main/models/README.md
 
 # Oil Palm FDaP
 def g_fdap_palm_prep():
@@ -214,7 +211,7 @@ def g_fdap_palm_prep():
     fdap_palm = (
         fdap_palm2020_model_raw.filterDate("2020-01-01", "2020-12-31")
         .mosaic()
-        .gt(0.83)  # Threshold for Oil Palm
+        .gt(0.88)  # Precision and recall ~78% at 0.88 threshold.
     )
     return fdap_palm.rename("Oil_palm_FDaP")
 
@@ -226,9 +223,34 @@ def g_fdap_palm_2023_prep():
     fdap_palm = (
         fdap_palm2020_model_raw.filterDate("2023-01-01", "2023-12-31")
         .mosaic()
-        .gt(0.83)  # Threshold for Oil Palm
+        .gt(0.88)  # Precision and recall ~78% at 0.88 threshold.
     )
     return fdap_palm.rename("Oil_palm_2023_FDaP")
+
+
+# Cocoa FDaP
+def g_fdap_cocoa_prep():
+    fdap_cocoa2020_model_raw = ee.ImageCollection(
+        "projects/forestdatapartnership/assets/cocoa/model_2025a"
+    )
+    fdap_cocoa = (
+        fdap_cocoa2020_model_raw.filterDate("2020-01-01", "2020-12-31")
+        .mosaic()
+        .gt(0.96)  # Precision and recall ~87% 0.96 threshold.
+    )
+    return fdap_cocoa.rename("Cocoa_FDaP")
+
+
+def g_fdap_cocoa_2023_prep():
+    fdap_cocoa2020_model_raw = ee.ImageCollection(
+        "projects/forestdatapartnership/assets/cocoa/model_2025a"
+    )
+    fdap_cocoa = (
+        fdap_cocoa2020_model_raw.filterDate("2023-01-01", "2023-12-31")
+        .mosaic()
+        .gt(0.96)  # Precision and recall ~87% 0.96 threshold.
+    )
+    return fdap_cocoa.rename("Cocoa_2023_FDaP")
 
 
 # Rubber FDaP
@@ -239,7 +261,7 @@ def g_fdap_rubber_prep():
     fdap_rubber = (
         fdap_rubber2020_model_raw.filterDate("2020-01-01", "2020-12-31")
         .mosaic()
-        .gt(0.93)  # Threshold for Rubber
+        .gt(0.59)  # Precision and recall ~80% 0.59 threshold.
     )
     return fdap_rubber.rename("Rubber_FDaP")
 
@@ -256,29 +278,33 @@ def g_fdap_rubber_2023_prep():
     return fdap_rubber.rename("Rubber_2023_FDaP")
 
 
-# Cocoa FDaP
-def g_fdap_cocoa_prep():
-    fdap_cocoa2020_model_raw = ee.ImageCollection(
-        "projects/forestdatapartnership/assets/cocoa/model_2025a"
-    )
-    fdap_cocoa = (
-        fdap_cocoa2020_model_raw.filterDate("2020-01-01", "2020-12-31")
-        .mosaic()
-        .gt(0.5)  # Threshold for Cocoa
-    )
-    return fdap_cocoa.rename("Cocoa_FDaP")
+# # Coffee FDaP
+# def g_fdap_coffee_2020_prep():
+#     # Load the coffee model for 2020
+#     collection = ee.ImageCollection(
+#         'projects/forestdatapartnership/assets/coffee/model_2025a');
 
+#     # Filter the collection for the year 2020 and create a binary mask
+#     coffee_2020 = (
+#         collection.filterDate('2020-01-01', '2020-12-31')
+#         .mosaic();
+#         .gt(0.99)  # Precision and recall ~54% 0.99 threshold.
+#     )
 
-def g_fdap_cocoa_2023_prep():
-    fdap_cocoa2020_model_raw = ee.ImageCollection(
-        "projects/forestdatapartnership/assets/cocoa/model_2025a"
-    )
-    fdap_cocoa = (
-        fdap_cocoa2020_model_raw.filterDate("2023-01-01", "2023-12-31")
-        .mosaic()
-        .gt(0.5)  # Threshold for Cocoa
-    )
-    return fdap_cocoa.rename("Cocoa_2023_FDaP")
+#     return coffee_2020.rename("Coffee_FDaP")
+
+# def g_fdap_coffee_2023_prep():
+#     # Load the coffee model for 2020
+#     collection = ee.ImageCollection(
+#         'projects/forestdatapartnership/assets/coffee/model_2025a');
+
+#     # Filter the collection for the year 2023 and create a binary mask
+#     coffee_2023 = (
+#         collection.filterDate('2023-01-01', '2023-12-31')
+#         .mosaic();
+#         .gt(0.99)  # Precision and recall ~54% 0.99 threshold.
+#     )
+#     return coffee_2023.rename("Coffee_FDaP_2023")
 
 
 # Rubber_RBGE  - from Royal Botanical Gardens of Edinburgh (RBGE) NB for 2021
@@ -297,8 +323,9 @@ def g_soy_song_2020_prep():
     return ee.Image("projects/glad/soy_annual_SA/2020").unmask().rename("Soy_Song_2020")
 
 
-##############2023
+##############
 # ESRI 2023
+
 # ESRI 2023 - Tree Cover
 def g_esri_2023_tc_prep():
     esri_lulc10_raw = ee.ImageCollection(
@@ -747,7 +774,7 @@ def g_esa_fire_before_2020_prep():
 
 #########################logging concessions
 # http://data.globalforestwatch.org/datasets?q=logging&sort_by=relevance
-def g_logging_concessions_prep():
+def g_logging_concessions_before_2020_prep():
     RCA = ee.FeatureCollection(
         "projects/ee-whisp/assets/logging/RCA_Permis_dExploitation_et_dAmenagement"
     )
@@ -788,7 +815,7 @@ def g_logging_concessions_prep():
         ]
     ).mosaic()
 
-    return logging_concessions_binary.rename("GFW_logging")
+    return logging_concessions_binary.rename("GFW_logging_before_2020")
 
 
 #########################national datasets
@@ -918,9 +945,9 @@ def nbr_mapbiomasc9_silv20_prep():
 # Subsetting criteria: DN = [0, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60];
 
 # the resulting dataset shows deforestation and conversion of OWL and OL up to 2020 (mostly August 2020), including residues (omission errors corrections)
-def nbr_prodes_upto2020_prep():
+def nbr_prodes_before_2020_prep():
     prodes = ee.Image("projects/ee-whisp/assets/NBR/prodes_brasil_2023")
-    prodes_upto20_dn = [
+    prodes_before_20_dn = [
         0,
         2,
         4,
@@ -951,11 +978,11 @@ def nbr_prodes_upto2020_prep():
         59,
         60,
     ]
-    prodes_upto20_mask = prodes.remap(
-        prodes_upto20_dn, [1] * len(prodes_upto20_dn)
+    prodes_before_20_mask = prodes.remap(
+        prodes_before_20_dn, [1] * len(prodes_before_20_dn)
     )  # .eq(1)
-    prodes_upto20 = prodes_upto20_mask.selfMask()
-    return prodes_upto20.rename("nBR_PRODES_deforestation_Brazil_upto2020")
+    prodes_before_20 = prodes_before_20_mask.selfMask()
+    return prodes_before_20.rename("nBR_PRODES_deforestation_Brazil_before_2020")
 
 
 ## Caution: 1) includes deforestation and conversion of other wooded land and grassland
@@ -965,7 +992,7 @@ def nbr_prodes_upto2020_prep():
 # 'CS_GEOMETRICO' excluded to align with FREL
 
 
-def nbr_deter_amazon_upto2020_prep():
+def nbr_deter_amazon_before_2020_prep():
     deteramz = ee.FeatureCollection("projects/ee-whisp/assets/NBR/deter_amz_16apr2025")
     degradation_classes = ["CICATRIZ_DE_QUEIMADA", "CS_DESORDENADO", "DEGRADACAO"]
 
@@ -980,7 +1007,7 @@ def nbr_deter_amazon_upto2020_prep():
     ).filter(ee.Filter.lt("formatted_date", ee.Date("2020-12-31")))
 
     deter_deg_binary = ee.Image().paint(deter_deg, 1)
-    return deter_deg_binary.rename("nBR_DETER_forestdegradation_Amazon_upto2020")
+    return deter_deg_binary.rename("nBR_DETER_forestdegradation_Amazon_before_2020")
 
 
 ################ ### NBR Disturbances after 2020:########################################
@@ -990,21 +1017,21 @@ def nbr_deter_amazon_upto2020_prep():
 # the resulting dataset shows deforestation and conversion of OWL and OL up to 2020 (mostly August 2020), including residues (omission errors corrections)
 
 
-def nbr_prodes_after2020_prep():
+def nbr_prodes_after_2020_prep():
     prodes = ee.Image("projects/ee-whisp/assets/NBR/prodes_brasil_2023")
-    prodes_post20_dn = [21, 22, 23, 61, 62, 63]
-    prodes_post20_mask = prodes.remap(
-        prodes_post20_dn, [1] * len(prodes_post20_dn)
+    prodes_after_20_dn = [21, 22, 23, 61, 62, 63]
+    prodes_after_20_mask = prodes.remap(
+        prodes_after_20_dn, [1] * len(prodes_after_20_dn)
     )  # .eq(1)
-    prodes_post20 = prodes_post20_mask.selfMask()
-    return prodes_post20.rename("nBR_PRODES_deforestation_Brazil_post2020")
+    prodes_after_20 = prodes_after_20_mask.selfMask()
+    return prodes_after_20.rename("nBR_PRODES_deforestation_Brazil_after_2020")
 
 
 # %%
 # [Official NFMS dataset] INPE.DETER data from 2nd August 2016 up to the 04th of April 2025
 # Subsetting criteria: forest degradation classes ['CICATRIZ_DE_QUEIMADA', 'CS_DESORDENADO', 'DEGRADACAO'] and view_date from 2021-01-01 onward
 # 'CS_GEOMETRICO' excluded to align with FREL
-def nbr_deter_amazon_after2020_prep():
+def nbr_deter_amazon_after_2020_prep():
     deteramz = ee.FeatureCollection("projects/ee-whisp/assets/NBR/deter_amz_16apr2025")
     degradation_classes = ["CICATRIZ_DE_QUEIMADA", "CS_DESORDENADO", "DEGRADACAO"]
 
@@ -1019,7 +1046,7 @@ def nbr_deter_amazon_after2020_prep():
     ).filter(ee.Filter.gt("formatted_date", ee.Date("2021-01-01")))
 
     deter_deg_binary = ee.Image().paint(deter_deg, 1)
-    return deter_deg_binary.rename("nBR_DETER_forestdegradation_Amazon_after2020")
+    return deter_deg_binary.rename("nBR_DETER_forestdegradation_Amazon_after_2020")
 
 
 # ########################## NBR commodities - permanent/perennial crops in 2020:###############################

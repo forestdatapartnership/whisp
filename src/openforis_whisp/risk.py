@@ -107,7 +107,7 @@ def whisp_risk(
     ind_8_name: str = "Ind_08_planted_plantations_after_2020",
     ind_9_name: str = "Ind_09_treecover_after_2020",
     ind_10_name: str = "Ind_10_agri_after_2020",
-    ind_11_name: str = "Ind_11_logging_concession",
+    ind_11_name: str = "Ind_11_logging_concession_before_2020",
     low_name: str = "no",
     high_name: str = "yes",
     explicit_unit_type: str = None,
@@ -192,7 +192,9 @@ def whisp_risk(
             filtered_lookup_gee_datasets_df
         )
     if ind_11_input_columns is None:
-        ind_11_input_columns = get_cols_ind_11_logging(filtered_lookup_gee_datasets_df)
+        ind_11_input_columns = get_cols_ind_11_logging_before_2020(
+            filtered_lookup_gee_datasets_df
+        )
 
     # Check range of values
     check_range(ind_1_pcent_threshold)
@@ -729,7 +731,7 @@ def get_cols_ind_10_agri_after_2020(lookup_gee_datasets_df):
     )
 
 
-def get_cols_ind_11_logging(lookup_gee_datasets_df):
+def get_cols_ind_11_logging_before_2020(lookup_gee_datasets_df):
     """
     Generate a list of dataset names for logging concessions (2020 if available)
 
