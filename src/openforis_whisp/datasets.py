@@ -279,32 +279,35 @@ def g_fdap_rubber_2023_prep():
 
 
 # # Coffee FDaP
-# def g_fdap_coffee_2020_prep():
-#     # Load the coffee model for 2020
-#     collection = ee.ImageCollection(
-#         'projects/forestdatapartnership/assets/coffee/model_2025a');
+def g_fdap_coffee_2020_prep():
+    # Load the coffee model for 2020
+    collection = ee.ImageCollection(
+        "projects/forestdatapartnership/assets/coffee/model_2025a"
+    )
 
-#     # Filter the collection for the year 2020 and create a binary mask
-#     coffee_2020 = (
-#         collection.filterDate('2020-01-01', '2020-12-31')
-#         .mosaic();
-#         .gt(0.99)  # Precision and recall ~54% 0.99 threshold.
-#     )
+    # Filter the collection for the year 2020 and create a binary mask
+    coffee_2020 = (
+        collection.filterDate("2020-01-01", "2020-12-31")
+        .mosaic()
+        .gt(0.99)  # Precision and recall ~54% 0.99 threshold.
+    )
 
-#     return coffee_2020.rename("Coffee_FDaP")
+    return coffee_2020.rename("Coffee_FDaP")
 
-# def g_fdap_coffee_2023_prep():
-#     # Load the coffee model for 2020
-#     collection = ee.ImageCollection(
-#         'projects/forestdatapartnership/assets/coffee/model_2025a');
 
-#     # Filter the collection for the year 2023 and create a binary mask
-#     coffee_2023 = (
-#         collection.filterDate('2023-01-01', '2023-12-31')
-#         .mosaic();
-#         .gt(0.99)  # Precision and recall ~54% 0.99 threshold.
-#     )
-#     return coffee_2023.rename("Coffee_FDaP_2023")
+def g_fdap_coffee_2023_prep():
+    # Load the coffee model for 2020
+    collection = ee.ImageCollection(
+        "projects/forestdatapartnership/assets/coffee/model_2025a"
+    )
+
+    # Filter the collection for the year 2023 and create a binary mask
+    coffee_2023 = (
+        collection.filterDate("2023-01-01", "2023-12-31")
+        .mosaic()
+        .gt(0.99)  # Precision and recall ~54% 0.99 threshold.
+    )
+    return coffee_2023.rename("Coffee_FDaP_2023")
 
 
 # Rubber_RBGE  - from Royal Botanical Gardens of Edinburgh (RBGE) NB for 2021
