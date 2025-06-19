@@ -289,8 +289,7 @@ Contributions to the Whisp code in GitHub are welcome. They can be made by forki
 
 
 
-Install the package in editable mode with the additional dependencies required for testing and running pre-commit hooks:
-
+Install the package in editable mode:
 
 
 ```bash
@@ -303,10 +302,7 @@ pip  install  -e  .[dev]
 
 ```
 
-
-
-Setup the pre-commit hooks:
-
+Add additional dependencies required for testing and running pre-commit hooks:
 
 
 ```bash
@@ -314,7 +310,6 @@ Setup the pre-commit hooks:
 pre-commit  install
 
 ```
-
 
 
 You should be able to run the Pytest suite by simply running the `pytest` command from the repo's root folder.
