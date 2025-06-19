@@ -2,11 +2,14 @@ import pandas as pd
 
 from .pd_schemas import data_lookup_type
 
+
 from openforis_whisp.parameters.config_runtime import (
     geometry_area_column,
     DEFAULT_GEE_DATASETS_LOOKUP_TABLE_PATH,
     stats_unit_type_column,  # Add this import
 )
+
+from openforis_whisp.reformat import filter_lookup_by_country_codes
 
 # could embed this in each function below that uses lookup_gee_datasets_df.
 lookup_gee_datasets_df: data_lookup_type = pd.read_csv(
@@ -76,19 +79,19 @@ def whisp_risk(
     ind_2_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_3_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_4_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
-    ind_5_pcent_threshold: float = 10,   # default values (draft decision tree and parameters)
-    ind_6_pcent_threshold: float = 10,   # default values (draft decision tree and parameters)
-    ind_7_pcent_threshold: float = 10,   # default values (draft decision tree and parameters)
-    ind_8_pcent_threshold: float = 10,   # default values (draft decision tree and parameters)
-    ind_9_pcent_threshold: float = 10,   # default values (draft decision tree and parameters)
-    ind_10_pcent_threshold: float = 10,   # default values (draft decision tree and parameters)
-    ind_11_pcent_threshold: float = 10,   # default values (draft decision tree and parameters)    
+    ind_5_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
+    ind_6_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
+    ind_7_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
+    ind_8_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
+    ind_9_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
+    ind_10_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
+    ind_11_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_1_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_2_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_3_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_4_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_5_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
-    ind_6_input_columns: pd.Series = None, # see lookup_gee_datasets for details
+    ind_6_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_7_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_8_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_9_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
@@ -99,15 +102,16 @@ def whisp_risk(
     ind_3_name: str = "Ind_03_disturbance_before_2020",
     ind_4_name: str = "Ind_04_disturbance_after_2020",
     ind_5_name: str = "Ind_05_primary_2020",
-    ind_6_name: str ="Ind_06_nat_reg_forest_2020",
-    ind_7_name: str ="Ind_07_planted_plantations_2020",
-    ind_8_name: str ="Ind_08_planted_plantations_post_2020",
-    ind_9_name: str ="Ind_09_treecover_post_2020",
-    ind_10_name: str ="Ind_10_agri_post_2020",    
-    ind_11_name: str ="Ind_11_logging_concession",
+    ind_6_name: str = "Ind_06_nat_reg_forest_2020",
+    ind_7_name: str = "Ind_07_planted_plantations_2020",
+    ind_8_name: str = "Ind_08_planted_plantations_after_2020",
+    ind_9_name: str = "Ind_09_treecover_after_2020",
+    ind_10_name: str = "Ind_10_agri_after_2020",
+    ind_11_name: str = "Ind_11_logging_concession_before_2020",
     low_name: str = "no",
     high_name: str = "yes",
     explicit_unit_type: str = None,
+    national_codes: list[str] = None,  # List of ISO2 country codes to filter by
 ) -> data_lookup_type:
     """
     Adds the EUDR (European Union Deforestation Risk) column to the DataFrame based on indicator values.
@@ -139,30 +143,58 @@ def whisp_risk(
 
     print(f"Using unit type: {unit_type}")
 
+    lookup_df_copy = lookup_gee_datasets_df.copy()
+
+    # filter by national codes (even if None - this removes all country columns unless specified)
+    filtered_lookup_gee_datasets_df = filter_lookup_by_country_codes(
+        lookup_df=lookup_df_copy,
+        filter_col="ISO2_code",
+        national_codes=national_codes,
+    )
+
     # Rest of the function remains the same, but pass unit_type to add_indicators
     if ind_1_input_columns is None:
-        ind_1_input_columns = get_cols_ind_01_treecover(lookup_gee_datasets_df)
+        ind_1_input_columns = get_cols_ind_01_treecover(filtered_lookup_gee_datasets_df)
     if ind_2_input_columns is None:
-        ind_2_input_columns = get_cols_ind_02_commodities(lookup_gee_datasets_df)
+        ind_2_input_columns = get_cols_ind_02_commodities(
+            filtered_lookup_gee_datasets_df
+        )
     if ind_3_input_columns is None:
-        ind_3_input_columns = get_cols_ind_03_dist_before_2020(lookup_gee_datasets_df)
+        ind_3_input_columns = get_cols_ind_03_dist_before_2020(
+            filtered_lookup_gee_datasets_df
+        )
     if ind_4_input_columns is None:
-        ind_4_input_columns = get_cols_ind_04_dist_after_2020(lookup_gee_datasets_df)
+        ind_4_input_columns = get_cols_ind_04_dist_after_2020(
+            filtered_lookup_gee_datasets_df
+        )
     if ind_5_input_columns is None:
-        ind_5_input_columns = get_cols_ind_05_primary_2020(lookup_gee_datasets_df)
+        ind_5_input_columns = get_cols_ind_05_primary_2020(
+            filtered_lookup_gee_datasets_df
+        )
     if ind_6_input_columns is None:
-        ind_6_input_columns = get_cols_ind_06_nat_reg_2020(lookup_gee_datasets_df)
+        ind_6_input_columns = get_cols_ind_06_nat_reg_2020(
+            filtered_lookup_gee_datasets_df
+        )
     if ind_7_input_columns is None:
-        ind_7_input_columns = get_cols_ind_07_planted_2020(lookup_gee_datasets_df)    
+        ind_7_input_columns = get_cols_ind_07_planted_2020(
+            filtered_lookup_gee_datasets_df
+        )
     if ind_8_input_columns is None:
-        ind_8_input_columns = get_cols_ind_08_planted_post_2020(lookup_gee_datasets_df)
+        ind_8_input_columns = get_cols_ind_08_planted_after_2020(
+            filtered_lookup_gee_datasets_df
+        )
     if ind_9_input_columns is None:
-        ind_9_input_columns = get_cols_ind_09_treecover_post_2020(lookup_gee_datasets_df)
+        ind_9_input_columns = get_cols_ind_09_treecover_after_2020(
+            filtered_lookup_gee_datasets_df
+        )
     if ind_10_input_columns is None:
-        ind_10_input_columns = get_cols_ind_10_agri_post_2020(lookup_gee_datasets_df) 
+        ind_10_input_columns = get_cols_ind_10_agri_after_2020(
+            filtered_lookup_gee_datasets_df
+        )
     if ind_11_input_columns is None:
-        ind_11_input_columns = get_cols_ind_11_logging(lookup_gee_datasets_df) 
-
+        ind_11_input_columns = get_cols_ind_11_logging_before_2020(
+            filtered_lookup_gee_datasets_df
+        )
 
     # Check range of values
     check_range(ind_1_pcent_threshold)
@@ -176,7 +208,7 @@ def whisp_risk(
     check_range(ind_9_pcent_threshold)
     check_range(ind_10_pcent_threshold)
     check_range(ind_11_pcent_threshold)
-    
+
     input_cols = [
         ind_1_input_columns,
         ind_2_input_columns,
@@ -188,7 +220,7 @@ def whisp_risk(
         ind_8_input_columns,
         ind_9_input_columns,
         ind_10_input_columns,
-        ind_11_input_columns,  
+        ind_11_input_columns,
     ]
     thresholds = [
         ind_1_pcent_threshold,
@@ -198,12 +230,24 @@ def whisp_risk(
         ind_5_pcent_threshold,
         ind_6_pcent_threshold,
         ind_7_pcent_threshold,
-        ind_8_pcent_threshold, 
+        ind_8_pcent_threshold,
         ind_9_pcent_threshold,
         ind_10_pcent_threshold,
         ind_11_pcent_threshold,
     ]
-    names = [ind_1_name, ind_2_name, ind_3_name, ind_4_name,ind_5_name,ind_6_name,ind_7_name,ind_8_name,ind_9_name,ind_10_name,ind_11_name]
+    names = [
+        ind_1_name,
+        ind_2_name,
+        ind_3_name,
+        ind_4_name,
+        ind_5_name,
+        ind_6_name,
+        ind_7_name,
+        ind_8_name,
+        ind_9_name,
+        ind_10_name,
+        ind_11_name,
+    ]
     [check_range(threshold) for threshold in thresholds]
 
     df_w_indicators = add_indicators(
@@ -231,20 +275,20 @@ def whisp_risk(
         ind_3_name=ind_3_name,
         ind_4_name=ind_4_name,
     )
-    
+
     df_w_indicators_and_risk_timber = add_eudr_risk_timber_col(
         df=df_w_indicators,
-        ind_1_name=ind_1_name, 
-        ind_2_name=ind_2_name, 
-        ind_3_name=ind_3_name, 
+        ind_1_name=ind_1_name,
+        ind_2_name=ind_2_name,
+        ind_3_name=ind_3_name,
         ind_4_name=ind_4_name,
-        ind_5_name=ind_5_name, 
-        ind_6_name=ind_6_name, 
-        ind_7_name=ind_7_name, 
+        ind_5_name=ind_5_name,
+        ind_6_name=ind_6_name,
+        ind_7_name=ind_7_name,
         ind_8_name=ind_8_name,
         ind_9_name=ind_9_name,
         ind_10_name=ind_10_name,
-        ind_11_name=ind_11_name
+        ind_11_name=ind_11_name,
     )
 
     return df_w_indicators_and_risk_timber
@@ -314,16 +358,17 @@ def add_eudr_risk_acrop_col(
     for index, row in df.iterrows():
         # If there is no tree cover in 2020, set EUDR_risk_soy to "low"
         if row[ind_1_name] == "no" or row[ind_2_name] == "yes":
-            df.at[index, 'risk_acrop'] = "low"
+            df.at[index, "risk_acrop"] = "low"
         # If there is tree cover in 2020 and distrubances post 2020, set EUDR_risk_soy to "high"
         elif row[ind_1_name] == "yes" and row[ind_4_name] == "yes":
-            df.at[index, 'risk_acrop'] = "high"
+            df.at[index, "risk_acrop"] = "high"
         # If tree cover and no disturbances post 2020, set EUDR_risk to "more_info_needed"
-        else :
-            df.at[index, 'risk_acrop'] = "more_info_needed"
+        else:
+            df.at[index, "risk_acrop"] = "more_info_needed"
 
     return df
-    
+
+
 def add_eudr_risk_timber_col(
     df: data_lookup_type,
     ind_1_name: str,
@@ -337,7 +382,7 @@ def add_eudr_risk_timber_col(
     ind_9_name: str,
     ind_10_name: str,
     ind_11_name: str,
-)-> data_lookup_type:
+) -> data_lookup_type:
     """
     Adds the EUDR (European Union Deforestation Risk) column to the DataFrame based on indicator values.
 
@@ -351,36 +396,47 @@ def add_eudr_risk_timber_col(
     Returns:
         DataFrame: DataFrame with added 'EUDR_risk' column.
     """
-          
+
     for index, row in df.iterrows():
         # If there is a commodity in 2020 OR if there is planted-plantation in 2020 AND no agriculture in 2023, set EUDR_risk_degrad to "low"
-        if row[ind_2_name] == "yes" or (row[ind_7_name] == "yes" and row[ind_10_name] == "no"):
-            df.at[index, 'risk_timber'] = "low"
+        if row[ind_2_name] == "yes" or (
+            row[ind_7_name] == "yes" and row[ind_10_name] == "no"
+        ):
+            df.at[index, "risk_timber"] = "low"
         # If there is no tree cover, set EUDR_risk_degrad to "low"? no because of unstocked forests
         # if row[ind_1_name] == "no" or row[ind_3_name] == "yes" or row[ind_7_name] == "yes":
         #   df.at[index, 'EUDR_risk_degrad'] = "low"
-         # If primary or naturally regenerating or planted forest in 2020 AND agricultural use in 2023, set EUDR_risk to high
-        elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes" or row[ind_7_name] == "yes") and row[ind_10_name] == "yes":
-            df.at[index, 'risk_timber'] = "high"    
-        #If primary or naturally regenerating AND planted post 2020, set EUDR_risk to "high"
-        elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes") and row[ind_8_name] == "yes":
-            df.at[index, 'risk_timber'] = "high"
+        # If primary or naturally regenerating or planted forest in 2020 AND agricultural use in 2023, set EUDR_risk to high
+        elif (
+            row[ind_5_name] == "yes"
+            or row[ind_6_name] == "yes"
+            or row[ind_7_name] == "yes"
+        ) and row[ind_10_name] == "yes":
+            df.at[index, "risk_timber"] = "high"
+        # If primary or naturally regenerating AND planted post 2020, set EUDR_risk to "high"
+        elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes") and row[
+            ind_8_name
+        ] == "yes":
+            df.at[index, "risk_timber"] = "high"
         # If primary or naturally regenerating or planted forest in 2020 and OWL in 2023, set EUDR_risk to high
-        #elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes" or row[ind_7_name] == "yes") and row[ind_10_name] == "yes":
-        #    df.at[index, 'EUDR_risk_timber'] = "high" 
-        
+        # elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes" or row[ind_7_name] == "yes") and row[ind_10_name] == "yes":
+        #    df.at[index, 'EUDR_risk_timber'] = "high"
+
         # If primary forest OR naturally regenerating AND an information on management practice OR tree cover post 2020, set EUDR_risk_degrad to "low"
-        elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes") and (row[ind_9_name] == "yes" or row[ind_11_name] == "yes"):
-            df.at[index, 'risk_timber'] = "low"           
+        elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes") and (
+            row[ind_9_name] == "yes" or row[ind_11_name] == "yes"
+        ):
+            df.at[index, "risk_timber"] = "low"
         # If primary or naturally regenerating and no other info, set EUDR_risk to "more_info_needed"
-        elif row[ind_5_name] == "yes" or row[ind_6_name] == "yes" :
-            df.at[index, 'risk_timber'] = "more_info_needed"
+        elif row[ind_5_name] == "yes" or row[ind_6_name] == "yes":
+            df.at[index, "risk_timber"] = "more_info_needed"
         # If none of the above conditions are met, set EUDR_risk to "high"
         else:
-            df.at[index, 'risk_timber'] = "high"
-            
+            df.at[index, "risk_timber"] = "high"
+
     return df
-    
+
+
 def add_indicators(
     df: data_lookup_type,
     input_cols: list[str],
@@ -545,6 +601,7 @@ def get_cols_ind_04_dist_after_2020(lookup_gee_datasets_df):
         ]
     )
 
+
 def get_cols_ind_05_primary_2020(lookup_gee_datasets_df):
     """
     Generate a list of dataset names for primary forests in 2020
@@ -558,10 +615,13 @@ def get_cols_ind_05_primary_2020(lookup_gee_datasets_df):
     lookup_gee_datasets_df = lookup_gee_datasets_df[
         lookup_gee_datasets_df["exclude_from_output"] != 1
     ]
-    return list(lookup_gee_datasets_df["name"][
-        (lookup_gee_datasets_df["use_for_risk_timber"] == 1) &
-        (lookup_gee_datasets_df["theme_timber"] == "primary")
-    ])
+    return list(
+        lookup_gee_datasets_df["name"][
+            (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
+            & (lookup_gee_datasets_df["theme_timber"] == "primary")
+        ]
+    )
+
 
 def get_cols_ind_06_nat_reg_2020(lookup_gee_datasets_df):
     """
@@ -576,10 +636,13 @@ def get_cols_ind_06_nat_reg_2020(lookup_gee_datasets_df):
     lookup_gee_datasets_df = lookup_gee_datasets_df[
         lookup_gee_datasets_df["exclude_from_output"] != 1
     ]
-    return list(lookup_gee_datasets_df["name"][
-        (lookup_gee_datasets_df["use_for_risk_timber"] == 1) &
-        (lookup_gee_datasets_df["theme_timber"] == "naturally_reg_2020")
-    ])
+    return list(
+        lookup_gee_datasets_df["name"][
+            (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
+            & (lookup_gee_datasets_df["theme_timber"] == "naturally_reg_2020")
+        ]
+    )
+
 
 def get_cols_ind_07_planted_2020(lookup_gee_datasets_df):
     """
@@ -594,11 +657,15 @@ def get_cols_ind_07_planted_2020(lookup_gee_datasets_df):
     lookup_gee_datasets_df = lookup_gee_datasets_df[
         lookup_gee_datasets_df["exclude_from_output"] != 1
     ]
-    return list(lookup_gee_datasets_df["name"][
-        (lookup_gee_datasets_df["use_for_risk_timber"] == 1) &
-        (lookup_gee_datasets_df["theme_timber"] == "planted_plantation_2020")
-    ])
-def get_cols_ind_08_planted_post_2020(lookup_gee_datasets_df):
+    return list(
+        lookup_gee_datasets_df["name"][
+            (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
+            & (lookup_gee_datasets_df["theme_timber"] == "planted_plantation_2020")
+        ]
+    )
+
+
+def get_cols_ind_08_planted_after_2020(lookup_gee_datasets_df):
     """
     Generate a list of dataset names for planted and plantation forests post 2020
 
@@ -611,11 +678,18 @@ def get_cols_ind_08_planted_post_2020(lookup_gee_datasets_df):
     lookup_gee_datasets_df = lookup_gee_datasets_df[
         lookup_gee_datasets_df["exclude_from_output"] != 1
     ]
-    return list(lookup_gee_datasets_df["name"][
-        (lookup_gee_datasets_df["use_for_risk_timber"] == 1) &
-        (lookup_gee_datasets_df["theme_timber"] == "planted_plantation_post_2020")
-    ])
-def get_cols_ind_09_treecover_post_2020(lookup_gee_datasets_df):
+    return list(
+        lookup_gee_datasets_df["name"][
+            (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
+            & (
+                lookup_gee_datasets_df["theme_timber"]
+                == "planted_plantation_after_2020"
+            )
+        ]
+    )
+
+
+def get_cols_ind_09_treecover_after_2020(lookup_gee_datasets_df):
     """
     Generate a list of dataset names for treecover post 2020
 
@@ -628,12 +702,15 @@ def get_cols_ind_09_treecover_post_2020(lookup_gee_datasets_df):
     lookup_gee_datasets_df = lookup_gee_datasets_df[
         lookup_gee_datasets_df["exclude_from_output"] != 1
     ]
-    return list(lookup_gee_datasets_df["name"][
-        (lookup_gee_datasets_df["use_for_risk_timber"] == 1) &
-        (lookup_gee_datasets_df["theme_timber"] == "treecover_post2020")
-    ])
+    return list(
+        lookup_gee_datasets_df["name"][
+            (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
+            & (lookup_gee_datasets_df["theme_timber"] == "treecover_post2020")
+        ]
+    )
 
-def get_cols_ind_10_agri_post_2020(lookup_gee_datasets_df):
+
+def get_cols_ind_10_agri_after_2020(lookup_gee_datasets_df):
     """
     Generate a list of dataset names for croplands post 2020
 
@@ -646,12 +723,15 @@ def get_cols_ind_10_agri_post_2020(lookup_gee_datasets_df):
     lookup_gee_datasets_df = lookup_gee_datasets_df[
         lookup_gee_datasets_df["exclude_from_output"] != 1
     ]
-    return list(lookup_gee_datasets_df["name"][
-        (lookup_gee_datasets_df["use_for_risk_timber"] == 1) &
-        (lookup_gee_datasets_df["theme_timber"] == "agri_post_2020")
-    ])
+    return list(
+        lookup_gee_datasets_df["name"][
+            (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
+            & (lookup_gee_datasets_df["theme_timber"] == "agri_after_2020")
+        ]
+    )
 
-def get_cols_ind_11_logging(lookup_gee_datasets_df):
+
+def get_cols_ind_11_logging_before_2020(lookup_gee_datasets_df):
     """
     Generate a list of dataset names for logging concessions (2020 if available)
 
@@ -664,11 +744,14 @@ def get_cols_ind_11_logging(lookup_gee_datasets_df):
     lookup_gee_datasets_df = lookup_gee_datasets_df[
         lookup_gee_datasets_df["exclude_from_output"] != 1
     ]
-    return list(lookup_gee_datasets_df["name"][
-        (lookup_gee_datasets_df["use_for_risk_timber"] == 1) &
-        (lookup_gee_datasets_df["theme_timber"] == "logging_concession")
-    ])  
-    
+    return list(
+        lookup_gee_datasets_df["name"][
+            (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
+            & (lookup_gee_datasets_df["theme_timber"] == "logging_concession")
+        ]
+    )
+
+
 def clamp(
     value: float | pd.Series, min_val: float, max_val: float
 ) -> float | pd.Series:
