@@ -279,32 +279,35 @@ def g_fdap_rubber_2023_prep():
 
 
 # # Coffee FDaP
-# def g_fdap_coffee_2020_prep():
-#     # Load the coffee model for 2020
-#     collection = ee.ImageCollection(
-#         'projects/forestdatapartnership/assets/coffee/model_2025a');
+def g_fdap_coffee_2020_prep():
+    # Load the coffee model for 2020
+    collection = ee.ImageCollection(
+        "projects/forestdatapartnership/assets/coffee/model_2025a"
+    )
 
-#     # Filter the collection for the year 2020 and create a binary mask
-#     coffee_2020 = (
-#         collection.filterDate('2020-01-01', '2020-12-31')
-#         .mosaic();
-#         .gt(0.99)  # Precision and recall ~54% 0.99 threshold.
-#     )
+    # Filter the collection for the year 2020 and create a binary mask
+    coffee_2020 = (
+        collection.filterDate("2020-01-01", "2020-12-31")
+        .mosaic()
+        .gt(0.99)  # Precision and recall ~54% 0.99 threshold.
+    )
 
-#     return coffee_2020.rename("Coffee_FDaP")
+    return coffee_2020.rename("Coffee_FDaP")
 
-# def g_fdap_coffee_2023_prep():
-#     # Load the coffee model for 2020
-#     collection = ee.ImageCollection(
-#         'projects/forestdatapartnership/assets/coffee/model_2025a');
 
-#     # Filter the collection for the year 2023 and create a binary mask
-#     coffee_2023 = (
-#         collection.filterDate('2023-01-01', '2023-12-31')
-#         .mosaic();
-#         .gt(0.99)  # Precision and recall ~54% 0.99 threshold.
-#     )
-#     return coffee_2023.rename("Coffee_FDaP_2023")
+def g_fdap_coffee_2023_prep():
+    # Load the coffee model for 2020
+    collection = ee.ImageCollection(
+        "projects/forestdatapartnership/assets/coffee/model_2025a"
+    )
+
+    # Filter the collection for the year 2023 and create a binary mask
+    coffee_2023 = (
+        collection.filterDate("2023-01-01", "2023-12-31")
+        .mosaic()
+        .gt(0.99)  # Precision and recall ~54% 0.99 threshold.
+    )
+    return coffee_2023.rename("Coffee_FDaP_2023")
 
 
 # Rubber_RBGE  - from Royal Botanical Gardens of Edinburgh (RBGE) NB for 2021
@@ -1213,7 +1216,6 @@ def nci_ocs2020_prep():
 
 ###Combining datasets
 
-###Combining datasets
 
 # def combine_datasets():
 #     """Combines datasets into a single multiband image, with fallback if assets are missing."""
@@ -1247,38 +1249,130 @@ def nci_ocs2020_prep():
 
 #     return img_combined
 
+# combines images into a single multiband image, with fallback if assets are missing.
+# includes a parameter to filter datasets by national codes.
 
-def combine_datasets(national_codes=None):
-    """Combines datasets into a single multiband image, with fallback if assets are missing."""
+# def combine_datasets(national_codes=None):
+#     """Combines datasets into a single multiband image, with fallback if assets are missing.
+#       includes a parameter to filter datasets by national codes.
+#        national_codes (list, optional): List of ISO2 country codes to filter datasets.
+#             - When None (default): Includes all global datasets and no country-specific datasets
+#             - When provided: Includes global datasets plus country-specific datasets for the
+#               specified countries (e.g., ['co', 'ci', 'br'] for Colombia, Ivory Coast, Brazil)"""
+
+#
+# img_combined = ee.Image(1).rename(geometry_area_column)
+
+#     # Combine images directly
+#     for img in [func() for func in list_functions(national_codes=national_codes)]:
+#         try:
+#             img_combined = img_combined.addBands(img)
+#         except ee.EEException as e:
+#             # logger.error(f"Error adding image: {e}")
+#             print(f"Error adding image: {e}")
+
+#     try:
+#         # Attempt to print band names to check for errors
+#         print(img_combined.bandNames().getInfo())
+#     except ee.EEException as e:
+#         # logger.error(f"Error printing band names: {e}")
+#         # logger.info("Running code for filtering to only valid datasets due to error in input")
+#         print("using valid datasets filter due to error in input")
+#         # Validate images
+#         images_to_test = [
+#             func() for func in list_functions(national_codes=national_codes)
+#         ]
+#         valid_imgs = keep_valid_images(images_to_test)  # Validate images
+
+#         # Retry combining images after validation
+#         img_combined = ee.Image(1).rename(geometry_area_column)
+#         for img in valid_imgs:
+#             img_combined = img_combined.addBands(img)
+
+#     img_combined = img_combined.multiply(ee.Image.pixelArea())
+
+#     return img_combined
+
+
+def combine_datasets(pixel_area=True, national_codes=None):
+    """
+    Combines all available Whisp datasets into a single multiband Earth Engine image.
+
+    This function automatically collects all dataset preparation functions (ending with '_prep')
+    in the current module and combines their outputs into a single multiband image. It includes
+    error handling to manage missing or invalid datasets, and provides two output
+    formats based on the pixel_area parameter.
+
+    Args:
+        pixel_area (bool, optional): Controls the output format of the combined image:
+            - When True (default): Returns pixel values multiplied by their area in square meters.
+              This is used for standard Whisp processing where area-weighted values are used
+              for accurate statistics calculation.
+            - When False: Returns values as int8 (binary 0/1 values) to produce a smaller image
+              for visualization or when raw presence/absence is needed without area weighting.
+
+        national_codes (list, optional): List of ISO2 country codes to filter datasets.
+            - When None (default): Includes all global datasets and no country-specific datasets
+            - When provided: Includes global datasets plus country-specific datasets for the
+              specified countries (e.g., ['co', 'ci', 'br'] for Colombia, Ivory Coast, Brazil)
+
+    Returns:
+        ee.Image: A multiband Earth Engine image containing all valid datasets as separate bands.
+        The first band is always named using the geometry_area_column value (typically "Area").
+
+        When pixel_area=True:
+            - Values represent the area in square meters of each dataset within a pixel
+            - Useful for statistical analysis and area calculations
+
+        When pixel_area=False:
+            - Values are binary (0/1) represented as int8 data type
+            - More efficient for visualization and storage
+            - Useful when only presence/absence information is needed
+
+    Examples:
+        >>> # Get area-weighted image for statistics calculation (global datasets only)
+        >>> area_weighted_image = combine_datasets()
+        >>>
+        >>> # Get area-weighted image including Brazil and Colombia datasets
+        >>> country_image = combine_datasets(national_codes=['br', 'co'])
+        >>>
+        >>> # Get binary presence/absence image for visualization
+        >>> binary_image = combine_datasets(pixel_area=False)
+        >>>
+        >>> # Get binary image with specific countries
+        >>> binary_country_image = combine_datasets(pixel_area=False, national_codes=['ci'])
+    """
+
     img_combined = ee.Image(1).rename(geometry_area_column)
 
-    # Combine images directly
+    # Combine images directly - pass national_codes to list_functions
     for img in [func() for func in list_functions(national_codes=national_codes)]:
         try:
             img_combined = img_combined.addBands(img)
         except ee.EEException as e:
-            # logger.error(f"Error adding image: {e}")
             print(f"Error adding image: {e}")
 
     try:
         # Attempt to print band names to check for errors
         print(img_combined.bandNames().getInfo())
     except ee.EEException as e:
-        # logger.error(f"Error printing band names: {e}")
-        # logger.info("Running code for filtering to only valid datasets due to error in input")
         print("using valid datasets filter due to error in input")
         # Validate images
         images_to_test = [
             func() for func in list_functions(national_codes=national_codes)
         ]
-        valid_imgs = keep_valid_images(images_to_test)  # Validate images
+        valid_imgs = keep_valid_images(images_to_test)  # Validate
 
         # Retry combining images after validation
         img_combined = ee.Image(1).rename(geometry_area_column)
         for img in valid_imgs:
             img_combined = img_combined.addBands(img)
 
-    img_combined = img_combined.multiply(ee.Image.pixelArea())
+    # Apply pixel area multiplication or convert to int8 based on pixel_area parameter
+    if pixel_area:
+        img_combined = img_combined.multiply(ee.Image.pixelArea())
+    else:
+        img_combined = img_combined.unmask().int8()
 
     return img_combined
 

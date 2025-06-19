@@ -9,7 +9,7 @@ ESA_TC_2020,70,,treecover,naturally_reg_2020,1,1,0,float32,1,0,g_esa_worldcover_
 TMF_plant,80,,commodities,NA,1,1,0,float32,1,0,g_jrc_tmf_plantation_prep
 Oil_palm_Descals,90,,commodities,NA,1,1,0,float32,1,0,g_creaf_descals_palm_prep
 Oil_palm_FDaP,100,,commodities,NA,1,1,0,float32,1,0,g_fdap_palm_prep
-Coffee_FDaP,101,,commodities,NA,1,1,1,float32,1,0,g_fdap_coffee_prep
+Coffee_FDaP,101,,commodities,NA,1,1,0,float32,1,0,g_fdap_coffee_prep
 Cocoa_FDaP,110,,commodities,NA,1,1,0,float32,1,0,g_fdap_cocoa_prep
 Cocoa_ETH,120,,commodities,NA,1,1,0,float32,1,0,g_eth_kalischek_cocoa_prep
 Rubber_FDaP,140,,commodities,NA,1,1,0,float32,1,0,g_fdap_rubber_prep
@@ -167,7 +167,7 @@ ESRI_2023_TC,2010,,NA,treecover_after_2020,0,1,0,float32,1,0,g_esri_2023_tc_prep
 GLC_FCS30D_TC_2022,2020,,NA,treecover_after_2020,0,1,0,float32,1,0,g_glc_fcs30d_tc_2022_prep
 Oil_palm_2023_FDaP,2100,,NA,agri_after_2020,0,1,0,float32,1,0,g_fdap_palm_2023_prep
 Rubber_2023_FDaP,2110,,NA,agri_after_2020,0,1,0,float32,1,0,g_fdap_rubber_2023_prep
-Coffee_FDaP_2023,2111,,NA,agri_after_2020,0,1,1,float32,1,,g_fdap_coffee_2023_prep
+Coffee_FDaP_2023,2111,,NA,agri_after_2020,0,1,0,float32,1,,g_fdap_coffee_2023_prep
 Cocoa_2023_FDaP,2120,,NA,agri_after_2020,0,1,0,float32,1,0,g_fdap_cocoa_2023_prep
 ESRI_2023_crop,2130,,NA,agri_after_2020,0,1,0,float32,1,0,g_esri_2023_crop_prep
 GLC_FCS30D_crop_2022,2140,,NA,agri_after_2020,0,1,0,float32,1,0,g_glc_fcs30d_crop_2022_prep

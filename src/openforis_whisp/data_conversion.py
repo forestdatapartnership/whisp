@@ -11,6 +11,11 @@ import os
 import geopandas as gpd
 import ee
 
+import logging
+from openforis_whisp.logger import StdoutLogger
+
+logger = StdoutLogger(__name__)
+
 
 def convert_ee_to_geojson(ee_object, filename=None, indent=2, **kwargs):
     """Converts Earth Engine object to geojson.
@@ -44,37 +49,122 @@ def convert_ee_to_geojson(ee_object, filename=None, indent=2, **kwargs):
         raise Exception(e)
 
 
+# def convert_geojson_to_ee(
+#     geojson_filepath: Any, enforce_wgs84: bool = True
+# ) -> ee.FeatureCollection:
+#     """
+#     Reads a GeoJSON file from the given path and converts it to an Earth Engine FeatureCollection.
+#     Optionally checks and converts the CRS to WGS 84 (EPSG:4326) if needed.
+
+#     Args:
+#         geojson_filepath (Any): The filepath to the GeoJSON file.
+#         enforce_wgs84 (bool): Whether to enforce WGS 84 projection (EPSG:4326). Defaults to True.
+
+#     Returns:
+#         ee.FeatureCollection: Earth Engine FeatureCollection created from the GeoJSON.
+#     """
+#     if isinstance(geojson_filepath, (str, Path)):
+#         file_path = os.path.abspath(geojson_filepath)
+#         print(f"Reading GeoJSON file from: {file_path}")
+
+#         # Use GeoPandas to read the file and handle CRS
+#         gdf = gpd.read_file(file_path)
+
+#         # Check and convert CRS if needed
+#         if enforce_wgs84:
+#             if gdf.crs is None:
+#                 print("Warning: Input GeoJSON has no CRS defined, assuming WGS 84")
+#             elif gdf.crs != "EPSG:4326":
+#                 print(f"Converting CRS from {gdf.crs} to WGS 84 (EPSG:4326)")
+#                 gdf = gdf.to_crs("EPSG:4326")
+
+#         # Convert to GeoJSON
+#         geojson_data = json.loads(gdf.to_json())
+#     else:
+#         raise ValueError("Input must be a file path (str or Path)")
+
+#     validation_errors = validate_geojson(geojson_data)
+#     if validation_errors:
+#         raise ValueError(f"GeoJSON validation errors: {validation_errors}")
+
+#     feature_collection = ee.FeatureCollection(create_feature_collection(geojson_data))
+
+#     return feature_collection
+
+
 def convert_geojson_to_ee(
-    geojson_filepath: Any, enforce_wgs84: bool = True
+    geojson_filepath: Any, enforce_wgs84: bool = True, properties_to_keep: list = None
 ) -> ee.FeatureCollection:
-    """
-    Reads a GeoJSON file from the given path and converts it to an Earth Engine FeatureCollection.
-    Optionally checks and converts the CRS to WGS 84 (EPSG:4326) if needed.
+    """Simplified version without external dependencies"""
 
-    Args:
-        geojson_filepath (Any): The filepath to the GeoJSON file.
-        enforce_wgs84 (bool): Whether to enforce WGS 84 projection (EPSG:4326). Defaults to True.
-
-    Returns:
-        ee.FeatureCollection: Earth Engine FeatureCollection created from the GeoJSON.
-    """
     if isinstance(geojson_filepath, (str, Path)):
         file_path = os.path.abspath(geojson_filepath)
-        print(f"Reading GeoJSON file from: {file_path}")
+        logger.debug(f"Reading GeoJSON file from: {file_path}")
 
         # Use GeoPandas to read the file and handle CRS
         gdf = gpd.read_file(file_path)
 
+        # Debug: Show original properties
+        if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
+            original_properties = [col for col in gdf.columns if col != "geometry"]
+            logger.debug(f"Original properties: {original_properties}")
+
+        # Handle property filtering
+        if properties_to_keep is None:
+            logger.debug("Preserving all properties")
+            columns_to_keep = list(gdf.columns)
+        elif len(properties_to_keep) == 0:
+            logger.debug("Keeping no properties (geometry only)")
+            columns_to_keep = ["geometry"]
+            gdf = gdf[columns_to_keep]
+        else:
+            available_properties = [
+                prop for prop in properties_to_keep if prop in gdf.columns
+            ]
+            missing_properties = [
+                prop for prop in properties_to_keep if prop not in gdf.columns
+            ]
+
+            if missing_properties:
+                logger.warning(f"Requested properties not found: {missing_properties}")
+
+            columns_to_keep = ["geometry"] + available_properties
+            gdf = gdf[columns_to_keep]
+            logger.debug(f"Keeping selected properties: {available_properties}")
+
         # Check and convert CRS if needed
         if enforce_wgs84:
             if gdf.crs is None:
-                print("Warning: Input GeoJSON has no CRS defined, assuming WGS 84")
+                logger.warning("Input GeoJSON has no CRS defined, assuming WGS 84")
             elif gdf.crs != "EPSG:4326":
-                print(f"Converting CRS from {gdf.crs} to WGS 84 (EPSG:4326)")
+                logger.debug(f"Converting CRS from {gdf.crs} to WGS 84 (EPSG:4326)")
                 gdf = gdf.to_crs("EPSG:4326")
 
-        # Convert to GeoJSON
+        # Ensure JSON serializable
+        for col in gdf.columns:
+            if col != "geometry":
+                if gdf[col].dtype == "object":
+                    gdf[col] = gdf[col].astype(str)
+                elif gdf[col].dtype in ["int64", "int32"]:
+                    gdf[col] = gdf[col].astype(int)
+                elif gdf[col].dtype in ["float64", "float32"]:
+                    gdf[col] = gdf[col].astype(float)
+
+        # Convert to GeoJSON and then to Earth Engine
         geojson_data = json.loads(gdf.to_json())
+
+        # Debug output
+        if (
+            logging.getLogger().getEffectiveLevel() <= logging.DEBUG
+            and geojson_data["features"]
+        ):
+            first_feature_props = geojson_data["features"][0].get("properties", {})
+            preserved_properties = list(first_feature_props.keys())
+            if preserved_properties:
+                logger.debug(f"Properties preserved in GeoJSON: {preserved_properties}")
+            else:
+                logger.debug("No properties preserved (geometry only)")
+
     else:
         raise ValueError("Input must be a file path (str or Path)")
 
@@ -82,9 +172,124 @@ def convert_geojson_to_ee(
     if validation_errors:
         raise ValueError(f"GeoJSON validation errors: {validation_errors}")
 
-    feature_collection = ee.FeatureCollection(create_feature_collection(geojson_data))
+    # Direct Earth Engine conversion
+    feature_collection = ee.FeatureCollection(geojson_data)
 
     return feature_collection
+
+
+# def convert_geojson_to_ee(
+#     geojson_filepath: Any,
+#     enforce_wgs84: bool = True,
+#     properties_to_keep: list = None
+# ) -> ee.FeatureCollection:
+#     """
+#     Reads a GeoJSON file from the given path and converts it to an Earth Engine FeatureCollection.
+#     Optionally checks and converts the CRS to WGS 84 (EPSG:4326) if needed.
+
+#     Args:
+#         geojson_filepath (Any): The filepath to the GeoJSON file.
+#         enforce_wgs84 (bool): Whether to enforce WGS 84 projection (EPSG:4326). Defaults to True.
+#         properties_to_keep (list, optional): Controls which properties to preserve:
+#             - None (default): Preserves ALL properties
+#             - [] (empty list): Keeps NO properties (geometry only)
+#             - ['prop1', 'prop2']: Keeps only specified properties
+
+#     Returns:
+#         ee.FeatureCollection: Earth Engine FeatureCollection created from the GeoJSON.
+#     """
+#     if isinstance(geojson_filepath, (str, Path)):
+#         file_path = os.path.abspath(geojson_filepath)
+
+#         # Only show file path in debug mode
+#         logger.debug(f"Reading GeoJSON file from: {file_path}")
+
+#         # Use GeoPandas to read the file and handle CRS
+#         gdf = gpd.read_file(file_path)
+
+#         # Debug: Show original properties only if debug logging is enabled
+#         if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
+#             original_properties = [col for col in gdf.columns if col != 'geometry']
+#             logger.debug(f"Original properties: {original_properties}")
+
+#         # Handle property filtering
+#         if properties_to_keep is None:
+#             # Keep all properties
+#             logger.debug("Preserving all properties")
+#             columns_to_keep = list(gdf.columns)  # Keep all columns including geometry
+#         elif len(properties_to_keep) == 0:
+#             # Keep no properties - geometry only
+#             logger.debug("Keeping no properties (geometry only)")
+#             columns_to_keep = ['geometry']
+#             gdf = gdf[columns_to_keep]
+#         else:
+#             # Filter to specified properties
+#             available_properties = [prop for prop in properties_to_keep if prop in gdf.columns]
+#             missing_properties = [prop for prop in properties_to_keep if prop not in gdf.columns]
+
+#             # Only warn about missing properties - this is important for users
+#             if missing_properties:
+#                 logger.warning(f"Requested properties not found: {missing_properties}")
+
+#             columns_to_keep = ['geometry'] + available_properties
+#             gdf = gdf[columns_to_keep]
+#             logger.debug(f"Keeping selected properties: {available_properties}")
+
+#         # Check and convert CRS if needed
+#         if enforce_wgs84:
+#             if gdf.crs is None:
+#                 # CRS warnings are important - keep as warnings
+#                 logger.warning("Input GeoJSON has no CRS defined, assuming WGS 84")
+#             elif gdf.crs != "EPSG:4326":
+#                 logger.debug(f"Converting CRS from {gdf.crs} to WGS 84 (EPSG:4326)")
+#                 gdf = gdf.to_crs("EPSG:4326")
+
+#         # Ensure all properties are JSON-serializable (only if there are properties to convert)
+#         for col in gdf.columns:
+#             if col != 'geometry':
+#                 # Convert numpy types to Python types for JSON serialization
+#                 if gdf[col].dtype == 'object':
+#                     gdf[col] = gdf[col].astype(str)
+#                 elif gdf[col].dtype in ['int64', 'int32']:
+#                     gdf[col] = gdf[col].astype(int)
+#                 elif gdf[col].dtype in ['float64', 'float32']:
+#                     gdf[col] = gdf[col].astype(float)
+
+#         # Convert to GeoJSON (preserves specified properties)
+#         geojson_data = json.loads(gdf.to_json())
+
+#         # Debug: Verify properties are preserved - only in debug mode
+#         if logging.getLogger().getEffectiveLevel() <= logging.DEBUG and geojson_data['features']:
+#             first_feature_props = geojson_data['features'][0].get('properties', {})
+#             preserved_properties = list(first_feature_props.keys())
+#             if preserved_properties:
+#                 logger.debug(f"Properties preserved in GeoJSON: {preserved_properties}")
+#             else:
+#                 logger.debug("No properties preserved (geometry only)")
+
+#     else:
+#         raise ValueError("Input must be a file path (str or Path)")
+
+#     validation_errors = validate_geojson(geojson_data)
+#     if validation_errors:
+#         raise ValueError(f"GeoJSON validation errors: {validation_errors}")
+
+#     feature_collection = ee.FeatureCollection(create_feature_collection(geojson_data))
+
+#     # Debug: Verify properties in Earth Engine FeatureCollection - only in debug mode
+#     if logging.getLogger().getEffectiveLevel() <= logging.DEBUG:
+#         try:
+#             first_ee_feature = feature_collection.first()
+#             property_names = first_ee_feature.propertyNames()
+#             ee_properties = property_names.getInfo()
+#             if ee_properties:
+#                 logger.debug(f"Properties in Earth Engine FeatureCollection: {ee_properties}")
+#             else:
+#                 logger.debug("No properties in Earth Engine FeatureCollection (geometry only)")
+#         except Exception as e:
+#             logger.debug(f"Could not retrieve property names from EE: {e}")
+
+#     return feature_collection
 
 
 def convert_geojson_to_shapefile(geojson_path, shapefile_output_path):

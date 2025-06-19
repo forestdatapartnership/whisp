@@ -69,7 +69,11 @@ def whisp_formatted_stats_geojson_to_df(
         df_stats : pd.DataFrame
             The DataFrame containing the Whisp stats for the input ROI.
     """
-    feature_collection = convert_geojson_to_ee(str(input_geojson_filepath))
+    feature_collection = convert_geojson_to_ee(
+        geojson_filepath=str(input_geojson_filepath),
+        enforce_wgs84=True,
+        properties_to_keep=[external_id_column],
+    )
 
     return whisp_formatted_stats_ee_to_df(
         feature_collection,
@@ -240,7 +244,11 @@ def whisp_stats_geojson_to_df(
     df_stats : pd.DataFrame
         The dataframe containing the Whisp stats for the input ROI.
     """
-    feature_collection = convert_geojson_to_ee(str(input_geojson_filepath))
+    feature_collection = convert_geojson_to_ee(
+        geojson_filepath=str(input_geojson_filepath),
+        enforce_wgs84=True,
+        properties_to_keep=[external_id_column],
+    )
 
     return whisp_stats_ee_to_df(
         feature_collection,
@@ -273,7 +281,11 @@ def whisp_stats_geojson_to_ee(
     ee.FeatureCollection
         The feature collection containing the Whisp stats for the input ROI.
     """
-    feature_collection = convert_geojson_to_ee(str(input_geojson_filepath))
+    feature_collection = convert_geojson_to_ee(
+        geojson_filepath=str(input_geojson_filepath),
+        enforce_wgs84=True,
+        properties_to_keep=[external_id_column],
+    )
 
     return whisp_stats_ee_to_ee(
         feature_collection, external_id_column, national_codes=national_codes
@@ -308,7 +320,11 @@ def whisp_stats_geojson_to_geojson(
     None
     """
     # Convert GeoJSON to Earth Engine FeatureCollection
-    feature_collection = convert_geojson_to_ee(input_geojson_filepath)
+    feature_collection = convert_geojson_to_ee(
+        geojson_filepath=str(input_geojson_filepath),
+        enforce_wgs84=True,
+        properties_to_keep=[external_id_column],
+    )
 
     # Get stats as a FeatureCollection
     stats_feature_collection = whisp_stats_ee_to_ee(
@@ -355,7 +371,11 @@ def whisp_stats_geojson_to_drive(
         if not input_geojson_filepath.exists():
             raise FileNotFoundError(f"File {input_geojson_filepath} does not exist.")
 
-        feature_collection = convert_geojson_to_ee(str(input_geojson_filepath))
+        feature_collection = convert_geojson_to_ee(
+            geojson_filepath=str(input_geojson_filepath),
+            enforce_wgs84=True,
+            properties_to_keep=[external_id_column],
+        )
 
         return whisp_stats_ee_to_drive(
             feature_collection,
