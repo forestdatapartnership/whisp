@@ -1,3 +1,15 @@
+# This file contains python code for the Google Earth Engine datasets used in the Whisp pacakge.
+
+# If you are running a bespoke analysis including your own datasets see also the main README.md file.
+
+# Key aspects to include in the code for each function are:
+# a) a suffix of ' _prep' and
+# b) a prefix of "nXX_" if it is national/sub-national dataset (where XX is replaced by that country code), or a prefix of 'g_' if it covers more than one country.
+# c) a name for your image, defined by ".rename('add_your_image_name_here')". This becomes the column header in the output table.
+
+# NB for all  the above you will need to be running the package in editable mode for these local changes to take effect.
+# Editable mode runs the package locally and thus changes to any files are reflected immediately.
+
 import ee
 
 # ee.Authenticate()
