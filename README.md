@@ -220,8 +220,8 @@ Before submitting a request, consider the following:
 To add your own data you will need some coding experience as well as familiarity with GitHub and Google Earth Engine.
 
 
+Firstly follow the steps to install the package in editable mode (as detailed below in Contributing to the Whisp code base). This means you are running the Whisp package locally based on a cloned version of the code. Running in this way allows for a bespoke analysis using the Whisp functions and datasets, as well as your own. This approach is typically for those who want to run a bespoke analysis. If you think the datasets are of use to the wider community however, you can make a pull request, as detailed below. 
 
-Firstly follow the steps to install the package in editable mode (as detailed below in Contributing to the Whisp code base). This means you are running the Whisp package locally based on a cloned version of the code. Running in this way allows for a bespoke analysis using the Whisp functions and datasets, as well as your own.
 
 
 
