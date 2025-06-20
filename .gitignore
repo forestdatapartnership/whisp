@@ -19,3 +19,4 @@ build/
 pre-commit.log
 credentials.json
 config_gee.py
+dist/
