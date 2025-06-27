@@ -156,7 +156,7 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr><td rowspan="3">Admin_Level_1</td><td rowspan="3">Name of subnational administrative boundary (Level 1), based on plot centroid. Boundaries may contain errors and do not imply official endorsement or acceptance.</td><td rowspan="2">Runfola, D. et al. (2020) geoBoundaries: A global database of political administrative boundaries. <i> PLoS ONE </i> 15(4): e0231866.https://doi.org/10.1371/journal.pone.0231866 </td></tr>
     <tr></tr>
     <tr><td>ee.FeatureCollection("WM/geoLab/geoBoundaries/600/ADM1")</td></tr>
-    <tr><td rowspan="4">In_watebody</td><td rowspan="4">
+    <tr><td rowspan="4">In_waterbody</td><td rowspan="4">
  Binary mask for permanent water. Used to detect potential plot location errors based on pixel value for the plot centroid. JRC's Global Surface Water data for inland water bodies (classes 1, 2, or 7 from the transitions layer); areas outside USGS Global Shoreline Vector (GSV) boundaries for marine. </td><td>Pekel, JF., Cottam, A., Gorelick, N., Belward, A.S. (2016) High-resolution mapping of global surface water and its long-term changes. <i> Nature </i> 540, 418-422. (doi:10.1038/nature20584)</td></tr>
     <tr><td>
  ee.Image("JRC/GSW1_4/GlobalSurfaceWater")
