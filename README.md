@@ -22,7 +22,6 @@
   - [Whisp pathways](#whisp_pathways)
   - [Whisp datasets](#whisp_datasets)
   - [Whisp notebooks](#whisp_notebooks)
-  - [System setup](#whisp_setup)
   - [Add data layers](#whisp_add_data)
   - [Contribute to the code](#whisp_contribute)
   - [Code of conduct](#whisp_conduct)
@@ -139,7 +138,7 @@ The **relevant risk assessment column depends on the commodity** in question:
   10) Were there commodity plantations or other agricultural uses in 2023?
   11) Were there logging concessions?
 
-  # Run Whisp python package from a notebook
+  # Run Whisp python package from a notebook <a name="whisp_notebooks"></a>
 
   For most users we suggest using the Whisp App to process their plot data. But for some, using the python package directly will fit their workflow.
 
@@ -153,6 +152,7 @@ The **relevant risk assessment column depends on the commodity** in question:
 
   More info on Whisp can be found in [here](https://openknowledge.fao.org/items/e9284dc7-4b19-4f9c-b3e1-e6c142585865)
 
+
   ## Python package installation
 
   The Whisp package is available on pip
@@ -165,15 +165,15 @@ The **relevant risk assessment column depends on the commodity** in question:
   pip install --pre openforis-whisp
   ```
 
-  If running locally we recommend a [virtual environment](https://docs.python.org/3/library/venv.html) to keep your main python installation clean.
+  If running the package locally we recommend a [virtual environment](https://docs.python.org/3/library/venv.html) to keep your main python installation clean. For users running the package in Sepal see [here](https://docs.sepal.io/en/latest/cli/python.html#virtual-environment).
 
   The package relies upon the google earth engine api being setup correctly using a registered cloud project.
 
-  More info on Whisp can be found in [here](https://openknowledge.fao.org/items/e9284dc7-4b19-4f9c-b3e1-e6c142585865)
+  More info on Whisp can be found [here](https://openknowledge.fao.org/items/e9284dc7-4b19-4f9c-b3e1-e6c142585865)
 
 
 
-## How to add data layers to Whisp
+## How to add data layers to Whisp <a name="whisp_add_data"></a>
 
 
 
@@ -216,12 +216,24 @@ Before submitting a request, consider the following:
 ### Adding your own data directly
 
 
-
 To add your own data you will need some coding experience as well as familiarity with GitHub and Google Earth Engine.
 
+This approach is for those who want to run a bespoke analysis combining their own data with those already in Whisp.
 
-Firstly follow the steps to install the package in editable mode (as detailed below in Contributing to the Whisp code base). Once in editable mode you are running the Whisp package locally based on a cloned version of the code. This approach is for those who want to run a bespoke analysis combining their own data with those already in Whisp. If, however, you think the datasets are of use to the wider community and you have the code running smoothly, you can make a pull request from a forked repository. 
+Firstly follow the steps below to install the package in editable mode.
 
+As with the regular pip installation, we recommend a separate [virtual environment](https://docs.python.org/3/library/venv.html) for running in editable mode. For Sepal users see [here](https://docs.sepal.io/en/latest/cli/python.html#virtual-environment).
+
+```bash
+
+git  clone  https://github.com/forestdatapartnership/whisp.git
+
+cd  whisp/
+
+pip  install  -e  .[dev]
+
+```
+Once in editable mode you are running the Whisp package locally based on a cloned version of the code.
 
 
 
@@ -257,7 +269,7 @@ For example, if it is a dataset for tree cover in 2000, then add `'treecover'` u
 
 ```python
 
-def  nBR_my_custom_dataset_prep():
+def  my_custom_dataset_prep():
 
 image = ee.Image("MY/GEE/DATASET")
 
@@ -272,7 +284,6 @@ return binary.rename("My_custom_dataset")
 ---
 
 
-
 We are working on ways to make this process smoother. However, in the meantime do contact us through the [issues page on GitHub](https://github.com/forestdatapartnership/whisp/issues), or via the Open Foris email, if this functionality is useful to you or you need help.
 
 
@@ -281,28 +292,14 @@ We are working on ways to make this process smoother. However, in the meantime d
 
 
 
-## Contributing to the Whisp code base
+## Contributing to the Whisp code base <a name="whisp_contribute"></a>
+
+Contributions to the Whisp code in GitHub are welcome. These could be additional functionality, datasets or just cleaner code! Contributions can be made by forking the repository, making and pushing the required changes, then making a pull request to the Whisp repository. After briefly reviewing the request, we can make a branch for which to make a new pull request to. After final checks, we can then incorporate the code into the main branch. If in doubt, get in contact first or log as an issue [here](https://github.com/forestdatapartnership/whisp/issues/).
 
 
+Install the package in editable mode (see Adding your own data directly above):
 
-Contributions to the Whisp code in GitHub are welcome. They can be made by forking the repository, making and pushing the required changes, then making a pull request to the Whisp repository. After briefly reviewing the request, we can make a branch for which to make a new pull request to. After final checks, we can then incorporate the code into the main branch. If in doubt, get in contact first or log as an issue [here](https://github.com/forestdatapartnership/whisp/issues/).
-
-
-
-Install the package in editable mode:
-
-
-```bash
-
-git  clone  https://github.com/forestdatapartnership/whisp.git
-
-cd  whisp/
-
-pip  install  -e  .[dev]
-
-```
-
-Add additional dependencies required for testing and running pre-commit hooks:
+Then add additional dependencies required for testing and running pre-commit hooks:
 
 
 ```bash
@@ -313,7 +310,6 @@ pre-commit  install
 
 
 You should be able to run the Pytest suite by simply running the `pytest` command from the repo's root folder.
-
 
 
 Please read the [contributing guidelines](contributing_guidelines.md) for good practice recommendations
