@@ -58,19 +58,6 @@ def g_jrc_gfc_2020_prep():
     return jrc_gfc2020_raw.mosaic().rename("EUFO_2020")
 
 
-## removing JAXA product due to repeat errors of commission being noted by users, compared to other datasets
-
-# # JAXA_FNF_2020
-# def g_jaxa_forest_prep():
-#     jaxa_forest_non_forest_raw = ee.ImageCollection("JAXA/ALOS/PALSAR/YEARLY/FNF4")
-#     jaxa_forest_non_forest_2020 = (
-#         jaxa_forest_non_forest_raw.filterDate("2020-01-01", "2020-12-31")
-#         .select("fnf")
-#         .mosaic()
-#     )
-#     return jaxa_forest_non_forest_2020.lte(2).rename("JAXA_FNF_2020")
-
-
 # GFC_TC_2020
 def g_glad_gfc_10pc_prep():
     gfc = ee.Image("UMD/hansen/global_forest_change_2024_v1_12")
@@ -285,7 +272,7 @@ def g_fdap_rubber_2023_prep():
     fdap_rubber = (
         fdap_rubber2020_model_raw.filterDate("2023-01-01", "2023-12-31")
         .mosaic()
-        .gt(0.93)  # Threshold for Rubber
+        .gt(0.59)  # Threshold for Rubber
     )
     return fdap_rubber.rename("Rubber_2023_FDaP")
 
