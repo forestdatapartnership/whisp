@@ -40,8 +40,6 @@
 
 
   ## Whisp datasets <a name="whisp_datasets"></a>
-  All output columns from Whisp are described in [this excel file](https://github.com/forestdatapartnership/whisp/blob/main/whisp_columns.xlsx)
-
   ***Whisp***  implements the convergence of evidence approach by providing a transparent and public processing flow using datasets covering the following categories:
 
   1) Tree and forest cover (at the end of 2020);
@@ -81,6 +79,8 @@ And specifically for the timber commodity:
   11) Were there logging concessions?
 
   The Whisp algorithm outputs multiple statistical columns with disaggregated data from the input datasets, followed by aggregated indicator columns, and the final risk assessment columns.
+    All output columns from Whisp are described in [this excel file](https://github.com/forestdatapartnership/whisp/blob/main/whisp_columns.xlsx)
+
 The **relevant risk assessment column depends on the commodity** in question:
 
 <table>
