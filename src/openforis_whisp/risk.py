@@ -383,10 +383,10 @@ def add_eudr_risk_timber_col(
         ind_5_name (str, optional): Name of fifth indicator column. Defaults to "Ind_05_primary_2020".
         ind_6_name (str, optional): Name of sixth indicator column. Defaults to "Ind_06_nat_reg_forest_2020".
         ind_7_name (str, optional): Name of seventh indicator column. Defaults to "Ind_07_planted_plantations_2020".
-        ind_8_name (str, optional): Name of eigth indicator column. Defaults to "Ind_08_planted_plantations_after_2020".
-        ind_9_name (str, optional): Name of second indicator column. Defaults to "Ind_09_treecover_after_2020".
-        ind_10_name (str, optional): Name of second indicator column. Defaults to "Ind_10_agri_after_2020".
-        ind_11_name (str, optional): Name of second indicator column. Defaults to "Ind_11_logging_concession_before_2020".
+        ind_8_name (str, optional): Name of eighth indicator column. Defaults to "Ind_08_planted_plantations_after_2020".
+        ind_9_name (str, optional): Name of ninth indicator column. Defaults to "Ind_09_treecover_after_2020".
+        ind_10_name (str, optional): Name of tenth indicator column. Defaults to "Ind_10_agri_after_2020".
+        ind_11_name (str, optional): Name of eleventh indicator column. Defaults to "Ind_11_logging_concession_before_2020".
 
     Returns:
         DataFrame: DataFrame with added 'EUDR_risk' column.
@@ -399,14 +399,14 @@ def add_eudr_risk_timber_col(
             row[ind_7_name] == "yes" and row[ind_10_name] == "no"
         ):
             df.at[index, "risk_timber"] = "low"
-        # If there is a natural forest primary (ind_5_name) or naturally regenerating (ind_6_name) or planted forest (ind_7_name) in 2020 AND agricultural use in 2023 (ind_10_name), set EUDR_timber to high
+        # If there is a natural forest primary (ind_5_name) or naturally regenerating (ind_6_name) or planted forest (ind_7_name) in 2020 AND agricultural after 2020 (ind_10_name), set EUDR_timber to high
         elif (
             row[ind_5_name] == "yes"
             or row[ind_6_name] == "yes"
             or row[ind_7_name] == "yes"
         ) and row[ind_10_name] == "yes":
             df.at[index, "risk_timber"] = "high"
-        # If there is a natural forest primary (ind_5_name) or naturally regenerating (ind_6_name) AND planted post 2020 (ind_8_name), set EUDR_risk to "high"
+        # If there is a natural forest primary (ind_5_name) or naturally regenerating (ind_6_name) AND planted after 2020 (ind_8_name), set EUDR_risk to "high"
         elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes") and row[
             ind_8_name
         ] == "yes":
@@ -424,9 +424,9 @@ def add_eudr_risk_timber_col(
         # If primary (ind_5_name) OR naturally regenerating in 2020 (ind_6_name) and no other info, set EUDR_risk to "more_info_needed"
         elif row[ind_5_name] == "yes" or row[ind_6_name] == "yes":
             df.at[index, "risk_timber"] = "more_info_needed"
-        # If none of the above conditions are met, set EUDR_risk to "high"
+        # If none of the above conditions are met, set EUDR_risk to "low"
         else:
-            df.at[index, "risk_timber"] = "high"
+            df.at[index, "risk_timber"] = "low"
 
     return df
 
