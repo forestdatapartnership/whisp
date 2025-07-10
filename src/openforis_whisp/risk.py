@@ -272,7 +272,6 @@ def whisp_risk(
         df=df_w_indicators,
         ind_1_name=ind_1_name,
         ind_2_name=ind_2_name,
-        ind_3_name=ind_3_name,
         ind_4_name=ind_4_name,
     )
 
@@ -334,7 +333,6 @@ def add_eudr_risk_acrop_col(
     df: data_lookup_type,
     ind_1_name: str,
     ind_2_name: str,
-    ind_3_name: str,
     ind_4_name: str,
 ) -> data_lookup_type:
     """
@@ -344,7 +342,6 @@ def add_eudr_risk_acrop_col(
         df (DataFrame): Input DataFrame.
         ind_1_name (str, optional): Name of first indicator column. Defaults to "Ind_01_treecover".
         ind_2_name (str, optional): Name of second indicator column. Defaults to "Ind_02_commodities".
-        ind_3_name (str, optional): Name of third indicator column. Defaults to "Ind_03_disturbance_before_2020".
         ind_4_name (str, optional): Name of fourth indicator column. Defaults to "Ind_04_disturbance_after_2020".
 
     Returns:
