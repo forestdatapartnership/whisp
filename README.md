@@ -47,7 +47,7 @@
   3) Disturbances **before 2020** (i.e., degradation or deforestation until 2020-12-31);
   4) Disturbances **after 2020** (i.e., degradation or deforestation from 2021-01-01 onward).
 
-Additional categories are specific for the timber commodity:
+Additional categories are specific for the timber commodity, considering an harvesting date in 2023:
 
   5) Primary forests in 2020;
   6) Naturally regenerating forests in 2020;
@@ -59,7 +59,7 @@ Additional categories are specific for the timber commodity:
 
   There are multiple datasets for each category. Find the full current [list of datasets used in Whisp here](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md).
 
-  ## Whisp risk assessment <a name="whisp_risk"></a>  
+  ### Whisp risk assessment <a name="whisp_risk"></a>  
 
 Whisp checks the plots provided by the user by running zonal statistics on them to answer the following questions:
 
@@ -68,15 +68,15 @@ Whisp checks the plots provided by the user by running zonal statistics on them 
   3) Were there disturbances until 2020-12-31?
   4) Were there disturbances after 2020-12-31 / starting 2021-01-01?
 
-And specifically for the timber commodity:
+And specifically for the timber commodity, considering an harvesting date in 2023:
 
   5) Were there primary forests in 2020?
   6) Were there naturally regenerating forests in 2020?
   7) Were there planted and plantation forests in 2020?
   8) Were there planted and plantation forests in 2023?
-  9) Was there treecover in 2023?
+  9) Was there treecover after 2023?
   10) Were there commodity plantations or other agricultural uses in 2023?
-  11) Were there logging concessions?
+  11) Were there logging concessions at any time?
 
   The Whisp algorithm outputs multiple statistical columns with disaggregated data from the input datasets, followed by aggregated indicator columns, and the final risk assessment columns.
     All output columns from Whisp are described in [this excel file](https://github.com/forestdatapartnership/whisp/blob/main/whisp_columns.xlsx)
@@ -126,13 +126,8 @@ The **relevant risk assessment column depends on the commodity** in question:
   Now, if the datasets under 1., 2. & 3. indicate that there was tree cover, but no agriculture and no disturbances before or by the end of 2020, the Whisp algorithm checks whether degradation or deforestation have been reported in a disturbance dataset after 2020-12-31. If they have, **Whisp will categorize the deforestation risk as <u>high</u>.** <br>
   However, under the same circumstances but with <u>no</u> disturbances reported after 2020-12-31 there is insufficient evidence and the **Whisp output will be "More info needed".** Such can be the case for, e.g., cocoa or coffee grown under the shade of treecover or agroforestry.
 
-  *The Whisp algorithm for **annual Crops** visualized:*
-  ![CoE_Graphic 5](https://github.com/user-attachments/assets/007b5f50-3939-4707-95fa-98be4d56745f)
 
-  *The Whisp algorithm for **Timber** visualized:*
-  ![CoE_Graphic 5](https://github.com/user-attachments/assets/007b5f50-3939-4707-95fa-98be4d56745f)
-
-  # Run Whisp python package from a notebook <a name="whisp_notebooks"></a>
+  ## Run Whisp python package from a notebook <a name="whisp_notebooks"></a>
 
   For most users we suggest using the Whisp App to process their plot data. But for some, using the python package directly will fit their workflow.
 
@@ -140,7 +135,7 @@ The **relevant risk assessment column depends on the commodity** in question:
 
   For an example notebook adapted for running locally (or in Sepal), see: [whisp_geojson_to_csv.ipynb](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/whisp_geojson_to_csv.ipynb)
 
-  ## Requirements for running the package
+  ### Requirements for running the package
 
   - A Google Earth Engine (GEE) account.
   - A registered cloud GEE project.
@@ -149,7 +144,7 @@ The **relevant risk assessment column depends on the commodity** in question:
   More info on Whisp can be found in [here](https://openknowledge.fao.org/items/e9284dc7-4b19-4f9c-b3e1-e6c142585865)
 
 
-  ## Python package installation
+  ### Python package installation
 
   The Whisp package is available on pip
   https://pypi.org/project/openforis-whisp/
