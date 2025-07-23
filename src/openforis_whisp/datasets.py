@@ -33,6 +33,8 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
+from openforis_whisp.indonesia_dataset import IDN_dataset
+print(IDN_dataset)
 
 def get_logger(name):
     return logging.getLogger(name)
@@ -1217,13 +1219,13 @@ def nci_ocs2020_prep():
 # Indonesia test - MOCK UP VERSION
 def nid_f2020_prep():
     return (
-        ee.Image("projects/ee-whisp/assets/lcef_kalimantan_100m_mosaic").eq(1)
+        ee.Image(IDN_dataset).eq(1)
         .rename("nID_simontana_forest2020")
     )  # forest 2020 as per SIMONTANA dataset 
 
 def nid_p2020_prep():
     return (
-        ee.Image("projects/ee-whisp/assets/lcef_kalimantan_100m_mosaic").eq(5)
+        ee.Image(IDN_dataset).eq(5)
         .rename("nID_simontana_plantation2020")
     )  # forest 2020 as per SIMONTANA dataset 
     
