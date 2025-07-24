@@ -252,28 +252,73 @@ def validate_geojson(input_data: Any) -> List[str]:
     return errors
 
 
-def extract_features(geometry: Any, features: List[Feature]) -> None:
+def extract_features(geojson_obj: Any, features: List[Feature]) -> None:
     """
-    Recursively extracts features from a geometry and adds them to the feature list.
+    Recursively extracts features from a GeoJSON object and adds them to the feature list.
 
-    :param geometry: GeoJSON geometry
+    :param geojson_obj: GeoJSON object (could be geometry, feature, or feature collection)
     :param features: List of extracted features
     """
-    if geometry["type"] == "Polygon":
-        features.append(Feature(geometry=Polygon(geometry["coordinates"])))
-    elif geometry["type"] == "Point":
-        features.append(Feature(geometry=Point(geometry["coordinates"])))
-    elif geometry["type"] == "MultiPolygon":
-        for polygon in geometry["coordinates"]:
-            features.append(Feature(geometry=Polygon(polygon)))
-    elif geometry["type"] == "GeometryCollection":
-        for geom in geometry["geometries"]:
-            extract_features(geom, features)
-    elif geometry["type"] == "Feature":
-        extract_features(geometry["geometry"], features)
-    elif geometry["type"] == "FeatureCollection":
-        for feature in geometry["features"]:
-            extract_features(feature, features)
+    if isinstance(geojson_obj, dict):
+        obj_type = geojson_obj.get("type")
+
+        if obj_type == "Feature":
+            # Extract the actual Feature with properties
+            geometry = geojson_obj.get("geometry", {})
+            properties = geojson_obj.get("properties", {})
+
+            if geometry and geometry.get("type"):
+                features.append(Feature(geometry=geometry, properties=properties))
+
+        elif obj_type == "FeatureCollection":
+            # Process each feature in the collection
+            for feature in geojson_obj.get("features", []):
+                extract_features(feature, features)
+
+        elif obj_type in [
+            "Polygon",
+            "Point",
+            "MultiPolygon",
+            "LineString",
+            "MultiPoint",
+            "MultiLineString",
+        ]:
+            # This is a raw geometry - create feature with empty properties
+            features.append(Feature(geometry=geojson_obj, properties={}))
+
+        elif obj_type == "GeometryCollection":
+            # Handle geometry collections
+            for geom in geojson_obj.get("geometries", []):
+                extract_features(geom, features)
+
+    elif isinstance(geojson_obj, list):
+        # Handle lists of features/geometries
+        for item in geojson_obj:
+            extract_features(item, features)
+
+
+# def extract_features(geometry: Any, features: List[Feature]) -> None:
+#     """
+#     Recursively extracts features from a geometry and adds them to the feature list.
+
+#     :param geometry: GeoJSON geometry
+#     :param features: List of extracted features
+#     """
+#     if geometry["type"] == "Polygon":
+#         features.append(Feature(geometry=Polygon(geometry["coordinates"])))
+#     elif geometry["type"] == "Point":
+#         features.append(Feature(geometry=Point(geometry["coordinates"])))
+#     elif geometry["type"] == "MultiPolygon":
+#         for polygon in geometry["coordinates"]:
+#             features.append(Feature(geometry=Polygon(polygon)))
+#     elif geometry["type"] == "GeometryCollection":
+#         for geom in geometry["geometries"]:
+#             extract_features(geom, features)
+#     elif geometry["type"] == "Feature":
+#         extract_features(geometry["geometry"], features)
+#     elif geometry["type"] == "FeatureCollection":
+#         for feature in geometry["features"]:
+#             extract_features(feature, features)
 
 
 def create_feature_collection(geojson_obj: Any) -> FeatureCollection:

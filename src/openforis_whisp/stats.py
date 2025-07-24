@@ -57,6 +57,8 @@ def whisp_formatted_stats_geojson_to_df(
             The filepath to the GeoJSON of the ROI to analyze.
         external_id_column : str, optional
             The column in the GeoJSON containing external IDs to be preserved in the output DataFrame.
+            This column must exist as a property in ALL features of the GeoJSON file.
+            Use debug_feature_collection_properties() to inspect available properties if you encounter errors.
         remove_geom : bool, default=False
             If True, the geometry of the GeoJSON is removed from the output DataFrame.
         national_codes : list, optional
@@ -385,40 +387,32 @@ def whisp_stats_ee_to_ee(
     """
     if external_id_column is not None:
         try:
-            # Check if external_id_column is a property in feature_collection (server-side)
-            def check_column_exists(feature):
-                return ee.Algorithms.If(
-                    feature.propertyNames().contains(external_id_column),
-                    feature,
-                    ee.Feature(
-                        None
-                    ),  # Return an empty feature if the column does not exist
-                )
-
-            feature_collection_with_check = feature_collection.map(check_column_exists)
-            size_fc = feature_collection.size()
-            valid_feature_count = feature_collection_with_check.filter(
-                ee.Filter.notNull([external_id_column])
-            ).size()
-
-            # Raise an error if the column does not exist in any feature
-            if valid_feature_count.neq(size_fc).getInfo():
-                raise ValueError(
-                    f"The column '{external_id_column}' is not a property throughout the feature collection."
-                )
-
-            # Set the geo_id_column
-            feature_collection = feature_collection.map(
-                lambda feature: feature.set(
-                    geo_id_column, ee.String(feature.get(external_id_column))
-                )
+            # Validate that the external_id_column exists in all features
+            validation_result = validate_external_id_column(
+                feature_collection, external_id_column
             )
+
+            if not validation_result["is_valid"]:
+                raise ValueError(validation_result["error_message"])
+
+            # Set the geo_id_column with robust null handling
+            def set_geo_id_safely(feature):
+                external_id_value = feature.get(external_id_column)
+                # Use server-side null checking and string conversion
+                return ee.Algorithms.If(
+                    ee.Algorithms.IsEqual(external_id_value, None),
+                    feature.set(geo_id_column, "unknown"),
+                    feature.set(geo_id_column, ee.String(external_id_value)),
+                )
+
+            feature_collection = feature_collection.map(set_geo_id_safely)
 
         except Exception as e:
             # Handle the exception and provide a helpful error message
             print(
                 f"An error occurred when trying to set the external_id_column: {external_id_column}. Error: {e}"
             )
+            raise e  # Re-raise the exception to stop execution
 
     fc = get_stats(
         feature_collection, national_codes=national_codes, unit_type=unit_type
@@ -951,3 +945,139 @@ def convert_iso3_to_iso2(df, iso3_column, iso2_column):
     )
 
     return df
+
+
+def validate_external_id_column(feature_collection, external_id_column):
+    """
+    Validates that the external_id_column exists in all features of the collection.
+
+    Parameters
+    ----------
+    feature_collection : ee.FeatureCollection
+        The feature collection to validate
+    external_id_column : str
+        The name of the external ID column to check
+
+    Returns
+    -------
+    dict
+        Dictionary with validation results including:
+        - 'is_valid': bool indicating if column exists in all features
+        - 'total_features': int total number of features
+        - 'features_with_column': int number of features that have the column
+        - 'available_properties': list of properties available in first feature
+        - 'error_message': str error message if validation fails
+    """
+    try:
+        # Get total number of features
+        total_features = feature_collection.size().getInfo()
+
+        if total_features == 0:
+            return {
+                "is_valid": False,
+                "total_features": 0,
+                "features_with_column": 0,
+                "available_properties": [],
+                "error_message": "Feature collection is empty",
+            }
+
+        # Get available properties from first feature
+        first_feature_props = feature_collection.first().propertyNames().getInfo()
+
+        # Check if external_id_column exists in all features
+        def check_column_exists(feature):
+            has_column = feature.propertyNames().contains(external_id_column)
+            return feature.set("_has_external_id", has_column)
+
+        features_with_check = feature_collection.map(check_column_exists)
+        features_with_column = (
+            features_with_check.filter(ee.Filter.eq("_has_external_id", True))
+            .size()
+            .getInfo()
+        )
+
+        is_valid = features_with_column == total_features
+
+        error_message = None
+        if not is_valid:
+            missing_count = total_features - features_with_column
+            error_message = (
+                f"The column '{external_id_column}' is missing from {missing_count} "
+                f"out of {total_features} features in the collection. "
+                f"Available properties in first feature: {first_feature_props}"
+            )
+
+        return {
+            "is_valid": is_valid,
+            "total_features": total_features,
+            "features_with_column": features_with_column,
+            "available_properties": first_feature_props,
+            "error_message": error_message,
+        }
+
+    except Exception as e:
+        return {
+            "is_valid": False,
+            "total_features": 0,
+            "features_with_column": 0,
+            "available_properties": [],
+            "error_message": f"Error during validation: {str(e)}",
+        }
+
+
+def debug_feature_collection_properties(feature_collection, max_features=5):
+    """
+    Debug helper function to inspect the properties of features in a collection.
+
+    Parameters
+    ----------
+    feature_collection : ee.FeatureCollection
+        The feature collection to inspect
+    max_features : int, optional
+        Maximum number of features to inspect, by default 5
+
+    Returns
+    -------
+    dict
+        Dictionary with debugging information about the feature collection
+    """
+    try:
+        total_features = feature_collection.size().getInfo()
+
+        if total_features == 0:
+            return {"total_features": 0, "error": "Feature collection is empty"}
+
+        # Limit the number of features to inspect
+        features_to_check = min(max_features, total_features)
+        limited_fc = feature_collection.limit(features_to_check)
+
+        # Get properties for each feature
+        def get_feature_properties(feature):
+            return ee.Dictionary(
+                {
+                    "properties": feature.propertyNames(),
+                    "geometry_type": feature.geometry().type(),
+                }
+            )
+
+        feature_info = limited_fc.map(get_feature_properties).getInfo()
+
+        return {
+            "total_features": total_features,
+            "inspected_features": features_to_check,
+            "feature_details": [
+                {
+                    "feature_index": i,
+                    "properties": feature_info["features"][i]["properties"][
+                        "properties"
+                    ],
+                    "geometry_type": feature_info["features"][i]["properties"][
+                        "geometry_type"
+                    ],
+                }
+                for i in range(len(feature_info["features"]))
+            ],
+        }
+
+    except Exception as e:
+        return {"error": f"Error during debugging: {str(e)}"}
