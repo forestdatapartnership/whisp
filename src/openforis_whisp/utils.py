@@ -113,9 +113,9 @@ def remove_geometry_from_feature_collection(feature_collection):
     return feature_collection_no_geometry
 
 
-# Compute centroids of each polygon
-def get_centroid(feature, geo_id_column="Geo_id"):
-    keepProperties = [geo_id_column]
+# Compute centroids of each polygon including the external_id_column
+def get_centroid(feature, external_id_column="external_id"):
+    keepProperties = [external_id_column]
     # Get the centroid of the feature's geometry.
     centroid = feature.geometry().centroid(1)
     # Return a new Feature, copying properties from the old Feature.
