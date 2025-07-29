@@ -16,7 +16,7 @@ centroid_x_coord_column = "Centroid_lon"
 
 centroid_y_coord_column = "Centroid_lat"
 
-geo_id_column = "external_id"
+external_id_column = "external_id"
 
 geometry_type_column = "Geometry_type"
 
