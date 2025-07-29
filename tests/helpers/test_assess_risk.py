@@ -16,5 +16,5 @@ def test_whisp_stats_geojson_to_df() -> None:
     df_stats = whisp_formatted_stats_geojson_to_df(GEOJSON_EXAMPLE_FILEPATH)
     df_stats_with_risk = whisp_risk(df_stats)
     assert isinstance(df_stats_with_risk, pd.DataFrame)
-    assert len(df_stats_with_risk) == 31
+    assert len(df_stats_with_risk) == 36
     print(df_stats_with_risk)

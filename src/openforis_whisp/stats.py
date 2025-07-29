@@ -6,7 +6,7 @@ import json
 import country_converter as coco
 from openforis_whisp.parameters.config_runtime import (
     plot_id_column,
-    geo_id_column,
+    external_id_column,
     geometry_type_column,
     geometry_area_column,
     geometry_area_column_formatting,
@@ -395,17 +395,24 @@ def whisp_stats_ee_to_ee(
             if not validation_result["is_valid"]:
                 raise ValueError(validation_result["error_message"])
 
-            # Set the geo_id_column with robust null handling
-            def set_geo_id_safely(feature):
+            # Set the external_id with robust null handling and remove other properties
+            def set_external_id_safely_and_clean(feature):
                 external_id_value = feature.get(external_id_column)
                 # Use server-side null checking and string conversion
-                return ee.Algorithms.If(
+                external_id_value = ee.Algorithms.If(
                     ee.Algorithms.IsEqual(external_id_value, None),
-                    feature.set(geo_id_column, "unknown"),
-                    feature.set(geo_id_column, ee.String(external_id_value)),
+                    "unknown",
+                    ee.String(external_id_value),
+                )
+                # Create a new feature with only the geometry and the standardized external_id column
+                # Note: we use "external_id" as the standardized column name, not the original external_id_column name
+                return ee.Feature(feature.geometry()).set(
+                    "external_id", external_id_value
                 )
 
-            feature_collection = feature_collection.map(set_geo_id_safely)
+            feature_collection = feature_collection.map(
+                set_external_id_safely_and_clean
+            )
 
         except Exception as e:
             # Handle the exception and provide a helpful error message
