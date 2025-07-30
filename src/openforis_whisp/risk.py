@@ -272,16 +272,12 @@ def whisp_risk(
         df=df_w_indicators,
         ind_1_name=ind_1_name,
         ind_2_name=ind_2_name,
-        ind_3_name=ind_3_name,
         ind_4_name=ind_4_name,
     )
 
     df_w_indicators_and_risk_timber = add_eudr_risk_timber_col(
         df=df_w_indicators,
-        ind_1_name=ind_1_name,
         ind_2_name=ind_2_name,
-        ind_3_name=ind_3_name,
-        ind_4_name=ind_4_name,
         ind_5_name=ind_5_name,
         ind_6_name=ind_6_name,
         ind_7_name=ind_7_name,
@@ -306,10 +302,10 @@ def add_eudr_risk_pcrop_col(
 
     Args:
         df (DataFrame): Input DataFrame.
-        ind_1_name (str): Name of first indicator column.
-        ind_2_name (str): Name of second indicator column.
-        ind_3_name (str): Name of third indicator column.
-        ind_4_name (str): Name of fourth indicator column.
+        ind_1_name (str, optional): Name of first indicator column. Defaults to "Ind_01_treecover".
+        ind_2_name (str, optional): Name of second indicator column. Defaults to "Ind_02_commodities".
+        ind_3_name (str, optional): Name of third indicator column. Defaults to "Ind_03_disturbance_before_2020".
+        ind_4_name (str, optional): Name of fourth indicator column. Defaults to "Ind_04_disturbance_after_2020".
 
     Returns:
         DataFrame: DataFrame with added 'EUDR_risk' column.
@@ -337,7 +333,6 @@ def add_eudr_risk_acrop_col(
     df: data_lookup_type,
     ind_1_name: str,
     ind_2_name: str,
-    ind_3_name: str,
     ind_4_name: str,
 ) -> data_lookup_type:
     """
@@ -345,10 +340,9 @@ def add_eudr_risk_acrop_col(
 
     Args:
         df (DataFrame): Input DataFrame.
-        ind_1_name (str, optional): Name of first indicator column. Defaults to "Indicator_1_treecover".
-        ind_2_name (str, optional): Name of second indicator column. Defaults to "Indicator_2_commodities".
-        ind_3_name (str, optional): Name of third indicator column. Defaults to "Indicator_3_disturbance_before_2020".
-        ind_4_name (str, optional): Name of fourth indicator column. Defaults to "Indicator_4_disturbance_after_2020".
+        ind_1_name (str, optional): Name of first indicator column. Defaults to "Ind_01_treecover".
+        ind_2_name (str, optional): Name of second indicator column. Defaults to "Ind_02_commodities".
+        ind_4_name (str, optional): Name of fourth indicator column. Defaults to "Ind_04_disturbance_after_2020".
 
     Returns:
         DataFrame: DataFrame with added 'EUDR_risk' column.
@@ -371,10 +365,7 @@ def add_eudr_risk_acrop_col(
 
 def add_eudr_risk_timber_col(
     df: data_lookup_type,
-    ind_1_name: str,
     ind_2_name: str,
-    ind_3_name: str,
-    ind_4_name: str,
     ind_5_name: str,
     ind_6_name: str,
     ind_7_name: str,
@@ -388,51 +379,54 @@ def add_eudr_risk_timber_col(
 
     Args:
         df (DataFrame): Input DataFrame.
-        ind_1_name (str, optional): Name of first indicator column. Defaults to "Indicator_1_treecover".
-        ind_2_name (str, optional): Name of second indicator column. Defaults to "Indicator_2_commodities".
-        ind_3_name (str, optional): Name of third indicator column. Defaults to "Indicator_3_disturbance_before_2020".
-        ind_4_name (str, optional): Name of fourth indicator column. Defaults to "Indicator_4_disturbance_after_2020".
+        ind_2_name (str, optional): Name of second indicator column. Defaults to "Ind_02_commodities".
+        ind_5_name (str, optional): Name of fifth indicator column. Defaults to "Ind_05_primary_2020".
+        ind_6_name (str, optional): Name of sixth indicator column. Defaults to "Ind_06_nat_reg_forest_2020".
+        ind_7_name (str, optional): Name of seventh indicator column. Defaults to "Ind_07_planted_plantations_2020".
+        ind_8_name (str, optional): Name of eighth indicator column. Defaults to "Ind_08_planted_plantations_after_2020".
+        ind_9_name (str, optional): Name of ninth indicator column. Defaults to "Ind_09_treecover_after_2020".
+        ind_10_name (str, optional): Name of tenth indicator column. Defaults to "Ind_10_agri_after_2020".
+        ind_11_name (str, optional): Name of eleventh indicator column. Defaults to "Ind_11_logging_concession_before_2020".
 
     Returns:
         DataFrame: DataFrame with added 'EUDR_risk' column.
     """
 
     for index, row in df.iterrows():
-        # If there is a commodity in 2020 OR if there is planted-plantation in 2020 AND no agriculture in 2023, set EUDR_risk_degrad to "low"
+        # If there is a commodity in 2020 (ind_2_name) 
+        # OR if there is planted-plantation in 2020 (ind_7_name) AND no agriculture in 2023 (ind_10_name), set EUDR_risk_timber to "low"
         if row[ind_2_name] == "yes" or (
             row[ind_7_name] == "yes" and row[ind_10_name] == "no"
         ):
             df.at[index, "risk_timber"] = "low"
-        # If there is no tree cover, set EUDR_risk_degrad to "low"? no because of unstocked forests
-        # if row[ind_1_name] == "no" or row[ind_3_name] == "yes" or row[ind_7_name] == "yes":
-        #   df.at[index, 'EUDR_risk_degrad'] = "low"
-        # If primary or naturally regenerating or planted forest in 2020 AND agricultural use in 2023, set EUDR_risk to high
+        # If there is a natural forest primary (ind_5_name) or naturally regenerating (ind_6_name) or planted forest (ind_7_name) in 2020 AND agricultural after 2020 (ind_10_name), set EUDR_timber to high
         elif (
             row[ind_5_name] == "yes"
             or row[ind_6_name] == "yes"
             or row[ind_7_name] == "yes"
         ) and row[ind_10_name] == "yes":
             df.at[index, "risk_timber"] = "high"
-        # If primary or naturally regenerating AND planted post 2020, set EUDR_risk to "high"
+        # If there is a natural forest primary (ind_5_name) or naturally regenerating (ind_6_name) AND planted after 2020 (ind_8_name), set EUDR_risk to "high"
         elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes") and row[
             ind_8_name
         ] == "yes":
             df.at[index, "risk_timber"] = "high"
+        # No data yet on OWL conversion 
         # If primary or naturally regenerating or planted forest in 2020 and OWL in 2023, set EUDR_risk to high
         # elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes" or row[ind_7_name] == "yes") and row[ind_10_name] == "yes":
         #    df.at[index, 'EUDR_risk_timber'] = "high"
 
-        # If primary forest OR naturally regenerating AND an information on management practice OR tree cover post 2020, set EUDR_risk_degrad to "low"
+        # If there is a natural primary forest (ind_5_name) OR naturally regenerating in 2020 (ind_6_name) AND an information on management practice any time (ind_11_name) OR tree cover or regrowth post 2020 (ind_9_name), set EUDR_risk_timber to "low"
         elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes") and (
             row[ind_9_name] == "yes" or row[ind_11_name] == "yes"
         ):
             df.at[index, "risk_timber"] = "low"
-        # If primary or naturally regenerating and no other info, set EUDR_risk to "more_info_needed"
+        # If primary (ind_5_name) OR naturally regenerating in 2020 (ind_6_name) and no other info, set EUDR_risk to "more_info_needed"
         elif row[ind_5_name] == "yes" or row[ind_6_name] == "yes":
             df.at[index, "risk_timber"] = "more_info_needed"
-        # If none of the above conditions are met, set EUDR_risk to "high"
+        # If none of the above conditions are met, set EUDR_risk to "low"
         else:
-            df.at[index, "risk_timber"] = "high"
+            df.at[index, "risk_timber"] = "low"
 
     return df
 
