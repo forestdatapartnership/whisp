@@ -12,6 +12,150 @@ import geopandas as gpd
 import ee
 
 
+def convert_geojson_to_ee(
+    geojson_filepath: Any, enforce_wgs84: bool = True, strip_z_coords: bool = True
+) -> ee.FeatureCollection:
+    """
+    Reads a GeoJSON file from the given path and converts it to an Earth Engine FeatureCollection.
+    Optionally checks and converts the CRS to WGS 84 (EPSG:4326) if needed.
+    Automatically handles 3D coordinates by stripping Z values when necessary.
+
+    Args:
+        geojson_filepath (Any): The filepath to the GeoJSON file.
+        enforce_wgs84 (bool): Whether to enforce WGS 84 projection (EPSG:4326). Defaults to True.
+        strip_z_coords (bool): Whether to automatically strip Z coordinates from 3D geometries. Defaults to True.
+
+    Returns:
+        ee.FeatureCollection: Earth Engine FeatureCollection created from the GeoJSON.
+    """
+    if isinstance(geojson_filepath, (str, Path)):
+        file_path = os.path.abspath(geojson_filepath)
+
+        # Apply print_once deduplication for file reading message
+        if not hasattr(convert_geojson_to_ee, "_printed_file_messages"):
+            convert_geojson_to_ee._printed_file_messages = set()
+
+        if file_path not in convert_geojson_to_ee._printed_file_messages:
+            print(f"Reading GeoJSON file from: {file_path}")
+            convert_geojson_to_ee._printed_file_messages.add(file_path)
+
+        # Use GeoPandas to read the file and handle CRS
+        gdf = gpd.read_file(file_path)
+
+        # Check and convert CRS if needed
+        if enforce_wgs84:
+            if gdf.crs is None:
+                print("Warning: Input GeoJSON has no CRS defined, assuming WGS 84")
+            elif gdf.crs != "EPSG:4326":
+                print(f"Converting CRS from {gdf.crs} to WGS 84 (EPSG:4326)")
+                gdf = gdf.to_crs("EPSG:4326")
+
+        # Convert to GeoJSON
+        geojson_data = json.loads(gdf.to_json())
+    else:
+        raise ValueError("Input must be a file path (str or Path)")
+
+    validation_errors = validate_geojson(geojson_data)
+    if validation_errors:
+        raise ValueError(f"GeoJSON validation errors: {validation_errors}")
+
+    # Try to create the feature collection, handle 3D coordinate issues automatically
+    try:
+        feature_collection = ee.FeatureCollection(
+            create_feature_collection(geojson_data)
+        )
+        return feature_collection
+    except ee.EEException as e:
+        if "Invalid GeoJSON geometry" in str(e) and strip_z_coords:
+            # Apply print_once deduplication for Z-coordinate stripping messages
+            if not hasattr(convert_geojson_to_ee, "_printed_z_messages"):
+                convert_geojson_to_ee._printed_z_messages = set()
+
+            z_message_key = f"z_coords_{file_path}"
+            if z_message_key not in convert_geojson_to_ee._printed_z_messages:
+                print(
+                    "Warning: Invalid GeoJSON geometry detected, likely due to 3D coordinates."
+                )
+                print("Attempting to fix by stripping Z coordinates...")
+                convert_geojson_to_ee._printed_z_messages.add(z_message_key)
+
+            # Apply Z-coordinate stripping
+            geojson_data_fixed = _strip_z_coordinates_from_geojson(geojson_data)
+
+            # Try again with the fixed data
+            try:
+                feature_collection = ee.FeatureCollection(
+                    create_feature_collection(geojson_data_fixed)
+                )
+
+                success_message_key = f"z_coords_success_{file_path}"
+                if success_message_key not in convert_geojson_to_ee._printed_z_messages:
+                    print("✓ Successfully converted after stripping Z coordinates")
+                    convert_geojson_to_ee._printed_z_messages.add(success_message_key)
+
+                return feature_collection
+            except Exception as retry_error:
+                raise ee.EEException(
+                    f"Failed to convert GeoJSON even after stripping Z coordinates: {retry_error}"
+                )
+        else:
+            raise e
+
+
+def _strip_z_coordinates_from_geojson(geojson_data: dict) -> dict:
+    """
+    Helper function to strip Z coordinates from GeoJSON data.
+    Converts 3D coordinates to 2D by removing Z values.
+
+    Args:
+        geojson_data (dict): GeoJSON data dictionary
+
+    Returns:
+        dict: GeoJSON data with Z coordinates stripped
+    """
+
+    def strip_z(geometry):
+        """Remove Z coordinates from geometry to make it 2D"""
+        if geometry["type"] == "MultiPolygon":
+            geometry["coordinates"] = [
+                [[[lon, lat] for lon, lat, *_ in ring] for ring in polygon]
+                for polygon in geometry["coordinates"]
+            ]
+        elif geometry["type"] == "Polygon":
+            geometry["coordinates"] = [
+                [[lon, lat] for lon, lat, *_ in ring]
+                for ring in geometry["coordinates"]
+            ]
+        elif geometry["type"] == "Point":
+            if len(geometry["coordinates"]) > 2:
+                geometry["coordinates"] = geometry["coordinates"][:2]
+        elif geometry["type"] == "MultiPoint":
+            geometry["coordinates"] = [coord[:2] for coord in geometry["coordinates"]]
+        elif geometry["type"] == "LineString":
+            geometry["coordinates"] = [
+                [lon, lat] for lon, lat, *_ in geometry["coordinates"]
+            ]
+        elif geometry["type"] == "MultiLineString":
+            geometry["coordinates"] = [
+                [[lon, lat] for lon, lat, *_ in line]
+                for line in geometry["coordinates"]
+            ]
+        return geometry
+
+    # Create a deep copy to avoid modifying the original
+    import copy
+
+    geojson_copy = copy.deepcopy(geojson_data)
+
+    # Process all features
+    if "features" in geojson_copy:
+        for feature in geojson_copy["features"]:
+            if "geometry" in feature and feature["geometry"]:
+                feature["geometry"] = strip_z(feature["geometry"])
+
+    return geojson_copy
+
+
 def convert_ee_to_geojson(ee_object, filename=None, indent=2, **kwargs):
     """Converts Earth Engine object to geojson.
 
@@ -42,49 +186,6 @@ def convert_ee_to_geojson(ee_object, filename=None, indent=2, **kwargs):
             print("Could not convert the Earth Engine object to geojson")
     except Exception as e:
         raise Exception(e)
-
-
-def convert_geojson_to_ee(
-    geojson_filepath: Any, enforce_wgs84: bool = True
-) -> ee.FeatureCollection:
-    """
-    Reads a GeoJSON file from the given path and converts it to an Earth Engine FeatureCollection.
-    Optionally checks and converts the CRS to WGS 84 (EPSG:4326) if needed.
-
-    Args:
-        geojson_filepath (Any): The filepath to the GeoJSON file.
-        enforce_wgs84 (bool): Whether to enforce WGS 84 projection (EPSG:4326). Defaults to True.
-
-    Returns:
-        ee.FeatureCollection: Earth Engine FeatureCollection created from the GeoJSON.
-    """
-    if isinstance(geojson_filepath, (str, Path)):
-        file_path = os.path.abspath(geojson_filepath)
-        print(f"Reading GeoJSON file from: {file_path}")
-
-        # Use GeoPandas to read the file and handle CRS
-        gdf = gpd.read_file(file_path)
-
-        # Check and convert CRS if needed
-        if enforce_wgs84:
-            if gdf.crs is None:
-                print("Warning: Input GeoJSON has no CRS defined, assuming WGS 84")
-            elif gdf.crs != "EPSG:4326":
-                print(f"Converting CRS from {gdf.crs} to WGS 84 (EPSG:4326)")
-                gdf = gdf.to_crs("EPSG:4326")
-
-        # Convert to GeoJSON
-        geojson_data = json.loads(gdf.to_json())
-    else:
-        raise ValueError("Input must be a file path (str or Path)")
-
-    validation_errors = validate_geojson(geojson_data)
-    if validation_errors:
-        raise ValueError(f"GeoJSON validation errors: {validation_errors}")
-
-    feature_collection = ee.FeatureCollection(create_feature_collection(geojson_data))
-
-    return feature_collection
 
 
 def convert_geojson_to_shapefile(geojson_path, shapefile_output_path):
@@ -295,30 +396,6 @@ def extract_features(geojson_obj: Any, features: List[Feature]) -> None:
         # Handle lists of features/geometries
         for item in geojson_obj:
             extract_features(item, features)
-
-
-# def extract_features(geometry: Any, features: List[Feature]) -> None:
-#     """
-#     Recursively extracts features from a geometry and adds them to the feature list.
-
-#     :param geometry: GeoJSON geometry
-#     :param features: List of extracted features
-#     """
-#     if geometry["type"] == "Polygon":
-#         features.append(Feature(geometry=Polygon(geometry["coordinates"])))
-#     elif geometry["type"] == "Point":
-#         features.append(Feature(geometry=Point(geometry["coordinates"])))
-#     elif geometry["type"] == "MultiPolygon":
-#         for polygon in geometry["coordinates"]:
-#             features.append(Feature(geometry=Polygon(polygon)))
-#     elif geometry["type"] == "GeometryCollection":
-#         for geom in geometry["geometries"]:
-#             extract_features(geom, features)
-#     elif geometry["type"] == "Feature":
-#         extract_features(geometry["geometry"], features)
-#     elif geometry["type"] == "FeatureCollection":
-#         for feature in geometry["features"]:
-#             extract_features(feature, features)
 
 
 def create_feature_collection(geojson_obj: Any) -> FeatureCollection:
