@@ -371,7 +371,11 @@ def whisp_stats_geojson_to_drive(
 
 
 def whisp_stats_ee_to_ee(
-    feature_collection, external_id_column, national_codes=None, unit_type="ha"
+    feature_collection,
+    external_id_column,
+    national_codes=None,
+    unit_type="ha",
+    keep_properties=None,
 ):
     """
     Process a feature collection to get statistics for each feature.
@@ -381,6 +385,10 @@ def whisp_stats_ee_to_ee(
         external_id_column (str): The name of the external ID column to check.
         national_codes (list, optional): List of ISO2 country codes to include national datasets.
         unit_type (str): Whether to use hectares ("ha") or percentage ("percent"), default "ha".
+        keep_properties (None, bool, or list, optional): Properties to keep from the input features.
+            - None: Remove all properties (default behavior)
+            - True: Keep all properties
+            - list: Keep only the specified properties
 
     Returns:
         ee.FeatureCollection: The output feature collection with statistics.
@@ -395,7 +403,22 @@ def whisp_stats_ee_to_ee(
             if not validation_result["is_valid"]:
                 raise ValueError(validation_result["error_message"])
 
-            # Set the external_id with robust null handling and remove other properties
+            # First handle property selection, but preserve the external_id_column
+            if keep_properties is not None:
+                if keep_properties == True:
+                    # Keep all properties including external_id_column
+                    pass  # No need to modify feature_collection
+                elif isinstance(keep_properties, list):
+                    # Ensure external_id_column is included in the list
+                    if external_id_column not in keep_properties:
+                        keep_properties = keep_properties + [external_id_column]
+                    feature_collection = feature_collection.select(keep_properties)
+                else:
+                    raise ValueError(
+                        "keep_properties must be None, True, or a list of property names."
+                    )
+
+            # Set the external_id with robust null handling
             def set_external_id_safely_and_clean(feature):
                 external_id_value = feature.get(external_id_column)
                 # Use server-side null checking and string conversion
@@ -404,15 +427,17 @@ def whisp_stats_ee_to_ee(
                     "unknown",
                     ee.String(external_id_value),
                 )
-                # Create a new feature with only the geometry and the standardized external_id column
+                # Create a new feature with the standardized external_id column
                 # Note: we use "external_id" as the standardized column name, not the original external_id_column name
-                return ee.Feature(feature.geometry()).set(
-                    "external_id", external_id_value
-                )
+                return ee.Feature(feature.set("external_id", external_id_value))
 
             feature_collection = feature_collection.map(
                 set_external_id_safely_and_clean
             )
+
+            # Finally, clean up to keep only geometry and external_id if keep_properties is None
+            if keep_properties is None:
+                feature_collection = feature_collection.select(["external_id"])
 
         except Exception as e:
             # Handle the exception and provide a helpful error message
@@ -420,12 +445,31 @@ def whisp_stats_ee_to_ee(
                 f"An error occurred when trying to set the external_id_column: {external_id_column}. Error: {e}"
             )
             raise e  # Re-raise the exception to stop execution
+    else:
+        feature_collection = _keep_fc_properties(feature_collection, keep_properties)
 
     fc = get_stats(
         feature_collection, national_codes=national_codes, unit_type=unit_type
     )
 
     return add_id_to_feature_collection(dataset=fc, id_name=plot_id_column)
+
+
+def _keep_fc_properties(feature_collection, keep_properties):
+    # If keep_properties is specified, select only those properties
+    if keep_properties is None:
+        feature_collection = feature_collection.select([])
+    elif keep_properties == True:
+        # If keep_properties is true, select all properties
+        first_feature_props = feature_collection.first().propertyNames().getInfo()
+        feature_collection = feature_collection.select(first_feature_props)
+    elif isinstance(keep_properties, list):
+        feature_collection = feature_collection.select(keep_properties)
+    else:
+        raise ValueError(
+            "keep_properties must be None, True, or a list of property names."
+        )
+    return feature_collection
 
 
 def whisp_stats_ee_to_df(
