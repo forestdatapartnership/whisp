@@ -40,8 +40,6 @@
 
 
   ## Whisp datasets <a name="whisp_datasets"></a>
-  All output columns from Whisp are described in [this excel file](https://github.com/forestdatapartnership/whisp/blob/main/whisp_columns.xlsx)
-
   ***Whisp***  implements the convergence of evidence approach by providing a transparent and public processing flow using datasets covering the following categories:
 
   1) Tree and forest cover (at the end of 2020);
@@ -49,27 +47,39 @@
   3) Disturbances **before 2020** (i.e., degradation or deforestation until 2020-12-31);
   4) Disturbances **after 2020** (i.e., degradation or deforestation from 2021-01-01 onward).
 
+Additional categories are specific for the timber commodity, considering a harvesting date in 2023:
+
+  5) Primary forests in 2020;
+  6) Naturally regenerating forests in 2020;
+  7) Planted and plantation forests in 2020;
+  8) Planted and plantation forests in 2023;
+  9) Treecover in 2023;
+  10) Commodities or croplands in 2023.
+  11) Logging concessions;
+
   There are multiple datasets for each category. Find the full current [list of datasets used in Whisp here](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md).
-  Whisp checks the plots provided by the user by running zonal statistics on them to answer the following questions:
+
+  ### Whisp risk assessment <a name="whisp_risk"></a>  
+
+Whisp checks the plots provided by the user by running zonal statistics on them to answer the following questions:
 
   1) Was there tree cover in 2020?
   2) Were there commodity plantations or other agricultural uses in 2020?
   3) Were there disturbances until 2020-12-31?
   4) Were there disturbances after 2020-12-31 / starting 2021-01-01?
 
-  If no treecover dataset indicates any tree cover for a plot by the end of 2020, **Whisp will categorize the deforestation risk as low.**
+And specifically for the timber commodity, considering a harvesting date in 2023:
 
-  If one or more treecover datasets indicate tree cover on a plot by the end of 2020, but a commodity dataset indicates agricultural use by the end of 2020, **Whisp will categorize the deforestation risk as low.**
+  5) Were there primary forests in 2020?
+  6) Were there naturally regenerating forests in 2020?
+  7) Were there planted and plantation forests in 2020?
+  8) Were there planted and plantation forests in 2023?
+  9) Was there treecover in 2023?
+  10) Were there commodity plantations or other agricultural uses in 2023?
+  11) Is it part of a logging concession?
 
-  If treecover datasets indicate tree cover on a plot by late 2020, no commodity datasets indicate agricultural use, but a disturbance dataset indicates disturbances before the end of 2020, **Whisp will categorize the deforestation risk as <u>low</u>.** Such deforestation has happened before 2020, which aligns with the cutoff date for legislation such as EUDR, and is therefore not considered high risk.
-
-  Now, if the datasets under 1., 2. & 3. indicate that there was tree cover, but no agriculture and no disturbances before or by the end of 2020, the Whisp algorithm checks whether degradation or deforestation have been reported in a disturbance dataset after 2020-12-31. If they have, **Whisp will categorize the deforestation risk as <u>high</u>.** <br>
-  However, under the same circumstances but with <u>no</u> disturbances reported after 2020-12-31 there is insufficient evidence and the **Whisp output will be "More info needed".** Such can be the case for, e.g., cocoa or coffee grown under the shade of treecover or agroforestry.
-
-
-  *The Whisp algorithm for **Perennial Crops** visualized:*
-  ![CoE_Graphic 5](https://github.com/user-attachments/assets/007b5f50-3939-4707-95fa-98be4d56745f)
   The Whisp algorithm outputs multiple statistical columns with disaggregated data from the input datasets, followed by aggregated indicator columns, and the final risk assessment columns.
+    All output columns from Whisp are described in [this excel file](https://github.com/forestdatapartnership/whisp/blob/main/whisp_columns.xlsx)
 
 The **relevant risk assessment column depends on the commodity** in question:
 
@@ -104,41 +114,20 @@ The **relevant risk assessment column depends on the commodity** in question:
   </tr>
 </table>
 
-  The decision tree for the timber risk assessment slightly differs from the above. For more information see below.
+  *The Whisp algorithm for **Perennial Crops** visualized:*
+  ![CoE_Graphic 5](https://github.com/user-attachments/assets/007b5f50-3939-4707-95fa-98be4d56745f)
+  
+  If no treecover dataset indicates any tree cover for a plot by the end of 2020, **Whisp will categorize the deforestation risk as low.**
+
+  If one or more treecover datasets indicate tree cover on a plot by the end of 2020, but a commodity dataset indicates agricultural use by the end of 2020, **Whisp will categorize the deforestation risk as low.**
+
+  If treecover datasets indicate tree cover on a plot by late 2020, no commodity datasets indicate agricultural use, but a disturbance dataset indicates disturbances before the end of 2020, **Whisp will categorize the deforestation risk as <u>low</u>.** Such deforestation has happened before 2020, which aligns with the cutoff date for legislation such as EUDR, and is therefore not considered high risk.
+
+  Now, if the datasets under 1., 2. & 3. indicate that there was tree cover, but no agriculture and no disturbances before or by the end of 2020, the Whisp algorithm checks whether degradation or deforestation have been reported in a disturbance dataset after 2020-12-31. If they have, **Whisp will categorize the deforestation risk as <u>high</u>.** <br>
+  However, under the same circumstances but with <u>no</u> disturbances reported after 2020-12-31 there is insufficient evidence and the **Whisp output will be "More info needed".** Such can be the case for, e.g., cocoa or coffee grown under the shade of treecover or agroforestry.
 
 
-
-
-  ## Whisp datasets for timber <a name="whisp_datasets_timber"></a>
-  ***Whisp***  implements the convergence of evidence approach by providing a transparent and public processing flow using datasets covering the following categories:
-  1) Tree and forest cover (at the end of 2020);
-  2) Commodities (i.e., crop plantations and other agricultural uses at the end of 2020);
-  3) Disturbances **before 2020** (i.e., degradation or deforestation until 2020-12-31);
-  4) Disturbances **after 2020** (i.e., degradation or deforestation from 2021-01-01 onward).
-  5) Primary forests in 2020;
-  6) Naturally regenerating forests in 2020;
-  7) Planted and plantation forests in 2020;
-  8) Planted and plantation forests in 2023;
-  9) Treecover in 2023;
-  10) Commodities or croplands in 2023.
-  11) Logging concessions;
-
-  There are multiple datasets for each category. Find the full current [list of datasets used in Whisp here](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md).
-  Whisp checks the plots provided by the user by running zonal statistics on them to answer the following questions:
-
-  1) Was there tree cover in 2020?
-  2) Were there commodity plantations or other agricultural uses in 2020?
-  3) Were there disturbances until 2020-12-31?
-  4) Were there disturbances after 2020-12-31 / starting 2021-01-01?
-  5) Were there primary forests in 2020?
-  6) Were there naturally regenerating forests in 2020?
-  7) Were there planted and plantation forests in 2020?
-  8) Were there planted and plantation forests in 2023?
-  9) Was there treecover in 2023?
-  10) Were there commodity plantations or other agricultural uses in 2023?
-  11) Were there logging concessions?
-
-  # Run Whisp python package from a notebook <a name="whisp_notebooks"></a>
+  ## Run Whisp python package from a notebook <a name="whisp_notebooks"></a>
 
   For most users we suggest using the Whisp App to process their plot data. But for some, using the python package directly will fit their workflow.
 
@@ -146,7 +135,7 @@ The **relevant risk assessment column depends on the commodity** in question:
 
   For an example notebook adapted for running locally (or in Sepal), see: [whisp_geojson_to_csv.ipynb](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/whisp_geojson_to_csv.ipynb) or if datasets are very large, see [whisp_geojson_to_drive.ipynb](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/whisp_geojson_to_drive.ipynb)
 
-  ## Requirements for running the package
+  ### Requirements for running the package
 
   - A Google Earth Engine (GEE) account.
   - A registered cloud GEE project.
@@ -155,7 +144,7 @@ The **relevant risk assessment column depends on the commodity** in question:
   More info on Whisp can be found in [here](https://openknowledge.fao.org/items/e9284dc7-4b19-4f9c-b3e1-e6c142585865)
 
 
-  ## Python package installation
+  ### Python package installation
 
   The Whisp package is available on pip
   https://pypi.org/project/openforis-whisp/
