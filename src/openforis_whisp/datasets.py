@@ -1264,7 +1264,9 @@ def combine_datasets(national_codes=None):
 
     try:
         # Attempt to print band names to check for errors
-        print(img_combined.bandNames().getInfo())
+        # print(img_combined.bandNames().getInfo())
+        img_combined.bandNames().getInfo()
+
     except ee.EEException as e:
         # logger.error(f"Error printing band names: {e}")
         # logger.info("Running code for filtering to only valid datasets due to error in input")
@@ -1281,6 +1283,7 @@ def combine_datasets(national_codes=None):
             img_combined = img_combined.addBands(img)
 
     img_combined = img_combined.multiply(ee.Image.pixelArea())
+    print("Whisp multiband image compiled")
 
     return img_combined
 
