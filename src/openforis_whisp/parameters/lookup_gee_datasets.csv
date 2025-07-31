@@ -179,7 +179,7 @@ nBR_BFS_primary_forest_Pantanal_2020,2402,BR,treecover,primary,1,1,0,float32,1,0
 nBR_BFS_primary_forest_Caatinga_2020,2403,BR,treecover,primary,1,1,0,float32,1,0,nbr_bfs_caat_f20_prep
 nBR_BFS_primary_forest_AtlanticForest_2020,2404,BR,treecover,primary,1,1,0,float32,1,0,nbr_bfs_atlf_f20_prep
 nBR_BFS_primary_forest_Pampa_2020,2405,BR,treecover,primary,1,1,0,float32,1,0,nbr_bfs_pmp_f20_prep
-nBR_BFS_primary&secondary_forest_Cerrado_2020,2406,BR,treecover,naturally_reg_2020,1,1,0,float32,1,0,nbr_bfs_cer_f20_prep
+nBR_BFS_primary_and_secondary_forest_Cerrado_2020,2406,BR,treecover,naturally_reg_2020,1,1,0,float32,1,0,nbr_bfs_cer_f20_prep
 nBR_MapBiomas_col9_forest_Brazil_2020,2407,BR,treecover,naturally_reg_2020,1,1,0,float32,1,0,nbr_mapbiomasc9_f20_prep
 nBR_INPE_TCsilviculture_Amazon_2020,2408,BR,treecover,planted_plantation_2020,1,1,0,float32,1,0,nbr_terraclass_amz20_silv_prep
 nBR_INPE_TCsilviculture_Cerrado_2020,2409,BR,treecover,planted_plantation_2020,1,1,0,float32,1,0,nbr_terraclass_silv_cer20_prep
