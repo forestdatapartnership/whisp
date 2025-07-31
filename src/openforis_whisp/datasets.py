@@ -883,9 +883,9 @@ def nbr_terraclass_amz20_secondary_prep():
 
 # Cerrado - filtered with QGIS because the original geodatabase is too large to export as a shapefile (GEE accepted format)
 def nbr_bfs_cer_f20_prep():
-    bfs_fcer20 = ee.FeatureCollection("projects/ee-whisp/assets/NBR/bfs_pmp_2020")
+    bfs_fcer20 = ee.FeatureCollection("projects/ee-whisp/assets/NBR/bfs_cerr_2020")
     bfs_fcer20_binary = ee.Image().paint(bfs_fcer20, 1)
-    return bfs_fcer20_binary.rename("nBR_BFS_primary&secondary_forest_Cerrado_2020")
+    return bfs_fcer20_binary.rename("nBR_BFS_primary_and_secondary_forest_Cerrado_2020")
 
 
 # %%
