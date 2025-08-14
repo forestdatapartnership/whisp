@@ -699,7 +699,7 @@ def get_cols_ind_09_treecover_after_2020(lookup_gee_datasets_df):
     return list(
         lookup_gee_datasets_df["name"][
             (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
-            & (lookup_gee_datasets_df["theme_timber"] == "treecover_post2020")
+            & (lookup_gee_datasets_df["theme_timber"] == "treecover_after_2020")
         ]
     )
 
