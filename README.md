@@ -129,7 +129,7 @@ The **relevant risk assessment column depends on the commodity** in question:
   *The Whisp algorithm for **Annual Crops** visualized:*
 ![annual_decision_tree](https://github.com/user-attachments/assets/b9751cd1-8bbc-403b-9258-b06d1b8ff91a)
 
-The desicion tree for annual crops is similar to the perennial crops checking for presence/absence of tree cover and agricultural use by the end of 2020. However, the disturbances before the end of 2020 is not taken into account as annual crops are not crops established under an important canopy cover. The presence/absence of disturbances after 2020-12-31 is used in the same way as for the perennial crop to differentiate between <u>high</u> and <u>more info needed </u>
+The desicion tree for annual crops is similar to the perennial crops checking for presence/absence of tree cover and agricultural use by the end of 2020. However, the disturbances before the end of 2020 is not taken into account as annual crops are not crops established under an important canopy cover. The presence/absence of disturbances after 2020-12-31 is used in the same way as for the perennial crop to differentiate between **<u>high</u>** and **<u>more info needed </u>**
 
   *The Whisp algorithm for **timber** visualized:*
 
@@ -335,6 +335,7 @@ Please read the [contributing guidelines](contributing_guidelines.md) for good p
   **Reporting**
   Users can report violations directly to us by emailing the address listed in the "Contact Us" section of the website:
   https://openforis.org/solutions/whisp/
+
 
 
 
