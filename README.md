@@ -125,7 +125,9 @@ The **relevant risk assessment column depends on the commodity** in question:
 
   Now, if the datasets under 1., 2. & 3. indicate that there was tree cover, but no agriculture and no disturbances before or by the end of 2020, the Whisp algorithm checks whether degradation or deforestation have been reported in a disturbance dataset after 2020-12-31. If they have, **Whisp will categorize the deforestation risk as <u>high</u>.** <br>
   However, under the same circumstances but with <u>no</u> disturbances reported after 2020-12-31 there is insufficient evidence and the **Whisp output will be "More info needed".** Such can be the case for, e.g., cocoa or coffee grown under the shade of treecover or agroforestry.
-
+  
+  *The Whisp algorithm for **Annual Crops** visualized:*
+![annual_decision_tree](https://github.com/user-attachments/assets/b9751cd1-8bbc-403b-9258-b06d1b8ff91a)
 
   ## Run Whisp python package from a notebook <a name="whisp_notebooks"></a>
 
@@ -327,3 +329,4 @@ Please read the [contributing guidelines](contributing_guidelines.md) for good p
   **Reporting**
   Users can report violations directly to us by emailing the address listed in the "Contact Us" section of the website:
   https://openforis.org/solutions/whisp/
+
