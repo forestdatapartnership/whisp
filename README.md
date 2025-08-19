@@ -129,6 +129,10 @@ The **relevant risk assessment column depends on the commodity** in question:
   *The Whisp algorithm for **Annual Crops** visualized:*
 ![annual_decision_tree](https://github.com/user-attachments/assets/b9751cd1-8bbc-403b-9258-b06d1b8ff91a)
 
+  *The Whisp algorithm for **timber** visualized:*
+
+![timber_decision_tree](https://github.com/user-attachments/assets/634d5cb3-64e6-4ff1-b7c0-6f6390e4a946)
+
   ## Run Whisp python package from a notebook <a name="whisp_notebooks"></a>
 
   For most users we suggest using the Whisp App to process their plot data. But for some, using the python package directly will fit their workflow.
@@ -329,4 +333,5 @@ Please read the [contributing guidelines](contributing_guidelines.md) for good p
   **Reporting**
   Users can report violations directly to us by emailing the address listed in the "Contact Us" section of the website:
   https://openforis.org/solutions/whisp/
+
 
