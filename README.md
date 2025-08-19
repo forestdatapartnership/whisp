@@ -121,13 +121,15 @@ The **relevant risk assessment column depends on the commodity** in question:
 
   If one or more treecover datasets indicate tree cover on a plot by the end of 2020, but a commodity dataset indicates agricultural use by the end of 2020, **Whisp will categorize the deforestation risk as low.**
 
-  If treecover datasets indicate tree cover on a plot by late 2020, no commodity datasets indicate agricultural use, but a disturbance dataset indicates disturbances before the end of 2020, **Whisp will categorize the deforestation risk as <u>low</u>.** Such deforestation has happened before 2020, which aligns with the cutoff date for legislation such as EUDR, and is therefore not considered high risk.
+  If treecover datasets indicate tree cover on a plot by late 2020, no commodity datasets indicate agricultural use, but a disturbance dataset indicates disturbances before the end of 2020, **Whisp will categorize the deforestation risk as <u>low</u>.** Considering the specific caracteristics of perennial crops, and that they can be established under an important canopy cover, the disturbances before the end of 2020 is used as an indicator of potential establishement of such crop before the end of 2020. Such conversion to agricultural use or deforestation has happened before the end of 2020, which aligns with the cutoff date for legislation such as EUDR, and is therefore not considered high risk.
 
   Now, if the datasets under 1., 2. & 3. indicate that there was tree cover, but no agriculture and no disturbances before or by the end of 2020, the Whisp algorithm checks whether degradation or deforestation have been reported in a disturbance dataset after 2020-12-31. If they have, **Whisp will categorize the deforestation risk as <u>high</u>.** <br>
   However, under the same circumstances but with <u>no</u> disturbances reported after 2020-12-31 there is insufficient evidence and the **Whisp output will be "More info needed".** Such can be the case for, e.g., cocoa or coffee grown under the shade of treecover or agroforestry.
   
   *The Whisp algorithm for **Annual Crops** visualized:*
 ![annual_decision_tree](https://github.com/user-attachments/assets/b9751cd1-8bbc-403b-9258-b06d1b8ff91a)
+
+The desicion tree for annual crops is similar to the perennial crops checking for presence/absence of tree cover and agricultural use by the end of 2020. However, the disturbances before the end of 2020 is not taken into account as annual crops are not crops established under an important canopy cover. The presence/absence of disturbances after 2020-12-31 is used in the same way as for the perennial crop to differentiate between <u>high</u> and <u>more info needed </u>
 
   *The Whisp algorithm for **timber** visualized:*
 
@@ -333,5 +335,6 @@ Please read the [contributing guidelines](contributing_guidelines.md) for good p
   **Reporting**
   Users can report violations directly to us by emailing the address listed in the "Contact Us" section of the website:
   https://openforis.org/solutions/whisp/
+
 
 
