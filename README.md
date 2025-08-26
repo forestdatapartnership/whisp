@@ -147,9 +147,17 @@ If tree cover is present and no agricultural use is recorded by the end of 2020,
 *The Whisp algorithm for **Timber** visualized:*
 <img width="960" height="540" alt="whisp_decision_tree_20240909" src="https://github.com/user-attachments/assets/7dcf442e-ba15-4d97-a9f1-87c5a0ae0ede" />
 
-The decision tree for timber works with different indicators and logic. Indeed, in addition to the deforestation risk, there is also a degradation risk to evaluate (as a change in the forest structure). In addition, for timber, different rules applies whether the forest at the end of 2020 is a planted or plantion forest or a natural forest (either primary or naturally regenerating). 
+For timber, Whisp applies a different decision logic compared to perennial and annual crops. In addition to the **deforestation risk**, Whisp also evaluates **degradation risk**, defined as a change in forest structure. In addition, different decision rules applies depending on whether the forest at the end of 2020 is identified as a **planted/plantation forest** or a **natural forest **(primary or naturally regenerating). The analysis is based on datasets from categories 2 and 5–11.
 
-From the perennial and annual crops decision tree, only the datasets under 2. are used. If they indicate agricultural use by the end of 2020, **Whisp will categorize the deforestation risk as low**. If datasets under 7. indicate planted or plantation forest and datasets under 10. indicate an agricultural use after 2020, **Whisp will categorize the deforestation risk as high**. If datasets under 6. indicate a natural forest, and datasets under 10. indicate an agricultural use after 2020, or datasets under 8. indicate a conversion to planted or plantation forest after 2020 **Whisp will categorize the deforestation risk as high**. If not, whisp will check whether datasets under 9. or 11. indicate presence of tree cover or regrowth after 2020 or if the plot of land is located in a known logging concession conversion to planted or plantation forest after 2020. In that case, **Whisp will categorize the deforestation risk as low**. If there is no available information, **Whisp will categorize the deforestation risk as <u>more info needed</u>.**
+If commodity datasets indicates agricultural use by the end of 2020, **Whisp will categorize the deforestation risk as low**. 
+
+If datasets indicate planted or plantation forest at the end of 2020 and no agricultural use is detected after 2020, **Whisp will categorize the deforestation risk as low**. If any dataset indicates an agricultural use after 2020, **Whisp will categorize the deforestation risk as high**. 
+
+If datasets indicate a natural forest at the end of 2020, and agricultural use is recorded after 2020, or conversion to a planted/plantation forest is detected after 2020,**Whisp will categorize the deforestation risk as high**. 
+If these conditions are not met, Whisp checks for evidence of tree cover, regrowth after 2020 or the presence of the plot in a known logging concession. In that case, **Whisp will categorize the deforestation risk as low**. If no additional information is available, **Whisp will categorize the deforestation risk as <u>more info needed</u>.**
+
+If datasets indicate no agricultural use, no planted or plantation or no natural forest by the end of 2020, **Whisp will categorize the deforestation risk as low**.
+
 
   ## Run Whisp python package from a notebook <a name="whisp_notebooks"></a>
 
@@ -351,6 +359,7 @@ Please read the [contributing guidelines](contributing_guidelines.md) for good p
   **Reporting**
   Users can report violations directly to us by emailing the address listed in the "Contact Us" section of the website:
   https://openforis.org/solutions/whisp/
+
 
 
 
