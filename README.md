@@ -130,7 +130,7 @@ The **relevant risk assessment column depends on the commodity** in question:
   Now, if the datasets under 1., 2. & 3. indicate that there was tree cover, but no agriculture and no disturbances before or by the end of 2020, the Whisp algorithm checks whether degradation or deforestation have been reported in a disturbance dataset after 2020-12-31. If they have, **Whisp will categorize the deforestation risk as <u>high</u>.** <br>
   However, under the same circumstances but with <u>no</u> disturbances reported after 2020-12-31 there is insufficient evidence and the **Whisp output will be "More info needed".** Such can be the case for, e.g., cocoa or coffee grown under the shade of treecover or agroforestry.
   
-  *The Whisp algorithm for **Annual Crops** visualized:*
+*The Whisp algorithm for **Annual Crops** visualized:*
 ![annual_decision_tree](https://github.com/user-attachments/assets/b9751cd1-8bbc-403b-9258-b06d1b8ff91a)
 
 For annual crops, Whisp applies the same general framework based on tree cover, commodity, and disturbance datasets. However, disturbances before 2020-12-31 are not considered relevant, since annual crops are not typically established under significant canopy cover. 
@@ -144,8 +144,7 @@ If tree cover is present and no agricultural use is recorded by the end of 2020,
 - If no such disturbances are detected, the the **Whisp output will be "More info needed"**, as the available evidence is insufficient for a definitive classification.
 
 
-  *The Whisp algorithm for **Timber** visualized:*
-
+*The Whisp algorithm for **Timber** visualized:*
 <img width="960" height="540" alt="whisp_decision_tree_20240909" src="https://github.com/user-attachments/assets/7dcf442e-ba15-4d97-a9f1-87c5a0ae0ede" />
 
 The decision tree for timber works with different indicators and logic. Indeed, in addition to the deforestation risk, there is also a degradation risk to evaluate (as a change in the forest structure). In addition, for timber, different rules applies whether the forest at the end of 2020 is a planted or plantion forest or a natural forest (either primary or naturally regenerating). 
@@ -352,6 +351,7 @@ Please read the [contributing guidelines](contributing_guidelines.md) for good p
   **Reporting**
   Users can report violations directly to us by emailing the address listed in the "Contact Us" section of the website:
   https://openforis.org/solutions/whisp/
+
 
 
 
