@@ -110,7 +110,7 @@ The **relevant risk assessment column depends on the commodity** in question:
   <tr>
     <td>Timber</td>
     <td>Risk_Timber</td>
-    <td>Timber extraction deforestation risk</td>
+    <td>Timber extraction deforestation or degradation risk</td>
   </tr>
 </table>
 
@@ -339,6 +339,7 @@ Please read the [contributing guidelines](contributing_guidelines.md) for good p
   **Reporting**
   Users can report violations directly to us by emailing the address listed in the "Contact Us" section of the website:
   https://openforis.org/solutions/whisp/
+
 
 
 
