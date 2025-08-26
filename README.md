@@ -133,7 +133,7 @@ The decision tree for annual crops is similar to the perennial crops checking fo
 
   *The Whisp algorithm for **Timber** visualized:*
 
-![timber_decision_tree](https://github.com/user-attachments/assets/634d5cb3-64e6-4ff1-b7c0-6f6390e4a946)
+![timber_decision_tree] <img width="960" height="540" alt="whisp_decision_tree_20240909" src="https://github.com/user-attachments/assets/7dcf442e-ba15-4d97-a9f1-87c5a0ae0ede" />
 
 The decision tree for timber works with different indicators and logic. Indeed, in addition to the deforestation risk, there is also a degradation risk to evaluate (as a change in the forest structure). In addition, for timber, different rules applies whether the forest at the end of 2020 is a planted or plantion forest or a natural forest (either primary or naturally regenerating). 
 
@@ -339,6 +339,7 @@ Please read the [contributing guidelines](contributing_guidelines.md) for good p
   **Reporting**
   Users can report violations directly to us by emailing the address listed in the "Contact Us" section of the website:
   https://openforis.org/solutions/whisp/
+
 
 
 
