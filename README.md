@@ -134,14 +134,13 @@ The **relevant risk assessment column depends on the commodity** in question:
 
 For annual crops, Whisp applies the same general framework based on tree cover, commodity, and disturbance datasets. However, disturbances before 2020-12-31 are not considered relevant, since annual crops are not typically established under significant canopy cover. 
 
-If no tree cover is indicated for a plot by the end of 2020, the deforestation risk is categorized as **low**.
+If no tree cover is indicated for a plot by the end of 2020, **Whisp will categorize the deforestation risk as low.**
 
-If one or more tree cover datasets indicate tree cover on a plot by the end of 2020, and commodity datasets indicate agricultural use by the same date, the deforestation risk is categorized as **low**.
+If one or more tree cover datasets indicate tree cover on a plot by the end of 2020, and commodity datasets indicate agricultural use by the same date, **Whisp will categorize the deforestation risk as low.**
 
 If tree cover is present and no agricultural use is recorded by the end of 2020, Whisp evaluates disturbance datasets after 2020-12-31:
-
-  •	If deforestation or degradation is detected, the risk is categorized as **high**.
-  •	If no such disturbances are detected, the output is **more info needed**, as the available evidence is insufficient for a definitive classification.
+- If deforestation or degradation is detected, **Whisp will categorize the deforestation risk as high.**
+- If no such disturbances are detected, the the **Whisp output will be "More info needed"**, as the available evidence is insufficient for a definitive classification.
 
 
   *The Whisp algorithm for **Timber** visualized:*
@@ -352,6 +351,7 @@ Please read the [contributing guidelines](contributing_guidelines.md) for good p
   **Reporting**
   Users can report violations directly to us by emailing the address listed in the "Contact Us" section of the website:
   https://openforis.org/solutions/whisp/
+
 
 
 
