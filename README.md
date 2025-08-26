@@ -21,7 +21,7 @@
   ## Contents
   - [Whisp pathways](#whisp_pathways)
   - [Whisp datasets](#whisp_datasets)
-  - [Whisp risk assessment](#whisp)
+  - [Whisp risk assessment](#whisp_risk)
   - [Whisp notebooks](#whisp_notebooks)
   - [Add data layers](#whisp_add_data)
   - [Contribute to the code](#whisp_contribute)
@@ -352,6 +352,7 @@ Please read the [contributing guidelines](contributing_guidelines.md) for good p
   **Reporting**
   Users can report violations directly to us by emailing the address listed in the "Contact Us" section of the website:
   https://openforis.org/solutions/whisp/
+
 
 
 
