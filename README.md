@@ -21,6 +21,7 @@
   ## Contents
   - [Whisp pathways](#whisp_pathways)
   - [Whisp datasets](#whisp_datasets)
+  - [Whisp risk assessment](#whisp)
   - [Whisp notebooks](#whisp_notebooks)
   - [Add data layers](#whisp_add_data)
   - [Contribute to the code](#whisp_contribute)
@@ -59,7 +60,7 @@ Additional categories are specific for the timber commodity, considering a harve
 
   There are multiple datasets for each category. Find the full current [list of datasets used in Whisp here](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md).
 
-  ### Whisp risk assessment <a name="whisp_risk"></a>  
+  ## Whisp risk assessment <a name="whisp_risk"></a>  
 
 Whisp checks the plots provided by the user by running zonal statistics on them to answer the following questions:
 
@@ -351,6 +352,7 @@ Please read the [contributing guidelines](contributing_guidelines.md) for good p
   **Reporting**
   Users can report violations directly to us by emailing the address listed in the "Contact Us" section of the website:
   https://openforis.org/solutions/whisp/
+
 
 
 
