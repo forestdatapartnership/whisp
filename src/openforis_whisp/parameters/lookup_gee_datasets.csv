@@ -2,7 +2,7 @@ name,order,ISO2_code,theme,theme_timber,use_for_risk,use_for_risk_timber,exclude
 EUFO_2020,10,,treecover,naturally_reg_2020,1,1,0,float32,1,0,g_jrc_gfc_2020_prep
 GLAD_Primary,20,,treecover,primary,1,1,0,float32,1,0,g_glad_pht_prep
 TMF_undist,30,,treecover,primary,1,1,0,float32,1,0,g_jrc_tmf_undisturbed_prep
-GFC_TC_2020,50,,treecover,naturally_reg_2020,1,1,0,float32,1,0,g_glad_gfc_10pc_prep
+GFC_TC_2020,50,,treecover,naturally_reg_2020,1,1,0,float32,1,0,g_gfc_tc_2020_prep
 Forest_FDaP,60,,treecover,naturally_reg_2020,1,1,0,float32,1,0,g_glad_gfc_10pc_prep
 ESA_TC_2020,70,,treecover,naturally_reg_2020,1,1,0,float32,1,0,g_esa_worldcover_trees_prep
 TMF_plant,80,,commodities,NA,1,1,0,float32,1,0,g_jrc_tmf_plantation_prep
@@ -199,3 +199,4 @@ nBR_INPE_TCamz_pasture_2020,2422,BR,commodities,NA,1,1,0,float32,1,0,nbr_terracl
 nBR_INPE_TCcer_pasture_2020,2423,BR,commodities,NA,1,1,0,float32,1,0,nbr_terraclass_cer20_ac_prep
 nBR_MapBiomas_col9_pasture_2020,2424,BR,commodities,NA,1,1,0,float32,1,0,nbr_mapbiomasc9_pasture_prep
 nCI_Cocoa_bnetd,3000,CI,commodities,NA,1,1,0,float32,1,0,nci_ocs2020_prep
+
