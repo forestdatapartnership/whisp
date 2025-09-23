@@ -1215,40 +1215,6 @@ def nci_ocs2020_prep():
 
 ###Combining datasets
 
-###Combining datasets
-
-# def combine_datasets():
-#     """Combines datasets into a single multiband image, with fallback if assets are missing."""
-#     img_combined = ee.Image(1).rename(geometry_area_column)
-
-#     # Combine images directly
-#     for img in [func() for func in list_functions()]:
-#         try:
-#             img_combined = img_combined.addBands(img)
-#         except ee.EEException as e:
-#             # logger.error(f"Error adding image: {e}")
-#             print(f"Error adding image: {e}")
-
-#     try:
-#         # Attempt to print band names to check for errors
-#         print(img_combined.bandNames().getInfo())
-#     except ee.EEException as e:
-#         # logger.error(f"Error printing band names: {e}")
-#         # logger.info("Running code for filtering to only valid datasets due to error in input")
-#         print("using valid datasets filter due to error in input")
-#         # Validate images
-#         images_to_test = [func() for func in list_functions()]
-#         valid_imgs = keep_valid_images(images_to_test)  # Validate images
-
-#         # Retry combining images after validation
-#         img_combined = ee.Image(1).rename(geometry_area_column)
-#         for img in valid_imgs:
-#             img_combined = img_combined.addBands(img)
-
-#     img_combined = img_combined.multiply(ee.Image.pixelArea())
-
-#     return img_combined
-
 
 def combine_datasets(national_codes=None):
     """Combines datasets into a single multiband image, with fallback if assets are missing."""
@@ -1378,7 +1344,3 @@ def ee_image_checker(image):
     except Exception as e:
         print(f"Image validation failed with exception: {e}")
     return False
-
-
-# print(combine_valid_datasets().bandNames().getInfo())
-# print(combine_datasets().bandNames().getInfo())
