@@ -500,19 +500,27 @@ def whisp_stats_ee_to_df(
     df_stats : pd.DataFrame
         The dataframe containing the Whisp stats for the input ROI.
     """
+    # First, do the whisp processing to get the EE feature collection with stats
+    try:
+        stats_feature_collection = whisp_stats_ee_to_ee(
+            feature_collection,
+            external_id_column,
+            national_codes=national_codes,
+            unit_type=unit_type,
+        )
+    except Exception as e:
+        print(f"An error occurred during Whisp stats processing: {e}")
+        raise e
+
+    # Then, convert the EE feature collection to DataFrame
     try:
         df_stats = convert_ee_to_df(
-            ee_object=whisp_stats_ee_to_ee(
-                feature_collection,
-                external_id_column,
-                national_codes=national_codes,
-                unit_type=unit_type,
-            ),
+            ee_object=stats_feature_collection,
             remove_geom=remove_geom,
         )
     except Exception as e:
         print(f"An error occurred during the conversion from EE to DataFrame: {e}")
-        return pd.DataFrame()  # Return an empty DataFrame in case of error
+        raise e
 
     try:
         df_stats = convert_iso3_to_iso2(
