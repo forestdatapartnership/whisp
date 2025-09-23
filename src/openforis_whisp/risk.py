@@ -112,6 +112,7 @@ def whisp_risk(
     high_name: str = "yes",
     explicit_unit_type: str = None,
     national_codes: list[str] = None,  # List of ISO2 country codes to filter by
+    custom_bands_info: dict = None,  # New parameter for custom band risk info
 ) -> data_lookup_type:
     """
     Adds the EUDR (European Union Deforestation Risk) column to the DataFrame based on indicator values.
@@ -134,25 +135,42 @@ def whisp_risk(
         high_name (str, optional): Value shown in table if more than the threshold. Defaults to "yes".
         explicit_unit_type (str, optional): Override the autodetected unit type ('ha' or 'percent').
                                       If not provided, will detect from dataframe 'unit' column.
+        custom_bands_info (dict, optional): Custom band risk information. Dict format:
+            {
+                'band_name': {
+                    'theme': 'treecover',  # or 'commodities', 'disturbance_before', 'disturbance_after'
+                    'theme_timber': 'primary',  # or 'naturally_reg_2020', 'planted_plantation_2020', etc.
+                    'use_for_risk': 1,  # 0 or 1
+                    'use_for_risk_timber': 1,  # 0 or 1
+                }
+            }
+            If None, custom bands won't be included in risk calculations.
 
     Returns:
-        data_lookup_type: DataFrame with added 'EUDR_risk' column.
+        data_lookup_type: DataFrame with added risk columns.
     """
-    # Determine the unit type to use based on input data and overrid
+    # Determine the unit type
     unit_type = detect_unit_type(df, explicit_unit_type)
-
     print(f"Using unit type: {unit_type}")
 
     lookup_df_copy = lookup_gee_datasets_df.copy()
 
-    # filter by national codes (even if None - this removes all country columns unless specified)
+    # Add custom bands to lookup if provided
+    if custom_bands_info:
+        lookup_df_copy = add_custom_bands_info_to_lookup(
+            lookup_df_copy, custom_bands_info, df.columns
+        )
+        print(f"Using custom bands type: {custom_bands_info}")
+    if national_codes:
+        print(f"Filtering by national codes: {national_codes}")
+    # Filter by national codes
     filtered_lookup_gee_datasets_df = filter_lookup_by_country_codes(
         lookup_df=lookup_df_copy,
         filter_col="ISO2_code",
         national_codes=national_codes,
     )
 
-    # Rest of the function remains the same, but pass unit_type to add_indicators
+    # Get indicator columns (now includes custom bands)
     if ind_1_input_columns is None:
         ind_1_input_columns = get_cols_ind_01_treecover(filtered_lookup_gee_datasets_df)
     if ind_2_input_columns is None:
@@ -393,7 +411,7 @@ def add_eudr_risk_timber_col(
     """
 
     for index, row in df.iterrows():
-        # If there is a commodity in 2020 (ind_2_name) 
+        # If there is a commodity in 2020 (ind_2_name)
         # OR if there is planted-plantation in 2020 (ind_7_name) AND no agriculture in 2023 (ind_10_name), set EUDR_risk_timber to "low"
         if row[ind_2_name] == "yes" or (
             row[ind_7_name] == "yes" and row[ind_10_name] == "no"
@@ -411,7 +429,7 @@ def add_eudr_risk_timber_col(
             ind_8_name
         ] == "yes":
             df.at[index, "risk_timber"] = "high"
-        # No data yet on OWL conversion 
+        # No data yet on OWL conversion
         # If primary or naturally regenerating or planted forest in 2020 and OWL in 2023, set EUDR_risk to high
         # elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes" or row[ind_7_name] == "yes") and row[ind_10_name] == "yes":
         #    df.at[index, 'EUDR_risk_timber'] = "high"
@@ -769,3 +787,52 @@ def clamp(
 def check_range(value: float) -> None:
     if not (0 <= value <= 100):
         raise ValueError("Value must be between 0 and 100.")
+
+
+def add_custom_bands_info_to_lookup(
+    lookup_df: pd.DataFrame, custom_bands_info: dict, df_columns: list
+) -> pd.DataFrame:
+    """
+    Add custom bands to the lookup DataFrame for risk calculations.
+
+    Parameters
+    ----------
+    lookup_df : pd.DataFrame
+        Original lookup DataFrame
+    custom_bands_info : dict
+        Custom band definitions with risk info
+    df_columns : list
+        List of columns in the actual data DataFrame
+
+    Returns
+    -------
+    pd.DataFrame
+        Lookup DataFrame with custom bands added
+    """
+    custom_rows = []
+
+    for band_name, band_info in custom_bands_info.items():
+        # Only add bands that actually exist in the DataFrame
+        if band_name in df_columns:
+            custom_row = {
+                "name": band_name,
+                "theme": band_info.get("theme", ""),
+                "theme_timber": band_info.get("theme_timber", ""),
+                "use_for_risk": band_info.get("use_for_risk", 0),
+                "use_for_risk_timber": band_info.get("use_for_risk_timber", 0),
+                "exclude_from_output": 0,  # Don't exclude custom bands
+                "ISO2_code": "",  # Global by default
+                # Add other required columns with defaults
+                "col_type": "float64",
+                "is_nullable": 1,
+                "is_required": 0,
+                "order": 9999,  # Put at end
+            }
+            custom_rows.append(custom_row)
+
+    if custom_rows:
+        custom_df = pd.DataFrame(custom_rows)
+        # Combine with original lookup
+        lookup_df = pd.concat([lookup_df, custom_df], ignore_index=True)
+
+    return lookup_df
