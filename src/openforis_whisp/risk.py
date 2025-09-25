@@ -160,8 +160,8 @@ def whisp_risk(
         lookup_df_copy = add_custom_bands_info_to_lookup(
             lookup_df_copy, custom_bands_info, df.columns
         )
-        print(f"Using custom bands type: {custom_bands_info}")
-        print(f"Updated lookup table with custom bands:\n{lookup_df_copy}")
+        print(f"Including custom bands: {list(custom_bands_info.keys())}")
+        # print(f"appended custom bands info to lookup table")
     if national_codes:
         print(f"Filtering by national codes: {national_codes}")
     # Filter by national codes
@@ -170,7 +170,6 @@ def whisp_risk(
         filter_col="ISO2_code",
         national_codes=national_codes,
     )
-    print(f"Updated lookup table with custom bands:\n{filtered_lookup_gee_datasets_df}")
 
     # Get indicator columns (now includes custom bands)
     if ind_1_input_columns is None:

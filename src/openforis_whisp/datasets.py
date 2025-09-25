@@ -1344,3 +1344,34 @@ def ee_image_checker(image):
     except Exception as e:
         print(f"Image validation failed with exception: {e}")
     return False
+
+
+# preparation steps for multiband image with area per pixel values
+# function for notebook environment
+# user provides custom_images dict and custom_bands_info dict
+def combine_custom_bands(custom_images, custom_bands_info):
+    """
+    Combine custom Earth Engine images into a single multiband image with area conversion.
+
+    Returns
+    -------
+    ee.Image
+        Combined bands converted to area values
+    """
+    # ... existing validation code ...
+
+    # Step 3: Rename and combine images
+    band_names = list(custom_bands_info.keys())
+
+    # Start with first image
+    custom_ee_image = custom_images[band_names[0]].rename(band_names[0])
+
+    # Add remaining images if any
+    for name in band_names[1:]:
+        next_image = custom_images[name].rename(name)
+        custom_ee_image = custom_ee_image.addBands(next_image)
+
+    # Convert to area values
+    custom_ee_image = custom_ee_image.multiply(ee.Image.pixelArea())
+
+    return custom_ee_image  # Only return the image
