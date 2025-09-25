@@ -161,6 +161,7 @@ def whisp_risk(
             lookup_df_copy, custom_bands_info, df.columns
         )
         print(f"Using custom bands type: {custom_bands_info}")
+        print(f"Updated lookup table with custom bands:\n{lookup_df_copy}")
     if national_codes:
         print(f"Filtering by national codes: {national_codes}")
     # Filter by national codes
@@ -169,6 +170,7 @@ def whisp_risk(
         filter_col="ISO2_code",
         national_codes=national_codes,
     )
+    print(f"Updated lookup table with custom bands:\n{filtered_lookup_gee_datasets_df}")
 
     # Get indicator columns (now includes custom bands)
     if ind_1_input_columns is None:
@@ -815,18 +817,27 @@ def add_custom_bands_info_to_lookup(
         # Only add bands that actually exist in the DataFrame
         if band_name in df_columns:
             custom_row = {
-                "name": band_name,
-                "theme": band_info.get("theme", ""),
-                "theme_timber": band_info.get("theme_timber", ""),
-                "use_for_risk": band_info.get("use_for_risk", 0),
-                "use_for_risk_timber": band_info.get("use_for_risk_timber", 0),
-                "exclude_from_output": 0,  # Don't exclude custom bands
-                "ISO2_code": "",  # Global by default
+                "name": band_name,  # Use the band name as provided
+                "theme": band_info.get(
+                    "theme", pd.NA
+                ),  # default to empty if not provided
+                "theme_timber": band_info.get(
+                    "theme_timber", pd.NA
+                ),  # default to empty if not provided
+                "use_for_risk": band_info.get(
+                    "use_for_risk", 0
+                ),  # default to 0 if not provided
+                "use_for_risk_timber": band_info.get(
+                    "use_for_risk_timber", 0
+                ),  # default to 0 if not provided
+                "exclude_from_output": 0,  # 0 here is so we don't exclude custom bands
+                "ISO2_code": pd.NA,  # Global, i.e., empty string, by default
                 # Add other required columns with defaults
-                "col_type": "float64",
+                "col_type": "float64",  # default to float64 if not provided
                 "is_nullable": 1,
                 "is_required": 0,
-                "order": 9999,  # Put at end
+                "order": 9999,  # Put at end unless specified otherwise
+                "corresponding_variable": pd.NA,  # not necessary for custom bands
             }
             custom_rows.append(custom_row)
 
