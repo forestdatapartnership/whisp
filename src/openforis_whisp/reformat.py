@@ -505,7 +505,7 @@ def validate_dataframe_using_lookups_flexible(
     custom_bands=None,
 ) -> pd.DataFrame:
     """
-    Load schema and validate DataFrame while preserving extra columns.
+    Load schema and validate DataFrame while handling custom bands properly.
 
     Parameters
     ----------
@@ -515,16 +515,16 @@ def validate_dataframe_using_lookups_flexible(
         Schema file paths
     national_codes : list, optional
         Country codes for filtering
-    custom_bands : list or dict, optional
+    custom_bands : list or dict or None, optional
         Custom band information:
-        - List: ['band1', 'band2'] - preserves as-is
-        - Dict: {'band1': 'float64', 'band2': 'int64'} - validates types
-        - None: preserves all extra columns automatically
+        - List: ['band1', 'band2'] - only preserves these specific bands
+        - Dict: {'band1': 'float64', 'band2': 'int64'} - validates these specific bands with types
+        - None: excludes ALL custom bands (strict mode)
 
     Returns
     -------
     pd.DataFrame
-        Validated DataFrame with extra columns preserved
+        Validated DataFrame with custom bands handled according to specification
     """
     # Load default schema
     schema = load_schema_if_any_file_changed(file_paths, national_codes=national_codes)
@@ -558,26 +558,37 @@ def validate_dataframe_using_lookups_flexible(
         else:
             validated_schema_part = pd.DataFrame()
 
-        # Handle custom bands if specified
-        if custom_bands:
+        # ========== KEY FIX: Handle custom_bands=None properly ==========
+        if custom_bands is None:
+            # STRICT MODE: Exclude all custom bands when None
+            logger.info("custom_bands=None: Excluding all custom bands (strict mode)")
+            # Return only the schema columns, no extra columns
+            return (
+                validated_schema_part
+                if not validated_schema_part.empty
+                else pd.DataFrame()
+            )
+
+        elif custom_bands is not None:
+            # Process custom bands as specified
             df_extra_part = _process_custom_bands(df_extra_part, custom_bands)
 
-        # Combine results
-        if not validated_schema_part.empty and not df_extra_part.empty:
-            result = pd.concat([validated_schema_part, df_extra_part], axis=1)
-        elif not validated_schema_part.empty:
-            result = validated_schema_part
-        else:
-            result = df_extra_part
+            # Combine results
+            if not validated_schema_part.empty and not df_extra_part.empty:
+                result = pd.concat([validated_schema_part, df_extra_part], axis=1)
+            elif not validated_schema_part.empty:
+                result = validated_schema_part
+            else:
+                result = df_extra_part
 
-        # Reorder: schema columns first, then extra columns
-        if not validated_schema_part.empty:
-            ordered_columns = [
-                col for col in schema_columns if col in result.columns
-            ] + extra_columns
-            result = result[ordered_columns]
+            # Reorder: schema columns first, then extra columns
+            if not validated_schema_part.empty:
+                ordered_columns = [
+                    col for col in schema_columns if col in result.columns
+                ] + [col for col in df_extra_part.columns]
+                result = result[ordered_columns]
 
-        return result
+            return result
 
     else:
         # No extra columns - use normal validation
