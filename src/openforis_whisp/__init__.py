@@ -29,9 +29,7 @@ try:
 except Exception as e:
     print("Error in default EE initialization:", e)
 
-from openforis_whisp.datasets import (
-    combine_datasets,
-)
+from openforis_whisp.datasets import combine_datasets, combine_custom_bands
 
 from openforis_whisp.stats import (
     whisp_stats_ee_to_ee,
@@ -56,6 +54,7 @@ from openforis_whisp.parameters.config_runtime import (
 
 from openforis_whisp.reformat import (
     validate_dataframe_using_lookups,
+    validate_dataframe_using_lookups_flexible,
     validate_dataframe,
     create_schema_from_dataframe,
     load_schema_if_any_file_changed,
