@@ -38,6 +38,7 @@ def validate_dataframe_using_lookups(
     Returns:
         pd.DataFrame: The validated DataFrame.
     """
+
     # Load the schema
     schema = load_schema_if_any_file_changed(file_paths, national_codes=national_codes)
 
@@ -237,11 +238,11 @@ def create_schema_from_dataframe(schema_df: pd.DataFrame) -> pa.DataFrameSchema:
     return schema
 
 
-def setup_logger(name):
-    # Create and configure logger
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(name)
-    return logger
+# def setup_logger(name):
+#     # Create and configure logger
+#     logging.basicConfig(level=logging.INFO)
+#     logger = logging.getLogger(name)
+#     return logger
 
 
 def log_missing_columns(df_stats: pd.DataFrame, template_schema: pa.DataFrameSchema):
@@ -301,164 +302,166 @@ def setup_logger(name):
     return logger
 
 
-# def filter_lookup_by_country_codes(
-#     lookup_df: pd.DataFrame, national_codes: list
-# ) -> pd.DataFrame:
-#     """
-#     Filter lookup DataFrame to include only:
-#     1. Global columns (prefixed with 'g_')
-#     2. General columns (not country-specific)
-#     3. Country-specific columns matching the provided ISO2 codes
+def filter_lookup_by_country_codes(
+    lookup_df: pd.DataFrame, national_codes: list
+) -> pd.DataFrame:
+    """
+    Filter lookup DataFrame to include only:
+    1. Global columns (prefixed with 'g_')
+    2. General columns (not country-specific)
+    3. Country-specific columns matching the provided ISO2 codes
 
-#     Args:
-#         lookup_df (pd.DataFrame): The lookup DataFrame used to create the schema
-#         national_codes (list): List of ISO2 country codes to include
+    Args:
+        lookup_df (pd.DataFrame): The lookup DataFrame used to create the schema
+        national_codes (list): List of ISO2 country codes to include
 
-#     Returns:
-#         pd.DataFrame: Filtered lookup DataFrame
-#     """
-#     if not national_codes:
-#         return lookup_df
+    Returns:
+        pd.DataFrame: Filtered lookup DataFrame
+    """
+    if not national_codes:
+        return lookup_df
 
-#     # Normalize national_codes to lowercase for case-insensitive comparison
-#     normalized_codes = [
-#         code.lower() for code in national_codes if isinstance(code, str)
-#     ]
+    # Normalize national_codes to lowercase for case-insensitive comparison
+    normalized_codes = [
+        code.lower() for code in national_codes if isinstance(code, str)
+    ]
 
-#     # Keep track of rows to filter out
-#     rows_to_remove = []
+    # Keep track of rows to filter out
+    rows_to_remove = []
 
-#     # Process each row in the lookup DataFrame
-#     for idx, row in lookup_df.iterrows():
-#         col_name = row["name"]
+    # Process each row in the lookup DataFrame
+    for idx, row in lookup_df.iterrows():
+        col_name = row["name"]
 
-#         # Skip if not a column name entry
-#         if pd.isna(col_name):
-#             continue
+        # Skip if not a column name entry
+        if pd.isna(col_name):
+            continue
 
-#         # Always keep global columns (g_) and columns that aren't country-specific
-#         if col_name.startswith("g_"):
-#             continue
+        # Always keep global columns (g_) and columns that aren't country-specific
+        if col_name.startswith("g_"):
+            continue
 
-#         # Check if this is a country-specific column (nXX_)
-#         is_country_column = False
-#         matched_country = False
+        # Check if this is a country-specific column (nXX_)
+        is_country_column = False
+        matched_country = False
 
-#         # Look for pattern nXX_ which would indicate a country-specific column
-#         for i in range(len(col_name) - 3):
-#             if (
-#                 col_name[i : i + 1].lower() == "n"
-#                 and len(col_name) > i + 3
-#                 and col_name[i + 3 : i + 4] == "_"
-#             ):
-#                 country_code = col_name[i + 1 : i + 3].lower()
-#                 is_country_column = True
-#                 if country_code in normalized_codes:
-#                     matched_country = True
-#                 break
+        # Look for pattern nXX_ which would indicate a country-specific column
+        for i in range(len(col_name) - 3):
+            if (
+                col_name[i : i + 1].lower() == "n"
+                and len(col_name) > i + 3
+                and col_name[i + 3 : i + 4] == "_"
+            ):
+                country_code = col_name[i + 1 : i + 3].lower()
+                is_country_column = True
+                if country_code in normalized_codes:
+                    matched_country = True
+                break
 
-#         # If it's a country column but doesn't match our list, flag for removal
-#         if is_country_column and not matched_country:
-#             rows_to_remove.append(idx)
+        # If it's a country column but doesn't match our list, flag for removal
+        if is_country_column and not matched_country:
+            rows_to_remove.append(idx)
 
-#     # Filter out rows for countries not in our list
-#     if rows_to_remove:
-#         return lookup_df.drop(rows_to_remove)
+    # Filter out rows for countries not in our list
+    if rows_to_remove:
+        return lookup_df.drop(rows_to_remove)
 
-# #     return lookup_df
-# def filter_lookup_by_country_codes(
-#     lookup_df: pd.DataFrame, national_codes: list = None
-# ) -> pd.DataFrame:
-#     """
-#     Filter lookup DataFrame to include only:
-#     1. Global columns (prefixed with 'g_')
-#     2. General columns (not country-specific)
-#     3. Country-specific columns matching the provided ISO2 codes (if national_codes provided)
-
-#     If no national_codes are provided, ALL country-specific columns are filtered out.
-
-#     Args:
-#         lookup_df (pd.DataFrame): The lookup DataFrame used to create the schema
-#         national_codes (list, optional): List of ISO2 country codes to include.
-#                                        If None, all country-specific columns are removed.
-
-#     Returns:
-#         pd.DataFrame: Filtered lookup DataFrame
-#     """
-
-#     # Normalize national_codes to lowercase for case-insensitive comparison
-#     if national_codes:
-#         normalized_codes = [
-#             code.lower() for code in national_codes if isinstance(code, str)
-#         ]
-#     else:
-#         normalized_codes = []
-
-#     # Keep track of rows to remove
-#     rows_to_remove = []
-
-#     # Process each row in the lookup DataFrame
-#     for idx, row in lookup_df.iterrows():
-#         col_name = row["name"]
-
-#         # Skip if not a column name entry
-#         if pd.isna(col_name):
-#             continue
-
-#         # Always keep global columns (g_) and general columns
-#         if col_name.startswith("g_"):
-#             continue
-
-#         # Check if this is a country-specific column (nXX_)
-#         is_country_column = False
-#         matched_country = False
-
-#         # Look for pattern nXX_ which indicates a country-specific column
-#         for i in range(len(col_name) - 3):
-#             if (
-#                 col_name[i : i + 1].lower() == "n"
-#                 and len(col_name) > i + 3
-#                 and col_name[i + 3 : i + 4] == "_"
-#             ):
-#                 country_code = col_name[i + 1 : i + 3].lower()
-#                 is_country_column = True
-
-#                 # Only match if we have national_codes AND this country is in the list
-#                 if national_codes and country_code in normalized_codes:
-#                     matched_country = True
-#                 break
-
-#         # Remove country-specific columns that don't match our criteria:
-#         # - If no national_codes provided: remove ALL country columns
-#         # - If national_codes provided: remove country columns NOT in the list
-#         if is_country_column and not matched_country:
-#             rows_to_remove.append(idx)
-
-#     # Filter out flagged rows
-#     if rows_to_remove:
-#         print(f"Filtering out {(rows_to_remove)} country-specific row(s) not matching criteria")
-#         filtered_df = lookup_df.drop(rows_to_remove)
-
-#         # Filter out flagged rows
-#     if rows_to_remove:
-#         # Create detailed debug info
-#         removed_rows_info = []
-#         for idx in rows_to_remove:
-#             row_name = lookup_df.loc[idx, "name"]
-#             removed_rows_info.append({
-#                 'index': idx,
-#                 'name': row_name
-#             })
-
-#         # Extract just the column names for easy viewing
-#         removed_column_names = [info['name'] for info in removed_rows_info]
-
-
-#         print(f"Filtered out {len(rows_to_remove)} country-specific row(s) not matching criteria")
-#         print(f"Removed column names: {removed_column_names}")
-#         return filtered_df
 
 #     return lookup_df
+def filter_lookup_by_country_codes(
+    lookup_df: pd.DataFrame, national_codes: list = None
+) -> pd.DataFrame:
+    """
+    Filter lookup DataFrame to include only:
+    1. Global columns (prefixed with 'g_')
+    2. General columns (not country-specific)
+    3. Country-specific columns matching the provided ISO2 codes (if national_codes provided)
+
+    If no national_codes are provided, ALL country-specific columns are filtered out.
+
+    Args:
+        lookup_df (pd.DataFrame): The lookup DataFrame used to create the schema
+        national_codes (list, optional): List of ISO2 country codes to include.
+                                        If None, all country-specific columns are removed.
+
+    Returns:
+        pd.DataFrame: Filtered lookup DataFrame
+    """
+
+    # Normalize national_codes to lowercase for case-insensitive comparison
+    if national_codes:
+        normalized_codes = [
+            code.lower() for code in national_codes if isinstance(code, str)
+        ]
+    else:
+        normalized_codes = []
+
+    # Keep track of rows to remove
+    rows_to_remove = []
+
+    # Process each row in the lookup DataFrame
+    for idx, row in lookup_df.iterrows():
+        col_name = row["name"]
+
+        # Skip if not a column name entry
+        if pd.isna(col_name):
+            continue
+
+        # Always keep global columns (g_) and general columns
+        if col_name.startswith("g_"):
+            continue
+
+        # Check if this is a country-specific column (nXX_)
+        is_country_column = False
+        matched_country = False
+
+        # Look for pattern nXX_ which indicates a country-specific column
+        for i in range(len(col_name) - 3):
+            if (
+                col_name[i : i + 1].lower() == "n"
+                and len(col_name) > i + 3
+                and col_name[i + 3 : i + 4] == "_"
+            ):
+                country_code = col_name[i + 1 : i + 3].lower()
+                is_country_column = True
+
+                # Only match if we have national_codes AND this country is in the list
+                if national_codes and country_code in normalized_codes:
+                    matched_country = True
+                break
+
+        # Remove country-specific columns that don't match our criteria:
+        # - If no national_codes provided: remove ALL country columns
+        # - If national_codes provided: remove country columns NOT in the list
+        if is_country_column and not matched_country:
+            rows_to_remove.append(idx)
+
+    # Filter out flagged rows
+    if rows_to_remove:
+        print(
+            f"Filtering out {(rows_to_remove)} country-specific row(s) not matching criteria"
+        )
+        filtered_df = lookup_df.drop(rows_to_remove)
+
+        # Filter out flagged rows
+    #     if rows_to_remove:
+    #         # Create detailed debug info
+    #         removed_rows_info = []
+    #         for idx in rows_to_remove:
+    #             row_name = lookup_df.loc[idx, "name"]
+    #             removed_rows_info.append({
+    #                 'index': idx,
+    #                 'name': row_name
+    #             })
+
+    #         # Extract just the column names for easy viewing
+    #         removed_column_names = [info['name'] for info in removed_rows_info]
+
+    #         print(f"Filtered out {len(rows_to_remove)} country-specific row(s) not matching criteria")
+    #         print(f"Removed column names: {removed_column_names}")
+    #         return filtered_df
+
+    return lookup_df
 
 
 def filter_lookup_by_country_codes(
@@ -493,3 +496,201 @@ def filter_lookup_by_country_codes(
     )
 
     return lookup_df[mask]
+
+
+def validate_dataframe_using_lookups_flexible(
+    df_stats: pd.DataFrame,
+    file_paths: list = None,
+    national_codes: list = None,
+    custom_bands=None,
+) -> pd.DataFrame:
+    """
+    Load schema and validate DataFrame while handling custom bands properly.
+
+    Parameters
+    ----------
+    df_stats : pd.DataFrame
+        DataFrame to validate
+    file_paths : list, optional
+        Schema file paths
+    national_codes : list, optional
+        Country codes for filtering
+    custom_bands : list or dict or None, optional
+        Custom band information:
+        - List: ['band1', 'band2'] - only preserves these specific bands
+        - Dict: {'band1': 'float64', 'band2': 'int64'} - validates these specific bands with types
+        - None: excludes ALL custom bands (strict mode)
+
+    Returns
+    -------
+    pd.DataFrame
+        Validated DataFrame with custom bands handled according to specification
+    """
+    # Load default schema
+    schema = load_schema_if_any_file_changed(file_paths, national_codes=national_codes)
+    schema_columns = list(schema.columns.keys())
+
+    # Identify extra columns
+    df_columns = df_stats.columns.tolist()
+    extra_columns = [col for col in df_columns if col not in schema_columns]
+    schema_only_columns = [col for col in df_columns if col in schema_columns]
+
+    if extra_columns:
+        logger.info(f"Found {len(extra_columns)} extra columns: {extra_columns}")
+
+        # Split DataFrame
+        df_schema_part = (
+            df_stats[schema_only_columns].copy()
+            if schema_only_columns
+            else pd.DataFrame()
+        )
+        df_extra_part = df_stats[extra_columns].copy()
+
+        # Validate schema columns if any exist
+        if not df_schema_part.empty:
+            try:
+                validated_schema_part = validate_dataframe(df_schema_part, schema)
+            except Exception as e:
+                logger.error(f"Schema validation failed: {e}")
+                validated_schema_part = (
+                    df_schema_part  # Keep original if validation fails
+                )
+        else:
+            validated_schema_part = pd.DataFrame()
+
+        # ========== KEY FIX: Handle custom_bands=None properly ==========
+        if custom_bands is None:
+            # STRICT MODE: Exclude all custom bands when None
+            logger.info("custom_bands=None: Excluding all custom bands (strict mode)")
+            # Return only the schema columns, no extra columns
+            return (
+                validated_schema_part
+                if not validated_schema_part.empty
+                else pd.DataFrame()
+            )
+
+        elif custom_bands is not None:
+            # Process custom bands as specified
+            df_extra_part = _process_custom_bands(df_extra_part, custom_bands)
+
+            # Combine results
+            if not validated_schema_part.empty and not df_extra_part.empty:
+                result = pd.concat([validated_schema_part, df_extra_part], axis=1)
+            elif not validated_schema_part.empty:
+                result = validated_schema_part
+            else:
+                result = df_extra_part
+
+            # Reorder: schema columns first, then extra columns
+            if not validated_schema_part.empty:
+                ordered_columns = [
+                    col for col in schema_columns if col in result.columns
+                ] + [col for col in df_extra_part.columns]
+                result = result[ordered_columns]
+
+            return result
+
+    else:
+        # No extra columns - use normal validation
+        return validate_dataframe(df_stats, schema)
+
+
+def _process_custom_bands(df_extra: pd.DataFrame, custom_bands) -> pd.DataFrame:
+    """
+    Process custom bands according to user specifications.
+
+    Parameters
+    ----------
+    df_extra : pd.DataFrame
+        DataFrame with extra columns
+    custom_bands : list or dict
+        Custom band specifications
+
+    Returns
+    -------
+    pd.DataFrame
+        Processed DataFrame with custom bands
+    """
+    if isinstance(custom_bands, list):
+        # Just preserve specified columns as-is
+        custom_band_cols = [col for col in custom_bands if col in df_extra.columns]
+        if custom_band_cols:
+            logger.info(f"Preserving custom bands as-is: {custom_band_cols}")
+            return df_extra[custom_band_cols]
+        else:
+            logger.warning(
+                f"None of the specified custom bands {custom_bands} found in DataFrame"
+            )
+            return df_extra
+
+    elif isinstance(custom_bands, dict):
+        # Apply type conversions
+        result_df = df_extra.copy()
+
+        for band_name, target_type in custom_bands.items():
+            if band_name in result_df.columns:
+                try:
+                    if target_type == "float64":
+                        result_df[band_name] = pd.to_numeric(
+                            result_df[band_name], errors="coerce"
+                        ).astype("float64")
+                    elif target_type == "float32":
+                        result_df[band_name] = pd.to_numeric(
+                            result_df[band_name], errors="coerce"
+                        ).astype("float32")
+                    elif target_type == "int64":
+                        result_df[band_name] = pd.to_numeric(
+                            result_df[band_name], errors="coerce"
+                        ).astype(
+                            "Int64"
+                        )  # Nullable int
+                    elif target_type == "string":
+                        result_df[band_name] = result_df[band_name].astype("string")
+                    elif target_type == "bool":
+                        result_df[band_name] = result_df[band_name].astype("bool")
+
+                    logger.info(f"Converted {band_name} to {target_type}")
+
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to convert {band_name} to {target_type}: {e}"
+                    )
+            else:
+                logger.warning(f"Custom band {band_name} not found in DataFrame")
+
+        return result_df
+
+    else:
+        # Unknown format, just return as-is
+        logger.warning(
+            f"Unknown custom_bands format: {type(custom_bands)}. Preserving all extra columns as-is."
+        )
+        return df_extra
+
+
+# Fix the duplicate logging issue
+def log_missing_columns(df_stats: pd.DataFrame, template_schema: pa.DataFrameSchema):
+    # Remove the duplicate logger creation line
+    # logger = setup_logger(__name__)  # DELETE THIS LINE
+
+    # Use the existing module-level logger (line 18: logger = StdoutLogger(__name__))
+
+    # Extract the expected columns from the DataFrameSchema
+    template_columns = list(template_schema.columns.keys())
+    df_stats_columns = df_stats.columns.tolist()
+
+    # Find missing and extra columns
+    missing_in_df = [col for col in template_columns if col not in df_stats_columns]
+    extra_in_df = [col for col in df_stats_columns if col not in template_columns]
+
+    # Log missing schema columns
+    if missing_in_df:
+        logger.warning(f"Missing expected schema columns: {missing_in_df}")
+    else:
+        logger.info("All expected schema columns found in DataFrame.")
+
+    # Log extra columns (will be preserved)
+    if extra_in_df:
+        logger.info(f"Extra columns found (will be preserved): {extra_in_df}")
+    else:
+        logger.info("No extra columns found in DataFrame.")
