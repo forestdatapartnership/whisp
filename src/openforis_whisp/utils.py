@@ -4,6 +4,9 @@ import math
 import os
 import pandas as pd
 
+import urllib.request
+import os
+
 import importlib.resources as pkg_resources
 
 from dotenv import load_dotenv
@@ -152,3 +155,40 @@ class DotEnvNotFoundError(FileNotFoundError):
             "Running tests requires setting an appropriate '.env' in the root directory or in your current working "
             "directory. You may copy and edit the '.env.template' file from the root directory or from the README.",
         )
+
+
+def get_example_geojson(filename="geojson_example.geojson", cache=True):
+    """
+    Download example geojson file for testing whisp functionality.
+    
+    Parameters:
+    -----------
+    filename : str
+        Local filename to save the geojson
+    cache : bool
+        If True, cache file in user directory to avoid re-downloading
+        
+    Returns:
+    --------
+    str
+        Path to the downloaded geojson file
+    """
+    url = "https://raw.githubusercontent.com/forestdatapartnership/whisp/main/tests/fixtures/geojson_example.geojson"
+    
+    if cache:
+        cache_dir = os.path.join(os.path.expanduser("~"), ".whisp_cache")
+        os.makedirs(cache_dir, exist_ok=True)
+        filepath = os.path.join(cache_dir, filename)
+        
+        if os.path.exists(filepath):
+            return filepath
+    else:
+        filepath = filename
+    
+    try:
+        urllib.request.urlretrieve(url, filepath)
+        return filepath
+    except Exception as e:
+        raise RuntimeError(f"Failed to download example geojson: {e}")
+
+
