@@ -1,0 +1,12 @@
+stash@{0}: WIP on geojson_input_cleaning: 42abf6d Merge pull request #97 from forestdatapartnership/external_id_fix
+stash@{1}: WIP on external_id_fix: 4bee859 bug fix - external id; test file fix to reflect larger example dataset
+stash@{2}: WIP on main: 7b21a99 Merge pull request #94 from forestdatapartnership/andyarnell-readme
+stash@{3}: WIP on main: ea94f65 Resolve merge conflict in whisp_geojson_to_csv.ipynb
+stash@{4}: WIP on main: a185ab4 Merge pull request #82 from forestdatapartnership/whisp_columns_file
+stash@{5}: WIP on main: beb0416 Remove geemap dependency, bump to 2.0.0a2
+stash@{6}: WIP on main: beb0416 Remove geemap dependency, bump to 2.0.0a2
+stash@{7}: WIP on fix/notebook_paths: 9339386 now with build added; poetry build updated for major alpha version
+stash@{8}: On dev_astrid: playing
+stash@{9}: WIP on dev_astrid: fea9dc7 modify lookup table
+stash@{10}: WIP on dev_astrid: fea9dc7 modify lookup table
+stash@{11}: WIP on dev_astrid: fea9dc7 modify lookup table

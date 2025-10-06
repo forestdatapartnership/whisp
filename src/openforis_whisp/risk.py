@@ -161,9 +161,8 @@ def whisp_risk(
             lookup_df_copy, custom_bands_info, df.columns
         )
         print(f"Including custom bands: {list(custom_bands_info.keys())}")
-        # print(f"appended custom bands info to lookup table")
     if national_codes:
-        print(f"Filtering by national codes: {national_codes}")
+        print(f"Including additional national data for: {national_codes}")
     # Filter by national codes
     filtered_lookup_gee_datasets_df = filter_lookup_by_country_codes(
         lookup_df=lookup_df_copy,

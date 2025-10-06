@@ -592,7 +592,56 @@ def whisp_stats_ee_to_df(
         print(f"An error occurred during the ISO3 to ISO2 conversion: {e}")
         return pd.DataFrame()  # Return an empty DataFrame in case of error
 
+    # NEW: Set area to 0 for point geometries
+    try:
+        df_stats = set_point_geometry_area_to_zero(df_stats)
+    except Exception as e:
+        print(f"An error occurred during point geometry area adjustment: {e}")
+        # Continue without the adjustment rather than failing completely
+
     return df_stats
+
+
+def set_point_geometry_area_to_zero(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Set the geometry area column to 0 for features with Point geometry type.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame containing geometry type and area columns
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with area set to 0 for Point geometries
+    """
+    # Check if required columns exist
+    if geometry_type_column not in df.columns:
+        print(
+            f"Warning: {geometry_type_column} column not found. Skipping area adjustment for points."
+        )
+        return df
+
+    if geometry_area_column not in df.columns:
+        print(
+            f"Warning: {geometry_area_column} column not found. Skipping area adjustment for points."
+        )
+        return df
+
+    # Create a copy to avoid modifying the original
+    df_modified = df.copy()
+
+    # Set area to 0 where geometry type is Point
+    point_mask = df_modified[geometry_type_column] == "Point"
+    df_modified.loc[point_mask, geometry_area_column] = 0.0
+
+    # Log the changes
+    num_points = point_mask.sum()
+    if num_points > 0:
+        print(f"Set area to 0 for {num_points} Point geometries")
+
+    return df_modified
 
 
 def whisp_stats_ee_to_drive(
@@ -1226,3 +1275,46 @@ def debug_feature_collection_properties(feature_collection, max_features=5):
 
     except Exception as e:
         return {"error": f"Error during debugging: {str(e)}"}
+
+
+# helper function to set area to 0 for point geometries
+def set_point_geometry_area_to_zero(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Set the geometry area column to 0 for features with Point geometry type.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame containing geometry type and area columns
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with area set to 0 for Point geometries
+    """
+    # Check if required columns exist
+    if geometry_type_column not in df.columns:
+        print(
+            f"Warning: {geometry_type_column} column not found. Skipping area adjustment for points."
+        )
+        return df
+
+    if geometry_area_column not in df.columns:
+        print(
+            f"Warning: {geometry_area_column} column not found. Skipping area adjustment for points."
+        )
+        return df
+
+    # Create a copy to avoid modifying the original
+    df_modified = df.copy()
+
+    # Set area to 0 where geometry type is Point
+    point_mask = df_modified[geometry_type_column] == "Point"
+    df_modified.loc[point_mask, geometry_area_column] = 0.0
+
+    # Log the changes
+    num_points = point_mask.sum()
+    # if num_points > 0:
+    #     print(f"Set area to 0 for {num_points} Point geometries")
+
+    return df_modified
