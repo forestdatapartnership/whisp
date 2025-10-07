@@ -42,6 +42,17 @@ def convert_geojson_to_ee(
         # Use GeoPandas to read the file and handle CRS
         gdf = gpd.read_file(file_path)
 
+        # NEW: Handle problematic data types before JSON conversion
+        for col in gdf.columns:
+            if col != gdf.geometry.name:  # Skip geometry column
+                # Handle datetime/timestamp columns
+                if pd.api.types.is_datetime64_any_dtype(gdf[col]):
+                    gdf[col] = gdf[col].dt.strftime("%Y-%m-%d %H:%M:%S").fillna("")
+                # Handle other problematic types
+                elif gdf[col].dtype == "object":
+                    # Convert any remaining non-serializable objects to strings
+                    gdf[col] = gdf[col].astype(str)
+
         # Check and convert CRS if needed
         if enforce_wgs84:
             if gdf.crs is None:
