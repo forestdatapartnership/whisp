@@ -472,7 +472,6 @@ def add_indicators(
     return df
 
 
-# Update add_indicator_column to use the unit_type parameter
 def add_indicator_column(
     df: data_lookup_type,
     input_columns: list[str],
@@ -481,49 +480,51 @@ def add_indicator_column(
     low_name: str = "no",
     high_name: str = "yes",
     sum_comparison: bool = False,
-    unit_type: str = None,  # unit_type parameter
+    unit_type: str = None,
 ) -> data_lookup_type:
-    """
-    Add a new column to the DataFrame based on the specified columns, threshold, and comparison sign.
+    """Add a new column to the DataFrame based on the specified columns, threshold, and comparison sign."""
 
-    Parameters:
-        df (data_lookup_type): The pandas DataFrame to which the column will be added.
-        input_columns (list): List of column names to check for threshold.
-        threshold (float): The threshold value to compare against.
-        new_column_name (str): The name of the new column to be added.
-        The '>' sign is used for comparisons.
-        When 'sum comparison' == True, then the threshold is compared to the sum of all those listed in 'input_columns', as opposed to when Flalse, when each column in the list is compared to the threshold individually
-        low_name (str): The name for the value when below or equal to threshold (default is 'no').
-        high_name (str): The name for the value when above threshold (default is 'yes').
-        sum_comparison (bool): If True, sum all values in input_columns and compare to threshold (default is False).
-        unit_type (str): Whether values are in "ha" or "percent".
-
-    Returns:
-        data_lookup_type: The DataFrame with the new column added.
-    """
     # Create a new column and initialize with low_name
     new_column = pd.Series(low_name, index=df.index, name=new_column_name)
 
-    # Default behavior: use '>' for single column comparison
     if sum_comparison:
         # Sum all values in specified columns and compare to threshold
         sum_values = df[input_columns].sum(axis=1)
         new_column[sum_values > threshold] = high_name
     else:
-        # Check if any values in specified columns are above the threshold and update the new column accordingly
+        # Check if any values in specified columns are above the threshold
         for col in input_columns:
-            # So that threshold is always in percent, if outputs are in ha, the code converts to percent (based on dividing by the geometry_area_column column.
-            # Clamping is needed due to differences in decimal places (meaning input values may go just over 100)
             if unit_type == "ha":
                 df[geometry_area_column] = pd.to_numeric(
                     df[geometry_area_column], errors="coerce"
                 )
-                val_to_check = clamp(
-                    ((df[col] / df[geometry_area_column]) * 100), 0, 100
-                )
+
+                # Handle points (Area = 0) separately
+                is_point = df[geometry_area_column] == 0
+
+                # For points: any value > 0 exceeds threshold
+                point_mask = is_point & (df[col] > 0)
+                new_column[point_mask] = high_name
+
+                # For polygons: convert to percentage and check threshold
+                polygon_mask = ~is_point
+                if polygon_mask.any():
+                    val_to_check = clamp(
+                        (
+                            (
+                                df.loc[polygon_mask, col]
+                                / df.loc[polygon_mask, geometry_area_column]
+                            )
+                            * 100
+                        ),
+                        0,
+                        100,
+                    )
+                    new_column[polygon_mask & (val_to_check > threshold)] = high_name
             else:
+                # For percentage values, use direct comparison
                 val_to_check = df[col]
-            new_column[val_to_check > threshold] = high_name
+                new_column[val_to_check > threshold] = high_name
 
     # Concatenate the new column to the DataFrame
     df = pd.concat([df, new_column], axis=1)
