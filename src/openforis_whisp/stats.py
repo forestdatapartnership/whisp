@@ -723,14 +723,14 @@ def get_stats(
     # Use provided image or combine datasets
     if whisp_image is not None:
         img_combined = whisp_image
-        print("Using provided whisp_image")
+        # print("Using provided whisp_image")
     else:
         img_combined = combine_datasets(national_codes=national_codes)
         print(f"Combining datasets with national_codes: {national_codes}")
 
     # Check if the input is a Feature or a FeatureCollection
     if isinstance(feature_or_feature_col, ee.Feature):
-        print("Processing single feature")
+        # print("Processing single feature")
         output = ee.FeatureCollection(
             [
                 get_stats_feature(
@@ -739,7 +739,7 @@ def get_stats(
             ]
         )
     elif isinstance(feature_or_feature_col, ee.FeatureCollection):
-        print("Processing feature collection")
+        # print("Processing feature collection")
         output = get_stats_fc(
             feature_or_feature_col,
             national_codes=national_codes,
