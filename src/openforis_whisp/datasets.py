@@ -49,13 +49,13 @@ def g_esa_worldcover_trees_prep():
     esa_worldcover_trees_2020 = esa_worldcover_2020_raw.eq(95).Or(
         esa_worldcover_2020_raw.eq(10)
     )  # get trees and mnangroves
-    return esa_worldcover_trees_2020.rename("ESA_TC_2020")
+    return esa_worldcover_trees_2020.rename("ESA_TC_2020").selfMask()
 
 
 # EUFO_2020
 def g_jrc_gfc_2020_prep():
     jrc_gfc2020_raw = ee.ImageCollection("JRC/GFC2020/V2")
-    return jrc_gfc2020_raw.mosaic().rename("EUFO_2020")
+    return jrc_gfc2020_raw.mosaic().rename("EUFO_2020").selfMask()
 
 
 # GFC_TC_2020
@@ -64,7 +64,7 @@ def g_glad_gfc_10pc_prep():
     gfc_treecover2000 = gfc.select(["treecover2000"])
     gfc_loss2001_2020 = gfc.select(["lossyear"]).lte(20)
     gfc_treecover2020 = gfc_treecover2000.where(gfc_loss2001_2020.eq(1), 0)
-    return gfc_treecover2020.gt(10).rename("GFC_TC_2020")
+    return gfc_treecover2020.gt(10).rename("GFC_TC_2020").selfMask()
 
 
 # GLAD_Primary
@@ -77,8 +77,10 @@ def g_glad_pht_prep():
     )
     gfc = ee.Image("UMD/hansen/global_forest_change_2024_v1_12")
     gfc_loss2001_2020 = gfc.select(["lossyear"]).lte(20)
-    return primary_ht_forests2001.where(gfc_loss2001_2020.eq(1), 0).rename(
-        "GLAD_Primary"
+    return (
+        primary_ht_forests2001.where(gfc_loss2001_2020.eq(1), 0)
+        .rename("GLAD_Primary")
+        .selfMask()
     )
 
 
@@ -90,7 +92,7 @@ def g_jrc_tmf_undisturbed_prep():
         .mosaic()
         .eq(1)
     )  # update from https://github.com/forestdatapartnership/whisp/issues/42
-    return TMF_undist_2020.rename("TMF_undist")
+    return TMF_undist_2020.rename("TMF_undist").selfMask()
 
 
 # Forest Persistence FDaP
@@ -107,27 +109,27 @@ def g_fdap_forest_prep():
 def g_gft_primary_prep():
     gft_raw = ee.ImageCollection("JRC/GFC2020_subtypes/V0").mosaic()
     gft_primary = gft_raw.eq(10)
-    return gft_primary.rename("GFT_primary")
+    return gft_primary.rename("GFT_primary").selfMask()
 
 
 # Intact Forest Landscape 2020
 def g_ifl_2020_prep():
     IFL_2020 = ee.Image("users/potapovpeter/IFL_2020")
-    return IFL_2020.rename("IFL_2020")
+    return IFL_2020.rename("IFL_2020").selfMask()
 
 
 # European Primary Forest Dataset
 def g_epfd_prep():
     EPFD = ee.FeatureCollection("HU_BERLIN/EPFD/V2/polygons")
     EPFD_binary = ee.Image().paint(EPFD, 1)
-    return EPFD_binary.rename("European_Primary_Forest")
+    return EPFD_binary.rename("European_Primary_Forest").selfMask()
 
 
 # EUFO JRC Global forest type - naturally regenerating planted/plantation forests
 def g_gft_nat_reg_prep():
     gft_raw = ee.ImageCollection("JRC/GFC2020_subtypes/V0").mosaic()
     gft_nat_reg = gft_raw.eq(1)
-    return gft_nat_reg.rename("GFT_naturally_regenerating")
+    return gft_nat_reg.rename("GFT_naturally_regenerating").selfMask()
 
 
 #########################planted and plantation forests
@@ -136,13 +138,13 @@ def g_gft_nat_reg_prep():
 def g_gft_plantation_prep():
     gft_raw = ee.ImageCollection("JRC/GFC2020_subtypes/V0").mosaic()
     gft_plantation = gft_raw.eq(20)
-    return gft_plantation.rename("GFT_planted_plantation")
+    return gft_plantation.rename("GFT_planted_plantation").selfMask()
 
 
 def g_iiasa_planted_prep():
     iiasa = ee.Image("projects/sat-io/open-datasets/GFM/FML_v3-2")
     iiasa_PL = iiasa.eq(31).Or(iiasa.eq(32))
-    return iiasa_PL.rename("IIASA_planted_plantation")
+    return iiasa_PL.rename("IIASA_planted_plantation").selfMask()
 
 
 #########################TMF regrowth in 2023
@@ -151,7 +153,7 @@ def g_tmf_regrowth_prep():
     TMF_AC = ee.ImageCollection("projects/JRC/TMF/v1_2024/AnnualChanges").mosaic()
     TMF_AC_2023 = TMF_AC.select("Dec2023")
     Regrowth_TMF = TMF_AC_2023.eq(4)
-    return Regrowth_TMF.rename("TMF_regrowth_2023")
+    return Regrowth_TMF.rename("TMF_regrowth_2023").selfMask()
 
 
 ############tree crops
@@ -168,7 +170,7 @@ def g_jrc_tmf_plantation_prep():
     plantation_2020 = plantation.where(
         deforestation_year.gte(2021), 0
     )  # update from https://github.com/forestdatapartnership/whisp/issues/42
-    return plantation_2020.rename("TMF_plant")
+    return plantation_2020.rename("TMF_plant").selfMask()
 
 
 # # Oil_palm_Descals
@@ -188,13 +190,15 @@ def g_creaf_descals_palm_prep():
 
     # Create a mask for plantations in the year 2020 or earlier
     plantation_2020 = oil_palm_plantation_year.lte(2020).selfMask()
-    return plantation_2020.rename("Oil_palm_Descals")
+    return plantation_2020.rename("Oil_palm_Descals").selfMask()
 
 
 # Cocoa_ETH
 def g_eth_kalischek_cocoa_prep():
-    return ee.Image("projects/ee-nk-cocoa/assets/cocoa_map_threshold_065").rename(
-        "Cocoa_ETH"
+    return (
+        ee.Image("projects/ee-nk-cocoa/assets/cocoa_map_threshold_065")
+        .rename("Cocoa_ETH")
+        .selfMask()
     )
 
 
@@ -212,7 +216,7 @@ def g_fdap_palm_prep():
         .mosaic()
         .gt(0.88)  # Precision and recall ~78% at 0.88 threshold.
     )
-    return fdap_palm.rename("Oil_palm_FDaP")
+    return fdap_palm.rename("Oil_palm_FDaP").selfMask()
 
 
 def g_fdap_palm_2023_prep():
@@ -224,7 +228,7 @@ def g_fdap_palm_2023_prep():
         .mosaic()
         .gt(0.88)  # Precision and recall ~78% at 0.88 threshold.
     )
-    return fdap_palm.rename("Oil_palm_2023_FDaP")
+    return fdap_palm.rename("Oil_palm_2023_FDaP").selfMask()
 
 
 # Cocoa FDaP
@@ -237,7 +241,7 @@ def g_fdap_cocoa_prep():
         .mosaic()
         .gt(0.96)  # Precision and recall ~87% 0.96 threshold.
     )
-    return fdap_cocoa.rename("Cocoa_FDaP")
+    return fdap_cocoa.rename("Cocoa_FDaP").selfMask()
 
 
 def g_fdap_cocoa_2023_prep():
@@ -249,7 +253,7 @@ def g_fdap_cocoa_2023_prep():
         .mosaic()
         .gt(0.96)  # Precision and recall ~87% 0.96 threshold.
     )
-    return fdap_cocoa.rename("Cocoa_2023_FDaP")
+    return fdap_cocoa.rename("Cocoa_2023_FDaP").selfMask()
 
 
 # Rubber FDaP
@@ -262,7 +266,7 @@ def g_fdap_rubber_prep():
         .mosaic()
         .gt(0.59)  # Precision and recall ~80% 0.59 threshold.
     )
-    return fdap_rubber.rename("Rubber_FDaP")
+    return fdap_rubber.rename("Rubber_FDaP").selfMask()
 
 
 def g_fdap_rubber_2023_prep():
@@ -274,7 +278,7 @@ def g_fdap_rubber_2023_prep():
         .mosaic()
         .gt(0.59)  # Threshold for Rubber
     )
-    return fdap_rubber.rename("Rubber_2023_FDaP")
+    return fdap_rubber.rename("Rubber_2023_FDaP").selfMask()
 
 
 # # Coffee FDaP
@@ -291,7 +295,7 @@ def g_fdap_coffee_2020_prep():
         .gt(0.99)  # Precision and recall ~54% 0.99 threshold.
     )
 
-    return coffee_2020.rename("Coffee_FDaP")
+    return coffee_2020.rename("Coffee_FDaP").selfMask()
 
 
 def g_fdap_coffee_2023_prep():
@@ -306,7 +310,7 @@ def g_fdap_coffee_2023_prep():
         .mosaic()
         .gt(0.99)  # Precision and recall ~54% 0.99 threshold.
     )
-    return coffee_2023.rename("Coffee_FDaP_2023")
+    return coffee_2023.rename("Coffee_FDaP_2023").selfMask()
 
 
 # Rubber_RBGE  - from Royal Botanical Gardens of Edinburgh (RBGE) NB for 2021
@@ -317,12 +321,17 @@ def g_rbge_rubber_prep():
         )
         .unmask()
         .rename("Rubber_RBGE")
-    )
+    ).selfMask()
 
 
 # soy 2020 South America
 def g_soy_song_2020_prep():
-    return ee.Image("projects/glad/soy_annual_SA/2020").unmask().rename("Soy_Song_2020")
+    return (
+        ee.Image("projects/glad/soy_annual_SA/2020")
+        .unmask()
+        .rename("Soy_Song_2020")
+        .selfMask()
+    )
 
 
 ##############
@@ -336,7 +345,7 @@ def g_esri_2023_tc_prep():
     esri_lulc10_TC = (
         esri_lulc10_raw.filterDate("2023-01-01", "2023-12-31").mosaic().eq(2)
     )
-    return esri_lulc10_TC.rename("ESRI_2023_TC")
+    return esri_lulc10_TC.rename("ESRI_2023_TC").selfMask()
 
 
 # ESRI 2023 - Crop
@@ -347,7 +356,7 @@ def g_esri_2023_crop_prep():
     esri_lulc10_crop = (
         esri_lulc10_raw.filterDate("2023-01-01", "2023-12-31").mosaic().eq(5)
     )
-    return esri_lulc10_crop.rename("ESRI_2023_crop")
+    return esri_lulc10_crop.rename("ESRI_2023_crop").selfMask()
 
 
 # GLC_FCS30D 2022
@@ -366,7 +375,7 @@ def g_glc_fcs30d_tc_2022_prep():
         .Or(GLC_FCS30D.eq(181))
         .Or(GLC_FCS30D.eq(185))
     )
-    return GLC_FCS30D_TC.rename("GLC_FCS30D_TC_2022")
+    return GLC_FCS30D_TC.rename("GLC_FCS30D_TC_2022").selfMask()
 
 
 # GLC_FCS30D crop
@@ -378,7 +387,7 @@ def g_glc_fcs30d_crop_2022_prep():
         .select(22)
     )
     GLC_FCS30D_crop = GLC_FCS30D.gte(10).And(GLC_FCS30D.lte(20))
-    return GLC_FCS30D_crop.rename("GLC_FCS30D_crop_2022")
+    return GLC_FCS30D_crop.rename("GLC_FCS30D_crop_2022").selfMask()
 
 
 #### disturbances by year
@@ -412,6 +421,7 @@ def g_radd_year_prep():
             .updateMask(radd_date.lte(end))
             .gt(0)
             .rename("RADD_year_" + "20" + str(year))
+            .selfMask()
         )
 
         if img_stack is None:
@@ -432,7 +442,7 @@ def g_tmf_def_per_year_prep():
         if img_stack is None:
             img_stack = tmf_def_year
         else:
-            img_stack = img_stack.addBands(tmf_def_year)
+            img_stack = img_stack.addBands(tmf_def_year).selfMask()
     return img_stack
 
 
@@ -443,7 +453,9 @@ def g_tmf_deg_per_year_prep():
     img_stack = None
     # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
     for i in range(0, 24 + 1):
-        tmf_def_year = tmf_def.eq(2000 + i).rename("TMF_deg_" + str(2000 + i))
+        tmf_def_year = (
+            tmf_def.eq(2000 + i).rename("TMF_deg_" + str(2000 + i)).selfMask()
+        )
         if img_stack is None:
             img_stack = tmf_def_year
         else:
@@ -461,7 +473,9 @@ def g_glad_gfc_loss_per_year_prep():
         gfc_loss_year = (
             gfc.select(["lossyear"]).eq(i).And(gfc.select(["treecover2000"]).gt(10))
         )
-        gfc_loss_year = gfc_loss_year.rename("GFC_loss_year_" + str(2000 + i))
+        gfc_loss_year = gfc_loss_year.rename(
+            "GFC_loss_year_" + str(2000 + i)
+        ).selfMask()
         if img_stack is None:
             img_stack = gfc_loss_year
         else:
@@ -490,7 +504,7 @@ def g_modis_fire_prep():
             .select(["BurnDate"])
             .gte(0)
             .rename(f"MODIS_fire_{year}")
-        )
+        ).selfMask()
         img_stack = modis_year if img_stack is None else img_stack.addBands(modis_year)
 
     return img_stack
@@ -517,7 +531,7 @@ def g_esa_fire_prep():
             .select(["BurnDate"])
             .gte(0)
             .rename(f"ESA_fire_{year}")
-        )
+        ).selfMask()
         img_stack = esa_year if img_stack is None else img_stack.addBands(esa_year)
 
     return img_stack
@@ -635,7 +649,7 @@ def g_radd_after_2020_prep():
         .updateMask(radd_date.lte(end))
         .gt(0)
         .rename("RADD_after_2020")
-    )
+    ).selfMask()
 
 
 # RADD_before_2020
@@ -659,7 +673,7 @@ def g_radd_before_2020_prep():
         .updateMask(radd_date.lte(end))
         .gt(0)
         .rename("RADD_before_2020")
-    )
+    ).selfMask()
 
 
 # # DIST_after_2020
@@ -687,25 +701,35 @@ def g_radd_before_2020_prep():
 # TMF_deg_before_2020
 def g_tmf_deg_before_2020_prep():
     tmf_deg = ee.ImageCollection("projects/JRC/TMF/v1_2024/DegradationYear").mosaic()
-    return (tmf_deg.lte(2020)).And(tmf_deg.gte(2000)).rename("TMF_deg_before_2020")
+    return (
+        (tmf_deg.lte(2020))
+        .And(tmf_deg.gte(2000))
+        .rename("TMF_deg_before_2020")
+        .selfMask()
+    )
 
 
 # TMF_deg_after_2020
 def g_tmf_deg_after_2020_prep():
     tmf_deg = ee.ImageCollection("projects/JRC/TMF/v1_2024/DegradationYear").mosaic()
-    return tmf_deg.gt(2020).rename("TMF_deg_after_2020")
+    return tmf_deg.gt(2020).rename("TMF_deg_after_2020").selfMask()
 
 
 # tmf_def_before_2020
 def g_tmf_def_before_2020_prep():
     tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2024/DeforestationYear").mosaic()
-    return (tmf_def.lte(2020)).And(tmf_def.gte(2000)).rename("TMF_def_before_2020")
+    return (
+        (tmf_def.lte(2020))
+        .And(tmf_def.gte(2000))
+        .rename("TMF_def_before_2020")
+        .selfMask()
+    )
 
 
 # tmf_def_after_2020
 def g_tmf_def_after_2020_prep():
     tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2024/DeforestationYear").mosaic()
-    return tmf_def.gt(2020).rename("TMF_def_after_2020")
+    return tmf_def.gt(2020).rename("TMF_def_after_2020").selfMask()
 
 
 # GFC_loss_before_2020 (loss within 10 percent cover; includes 2020; correct for version 11)
@@ -715,7 +739,7 @@ def g_glad_gfc_loss_before_2020_prep():
     gfc_loss = (
         gfc.select(["lossyear"]).lte(20).And(gfc.select(["treecover2000"]).gt(10))
     )
-    return gfc_loss.rename("GFC_loss_before_2020")
+    return gfc_loss.rename("GFC_loss_before_2020").selfMask()
 
 
 # GFC_loss_after_2020 (loss within 10 percent cover; correct for version 11)
@@ -723,7 +747,7 @@ def g_glad_gfc_loss_after_2020_prep():
     # Load the Global Forest Change dataset
     gfc = ee.Image("UMD/hansen/global_forest_change_2024_v1_12")
     gfc_loss = gfc.select(["lossyear"]).gt(20).And(gfc.select(["treecover2000"]).gt(10))
-    return gfc_loss.rename("GFC_loss_after_2020")
+    return gfc_loss.rename("GFC_loss_after_2020").selfMask()
 
 
 # MODIS_fire_before_2020
@@ -739,6 +763,7 @@ def g_modis_fire_before_2020_prep():
         .select(["BurnDate"])
         .gte(0)
         .rename("MODIS_fire_before_2020")
+        .selfMask()
     )
 
 
@@ -755,6 +780,7 @@ def g_modis_fire_after_2020_prep():
         .select(["BurnDate"])
         .gte(0)
         .rename("MODIS_fire_after_2020")
+        .selfMask()
     )
 
 
@@ -771,6 +797,7 @@ def g_esa_fire_before_2020_prep():
         .select(["BurnDate"])
         .gte(0)
         .rename("ESA_fire_before_2020")
+        .selfMask()
     )
 
 
@@ -817,7 +844,7 @@ def g_logging_concessions_before_2020_prep():
         ]
     ).mosaic()
 
-    return logging_concessions_binary.rename("GFW_logging_before_2020")
+    return logging_concessions_binary.rename("GFW_logging_before_2020").selfMask()
 
 
 #########################national datasets
@@ -835,7 +862,7 @@ def g_logging_concessions_before_2020_prep():
 def nbr_terraclass_amz20_primary_prep():
     tcamz20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_amz_2020")
     tcamz20_f = tcamz20.eq(1)
-    return tcamz20_f.rename("nBR_INPE_TC_primary_forest_Amazon_2020")
+    return tcamz20_f.rename("nBR_INPE_TC_primary_forest_Amazon_2020").selfMask()
 
 
 # [Official NFMS dataset] Brazilian Forest Service dataset on natural forest cover from PRODES and TerraClass data, base year 2022
@@ -849,7 +876,7 @@ def nbr_bfs_ptn_f20_prep():
     bfs_fptn20 = ee.FeatureCollection("projects/ee-whisp/assets/NBR/bfs_ptn_2020")
 
     bfs_fptn20_binary = ee.Image().paint(bfs_fptn20, 1)
-    return bfs_fptn20_binary.rename("nBR_BFS_primary_forest_Pantanal_2020")
+    return bfs_fptn20_binary.rename("nBR_BFS_primary_forest_Pantanal_2020").selfMask()
 
 
 # Caatinga - filtered with QGIS because the original geodatabase is too large to export as a shapefile (GEE accepted format)
@@ -857,35 +884,39 @@ def nbr_bfs_ptn_f20_prep():
 def nbr_bfs_caat_f20_prep():
     bfs_fcaat20 = ee.FeatureCollection("projects/ee-whisp/assets/NBR/bfs_caat_2020")
     bfs_fcaat20_binary = ee.Image().paint(bfs_fcaat20, 1)
-    return bfs_fcaat20_binary.rename("nBR_BFS_primary_forest_Caatinga_2020")
+    return bfs_fcaat20_binary.rename("nBR_BFS_primary_forest_Caatinga_2020").selfMask()
 
 
 # Atlantic Forest - filtered with QGIS because the original geodatabase is too large to export as a shapefile (GEE accepted format)
 def nbr_bfs_atlf_f20_prep():
     bfs_fatlf20 = ee.FeatureCollection("projects/ee-whisp/assets/NBR/bfs_atlf_2020")
     bfs_fatlf20_binary = ee.Image().paint(bfs_fatlf20, 1)
-    return bfs_fatlf20_binary.rename("nBR_BFS_primary_forest_AtlanticForest_2020")
+    return bfs_fatlf20_binary.rename(
+        "nBR_BFS_primary_forest_AtlanticForest_2020"
+    ).selfMask()
 
 
 # Pampa - filtered in QGIS to save some storage space
 def nbr_bfs_pmp_f20_prep():
     bfs_fpmp20 = ee.FeatureCollection("projects/ee-whisp/assets/NBR/bfs_pmp_2020")
     bfs_fpmp20_binary = ee.Image().paint(bfs_fpmp20, 1)
-    return bfs_fpmp20_binary.rename("nBR_BFS_primary_forest_Pampa_2020")
+    return bfs_fpmp20_binary.rename("nBR_BFS_primary_forest_Pampa_2020").selfMask()
 
 
 ##########################secondary forests###############################################
 def nbr_terraclass_amz20_secondary_prep():
     tcamz20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_amz_2020")
     tcamz20_f = tcamz20.eq(2)
-    return tcamz20_f.rename("nBR_INPE_TC_secondary_forest_Amazon_2020")
+    return tcamz20_f.rename("nBR_INPE_TC_secondary_forest_Amazon_2020").selfMask()
 
 
 # Cerrado - filtered with QGIS because the original geodatabase is too large to export as a shapefile (GEE accepted format)
 def nbr_bfs_cer_f20_prep():
     bfs_fcer20 = ee.FeatureCollection("projects/ee-whisp/assets/NBR/bfs_cerr_2020")
     bfs_fcer20_binary = ee.Image().paint(bfs_fcer20, 1)
-    return bfs_fcer20_binary.rename("nBR_BFS_primary_and_secondary_forest_Cerrado_2020")
+    return bfs_fcer20_binary.rename(
+        "nBR_BFS_primary_and_secondary_forest_Cerrado_2020"
+    ).selfMask()
 
 
 # %%
@@ -904,7 +935,9 @@ def nbr_mapbiomasc9_f20_prep():
         .Or(mapbiomasc9_20.eq(6))
         .Or(mapbiomasc9_20.eq(49))
     )
-    return mapbiomasc9_20_forest.rename("nBR_MapBiomas_col9_forest_Brazil_2020")
+    return mapbiomasc9_20_forest.rename(
+        "nBR_MapBiomas_col9_forest_Brazil_2020"
+    ).selfMask()
 
 
 # ### ########################NBR plantation forest in 2020:#######################################
@@ -915,7 +948,7 @@ def nbr_mapbiomasc9_f20_prep():
 def nbr_terraclass_amz20_silv_prep():
     tcamz20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_amz_2020")
     tcamz20_silviculture = tcamz20.eq(9)
-    return tcamz20_silviculture.rename("nBR_INPE_TCsilviculture_Amazon_2020")
+    return tcamz20_silviculture.rename("nBR_INPE_TCsilviculture_Amazon_2020").selfMask()
 
 
 # [Official NFMS dataset] INPE/EMBRAPA TerraClass land use/cover in the Cerrado biome, 2020
@@ -924,7 +957,9 @@ def nbr_terraclass_amz20_silv_prep():
 def nbr_terraclass_silv_cer20_prep():
     tccer20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_cer_2020")
     tccer20_silviculture = tccer20.eq(9)
-    return tccer20_silviculture.rename("nBR_INPE_TCsilviculture_Cerrado_2020")
+    return tccer20_silviculture.rename(
+        "nBR_INPE_TCsilviculture_Cerrado_2020"
+    ).selfMask()
 
 
 # [non-official dataset by MapBiomas multisector initiative]
@@ -938,7 +973,7 @@ def nbr_mapbiomasc9_silv20_prep():
     mapbiomasc9_20_silviculture = mapbiomasc9_20.eq(9)
     return mapbiomasc9_20_silviculture.rename(
         "nBR_MapBiomas_col9_silviculture_Brazil_2020"
-    )
+    ).selfMask()
 
 
 ################ ### NBR Disturbances before 2020:########################################
@@ -984,7 +1019,9 @@ def nbr_prodes_before_2020_prep():
         prodes_before_20_dn, [1] * len(prodes_before_20_dn)
     )  # .eq(1)
     prodes_before_20 = prodes_before_20_mask.selfMask()
-    return prodes_before_20.rename("nBR_PRODES_deforestation_Brazil_before_2020")
+    return prodes_before_20.rename(
+        "nBR_PRODES_deforestation_Brazil_before_2020"
+    ).selfMask()
 
 
 ## Caution: 1) includes deforestation and conversion of other wooded land and grassland
@@ -1009,7 +1046,9 @@ def nbr_deter_amazon_before_2020_prep():
     ).filter(ee.Filter.lt("formatted_date", ee.Date("2020-12-31")))
 
     deter_deg_binary = ee.Image().paint(deter_deg, 1)
-    return deter_deg_binary.rename("nBR_DETER_forestdegradation_Amazon_before_2020")
+    return deter_deg_binary.rename(
+        "nBR_DETER_forestdegradation_Amazon_before_2020"
+    ).selfMask()
 
 
 ################ ### NBR Disturbances after 2020:########################################
@@ -1026,7 +1065,9 @@ def nbr_prodes_after_2020_prep():
         prodes_after_20_dn, [1] * len(prodes_after_20_dn)
     )  # .eq(1)
     prodes_after_20 = prodes_after_20_mask.selfMask()
-    return prodes_after_20.rename("nBR_PRODES_deforestation_Brazil_after_2020")
+    return prodes_after_20.rename(
+        "nBR_PRODES_deforestation_Brazil_after_2020"
+    ).selfMask()
 
 
 # %%
@@ -1048,7 +1089,9 @@ def nbr_deter_amazon_after_2020_prep():
     ).filter(ee.Filter.gt("formatted_date", ee.Date("2021-01-01")))
 
     deter_deg_binary = ee.Image().paint(deter_deg, 1)
-    return deter_deg_binary.rename("nBR_DETER_forestdegradation_Amazon_after_2020")
+    return deter_deg_binary.rename(
+        "nBR_DETER_forestdegradation_Amazon_after_2020"
+    ).selfMask()
 
 
 # ########################## NBR commodities - permanent/perennial crops in 2020:###############################
@@ -1062,7 +1105,7 @@ def nbr_terraclass_amz_cer20_pc_prep():
     tccer20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_cer_2020")
     tccer20_pc = tccer20.eq(12).Or(tccer20.eq(13))
     tc_pc = ee.ImageCollection([tcamz20_pc, tccer20_pc]).mosaic()
-    return tc_pc.rename("nBR_INPE_TCamz_cer_perennial_2020")
+    return tc_pc.rename("nBR_INPE_TCamz_cer_perennial_2020").selfMask()
 
 
 # [non-official dataset by MapBiomas multisector initiative]
@@ -1074,7 +1117,7 @@ def nbr_mapbiomasc9_cof_prep():
         "projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1"
     ).select("classification_2020")
     mapbiomasc9_20_coffee = mapbiomasc9_20.eq(46)
-    return mapbiomasc9_20_coffee.rename("nBR_MapBiomas_col9_coffee_2020")
+    return mapbiomasc9_20_coffee.rename("nBR_MapBiomas_col9_coffee_2020").selfMask()
 
 
 # [non-official dataset by MapBiomas multisector initiative]
@@ -1086,7 +1129,7 @@ def nbr_mapbiomasc9_po_prep():
         "projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1"
     ).select("classification_2020")
     mapbiomasc9_20_palm = mapbiomasc9_20.eq(35)
-    return mapbiomasc9_20_palm.rename("nBR_MapBiomas_col9_palmoil_2020")
+    return mapbiomasc9_20_palm.rename("nBR_MapBiomas_col9_palmoil_2020").selfMask()
 
 
 # [non-official dataset by MapBiomas multisector initiative]
@@ -1098,7 +1141,7 @@ def nbr_mapbiomasc9_pc_prep():
         "projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1"
     ).select("classification_2020")
     mapbiomasc9_20_pc = mapbiomasc9_20.eq(35).Or(mapbiomasc9_20.eq(46))
-    return mapbiomasc9_20_pc.rename("nBR_MapBiomas_col9_pc_2020")
+    return mapbiomasc9_20_pc.rename("nBR_MapBiomas_col9_pc_2020").selfMask()
 
 
 # ######################## NBR commodities - annual crops in 2020:##############################
@@ -1114,7 +1157,7 @@ def nbr_terraclass_amz_cer20_ac_prep():
     tccer20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_cer_2020")
     tccer20_ac = tccer20.eq(14).Or(tccer20.eq(15))
     tc_ac = ee.ImageCollection([tcamz20_ac, tccer20_ac]).mosaic()
-    return tc_ac.rename("nBR_INPE_TCamz_cer_annual_2020")
+    return tc_ac.rename("nBR_INPE_TCamz_cer_annual_2020").selfMask()
 
 
 # [non-official dataset by MapBiomas multisector initiative]
@@ -1126,7 +1169,7 @@ def nbr_mapbiomasc9_soy_prep():
         "projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1"
     ).select("classification_2020")
     mapbiomasc9_20_soy = mapbiomasc9_20.eq(39)
-    return mapbiomasc9_20_soy.rename("nBR_MapBiomas_col9_soy_2020")
+    return mapbiomasc9_20_soy.rename("nBR_MapBiomas_col9_soy_2020").selfMask()
 
 
 # [non-official dataset by MapBiomas multisector initiative]
@@ -1146,7 +1189,7 @@ def nbr_mapbiomasc9_ac_prep():
         .Or(mapbiomasc9_20.eq(40))
         .Or(mapbiomasc9_20.eq(62))
     )
-    return mapbiomasc9_20_ac.rename("nBR_MapBiomas_col9_annual_crops_2020")
+    return mapbiomasc9_20_ac.rename("nBR_MapBiomas_col9_annual_crops_2020").selfMask()
 
 
 # ################################### NBR commodities - pasture/livestock in 2020:##############################
@@ -1159,7 +1202,7 @@ def nbr_mapbiomasc9_ac_prep():
 def nbr_terraclass_amz20_pasture_prep():
     tcamz20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_amz_2020")
     tcamz20_pasture = tcamz20.eq(10).Or(tcamz20.eq(11))
-    return tcamz20_pasture.rename("nBR_INPE_TCamz_pasture_2020")
+    return tcamz20_pasture.rename("nBR_INPE_TCamz_pasture_2020").selfMask()
 
 
 # %%
@@ -1171,7 +1214,7 @@ def nbr_terraclass_amz20_pasture_prep():
 def nbr_terraclass_cer20_ac_prep():
     tccer20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_cer_2020")
     tccer20_pasture = tccer20.eq(11)
-    return tccer20_pasture.rename("nBR_INPE_TCcer_pasture_2020")
+    return tccer20_pasture.rename("nBR_INPE_TCcer_pasture_2020").selfMask()
 
 
 # %%
@@ -1184,7 +1227,7 @@ def nbr_mapbiomasc9_pasture_prep():
         "projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1"
     ).select("classification_2020")
     mapbiomasc9_20_pasture = mapbiomasc9_20.eq(15)
-    return mapbiomasc9_20_pasture.rename("nBR_MapBiomas_col9_pasture_2020")
+    return mapbiomasc9_20_pasture.rename("nBR_MapBiomas_col9_pasture_2020").selfMask()
 
 
 ###################################################################
@@ -1194,13 +1237,13 @@ def nbr_mapbiomasc9_pasture_prep():
 def nco_ideam_forest_2020_prep():
     ideam_forest_raw = ee.Image("projects/ee-whisp/assets/nCO/ideam_2020_geo")
     ideam_forest = ideam_forest_raw.eq(1)  # get forest class
-    return ideam_forest.rename("nCO_ideam_forest_2020")
+    return ideam_forest.rename("nCO_ideam_forest_2020").selfMask()
 
 
 def nco_ideam_eufo_commission_2020_prep():
     ideam_agroforest_raw = ee.Image("projects/ee-whisp/assets/nCO/ideam_2020_geo_EUFO")
     ideam_agroforest = ideam_agroforest_raw.eq(4)  # get forest class
-    return ideam_agroforest.rename("nCO_ideam_eufo_commission_2020")
+    return ideam_agroforest.rename("nCO_ideam_eufo_commission_2020").selfMask()
 
 
 # Cocoa_bnetd
@@ -1210,7 +1253,7 @@ def nci_ocs2020_prep():
         .select("classification")
         .eq(9)
         .rename("nCI_Cocoa_bnetd")
-    )  # cocoa from national land cover map for Côte d'Ivoire
+    ).selfMask()  # cocoa from national land cover map for Côte d'Ivoire
 
 
 ###Combining datasets
