@@ -340,45 +340,20 @@ def g_esri_2023_tc_prep():
 
 
 # ESRI 2023 - Crop
-def g_esri_2023_crop_prep():
+def g_esri_2020_2023_crop_prep():
     esri_lulc10_raw = ee.ImageCollection(
         "projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS"
     )
-    esri_lulc10_crop = (
+    esri_lulc10_crop_2020 = (
+        esri_lulc10_raw.filterDate("2020-01-01", "2020-12-31").mosaic().eq(5)
+    )
+    esri_lulc10_crop_2023 = (
         esri_lulc10_raw.filterDate("2023-01-01", "2023-12-31").mosaic().eq(5)
     )
-    return esri_lulc10_crop.rename("ESRI_2023_crop")
 
+    newCrop = esri_lulc10_crop_2023.And(esri_lulc10_crop_2020.Not())
 
-# GLC_FCS30D 2022
-
-# GLC_FCS30D Tree Cover
-# forest classes + swamp + mangrove / what to do with shrubland?
-def g_glc_fcs30d_tc_2022_prep():
-    GLC_FCS30D = (
-        ee.ImageCollection("projects/sat-io/open-datasets/GLC-FCS30D/annual")
-        .mosaic()
-        .select(22)
-    )
-    GLC_FCS30D_TC = (
-        (GLC_FCS30D.gte(51))
-        .And(GLC_FCS30D.lte(92))
-        .Or(GLC_FCS30D.eq(181))
-        .Or(GLC_FCS30D.eq(185))
-    )
-    return GLC_FCS30D_TC.rename("GLC_FCS30D_TC_2022")
-
-
-# GLC_FCS30D crop
-# 10	Rainfed cropland; 11	Herbaceous cover; 12	Tree or shrub cover (Orchard); 20	Irrigated cropland
-def g_glc_fcs30d_crop_2022_prep():
-    GLC_FCS30D = (
-        ee.ImageCollection("projects/sat-io/open-datasets/GLC-FCS30D/annual")
-        .mosaic()
-        .select(22)
-    )
-    GLC_FCS30D_crop = GLC_FCS30D.gte(10).And(GLC_FCS30D.lte(20))
-    return GLC_FCS30D_crop.rename("GLC_FCS30D_crop_2022")
+    return newCrop.rename("ESRI_crop_gain_2020_2023")
 
 
 #### disturbances by year
