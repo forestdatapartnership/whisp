@@ -59,7 +59,7 @@ Additional categories are specific for the timber commodity, considering a harve
 
   There are multiple datasets for each category. Find the full current [list of datasets used in Whisp here](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md).
 
-  ### Whisp risk assessment <a name="whisp_risk"></a>  
+  ### Whisp risk assessment <a name="whisp_risk"></a>
 
 Whisp checks the plots provided by the user by running zonal statistics on them to answer the following questions:
 
@@ -116,7 +116,7 @@ The **relevant risk assessment column depends on the commodity** in question:
 
   *The Whisp algorithm for **Perennial Crops** visualized:*
   ![CoE_Graphic 5](https://github.com/user-attachments/assets/007b5f50-3939-4707-95fa-98be4d56745f)
-  
+
   If no treecover dataset indicates any tree cover for a plot by the end of 2020, **Whisp will categorize the deforestation risk as low.**
 
   If one or more treecover datasets indicate tree cover on a plot by the end of 2020, but a commodity dataset indicates agricultural use by the end of 2020, **Whisp will categorize the deforestation risk as low.**
@@ -162,6 +162,15 @@ The **relevant risk assessment column depends on the commodity** in question:
 
   More info on Whisp can be found [here](https://openknowledge.fao.org/items/e9284dc7-4b19-4f9c-b3e1-e6c142585865)
 
+  #### Performance: Schema Caching
+
+  Schema checks on output dataframes are carried out using Pandera. Cache builds automatically on first use, or can be pre-built for production deployments:
+  ```python
+  import openforis_whisp as whisp
+  whisp.load_schema_if_any_file_changed(national_codes=None)  # Pre-build cache
+  ```
+
+  For deployment strategies and cache management, see [Schema Caching Documentation](src/openforis_whisp/parameters/README_SCHEMA_CACHE.md).
 
 
 ## How to add data layers to Whisp <a name="whisp_add_data"></a>

@@ -3,6 +3,8 @@ import pandera as pa
 import pandas as pd
 import os
 import logging
+import pickle
+import hashlib
 from pathlib import Path  # Add this import
 
 from openforis_whisp.logger import StdoutLogger, FileLogger
@@ -18,29 +20,127 @@ from openforis_whisp.parameters.config_runtime import (
 logger = StdoutLogger(__name__)
 
 
+# Directory for cached schemas
+SCHEMA_CACHE_DIR = Path(__file__).parent / "parameters" / ".schema_cache"
+
 # Dictionary to cache schema and modification times for multiple files
 cached_schema = None
 cached_file_mtimes = {}
+
+
+def _get_cache_key(file_paths, national_codes=None):
+    """
+    Generate a stable cache key from file paths and mtimes ONLY.
+
+    National codes are NOT included in the cache key anymore!
+    This means we build ONE universal schema cache with all columns,
+    and filter at validation time instead.
+    """
+    key_parts = []
+
+    for file_path in file_paths:
+        if Path(file_path).exists():
+            mtime = Path(file_path).stat().st_mtime
+            key_parts.append(f"{Path(file_path).name}:{mtime}")
+        else:
+            key_parts.append(f"{Path(file_path).name}:missing")
+
+    # DO NOT include national_codes in cache key
+    # This ensures a single universal cache regardless of filtering
+    key_parts.append("schema:universal")
+
+    # Create hash for filesystem-safe filename
+    cache_string = "|".join(key_parts)
+    cache_hash = hashlib.md5(cache_string.encode()).hexdigest()
+
+    return cache_hash, cache_string
+
+
+def _get_cached_schema_path(cache_key_hash):
+    """Get the path to cached schema file"""
+    SCHEMA_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    return SCHEMA_CACHE_DIR / f"schema_{cache_key_hash}.pkl"
+
+
+def _save_schema_to_disk(schema, cache_key_hash, cache_key_string):
+    """Save schema to disk as pickle file with metadata"""
+    cache_path = _get_cached_schema_path(cache_key_hash)
+
+    cache_data = {
+        "schema": schema,
+        "cache_key": cache_key_string,
+        "created_at": pd.Timestamp.now().isoformat(),
+    }
+
+    try:
+        with open(cache_path, "wb") as f:
+            pickle.dump(cache_data, f, protocol=pickle.HIGHEST_PROTOCOL)
+        logger.info(f"✅ Schema cached to disk: {cache_path.name}")
+    except Exception as e:
+        logger.warning(f"⚠️  Could not save schema cache to disk: {e}")
+
+
+def _load_schema_from_disk(cache_key_hash):
+    """Load schema from disk cache if it exists"""
+    cache_path = _get_cached_schema_path(cache_key_hash)
+
+    if not cache_path.exists():
+        return None
+
+    try:
+        with open(cache_path, "rb") as f:
+            cache_data = pickle.load(f)
+
+        logger.info(
+            f"✅ Loaded schema from disk cache (created: {cache_data.get('created_at', 'unknown')})"
+        )
+        return cache_data["schema"]
+    except Exception as e:
+        logger.warning(f"⚠️  Could not load schema cache from disk: {e}")
+        # If cache is corrupted, remove it
+        try:
+            cache_path.unlink()
+        except:
+            pass
+        return None
+
+
+def _should_force_rebuild():
+    """Check if schema rebuild should be forced (for development)"""
+    return os.environ.get("WHISP_FORCE_SCHEMA_REBUILD", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
 
 
 def validate_dataframe_using_lookups(
     df_stats: pd.DataFrame, file_paths: list = None, national_codes: list = None
 ) -> pd.DataFrame:
     """
-    Load the schema if any file in the list has changed and validate the DataFrame against the loaded schema.
-    Optionally filter columns by country code.
+    Load the schema and validate the DataFrame against it.
+
+    IMPORTANT: Schema loading and filtering are now separate!
+    - Schema is always loaded as universal (all countries)
+    - If national_codes is provided, we filter the schema AFTER loading
+    - This ensures the same cached schema works for all API requests
 
     Args:
         df_stats (pd.DataFrame): The DataFrame to validate.
         file_paths (list): List of paths to schema files.
         national_codes (list, optional): List of ISO2 country codes to include.
+                                         If provided, filters schema to only these countries.
 
     Returns:
         pd.DataFrame: The validated DataFrame.
     """
 
-    # Load the schema
-    schema = load_schema_if_any_file_changed(file_paths, national_codes=national_codes)
+    # Load the UNIVERSAL schema (always includes all countries)
+    schema = load_schema_if_any_file_changed(file_paths, national_codes=None)
+
+    # If national_codes filtering is requested, filter the schema NOW
+    if national_codes is not None and len(national_codes) > 0:
+        schema = _filter_schema_by_country_codes(schema, national_codes)
 
     # Validate the DataFrame
     validated_df = validate_dataframe(df_stats, schema)
@@ -48,8 +148,92 @@ def validate_dataframe_using_lookups(
     return validated_df
 
 
+def _filter_schema_by_country_codes(
+    schema: pa.DataFrameSchema, national_codes: list
+) -> pa.DataFrameSchema:
+    """
+    Filter a Pandera schema to only include columns for specified countries.
+
+    Keeps:
+    - Global columns (prefixed with 'g_')
+    - General columns (not country-specific)
+    - Country-specific columns matching the provided ISO2 codes (nXX_)
+
+    Args:
+        schema: Full Pandera schema with all countries
+        national_codes: List of ISO2 country codes to include
+
+    Returns:
+        Filtered schema with only relevant columns
+    """
+    if not national_codes:
+        return schema
+
+    # Normalize codes to lowercase
+    normalized_codes = [
+        code.lower() for code in national_codes if isinstance(code, str)
+    ]
+
+    # Filter schema columns
+    filtered_columns = {}
+
+    for col_name, col_spec in schema.columns.items():
+        # Always keep global columns
+        if col_name.startswith("g_"):
+            filtered_columns[col_name] = col_spec
+            continue
+
+        # Check if this is a country-specific column
+        is_country_column = False
+        matched_country = False
+
+        # Country-specific columns follow pattern: nXX_* (e.g., nbr_forest_2020)
+        if len(col_name) >= 4 and col_name[0] == "n" and col_name[2] == "_":
+            country_code = col_name[1:3].lower()
+            if country_code.isalpha():
+                is_country_column = True
+                if country_code in normalized_codes:
+                    matched_country = True
+
+        # Include if it's not country-specific OR if it matches a requested country
+        if not is_country_column or matched_country:
+            filtered_columns[col_name] = col_spec
+
+    # Create new schema with filtered columns
+    filtered_schema = pa.DataFrameSchema(
+        filtered_columns,
+        strict=schema.strict,
+        unique_column_names=schema.unique_column_names,
+        add_missing_columns=schema.add_missing_columns,
+        coerce=schema.coerce,
+    )
+
+    logger.info(
+        f"🔍 Filtered schema: {len(schema.columns)} → {len(filtered_schema.columns)} columns for countries: {national_codes}"
+    )
+
+    return filtered_schema
+
+
 def load_schema_if_any_file_changed(file_paths=None, national_codes=None):
-    """Load schema if files changed OR if national_codes changed"""
+    """
+    Load schema with intelligent caching:
+    1. Check in-memory cache (fastest)
+    2. Check disk cache (fast - milliseconds)
+    3. Build from lookup files (slow - only when needed)
+
+    IMPORTANT: Schema caching is now INDEPENDENT of national_codes!
+    - Schema is always built with ALL country columns (universal)
+    - Filtering by national_codes happens at validation time
+    - This ensures ONE cache file regardless of API requests
+
+    Cache is invalidated ONLY when:
+    - Lookup CSV files are modified
+    - WHISP_FORCE_SCHEMA_REBUILD env var is set
+
+    Note: national_codes parameter is kept for backwards compatibility
+    but is IGNORED for caching purposes.
+    """
 
     if file_paths is None:
         file_paths = [
@@ -57,53 +241,56 @@ def load_schema_if_any_file_changed(file_paths=None, national_codes=None):
             DEFAULT_CONTEXT_LOOKUP_TABLE_PATH,
         ]
 
-    # Include national_codes in cache key (including None case)
-    cache_key_parts = []
-    for file_path in file_paths:
-        if Path(file_path).exists():
-            mtime = Path(file_path).stat().st_mtime
-            cache_key_parts.append(f"{file_path}:{mtime}")
-        else:
-            cache_key_parts.append(f"{file_path}:missing")
+    # Generate cache key based ONLY on file mtimes (not national_codes!)
+    cache_key_hash, cache_key_string = _get_cache_key(file_paths)
 
-    # Always include national_codes in cache key (even if None)
-    national_codes_key = (
-        str(sorted(national_codes)) if national_codes else "no_countries"
-    )
-    cache_key_parts.append(f"national_codes:{national_codes_key}")
+    # Check if force rebuild is requested
+    force_rebuild = _should_force_rebuild()
+    if force_rebuild:
+        logger.info("🔧 Force rebuild enabled (WHISP_FORCE_SCHEMA_REBUILD=true)")
 
-    current_cache_key = "|".join(cache_key_parts)
-
-    # Check cache
-    if (
-        not hasattr(load_schema_if_any_file_changed, "_cached_schema")
-        or not hasattr(load_schema_if_any_file_changed, "_last_cache_key")
-        or load_schema_if_any_file_changed._last_cache_key != current_cache_key
+    # STEP 1: Check in-memory cache (fastest - microseconds)
+    if not force_rebuild and (
+        hasattr(load_schema_if_any_file_changed, "_cached_schema")
+        and hasattr(load_schema_if_any_file_changed, "_last_cache_key")
+        and load_schema_if_any_file_changed._last_cache_key == cache_key_hash
     ):
-
-        print(f"Creating schema for national_codes: {national_codes}")
-
-        # Load and combine lookup files
-        combined_lookup_df = append_csvs_to_dataframe(file_paths)
-
-        # ALWAYS filter by national codes (even if None - this removes all country columns)
-        filtered_lookup_df = filter_lookup_by_country_codes(
-            lookup_df=combined_lookup_df,
-            filter_col="ISO2_code",
-            national_codes=national_codes,
-        )
-
-        # Create schema from filtered lookup
-        schema = create_schema_from_dataframe(filtered_lookup_df)
-
-        # Cache the results
-        load_schema_if_any_file_changed._cached_schema = schema
-        load_schema_if_any_file_changed._last_cache_key = current_cache_key
-
-        return schema
-    else:
-        print(f"Using cached schema for national_codes: {national_codes}")
+        logger.info(f"⚡ Using in-memory cached universal schema")
         return load_schema_if_any_file_changed._cached_schema
+
+    # STEP 2: Check disk cache (fast - milliseconds)
+    if not force_rebuild:
+        schema = _load_schema_from_disk(cache_key_hash)
+        if schema is not None:
+            # Cache in memory for even faster subsequent access
+            load_schema_if_any_file_changed._cached_schema = schema
+            load_schema_if_any_file_changed._last_cache_key = cache_key_hash
+            return schema
+
+    # STEP 3: Build schema from lookup files (slow - seconds)
+    logger.info(
+        f"🔨 Building universal schema from lookup files (includes ALL countries)"
+    )
+
+    # Load and combine lookup files
+    combined_lookup_df = append_csvs_to_dataframe(file_paths)
+
+    # DO NOT filter by national codes - keep ALL columns
+    # Filtering will happen at validation time in validate_dataframe_using_lookups()
+
+    # Create schema from FULL lookup (all countries)
+    schema = create_schema_from_dataframe(combined_lookup_df)
+
+    # Cache in memory
+    load_schema_if_any_file_changed._cached_schema = schema
+    load_schema_if_any_file_changed._last_cache_key = cache_key_hash
+
+    # Save to disk for future sessions
+    _save_schema_to_disk(schema, cache_key_hash, cache_key_string)
+
+    logger.info(f"✅ Universal schema built and cached ({len(schema.columns)} columns)")
+
+    return schema
 
 
 def validate_dataframe(
@@ -507,6 +694,11 @@ def validate_dataframe_using_lookups_flexible(
     """
     Load schema and validate DataFrame while handling custom bands properly.
 
+    IMPORTANT: Schema loading and filtering are now separate!
+    - Schema is always loaded as universal (all countries)
+    - If national_codes is provided, we filter the schema AFTER loading
+    - This ensures the same cached schema works for all API requests
+
     Parameters
     ----------
     df_stats : pd.DataFrame
@@ -514,7 +706,7 @@ def validate_dataframe_using_lookups_flexible(
     file_paths : list, optional
         Schema file paths
     national_codes : list, optional
-        Country codes for filtering
+        Country codes for filtering - filters schema AFTER loading
     custom_bands : list or dict or None, optional
         Custom band information:
         - List: ['band1', 'band2'] - only preserves these specific bands
@@ -526,8 +718,13 @@ def validate_dataframe_using_lookups_flexible(
     pd.DataFrame
         Validated DataFrame with custom bands handled according to specification
     """
-    # Load default schema
-    schema = load_schema_if_any_file_changed(file_paths, national_codes=national_codes)
+    # Load the UNIVERSAL schema (always includes all countries)
+    schema = load_schema_if_any_file_changed(file_paths, national_codes=None)
+
+    # If national_codes filtering is requested, filter the schema NOW
+    if national_codes is not None and len(national_codes) > 0:
+        schema = _filter_schema_by_country_codes(schema, national_codes)
+
     schema_columns = list(schema.columns.keys())
 
     # Identify extra columns
@@ -694,3 +891,97 @@ def log_missing_columns(df_stats: pd.DataFrame, template_schema: pa.DataFrameSch
         logger.info(f"Extra columns found (will be preserved): {extra_in_df}")
     else:
         logger.info("No extra columns found in DataFrame.")
+
+
+def clear_schema_cache():
+    """
+    Clear all cached schema files from disk.
+
+    Useful for:
+    - Troubleshooting schema issues
+    - After updating lookup files manually
+    - Development/testing
+
+    Returns:
+        int: Number of cache files removed
+    """
+    if not SCHEMA_CACHE_DIR.exists():
+        logger.info("No schema cache directory found")
+        return 0
+
+    cache_files = list(SCHEMA_CACHE_DIR.glob("schema_*.pkl"))
+    removed_count = 0
+
+    for cache_file in cache_files:
+        try:
+            cache_file.unlink()
+            removed_count += 1
+        except Exception as e:
+            logger.warning(f"Could not remove {cache_file.name}: {e}")
+
+    logger.info(f"✅ Removed {removed_count} cached schema file(s)")
+    return removed_count
+
+
+def get_schema_cache_info():
+    """
+    Get information about cached schemas.
+
+    Returns:
+        dict: Dictionary with cache statistics and file info
+    """
+    if not SCHEMA_CACHE_DIR.exists():
+        return {
+            "cache_dir": str(SCHEMA_CACHE_DIR),
+            "exists": False,
+            "num_files": 0,
+            "total_size_mb": 0,
+            "files": [],
+        }
+
+    cache_files = list(SCHEMA_CACHE_DIR.glob("schema_*.pkl"))
+    total_size = sum(f.stat().st_size for f in cache_files)
+
+    file_info = []
+    for cache_file in cache_files:
+        try:
+            with open(cache_file, "rb") as f:
+                cache_data = pickle.load(f)
+
+            # Parse cache key to show what it's for
+            cache_key = cache_data.get("cache_key", "unknown")
+            is_universal = "nc:universal" in cache_key
+
+            file_info.append(
+                {
+                    "filename": cache_file.name,
+                    "size_kb": cache_file.stat().st_size / 1024,
+                    "created_at": cache_data.get("created_at", "unknown"),
+                    "cache_key": cache_key[:100] + "..."
+                    if len(cache_key) > 100
+                    else cache_key,
+                    "is_universal": is_universal,  # Works for all countries
+                    "description": "Universal (all countries)"
+                    if is_universal
+                    else "Filtered by country",
+                }
+            )
+        except:
+            file_info.append(
+                {
+                    "filename": cache_file.name,
+                    "size_kb": cache_file.stat().st_size / 1024,
+                    "created_at": "corrupted",
+                    "cache_key": "corrupted",
+                    "is_universal": False,
+                    "description": "Corrupted cache file",
+                }
+            )
+
+    return {
+        "cache_dir": str(SCHEMA_CACHE_DIR),
+        "exists": True,
+        "num_files": len(cache_files),
+        "total_size_mb": total_size / (1024 * 1024),
+        "files": file_info,
+    }
