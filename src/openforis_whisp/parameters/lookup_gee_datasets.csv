@@ -2,7 +2,7 @@ name,order,ISO2_code,theme,theme_timber,use_for_risk,use_for_risk_timber,exclude
 EUFO_2020,10,,treecover,naturally_reg_2020,1,1,0,float32,1,0,g_jrc_gfc_2020_prep
 GLAD_Primary,20,,treecover,primary,1,1,0,float32,1,0,g_glad_pht_prep
 TMF_undist,30,,treecover,primary,1,1,0,float32,1,0,g_jrc_tmf_undisturbed_prep
-GFC_TC_2020,50,,treecover,naturally_reg_2020,1,1,0,float32,1,0,g_gfc_tc_2020_prep
+GFC_TC_2020,50,,treecover,naturally_reg_2020,1,1,0,float32,1,0,g_glad_gfc_10pc_prep
 Forest_FDaP,60,,treecover,naturally_reg_2020,1,1,0,float32,1,0,g_glad_gfc_10pc_prep
 ESA_TC_2020,70,,treecover,naturally_reg_2020,1,1,0,float32,1,0,g_esa_worldcover_trees_prep
 TMF_plant,80,,commodities,NA,1,1,0,float32,1,0,g_jrc_tmf_plantation_prep
@@ -163,13 +163,11 @@ GFT_planted_plantation,1900,,NA,planted_plantation_2020,0,1,0,float32,1,0,g_gft_
 IIASA_planted_plantation,1910,,NA,planted_plantation_2020,0,1,0,float32,1,0,g_iiasa_planted_prep
 TMF_regrowth_2023,2000,,NA,treecover_after_2020,0,1,0,float32,1,0,g_tmf_regrowth_prep
 ESRI_2023_TC,2010,,NA,treecover_after_2020,0,1,0,float32,1,0,g_esri_2023_tc_prep
-GLC_FCS30D_TC_2022,2020,,NA,treecover_after_2020,0,1,0,float32,1,0,g_glc_fcs30d_tc_2022_prep
 Oil_palm_2023_FDaP,2100,,NA,agri_after_2020,0,1,0,float32,1,0,g_fdap_palm_2023_prep
 Rubber_2023_FDaP,2110,,NA,agri_after_2020,0,1,0,float32,1,0,g_fdap_rubber_2023_prep
 Coffee_FDaP_2023,2111,,NA,agri_after_2020,0,1,0,float32,1,0,g_fdap_coffee_2023_prep
 Cocoa_2023_FDaP,2120,,NA,agri_after_2020,0,1,0,float32,1,0,g_fdap_cocoa_2023_prep
-ESRI_2023_crop,2130,,NA,agri_after_2020,0,1,0,float32,1,0,g_esri_2023_crop_prep
-GLC_FCS30D_crop_2022,2140,,NA,agri_after_2020,0,1,0,float32,1,0,g_glc_fcs30d_crop_2022_prep
+ESRI_crop_gain_2020_2023,2130,,NA,agri_after_2020,0,1,0,float32,1,0,g_esri_2020_2023_crop_prep
 GFW_logging_before_2020,2200,,NA,logging_concession,0,1,0,float32,1,0,g_logging_concessions_prep
 nCO_ideam_forest_2020,2310,CO,treecover,NA,1,1,0,float32,1,0,nco_ideam_forest_2020_prep
 nCO_ideam_eufo_commission_2020,2320,CO,commodities,NA,1,1,0,float32,1,0,nco_ideam_eufo_commission_2020_prep
@@ -199,4 +197,3 @@ nBR_INPE_TCamz_pasture_2020,2422,BR,commodities,NA,1,1,0,float32,1,0,nbr_terracl
 nBR_INPE_TCcer_pasture_2020,2423,BR,commodities,NA,1,1,0,float32,1,0,nbr_terraclass_cer20_ac_prep
 nBR_MapBiomas_col9_pasture_2020,2424,BR,commodities,NA,1,1,0,float32,1,0,nbr_mapbiomasc9_pasture_prep
 nCI_Cocoa_bnetd,3000,CI,commodities,NA,1,1,0,float32,1,0,nci_ocs2020_prep
-
