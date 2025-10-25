@@ -250,6 +250,58 @@ def convert_shapefile_to_ee(shapefile_path):
     return roi
 
 
+# def convert_ee_to_df(
+#     ee_object,
+#     columns=None,
+#     remove_geom=False,
+#     **kwargs,
+# ):
+#     """Converts an ee.FeatureCollection to pandas dataframe.
+
+#     Args:
+#         ee_object (ee.FeatureCollection): ee.FeatureCollection.
+#         columns (list): List of column names. Defaults to None.
+#         remove_geom (bool): Whether to remove the geometry column. Defaults to True.
+#         kwargs: Additional arguments passed to ee.data.computeFeature.
+
+#     Raises:
+#         TypeError: ee_object must be an ee.FeatureCollection
+
+#     Returns:
+#         pd.DataFrame: pandas DataFrame
+#     """
+#     if isinstance(ee_object, ee.Feature):
+#         ee_object = ee.FeatureCollection([ee_object])
+
+#     if not isinstance(ee_object, ee.FeatureCollection):
+#         raise TypeError("ee_object must be an ee.FeatureCollection")
+
+#     try:
+#         if remove_geom:
+#             data = ee_object.map(
+#                 lambda f: ee.Feature(None, f.toDictionary(f.propertyNames().sort()))
+#             )
+#         else:
+#             data = ee_object
+
+#         kwargs["expression"] = data
+#         kwargs["fileFormat"] = "PANDAS_DATAFRAME"
+
+#         df = ee.data.computeFeatures(kwargs)
+
+#         if isinstance(columns, list):
+#             df = df[columns]
+
+#         if remove_geom and ("geometry" in df.columns):
+#             df = df.drop(columns=["geometry"], axis=1)
+
+#         # Sorting columns is not supported server-side and is removed from this function.
+
+#         return df
+#     except Exception as e:
+#         raise Exception(e)
+
+
 def convert_ee_to_df(
     ee_object,
     columns=None,
@@ -257,48 +309,36 @@ def convert_ee_to_df(
     sort_columns=False,
     **kwargs,
 ):
-    """Converts an ee.FeatureCollection to pandas dataframe.
+    """
+    Converts an ee.FeatureCollection to pandas DataFrame, maximizing server-side operations.
 
     Args:
         ee_object (ee.FeatureCollection): ee.FeatureCollection.
-        columns (list): List of column names. Defaults to None.
-        remove_geom (bool): Whether to remove the geometry column. Defaults to True.
-        sort_columns (bool): Whether to sort the column names. Defaults to False.
-        kwargs: Additional arguments passed to ee.data.computeFeature.
-
-    Raises:
-        TypeError: ee_object must be an ee.FeatureCollection
+        columns (list): List of column names to select (server-side if possible).
+        remove_geom (bool): Remove geometry column server-side.
+        kwargs: Additional arguments for ee.data.computeFeatures.
 
     Returns:
         pd.DataFrame: pandas DataFrame
     """
+    import ee
+
     if isinstance(ee_object, ee.Feature):
         ee_object = ee.FeatureCollection([ee_object])
 
     if not isinstance(ee_object, ee.FeatureCollection):
         raise TypeError("ee_object must be an ee.FeatureCollection")
 
+    # Server-side: select columns and remove geometry
+    if columns is not None:
+        ee_object = ee_object.select(columns)
+    if remove_geom:
+        ee_object = ee_object.map(lambda f: ee.Feature(None, f.toDictionary()))
+
     try:
-        if remove_geom:
-            data = ee_object.map(
-                lambda f: ee.Feature(None, f.toDictionary(f.propertyNames().sort()))
-            )
-        else:
-            data = ee_object
-
-        kwargs["expression"] = data
+        kwargs["expression"] = ee_object
         kwargs["fileFormat"] = "PANDAS_DATAFRAME"
-
         df = ee.data.computeFeatures(kwargs)
-
-        if isinstance(columns, list):
-            df = df[columns]
-
-        if remove_geom and ("geometry" in df.columns):
-            df = df.drop(columns=["geometry"], axis=1)
-
-        if sort_columns:
-            df = df.reindex(sorted(df.columns), axis=1)
 
         return df
     except Exception as e:
