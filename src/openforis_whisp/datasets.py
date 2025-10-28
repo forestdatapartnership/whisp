@@ -1,3 +1,17 @@
+# This file contains python code for the Google Earth Engine datasets used in the Whisp pacakge.
+
+# If you are running a bespoke analysis including your own datasets see also the main README.md file.
+
+# Key aspects to include in the code for each function are:
+# a) a suffix of ' _prep' and
+# b) a prefix of "nXX_" if it is national/sub-national dataset (where XX is replaced by that country code), or a prefix of 'g_' if it covers more than one country.
+# c) a name for your image, defined by ".rename('add_your_image_name_here')". This becomes the column header in the output table.
+
+# Tips:
+#  -Avoid getInfo() and for loops to speed up processing by keeping everything in the Earth Engine API.
+#  -For all the above you will need to be running the package in editable mode for these local changes to take effect.
+#   Editable mode runs the package locally and thus changes to any files are reflected immediately.
+
 import ee
 
 # ee.Authenticate()
@@ -359,21 +373,16 @@ def g_esri_2020_2023_crop_prep():
 
 # RADD_year_2019 to RADD_year_< current year >
 def g_radd_year_prep():
-    radd = ee.ImageCollection("projects/radar-wur/raddalert/v1")
+    from datetime import datetime
 
+    radd = ee.ImageCollection("projects/radar-wur/raddalert/v1")
     radd_date = (
         radd.filterMetadata("layer", "contains", "alert").select("Date").mosaic()
     )
-    # date of avaialbility
-    start_year = 19  ## (starts 2019 in Africa, then 2020 for S America and Asia: https://data.globalforestwatch.org/datasets/gfw::deforestation-alerts-radd/about
+    start_year = 19
+    current_year = datetime.now().year % 100
 
-    # Use pre-calculated current year (avoids repeated datetime calls)
-    current_year = CURRENT_YEAR_2DIGIT
-
-    img_stack = None
-    # Generate an image based on GFC with one band of forest tree loss per year from 2001 to <current year>
-    for year in range(start_year, current_year + 1):
-        # gfc_loss_year = gfc.select(['lossyear']).eq(i).And(gfc.select(['treecover2000']).gt(10)) # use any definition of loss
+    def make_band(year, img_stack):
         start = year * 1000
         end = year * 1000 + 365
         radd_year = (
@@ -381,13 +390,36 @@ def g_radd_year_prep():
             .updateMask(radd_date.lte(end))
             .gt(0)
             .rename("RADD_year_" + "20" + str(year))
-        ).selfMask()
+        )
+        return ee.Image(img_stack).addBands(radd_year)
 
-        if img_stack is None:
-            img_stack = radd_year
-        else:
-            img_stack = img_stack.addBands(radd_year)
-    return img_stack
+    years = ee.List.sequence(start_year, current_year)
+    first_year = ee.Number(years.get(0))
+    start = first_year.multiply(1000)
+    end = first_year.multiply(1000).add(365)
+    band_name = ee.String("RADD_year_").cat("20").cat(first_year.format("%02d"))
+    first_band = (
+        radd_date.updateMask(radd_date.gte(start))
+        .updateMask(radd_date.lte(end))
+        .gt(0)
+        .rename(band_name)
+    )
+
+    def make_band(year, img_stack):
+        year_num = ee.Number(year)
+        start = year_num.multiply(1000)
+        end = year_num.multiply(1000).add(365)
+        band_name = ee.String("RADD_year_").cat("20").cat(year_num.format("%02d"))
+        radd_year = (
+            radd_date.updateMask(radd_date.gte(start))
+            .updateMask(radd_date.lte(end))
+            .gt(0)
+            .rename(band_name)
+        )
+        return ee.Image(img_stack).addBands(radd_year)
+
+    img_stack = years.slice(1).iterate(make_band, first_band)
+    return ee.Image(img_stack)
 
 
 # TMF_def_2000 to TMF_def_2023
@@ -397,9 +429,9 @@ def g_tmf_def_per_year_prep():
     img_stack = None
     # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
     for i in range(0, 24 + 1):
-        tmf_def_year = (
-            tmf_def.eq(2000 + i).rename("TMF_def_" + str(2000 + i)).selfMask()
-        )
+        year_num = ee.Number(2000 + i)
+        band_name = ee.String("TMF_def_").cat(year_num.format("%d"))
+        tmf_def_year = tmf_def.eq(year_num).rename(band_name)
         if img_stack is None:
             img_stack = tmf_def_year
         else:
@@ -414,9 +446,9 @@ def g_tmf_deg_per_year_prep():
     img_stack = None
     # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
     for i in range(0, 24 + 1):
-        tmf_def_year = (
-            tmf_def.eq(2000 + i).rename("TMF_deg_" + str(2000 + i)).selfMask()
-        )
+        year_num = ee.Number(2000 + i)
+        band_name = ee.String("TMF_deg_").cat(year_num.format("%d"))
+        tmf_def_year = tmf_def.eq(year_num).rename(band_name)
         if img_stack is None:
             img_stack = tmf_def_year
         else:
@@ -431,12 +463,12 @@ def g_glad_gfc_loss_per_year_prep():
     img_stack = None
     # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
     for i in range(1, 24 + 1):
+        year_num = ee.Number(2000 + i)
+        band_name = ee.String("GFC_loss_year_").cat(year_num.format("%d"))
         gfc_loss_year = (
             gfc.select(["lossyear"]).eq(i).And(gfc.select(["treecover2000"]).gt(10))
         )
-        gfc_loss_year = gfc_loss_year.rename(
-            "GFC_loss_year_" + str(2000 + i)
-        ).selfMask()
+        gfc_loss_year = gfc_loss_year.rename(band_name)
         if img_stack is None:
             img_stack = gfc_loss_year
         else:
@@ -449,14 +481,16 @@ def g_modis_fire_prep():
     modis_fire = ee.ImageCollection("MODIS/061/MCD64A1")
     start_year = 2000
 
-    # Use current year - 1 to ensure data availability (MODIS data typically has a delay)
-    # This avoids slow .getInfo() call while maintaining recent data coverage
-    # Dataset maintainers: Update this if you need to adjust for data availability
-    end_year = CURRENT_YEAR
+    # Determine the last available year by checking the latest image in the collection
+    last_image = modis_fire.sort("system:time_start", False).first()
+    last_date = ee.Date(last_image.get("system:time_start"))
+    end_year = last_date.get("year").getInfo()
 
     img_stack = None
 
     for year in range(start_year, end_year + 1):
+        year_num = ee.Number(year)
+        band_name = ee.String("MODIS_fire_").cat(year_num.format("%d"))
         date_st = f"{year}-01-01"
         date_ed = f"{year}-12-31"
         modis_year = (
@@ -464,8 +498,8 @@ def g_modis_fire_prep():
             .mosaic()
             .select(["BurnDate"])
             .gte(0)
-            .rename(f"MODIS_fire_{year}")
-        ).selfMask()
+            .rename(band_name)
+        )
         img_stack = modis_year if img_stack is None else img_stack.addBands(modis_year)
 
     return img_stack
@@ -476,14 +510,16 @@ def g_esa_fire_prep():
     esa_fire = ee.ImageCollection("ESA/CCI/FireCCI/5_1")
     start_year = 2001
 
-    # ESA FireCCI dataset ends at 2020 as of latest version (v5.1)
-    # This avoids slow .getInfo() call. Update this constant if dataset extends beyond 2020
-    # See: https://catalogue.ceda.ac.uk/uuid/58f00d8814064b79a0c49662ad3af537
-    end_year = 2020
+    # Determine the last available year by checking the latest image in the collection
+    last_image = esa_fire.sort("system:time_start", False).first()
+    last_date = ee.Date(last_image.get("system:time_start"))
+    end_year = last_date.get("year").getInfo()
 
     img_stack = None
 
     for year in range(start_year, end_year + 1):
+        year_num = ee.Number(year)
+        band_name = ee.String("ESA_fire_").cat(year_num.format("%d"))
         date_st = f"{year}-01-01"
         date_ed = f"{year}-12-31"
         esa_year = (
@@ -491,99 +527,11 @@ def g_esa_fire_prep():
             .mosaic()
             .select(["BurnDate"])
             .gte(0)
-            .rename(f"ESA_fire_{year}")
-        ).selfMask()
+            .rename(band_name)
+        )
         img_stack = esa_year if img_stack is None else img_stack.addBands(esa_year)
 
     return img_stack
-
-
-# # DIST_alert_2024 to DIST_alert_< current year >
-# # Notes:
-# # 1) so far only available for 2024 onwards in GEE
-# # TO DO - see if gee asset for pre 2020-2024 is available from GLAD team, else download from nasa and put in Whisp assets
-# # 2) masked alerts (as dist alerts are for all vegetation) to JRC EUFO 2020 layer, as close to EUDR definition
-# # TO DO - ask opinions on if others (such as treecover data from GLAD team) should be used instead
-
-
-# def glad_dist_year_prep():
-
-#     # Load the vegetation disturbance collections
-
-#     #  Vegetation disturbance status (0-8, class flag, 8-bit)
-#     VEGDISTSTATUS = ee.ImageCollection(
-#         "projects/glad/HLSDIST/current/VEG-DIST-STATUS"
-#     ).mosaic()
-#     # Initial vegetation disturbance date (>0: days since 2020-12-31, 16-bit)
-#     VEGDISTDATE = ee.ImageCollection(
-#         "projects/glad/HLSDIST/current/VEG-DIST-DATE"
-#     ).mosaic()
-
-#     # NB relies on initial date of disturbance - consider if last date needed? : VEGLASTDATE = ee.ImageCollection("projects/glad/HLSDIST/current/VEG-LAST-DATE").mosaic(); # Last assessed observation date (≥1, days, 16-bit)
-
-#     # Key for high-confidence alerts (values 3, 6, 7, 8)
-#     high_conf_values = [3, 6, 7, 8]
-#     # where:
-#     # 3 = <50% loss, high confidence, ongoing
-#     # 6 = ≥50% loss, high confidence, ongoing
-#     # 7 = <50% loss, high confidence, finished
-#     # 8 = ≥50% loss, high confidence, finished
-#     # Note could use <50% loss (i.e. only 6 and 7) for if want to be more strict
-
-#     # Create high-confidence mask
-#     dist_high_conf = VEGDISTSTATUS.remap(
-#         high_conf_values, [1] * len(high_conf_values), 0
-#     )
-
-#     # Determine start year and current year dynamically
-#     start_year = 2024  # Set the first year of interest
-#     current_year = datetime.now().year
-
-#     # Calculate days since December 31, 2020 for start and end dates (server-side)
-#     start_of_2020 = ee.Date("2020-12-31").millis().divide(86400000).int()
-
-#     # Create a list to hold the yearly images
-#     yearly_images = []
-
-#     for year in range(start_year, current_year + 1):
-#         start_of_year = (
-#             ee.Date(f"{year}-01-01")
-#             .millis()
-#             .divide(86400000)
-#             .int()
-#             .subtract(start_of_2020)
-#         )
-#         start_of_next_year = (
-#             ee.Date(f"{year + 1}-01-01")
-#             .millis()
-#             .divide(86400000)
-#             .int()
-#             .subtract(start_of_2020)
-#         )
-
-#         # Filter VEG-DIST-DATE for the selected year
-#         dist_year = VEGDISTDATE.gte(start_of_year).And(
-#             VEGDISTDATE.lt(start_of_next_year)
-#         )
-
-#         # Apply high-confidence mask and rename the band
-#         high_conf_year = dist_year.updateMask(dist_high_conf).rename(
-#             f"DIST_year_{year}"
-#         )
-
-#         # Append the year's data to the list
-#         yearly_images.append(high_conf_year)
-
-#     # Combine all yearly images into a single image
-#     img_stack = ee.Image.cat(yearly_images)
-
-#     # Rename the bands correctly
-#     band_names = [f"DIST_year_{year}" for year in range(start_year, current_year + 1)]
-#     img_stack = img_stack.select(img_stack.bandNames(), band_names)
-
-#     return img_stack.updateMask(
-#         jrc_gfc_2020_prep()
-#     )  # mask yearly dist alerts to forest cover in 2020
 
 
 #### disturbances combined (split into before and after 2020)
