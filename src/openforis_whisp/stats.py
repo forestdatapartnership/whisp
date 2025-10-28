@@ -473,7 +473,8 @@ def whisp_stats_ee_to_ee(
     unit_type="ha",
     keep_properties=None,
     whisp_image=None,
-    validate_external_id=True,  # New parameter
+    validate_external_id=True,
+    validate_bands=False,  # New parameter
 ):
     """
     Process a feature collection to get statistics for each feature.
@@ -560,6 +561,7 @@ def whisp_stats_ee_to_ee(
         national_codes=national_codes,
         unit_type=unit_type,
         whisp_image=whisp_image,  # Pass through
+        validate_bands=validate_bands,
     )
 
     return add_id_to_feature_collection(dataset=fc, id_name=plot_id_column)
@@ -595,7 +597,8 @@ def whisp_stats_ee_to_df(
     remove_geom=False,
     national_codes=None,
     unit_type="ha",
-    whisp_image=None,  # New parameter
+    whisp_image=None,
+    validate_bands=False,  # New parameter
 ) -> pd.DataFrame:
     """
     Convert a Google Earth Engine FeatureCollection to a pandas DataFrame and convert ISO3 to ISO2 country codes.
@@ -622,27 +625,52 @@ def whisp_stats_ee_to_df(
     """
     # First, do the whisp processing to get the EE feature collection with stats
     try:
-        stats_feature_collection = whisp_stats_ee_to_ee(
-            feature_collection,
-            external_id_column,
-            national_codes=national_codes,
-            unit_type=unit_type,
-            whisp_image=whisp_image,  # Pass through
-        )
-    except Exception as e:
-        print(f"An error occurred during Whisp stats processing: {e}")
-        raise e
+        try:
+            stats_feature_collection = whisp_stats_ee_to_ee(
+                feature_collection,
+                external_id_column,
+                national_codes=national_codes,
+                unit_type=unit_type,
+                whisp_image=whisp_image,  # Pass through
+                validate_bands=False,  # try withoutb validation first
+            )
+        except Exception as e:
+            print(f"An error occurred during Whisp stats processing: {e}")
+            raise e
 
-    # Then, convert the EE feature collection to DataFrame
-    try:
-        df_stats = convert_ee_to_df(
-            ee_object=stats_feature_collection,
-            remove_geom=remove_geom,
-        )
-    except Exception as e:
-        print(f"An error occurred during the conversion from EE to DataFrame: {e}")
-        raise e
+        # Then, convert the EE feature collection to DataFrame
+        try:
+            df_stats = convert_ee_to_df(
+                ee_object=stats_feature_collection,
+                remove_geom=remove_geom,
+            )
+        except Exception as e:
+            print(f"An error occurred during the conversion from EE to DataFrame: {e}")
+            raise e
 
+    except:  # retry with validation of whisp input datasets
+        try:
+            stats_feature_collection = whisp_stats_ee_to_ee(
+                feature_collection,
+                external_id_column,
+                national_codes=national_codes,
+                unit_type=unit_type,
+                whisp_image=whisp_image,
+                validate_bands=True,  # If error, try with validation
+            )
+        except Exception as e:
+            print(f"An error occurred during Whisp stats processing: {e}")
+            raise e
+
+        # Then, convert the EE feature collection to DataFrame
+        try:
+            df_stats = convert_ee_to_df(
+                ee_object=stats_feature_collection,
+                remove_geom=remove_geom,
+            )
+        except Exception as e:
+            print(f"An error occurred during the conversion from EE to DataFrame: {e}")
+            raise e
     try:
         df_stats = convert_iso3_to_iso2(
             df=df_stats,
@@ -757,7 +785,11 @@ def whisp_stats_ee_to_drive(
 
 # Get stats for a feature or feature collection
 def get_stats(
-    feature_or_feature_col, national_codes=None, unit_type="ha", whisp_image=None
+    feature_or_feature_col,
+    national_codes=None,
+    unit_type="ha",
+    whisp_image=None,
+    validate_bands=False,
 ):
     """
     Get stats for a feature or feature collection with optional pre-combined image.
@@ -786,7 +818,9 @@ def get_stats(
         img_combined = whisp_image
         print("Using provided whisp_image")
     else:
-        img_combined = combine_datasets(national_codes=national_codes)
+        img_combined = combine_datasets(
+            national_codes=national_codes, validate_bands=validate_bands
+        )
         print(f"Combining datasets with national_codes: {national_codes}")
 
     # Check if the input is a Feature or a FeatureCollection
