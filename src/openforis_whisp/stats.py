@@ -712,12 +712,6 @@ def set_point_geometry_area_to_zero(df: pd.DataFrame) -> pd.DataFrame:
         )
         return df
 
-    if geometry_area_column not in df.columns:
-        print(
-            f"Warning: {geometry_area_column} column not found. Skipping area adjustment for points."
-        )
-        return df
-
     # Create a copy to avoid modifying the original
     df_modified = df.copy()
 
