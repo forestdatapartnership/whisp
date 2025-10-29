@@ -44,6 +44,7 @@ from openforis_whisp.stats import (
     whisp_formatted_stats_geojson_to_df,
     whisp_formatted_stats_geojson_to_geojson,
     set_point_geometry_area_to_zero,
+    reformat_geometry_type,
     convert_iso3_to_iso2,
 )
 

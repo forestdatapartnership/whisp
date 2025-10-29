@@ -688,6 +688,13 @@ def whisp_stats_ee_to_df(
         print(f"An error occurred during point geometry area adjustment: {e}")
         # Continue without the adjustment rather than failing completely
 
+    # Reformat geometry types (MultiPolygon -> Polygon)
+    try:
+        df_stats = reformat_geometry_type(df_stats)
+    except Exception as e:
+        print(f"An error occurred during geometry type reformatting: {e}")
+        # Continue without the adjustment rather than failing completely
+
     return df_stats
 
 
@@ -723,6 +730,43 @@ def set_point_geometry_area_to_zero(df: pd.DataFrame) -> pd.DataFrame:
     num_points = point_mask.sum()
     if num_points > 0:
         print(f"Set area to 0 for {num_points} Point geometries")
+
+    return df_modified
+
+
+def reformat_geometry_type(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Reformat geometry type classification in the DataFrame output.
+    Standardizes MultiPolygon geometry type to Polygon for consistent output.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame containing geometry type column
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with standardized geometry types
+    """
+    # Check if required columns exist
+    if geometry_type_column not in df.columns:
+        print(
+            f"Warning: {geometry_type_column} column not found. Skipping geometry type reformatting."
+        )
+        return df
+
+    # Create a copy to avoid modifying the original
+    df_modified = df.copy()
+
+    # Reformat MultiPolygon to Polygon
+    multipolygon_mask = df_modified[geometry_type_column] == "MultiPolygon"
+    df_modified.loc[multipolygon_mask, geometry_type_column] = "Polygon"
+
+    # Log the changes
+    num_reformatted = multipolygon_mask.sum()
+    if num_reformatted > 0:
+        print(f"Reformatted {num_reformatted} MultiPolygon geometries to Polygon")
 
     return df_modified
 
