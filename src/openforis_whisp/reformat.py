@@ -694,3 +694,171 @@ def log_missing_columns(df_stats: pd.DataFrame, template_schema: pa.DataFrameSch
         logger.info(f"Extra columns found (will be preserved): {extra_in_df}")
     else:
         logger.info("No extra columns found in DataFrame.")
+
+
+def format_stats_dataframe(
+    df,
+    area_col="Area_sum",
+    decimal_places=2,
+    unit_type="ha",
+    stats_unit_type_column="Unit",
+    strip_suffix="_sum",
+    remove_columns=True,
+    remove_columns_suffix="_median",
+    convert_water_flag=True,
+    water_flag_column="In_waterbody_sum",
+    water_flag_threshold=0.5,
+    sort_column="plotId",
+):
+    """Flexible stats formatting for DataFrame columns.
+
+    - Converts columns ending with `strip_suffix` (default '_sum') to hectares or percent.
+    - Removes columns ending with `remove_columns_suffix` (default '_median') if `remove_columns` is True.
+    - Optionally converts a water-flag stat into a boolean column based on the threshold compared to `area_col`.
+    - Strips the `strip_suffix` from produced stat column names (so 'Cocoa_sum' -> 'Cocoa').
+    - Fills `stats_unit_type_column` with `unit_type` for every row.
+
+    Returns a new DataFrame (copy) with conversions applied. Helper sub-functions are used for clarity
+    and to avoid fragmenting the original DataFrame (we build new columns and concat once).
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input DataFrame with stats columns
+    area_col : str
+        Name of area column (default 'Area_sum')
+    decimal_places : int
+        Decimal places for rounding (default 2)
+    unit_type : str
+        'ha' or 'percent' (default 'ha')
+    stats_unit_type_column : str
+        Column name for unit type (default 'Unit')
+    strip_suffix : str
+        Suffix to strip from stat column names (default '_sum')
+    remove_columns : bool
+        Whether to remove columns with remove_columns_suffix (default True)
+    remove_columns_suffix : str
+        Suffix for columns to remove (default '_median')
+    convert_water_flag : bool
+        Whether to convert water flag to boolean (default True)
+    water_flag_column : str
+        Name of water flag column (default 'In_waterbody_sum')
+    water_flag_threshold : float
+        Threshold for water flag ratio (default 0.5)
+    sort_column : str
+        Column to sort by, or None to skip sorting (default "plotId")
+
+    Returns
+    -------
+    pd.DataFrame
+        Formatted DataFrame with converted values and updated column names
+    """
+    # Helper: find stat columns that end with the strip_suffix (and are not the area_col)
+    def _collect_stat_columns(columns, strip_suffix, area_col):
+        cols = [c for c in columns if c.endswith(strip_suffix) and c != area_col]
+        return cols
+
+    # Helper: drop columns with a given suffix
+    def _drop_suffix_columns(df, suffix):
+        if suffix is None or suffix == "":
+            return df
+        return df.loc[:, ~df.columns.str.endswith(suffix)]
+
+    # Helper: build converted stats (returns DataFrame of new columns indexed same as df)
+    def _build_converted_stats(
+        df, stat_cols, area_col, unit_type, decimal_places, strip_suffix
+    ):
+        area = df[area_col].replace(0, float("nan"))
+        new = {}
+        for col in stat_cols:
+            base = (
+                col[: -len(strip_suffix)]
+                if strip_suffix and col.endswith(strip_suffix)
+                else col
+            )
+            if unit_type == "ha":
+                # value is in whatever units the sum uses (ee outputs square meters) -> convert to hectares
+                # (user earlier used divide by 10000 pattern)
+                new[base] = (df[col] / 10000).round(decimal_places)
+            elif unit_type == "percent":
+                new[base] = ((df[col] / area) * 100).round(decimal_places)
+            else:
+                # unknown unit type: just copy the raw sums
+                new[base] = df[col].round(decimal_places)
+        df[area_col] = (df[area_col] / 10000).round(decimal_places)
+        return pd.DataFrame(new, index=df.index)
+
+    # Helper: convert water flag stat (if present) into bool by thresholding water_area / total_area
+    def _apply_water_flag(df, water_flag_column, strip_suffix, area_col, threshold):
+        # possible names for water stat: exact provided name, name+suffix
+        candidates = []
+        if water_flag_column in df.columns:
+            candidates.append(water_flag_column)
+        suffixed = water_flag_column + strip_suffix if strip_suffix else None
+        if suffixed and suffixed in df.columns:
+            candidates.append(suffixed)
+        # also check generic 'water' candidates
+        if "water" + strip_suffix in df.columns:
+            candidates.append("water" + strip_suffix)
+        if not candidates:
+            # nothing to do
+            return df
+        # pick first available candidate
+        water_col = candidates[0]
+        total_area = df[area_col].replace(0, float("nan"))
+        # compute ratio
+        ratio = df[water_col] / total_area
+        df[water_flag_column] = (ratio > threshold).astype(bool)
+        return df
+
+    # 1) Work on a shallow copy to avoid mutating caller inplace accidentally
+    df = df.copy()
+
+    # 2) Optionally drop median (or other) columns
+    if remove_columns and remove_columns_suffix:
+        df = _drop_suffix_columns(df, remove_columns_suffix)
+
+    # 3) Collect stat columns to convert (those ending with strip_suffix and not equal to area_col)
+    stat_cols = _collect_stat_columns(df.columns, strip_suffix, area_col)
+
+    # 4) Build converted stats DataFrame (these will have suffix removed as column names)
+    if stat_cols:
+        converted_stats_df = _build_converted_stats(
+            df, stat_cols, area_col, unit_type, decimal_places, strip_suffix
+        )
+    else:
+        converted_stats_df = pd.DataFrame(index=df.index)
+
+    # 5) Remove original stat columns (the ones with strip_suffix) from df (but keep area_col)
+    df = df.loc[
+        :, [c for c in df.columns if not (c.endswith(strip_suffix) and c != area_col)]
+    ]
+
+    # 6) Concatenate converted stats into df in one go to avoid fragmentation
+    if not converted_stats_df.empty:
+        df = pd.concat([df, converted_stats_df], axis=1)
+
+    # 7) Fill stats unit type column
+    df[stats_unit_type_column] = unit_type
+
+    # 8) Optionally convert water flag to boolean
+    if convert_water_flag:
+        df = _apply_water_flag(
+            df, water_flag_column, strip_suffix, area_col, water_flag_threshold
+        )
+
+    # 9) rename area_col by stripping suffix from area_col
+    area_col_stripped = (
+        area_col[: -len(strip_suffix)] if area_col.endswith(strip_suffix) else area_col
+    )
+    df.rename(columns={area_col: area_col_stripped}, inplace=True)
+
+    # 10) reorder by plotId column if present
+    df = (
+        df.sort_values(sort_column).reset_index(drop=True)
+        if sort_column in df.columns
+        else df
+    )
+
+    # 11) Defragment final DataFrame and return
+    return df.copy()
