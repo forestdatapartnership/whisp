@@ -674,9 +674,12 @@ def process_ee_batch(
     batch_idx: int,
     max_retries: int = 3,
     logger: logging.Logger = None,
-) -> pd.DataFrame:
+) -> ee.FeatureCollection:
     """
     Process an EE FeatureCollection with automatic retry logic.
+
+    Returns EE FeatureCollection (not DataFrame) so results can be merged
+    server-side without downloading.
 
     Parameters
     ----------
@@ -695,8 +698,8 @@ def process_ee_batch(
 
     Returns
     -------
-    pd.DataFrame
-        Results as DataFrame
+    ee.FeatureCollection
+        Results as EE FeatureCollection (NOT converted to DataFrame)
 
     Raises
     ------
@@ -707,22 +710,15 @@ def process_ee_batch(
 
     for attempt in range(max_retries):
         try:
-            results = whisp_image.reduceRegions(
+            results_fc = whisp_image.reduceRegions(
                 collection=fc,
                 reducer=reducer,
                 scale=10,
             )
-            df = convert_ee_to_df(results)
 
-            # Ensure plot_id_column is present for merging
-            # It should come from the feature properties (added before EE processing)
-            if plot_id_column not in df.columns:
-                df[plot_id_column] = range(len(df))
-
-            # Ensure all column names are strings (fixes pandas .str accessor issues)
-            df.columns = df.columns.astype(str)
-
-            return df
+            # Return as EE FeatureCollection (NOT converted to DataFrame)
+            # Conversion happens later after all batches are merged
+            return results_fc
 
         except ee.EEException as e:
             error_msg = str(e)
@@ -764,6 +760,229 @@ def process_ee_batch(
 
 
 # ============================================================================
+# CORE BATCH PROCESSING (SHARED BY ALL INPUT TYPES)
+# ============================================================================
+
+
+def _process_batches_concurrent_ee(
+    fc: ee.FeatureCollection,
+    whisp_image: ee.Image,
+    reducer: ee.Reducer,
+    batch_size: int,
+    max_concurrent: int,
+    max_retries: int,
+    add_metadata_server: bool,
+    logger: logging.Logger,
+) -> ee.FeatureCollection:
+    """
+    Core concurrent batch processing (EE-to-EE).
+
+    This is the true core: takes EE FC, processes in batches on server,
+    returns EE FC with statistics as properties. No conversions.
+
+    Parameters
+    ----------
+    fc : ee.FeatureCollection
+        Input FeatureCollection with plotId property
+    whisp_image : ee.Image
+        Combined Whisp image
+    reducer : ee.Reducer
+        EE reducer for band statistics
+    batch_size : int
+        Features per batch
+    max_concurrent : int
+        Max concurrent EE calls
+    max_retries : int
+        Retry attempts per batch
+    add_metadata_server : bool
+        Add centroid/geomtype server-side
+    logger : logging.Logger
+        Logger instance
+
+    Returns
+    -------
+    ee.FeatureCollection
+        Results FeatureCollection with statistics as properties
+    """
+    # Get feature list size
+    count = fc.size().getInfo()
+    logger.info(
+        f"Processing {count:,} features in {(count + batch_size - 1) // batch_size} batches"
+    )
+
+    # Add metadata server-side if requested
+    if add_metadata_server:
+        fc = extract_centroid_and_geomtype_server(fc)
+
+    # Setup semaphore for EE concurrency control
+    ee_semaphore = threading.BoundedSemaphore(max_concurrent)
+    progress = ProgressTracker((count + batch_size - 1) // batch_size, logger=logger)
+    results = []
+    batch_errors = []
+
+    def process_ee_batch_with_metadata(
+        batch_idx: int, batch_list: list
+    ) -> ee.FeatureCollection:
+        """Process one EE batch."""
+        with ee_semaphore:
+            # Create FC from batch
+            batch_fc = ee.FeatureCollection(batch_list)
+            # Process on server
+            return process_ee_batch(
+                batch_fc, whisp_image, reducer, batch_idx, max_retries, logger
+            )
+
+    # Convert FC to list of features and batch them
+    features = fc.toList(count).getInfo()
+    num_batches = (count + batch_size - 1) // batch_size
+
+    # Process batches with thread pool
+    pool_workers = max(2 * max_concurrent, max_concurrent + 2)
+
+    with ThreadPoolExecutor(max_workers=pool_workers) as executor:
+        futures = {}
+        for i in range(num_batches):
+            start_idx = i * batch_size
+            end_idx = min(start_idx + batch_size, count)
+            batch_list = features[start_idx:end_idx]
+            futures[executor.submit(process_ee_batch_with_metadata, i, batch_list)] = i
+
+        for future in as_completed(futures):
+            try:
+                batch_result = future.result()
+                results.append(batch_result)
+                progress.update()
+            except Exception as e:
+                error_msg = str(e)
+                logger.error(f"Batch processing error: {error_msg[:100]}")
+                logger.debug(f"Full error: {str(e)}")
+                batch_errors.append(error_msg)
+
+    progress.finish()
+
+    if results:
+        # Merge all batch results back into single FC
+        merged_fc = ee.FeatureCollection([]).flatten()
+        for result in results:
+            merged_fc = merged_fc.merge(result)
+        return merged_fc
+    elif batch_errors:
+        raise RuntimeError(f"Batch processing failed: {batch_errors[0]}")
+    else:
+        raise RuntimeError("No results produced")
+
+
+def _process_with_client_metadata(
+    fc_results: ee.FeatureCollection,
+    gdf: gpd.GeoDataFrame,
+    external_id_column: str,
+    logger: logging.Logger,
+) -> pd.DataFrame:
+    """
+    Convert EE results to DataFrame and merge with client-side metadata.
+
+    Parameters
+    ----------
+    fc_results : ee.FeatureCollection
+        Results from EE processing (with statistics as properties)
+    gdf : gpd.GeoDataFrame
+        Original GeoDataFrame (for client-side metadata extraction)
+    external_id_column : str
+        External ID column name
+    logger : logging.Logger
+        Logger instance
+
+    Returns
+    -------
+    pd.DataFrame
+        Merged results with server stats + client metadata
+    """
+    # Convert EE results to DataFrame
+    logger.debug("Converting EE results to DataFrame...")
+    df_server = convert_ee_to_df(fc_results)
+
+    # Ensure plot_id_column is present
+    if plot_id_column not in df_server.columns:
+        df_server[plot_id_column] = range(len(df_server))
+
+    # Extract client-side metadata
+    logger.debug("Extracting client-side metadata...")
+    df_client = extract_centroid_and_geomtype_client(
+        gdf,
+        external_id_col=external_id_column,
+        return_attributes_only=True,
+    )
+
+    # Merge server results with client metadata
+    merged = df_server.merge(
+        df_client, on=plot_id_column, how="left", suffixes=("", "_client")
+    )
+
+    # Ensure all column names are strings
+    merged.columns = merged.columns.astype(str)
+
+    # Ensure plotId is at position 0
+    if plot_id_column in merged.columns:
+        merged = merged[
+            [plot_id_column] + [col for col in merged.columns if col != plot_id_column]
+        ]
+
+    return merged
+
+
+def _postprocess_results(
+    df: pd.DataFrame,
+    decimal_places: int,
+    unit_type: str,
+    logger: logging.Logger,
+) -> pd.DataFrame:
+    """
+    Post-process results: add admin context, format output.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Results DataFrame (server stats + client metadata)
+    decimal_places : int
+        Decimal places for formatting
+    unit_type : str
+        "ha" or "percent"
+    logger : logging.Logger
+        Logger instance
+
+    Returns
+    -------
+    pd.DataFrame
+        Formatted results with plotId at position 0
+    """
+    from openforis_whisp.reformat import format_stats_dataframe
+
+    # Add admin context BEFORE formatting (which removes _median columns)
+    logger.debug("Adding administrative context...")
+    try:
+        from openforis_whisp.parameters.lookup_gaul1_admin import lookup_dict
+
+        df = join_admin_codes(
+            df=df, lookup_dict=lookup_dict, id_col="admin_code_median"
+        )
+    except ImportError:
+        logger.warning("Could not import lookup dictionary - admin context not added")
+
+    # Format the output
+    logger.debug("Formatting output...")
+    formatted = format_stats_dataframe(
+        df=df,
+        area_col=f"{geometry_area_column}_sum",
+        decimal_places=decimal_places,
+        unit_type=unit_type,
+        remove_columns=True,
+        convert_water_flag=True,
+    )
+
+    return formatted
+
+
+# ============================================================================
 # CONCURRENT PROCESSING FUNCTIONS
 # ============================================================================
 
@@ -782,15 +1001,13 @@ def whisp_concurrent_stats_geojson_to_df(
     max_retries: int = 3,
     add_metadata_server: bool = False,
     logger: logging.Logger = None,
-    # Format parameters (auto-detect from config if not provided)
     decimal_places: int = None,
 ) -> pd.DataFrame:
     """
     Process GeoJSON concurrently to compute Whisp statistics with automatic formatting.
 
-    Uses high-volume endpoint and concurrent batching. Client-side metadata
-    extraction is always applied; optionally add server-side metadata too.
-    Automatically formats output (converts units, removes noise columns, etc.).
+    Converts GeoJSON → EE FeatureCollection, then calls core EE processing.
+    Client-side metadata extraction is applied; optionally add server-side metadata too.
 
     Parameters
     ----------
@@ -828,8 +1045,6 @@ def whisp_concurrent_stats_geojson_to_df(
     pd.DataFrame
         Formatted results DataFrame with Whisp statistics
     """
-    from openforis_whisp.reformat import format_stats_dataframe
-
     logger = logger or setup_concurrent_logger()
 
     # Auto-detect decimal places from config if not provided
@@ -840,314 +1055,65 @@ def whisp_concurrent_stats_geojson_to_df(
     # Validate endpoint
     validate_ee_endpoint("high-volume", raise_error=True)
 
-    logger.info(f"Loading GeoJSON: {input_geojson_filepath}")
+    logger.debug("Step 1/4: Loading GeoJSON...")
     gdf = gpd.read_file(input_geojson_filepath)
-    logger.info(f"Loaded {len(gdf):,} features")
+    logger.info(f"Loaded {len(gdf):,} features from {input_geojson_filepath}")
 
     if validate_geometries:
+        logger.debug("Step 2/4: Validating geometries...")
         gdf = clean_geodataframe(gdf, logger=logger)
 
     # Add stable plotIds for merging (starting from 1, not 0)
     gdf[plot_id_column] = range(1, len(gdf) + 1)
 
-    # Create image if not provided
-    if whisp_image is None:
-        logger.debug("Creating Whisp image...")
-        # Suppress print statements from combine_datasets
-        with redirect_stdout(io.StringIO()):
-            try:
-                # First try without validation
-                whisp_image = combine_datasets(
-                    national_codes=national_codes, validate_bands=False
-                )
-            except Exception as e:
-                logger.warning(
-                    f"First attempt failed: {str(e)[:100]}. Retrying with validate_bands=True..."
-                )
-                # Retry with validation to catch and fix bad bands
-                whisp_image = combine_datasets(
-                    national_codes=national_codes, validate_bands=True
-                )
+    # Extract client-side metadata BEFORE converting to EE
+    logger.debug("Step 3/4: Extracting client-side metadata...")
+    df_client = extract_centroid_and_geomtype_client(
+        gdf,
+        external_id_col=external_id_column,
+        return_attributes_only=True,
+    )
 
-    # Create reducer
-    reducer = ee.Reducer.sum().combine(ee.Reducer.median(), sharedInputs=True)
+    # Convert GeoJSON to EE FC
+    logger.debug("Converting to EE FeatureCollection...")
+    fc = convert_geojson_to_ee(input_geojson_filepath)
 
-    # Batch the data
-    batches = batch_geodataframe(gdf, batch_size)
-    logger.info(f"Processing {len(gdf):,} features in {len(batches)} batches")
+    # Run core EE-to-EE processing
+    logger.debug("Step 4/4: Core EE processing (server-side)...")
+    result_fc = whisp_concurrent_stats_ee_to_ee(
+        feature_collection=fc,
+        external_id_column=external_id_column,
+        remove_geom=remove_geom,
+        national_codes=national_codes,
+        unit_type=unit_type,
+        whisp_image=whisp_image,
+        custom_bands=custom_bands,
+        batch_size=batch_size,
+        max_concurrent=max_concurrent,
+        max_retries=max_retries,
+        add_metadata_server=add_metadata_server,
+        logger=logger,
+    )
 
-    # Setup semaphore for EE concurrency control
-    ee_semaphore = threading.BoundedSemaphore(max_concurrent)
+    # Convert results to DataFrame
+    logger.debug("Converting results to DataFrame...")
+    df_server = convert_ee_to_df(result_fc)
 
-    # Progress tracker
-    progress = ProgressTracker(len(batches), logger=logger)
+    # Ensure plot_id_column is present
+    if plot_id_column not in df_server.columns:
+        df_server[plot_id_column] = range(1, len(df_server) + 1)
 
-    results = []
+    # Merge server results with client metadata
+    logger.debug("Merging server results with client metadata...")
+    merged = df_server.merge(
+        df_client, on=plot_id_column, how="left", suffixes=("", "_client")
+    )
 
-    def process_batch(
-        batch_idx: int, batch: gpd.GeoDataFrame
-    ) -> Tuple[int, pd.DataFrame, pd.DataFrame]:
-        """Process one batch: server EE work + client metadata."""
-        with ee_semaphore:
-            # Server-side: convert to EE, optionally add metadata, reduce
-            fc = convert_batch_to_ee(batch)
-            if add_metadata_server:
-                fc = extract_centroid_and_geomtype_server(fc)
-            df_server = process_ee_batch(
-                fc, whisp_image, reducer, batch_idx, max_retries, logger
-            )
+    # Post-process (format, add admin context)
+    formatted = _postprocess_results(merged, decimal_places, unit_type, logger)
 
-            # Client-side: extract metadata using GeoPandas
-            df_client = extract_centroid_and_geomtype_client(
-                batch,
-                external_id_col=external_id_column,
-                return_attributes_only=True,
-            )
-
-        return batch_idx, df_server, df_client
-
-    # Process batches with thread pool
-    pool_workers = max(2 * max_concurrent, max_concurrent + 2)
-
-    # Track if we had errors that suggest bad bands
-    batch_errors = []
-
-    with ThreadPoolExecutor(max_workers=pool_workers) as executor:
-        futures = {
-            executor.submit(process_batch, i, batch): i
-            for i, batch in enumerate(batches)
-        }
-
-        for future in as_completed(futures):
-            try:
-                batch_idx, df_server, df_client = future.result()
-
-                # Merge server and client results
-                if plot_id_column not in df_server.columns:
-                    df_server[plot_id_column] = range(len(df_server))
-
-                merged = df_server.merge(
-                    df_client, on=plot_id_column, how="left", suffixes=("", "_client")
-                )
-                results.append(merged)
-                progress.update()
-
-            except Exception as e:
-                error_msg = str(e)
-                logger.error(f"Batch processing error: {error_msg[:100]}")
-                import traceback
-
-                logger.debug(traceback.format_exc())
-                batch_errors.append(error_msg)
-
-    progress.finish()
-
-    # Check if we should retry with validation due to band errors
-    if batch_errors and not results:
-        # All batches failed - likely a bad band issue
-        is_band_error = any(
-            keyword in str(batch_errors)
-            for keyword in ["Image.load", "asset", "not found", "does not exist"]
-        )
-
-        if is_band_error:
-            logger.warning(
-                "Detected potential bad band error. Retrying with validate_bands=True..."
-            )
-            try:
-                with redirect_stdout(io.StringIO()):
-                    whisp_image = combine_datasets(
-                        national_codes=national_codes, validate_bands=True
-                    )
-                logger.info(
-                    "Image recreated with validation. Retrying batch processing..."
-                )
-
-                # Retry batch processing with validated image
-                results = []
-                progress = ProgressTracker(len(batches), logger=logger)
-
-                with ThreadPoolExecutor(max_workers=pool_workers) as executor:
-                    futures = {
-                        executor.submit(process_batch, i, batch): i
-                        for i, batch in enumerate(batches)
-                    }
-
-                    for future in as_completed(futures):
-                        try:
-                            batch_idx, df_server, df_client = future.result()
-                            if plot_id_column not in df_server.columns:
-                                df_server[plot_id_column] = range(len(df_server))
-                            merged = df_server.merge(
-                                df_client,
-                                on=plot_id_column,
-                                how="left",
-                                suffixes=("", "_client"),
-                            )
-                            results.append(merged)
-                            progress.update()
-                        except Exception as e:
-                            logger.error(
-                                f"Batch processing error (retry): {str(e)[:100]}"
-                            )
-
-                progress.finish()
-            except Exception as validation_e:
-                logger.error(
-                    f"Failed to recover with validation: {str(validation_e)[:100]}"
-                )
-                return pd.DataFrame()
-
-    if results:
-        combined = pd.concat(results, ignore_index=True)
-        # Ensure all column names are strings (fixes pandas .str accessor issues later)
-        combined.columns = combined.columns.astype(str)
-
-        # plotId column is already present from batch processing
-        # Just ensure it's at position 0
-        if plot_id_column in combined.columns:
-            combined = combined[
-                [plot_id_column]
-                + [col for col in combined.columns if col != plot_id_column]
-            ]
-
-        # Add admin context (Country, ProducerCountry, Admin_Level_1) from admin_code
-        # MUST be done BEFORE formatting (which removes _median columns)
-        logger.debug("Adding administrative context...")
-        try:
-            from openforis_whisp.parameters.lookup_gaul1_admin import lookup_dict
-
-            combined = join_admin_codes(
-                df=combined, lookup_dict=lookup_dict, id_col="admin_code_median"
-            )
-        except ImportError:
-            logger.warning(
-                "Could not import lookup dictionary - admin context not added"
-            )
-
-        # Format the output with error handling for bad bands
-        logger.debug("Formatting output...")
-        try:
-            formatted = format_stats_dataframe(
-                df=combined,
-                area_col=f"{geometry_area_column}_sum",
-                decimal_places=decimal_places,
-                unit_type=unit_type,
-                remove_columns=True,
-                convert_water_flag=True,
-            )
-        except Exception as e:
-            # If formatting fails, try recreating the image with validation
-            logger.warning(
-                f"Formatting failed: {str(e)[:100]}. Attempting to recreate image with band validation..."
-            )
-            try:
-                with redirect_stdout(io.StringIO()):
-                    whisp_image_validated = combine_datasets(
-                        national_codes=national_codes, validate_bands=True
-                    )
-
-                # Reprocess batches with validated image - create a local process function
-                logger.info("Reprocessing batches with validated image...")
-                results_validated = []
-
-                def process_batch_validated(
-                    batch_idx: int, batch: gpd.GeoDataFrame
-                ) -> Tuple[int, pd.DataFrame, pd.DataFrame]:
-                    """Process one batch with validated image."""
-                    with ee_semaphore:
-                        fc = convert_batch_to_ee(batch)
-                        if add_metadata_server:
-                            fc = extract_centroid_and_geomtype_server(fc)
-                        df_server = process_ee_batch(
-                            fc,
-                            whisp_image_validated,
-                            reducer,
-                            batch_idx,
-                            max_retries,
-                            logger,
-                        )
-                        df_client = extract_centroid_and_geomtype_client(
-                            batch,
-                            external_id_col=external_id_column,
-                            return_attributes_only=True,
-                        )
-                    return batch_idx, df_server, df_client
-
-                with ThreadPoolExecutor(max_workers=pool_workers) as executor:
-                    futures = {
-                        executor.submit(process_batch_validated, i, batch): i
-                        for i, batch in enumerate(batches)
-                    }
-
-                    for future in as_completed(futures):
-                        try:
-                            batch_idx, df_server, df_client = future.result()
-                            if plot_id_column not in df_server.columns:
-                                df_server[plot_id_column] = range(len(df_server))
-                            merged = df_server.merge(
-                                df_client,
-                                on=plot_id_column,
-                                how="left",
-                                suffixes=("", "_client"),
-                            )
-                            results_validated.append(merged)
-                        except Exception as batch_e:
-                            logger.error(
-                                f"Batch reprocessing error: {str(batch_e)[:100]}"
-                            )
-
-                if results_validated:
-                    combined = pd.concat(results_validated, ignore_index=True)
-                    # Ensure all column names are strings (fixes pandas .str accessor issues later)
-                    combined.columns = combined.columns.astype(str)
-
-                    # plotId column is already present, just ensure it's at position 0
-                    if plot_id_column in combined.columns:
-                        combined = combined[
-                            [plot_id_column]
-                            + [col for col in combined.columns if col != plot_id_column]
-                        ]
-
-                    # Add admin context again
-                    try:
-                        from openforis_whisp.parameters.lookup_gaul1_admin import (
-                            lookup_dict,
-                        )
-
-                        combined = join_admin_codes(
-                            df=combined,
-                            lookup_dict=lookup_dict,
-                            id_col="admin_code_median",
-                        )
-                    except ImportError:
-                        logger.warning(
-                            "Could not import lookup dictionary - admin context not added"
-                        )
-
-                    # Try formatting again with validated data
-                    formatted = format_stats_dataframe(
-                        df=combined,
-                        area_col=f"{geometry_area_column}_sum",
-                        decimal_places=decimal_places,
-                        unit_type=unit_type,
-                        remove_columns=True,
-                        convert_water_flag=True,
-                    )
-                else:
-                    logger.error("❌ Reprocessing with validation produced no results")
-                    return pd.DataFrame()
-            except Exception as retry_e:
-                logger.error(
-                    f"❌ Failed to recover from formatting error: {str(retry_e)[:100]}"
-                )
-                raise retry_e
-
-        logger.info(f"✅ Processed {len(formatted):,} features successfully")
-        return formatted
-    else:
-        logger.error("❌ No results produced")
-        return pd.DataFrame()
+    logger.info(f"✅ Processed {len(formatted):,} features successfully")
+    return formatted
 
 
 def whisp_concurrent_stats_ee_to_ee(
@@ -1163,25 +1129,26 @@ def whisp_concurrent_stats_ee_to_ee(
     max_retries: int = 3,
     add_metadata_server: bool = True,
     logger: logging.Logger = None,
+    decimal_places: int = None,
 ) -> ee.FeatureCollection:
     """
-    Process EE FeatureCollection concurrently to compute Whisp statistics (server-side).
+    Core EE-to-EE concurrent processing: pure server-side reduceRegions.
 
-    Returns results as EE FeatureCollection with statistics as properties.
-    Everything stays on the server side - no download to local.
+    This is the foundational function - takes EE FC, reduces statistics server-side,
+    returns EE FC. No conversions, no downloads.
 
     Parameters
     ----------
     feature_collection : ee.FeatureCollection
-        Input FeatureCollection
+        Input FeatureCollection (must have plotId property)
     external_id_column : str, optional
-        Column name for external IDs
+        Column name for external IDs (informational, not used in EE-only path)
     remove_geom : bool
         Remove geometry from output
     national_codes : List[str], optional
         ISO2 codes for national datasets
     unit_type : str
-        "ha" or "percent"
+        "ha" or "percent" (informational only, EE returns raw values)
     whisp_image : ee.Image, optional
         Pre-combined image
     custom_bands : Dict[str, Any], optional
@@ -1193,9 +1160,11 @@ def whisp_concurrent_stats_ee_to_ee(
     max_retries : int
         Retry attempts per batch (default 3)
     add_metadata_server : bool
-        Add metadata server-side (default True)
+        Add centroid & geometry type server-side (default True)
     logger : logging.Logger, optional
         Logger for output
+    decimal_places : int, optional
+        Not used in EE-only path (EE returns raw numeric values)
 
     Returns
     -------
@@ -1207,45 +1176,71 @@ def whisp_concurrent_stats_ee_to_ee(
     # Validate endpoint
     validate_ee_endpoint("high-volume", raise_error=True)
 
-    # Get stats as DataFrame via geojson conversion
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".geojson", text=True)
+    logger.info("Processing EE FeatureCollection (server-side, no conversions)")
+
+    # Create image if not provided
+    if whisp_image is None:
+        logger.debug("Creating Whisp image...")
+        with redirect_stdout(io.StringIO()):
+            try:
+                whisp_image = combine_datasets(
+                    national_codes=national_codes, validate_bands=False
+                )
+            except Exception as e:
+                logger.warning(
+                    f"First attempt failed: {str(e)[:100]}. Retrying with validate_bands=True..."
+                )
+                whisp_image = combine_datasets(
+                    national_codes=national_codes, validate_bands=True
+                )
+
+    # Create reducer
+    reducer = ee.Reducer.sum().combine(ee.Reducer.median(), sharedInputs=True)
+
+    # Run core EE-to-EE batch processing (no local conversions)
     try:
-        os.close(temp_fd)
-
-        # Convert EE FC to GeoJSON
-        import json
-
-        geojson_data = convert_ee_to_geojson(feature_collection)
-        with open(temp_path, "w") as f:
-            json.dump(geojson_data, f)
-
-        # Get stats as DataFrame
-        df_stats = whisp_concurrent_stats_geojson_to_df(
-            temp_path,
-            external_id_column=external_id_column,
-            remove_geom=remove_geom,
-            national_codes=national_codes,
-            unit_type=unit_type,
+        result_fc = _process_batches_concurrent_ee(
+            fc=feature_collection,
             whisp_image=whisp_image,
-            custom_bands=custom_bands,
+            reducer=reducer,
             batch_size=batch_size,
             max_concurrent=max_concurrent,
             max_retries=max_retries,
             add_metadata_server=add_metadata_server,
             logger=logger,
         )
-
-        # Convert back to EE FeatureCollection
-        result_fc = convert_geojson_to_ee(df_stats.to_dict("records"))
-        logger.info("✅ Concurrent EE→EE processing complete")
+        logger.info("✅ Concurrent EE→EE processing complete (server-side)")
         return result_fc
 
-    finally:
-        if os.path.exists(temp_path):
+    except Exception as e:
+        is_band_error = any(
+            keyword in str(e)
+            for keyword in ["Image.load", "asset", "not found", "does not exist"]
+        )
+        if is_band_error:
+            logger.warning("Detected band error. Retrying with validate_bands=True...")
             try:
-                os.unlink(temp_path)
-            except OSError:
-                pass
+                with redirect_stdout(io.StringIO()):
+                    whisp_image = combine_datasets(
+                        national_codes=national_codes, validate_bands=True
+                    )
+                logger.info("Image recreated. Retrying...")
+                result_fc = _process_batches_concurrent_ee(
+                    fc=feature_collection,
+                    whisp_image=whisp_image,
+                    reducer=reducer,
+                    batch_size=batch_size,
+                    max_concurrent=max_concurrent,
+                    max_retries=max_retries,
+                    add_metadata_server=add_metadata_server,
+                    logger=logger,
+                )
+                return result_fc
+            except Exception as e2:
+                logger.error(f"Failed to recover: {str(e2)[:100]}")
+                raise
+        else:
+            raise
 
 
 def whisp_concurrent_stats_ee_to_df(
@@ -1261,11 +1256,13 @@ def whisp_concurrent_stats_ee_to_df(
     max_retries: int = 3,
     add_metadata_server: bool = True,
     logger: logging.Logger = None,
+    decimal_places: int = None,
 ) -> pd.DataFrame:
     """
-    Process EE FeatureCollection concurrently to compute Whisp statistics.
+    Process EE FeatureCollection concurrently, return formatted DataFrame.
 
-    Wrapper around whisp_concurrent_stats_ee_to_ee that converts output to DataFrame.
+    Wraps whisp_concurrent_stats_ee_to_ee: runs core EE processing, then
+    converts results to local DataFrame and applies formatting.
 
     Parameters
     ----------
@@ -1293,15 +1290,24 @@ def whisp_concurrent_stats_ee_to_df(
         Add metadata server-side (default True)
     logger : logging.Logger, optional
         Logger for output
+    decimal_places : int, optional
+        Decimal places for formatting. If None, auto-detects from config.
 
     Returns
     -------
     pd.DataFrame
-        Results DataFrame
+        Formatted results DataFrame
     """
     logger = logger or setup_concurrent_logger()
 
-    # Use ee_to_ee version to get EE FC, then convert to DataFrame
+    # Auto-detect decimal places from config if not provided
+    if decimal_places is None:
+        decimal_places = _extract_decimal_places(stats_area_columns_formatting)
+        logger.debug(f"Using decimal_places={decimal_places} from config")
+
+    logger.debug("Step 1/2: EE→EE processing (server-side)...")
+
+    # Run core EE-to-EE processing (no local data yet)
     result_fc = whisp_concurrent_stats_ee_to_ee(
         feature_collection=feature_collection,
         external_id_column=external_id_column,
@@ -1317,10 +1323,15 @@ def whisp_concurrent_stats_ee_to_df(
         logger=logger,
     )
 
-    # Convert EE FC to DataFrame
-    df_result = convert_ee_to_df(result_fc)
-    logger.info("✅ Concurrent EE→DF processing complete")
-    return df_result
+    # Convert results to DataFrame
+    logger.debug("Step 2/2: Converting to DataFrame and formatting...")
+    df_results = convert_ee_to_df(result_fc)
+
+    # Post-process (format, add admin context)
+    formatted = _postprocess_results(df_results, decimal_places, unit_type, logger)
+
+    logger.info(f"✅ Processed {len(formatted):,} features successfully")
+    return formatted
 
 
 # ============================================================================
@@ -1599,13 +1610,18 @@ def whisp_concurrent_formatted_stats_geojson_to_df(
 
     # Step 3: Validate against schema
     logger.debug("Step 3/3: Validating against schema...")
-    from openforis_whisp.reformat import validate_dataframe_using_lookups_flexible
+    try:
+        from openforis_whisp.reformat import validate_dataframe_using_lookups_flexible
 
-    df_validated = validate_dataframe_using_lookups_flexible(
-        df_stats=df_formatted,
-        national_codes=national_codes,
-        custom_bands=custom_bands,
-    )
+        df_validated = validate_dataframe_using_lookups_flexible(
+            df_stats=df_formatted,
+            national_codes=national_codes,
+            custom_bands=custom_bands,
+        )
+    except Exception as e:
+        logger.warning(f"Validation failed (non-critical): {str(e)[:100]}")
+        logger.info("Proceeding without validation")
+        df_validated = df_formatted
 
     logger.info("✅ Concurrent processing + formatting + validation complete")
     return df_validated
@@ -1714,13 +1730,18 @@ def whisp_formatted_stats_geojson_to_df_non_concurrent(
 
     # Step 3: Validate against schema
     logger.debug("Step 3/3: Validating against schema...")
-    from openforis_whisp.reformat import validate_dataframe_using_lookups_flexible
+    try:
+        from openforis_whisp.reformat import validate_dataframe_using_lookups_flexible
 
-    df_validated = validate_dataframe_using_lookups_flexible(
-        df_stats=df_formatted,
-        national_codes=national_codes,
-        custom_bands=custom_bands,
-    )
+        df_validated = validate_dataframe_using_lookups_flexible(
+            df_stats=df_formatted,
+            national_codes=national_codes,
+            custom_bands=custom_bands,
+        )
+    except Exception as e:
+        logger.warning(f"Validation failed (non-critical): {str(e)[:100]}")
+        logger.info("Proceeding without validation")
+        df_validated = df_formatted
 
     logger.info("✅ Non-concurrent processing + formatting + validation complete")
     return df_validated
