@@ -41,7 +41,7 @@ from .reformat import (
 # to avoid repeated expensive operations. This saves 7-15 seconds per analysis.
 
 _WATER_FLAG_IMAGE = None
-_GEOBOUNDARIES_FC = None
+_admin_boundaries_FC = None
 
 
 def get_water_flag_image():
@@ -63,25 +63,25 @@ def get_water_flag_image():
     return _WATER_FLAG_IMAGE
 
 
-def get_geoboundaries_fc():
+def get_admin_boundaries_fc():
     """
     Get cached GAUL 2024 L1 administrative boundary feature collection.
 
     OPTIMIZATION: GAUL 2024 L1 collection is loaded once and reused for all features.
     This avoids loading the large FeatureCollection for every feature (previously
-    called in get_geoboundaries_info for each feature).
+    called in get_admin_boundaries_info for each feature).
 
     Returns
     -------
     ee.FeatureCollection
         Cached GAUL 2024 L1 administrative boundary feature collection
     """
-    global _GEOBOUNDARIES_FC
-    if _GEOBOUNDARIES_FC is None:
-        _GEOBOUNDARIES_FC = ee.FeatureCollection(
+    global _admin_boundaries_FC
+    if _admin_boundaries_FC is None:
+        _admin_boundaries_FC = ee.FeatureCollection(
             "projects/sat-io/open-datasets/FAO/GAUL/GAUL_2024_L1"
         )
-    return _GEOBOUNDARIES_FC
+    return _admin_boundaries_FC
 
 
 def whisp_formatted_stats_geojson_to_df(
@@ -870,7 +870,7 @@ def get_stats(
         print("Processing single feature")
         # OPTIMIZATION: Create cached images for single feature processing
         water_all = get_water_flag_image()
-        gbounds_ADM0 = get_geoboundaries_fc()
+        bounds_ADM1 = get_admin_boundaries_fc()
         output = ee.FeatureCollection(
             [
                 get_stats_feature(
@@ -878,7 +878,7 @@ def get_stats(
                     img_combined,
                     unit_type=unit_type,
                     water_all=water_all,
-                    gbounds_ADM0=gbounds_ADM0,
+                    bounds_ADM1=bounds_ADM1,
                 )
             ]
         )
@@ -900,7 +900,7 @@ def get_stats_fc(feature_col, national_codes=None, unit_type="ha", img_combined=
     """
     Calculate statistics for a feature collection using Whisp datasets.
 
-    OPTIMIZATION: Creates water flag and geoboundaries images once and reuses
+    OPTIMIZATION: Creates water flag and admin_boundaries images once and reuses
     them for all features instead of recreating them for each feature.
     This saves 7-15 seconds per analysis.
 
@@ -926,7 +926,7 @@ def get_stats_fc(feature_col, national_codes=None, unit_type="ha", img_combined=
     # OPTIMIZATION: Create cached images once before processing features
     # These will be reused for all features instead of being recreated each time
     water_all = get_water_flag_image()
-    gbounds_ADM0 = get_geoboundaries_fc()
+    bounds_ADM1 = get_admin_boundaries_fc()
 
     out_feature_col = ee.FeatureCollection(
         feature_col.map(
@@ -935,7 +935,7 @@ def get_stats_fc(feature_col, national_codes=None, unit_type="ha", img_combined=
                 img_combined,
                 unit_type=unit_type,
                 water_all=water_all,
-                gbounds_ADM0=gbounds_ADM0,
+                bounds_ADM1=bounds_ADM1,
             )
         )
     )
@@ -949,12 +949,12 @@ def get_stats_fc(feature_col, national_codes=None, unit_type="ha", img_combined=
 
 
 def get_stats_feature(
-    feature, img_combined, unit_type="ha", water_all=None, gbounds_ADM0=None
+    feature, img_combined, unit_type="ha", water_all=None, bounds_ADM1=None
 ):
     """
     Get statistics for a single feature using a pre-combined image.
 
-    OPTIMIZATION: Accepts cached water/geoboundaries images to avoid recreating
+    OPTIMIZATION: Accepts cached water/admin_boundaries images to avoid recreating
     them for every feature.
 
     Parameters
@@ -967,8 +967,8 @@ def get_stats_feature(
         Whether to use hectares ("ha") or percentage ("percent"), by default "ha".
     water_all : ee.Image, optional
         Cached water flag image
-    gbounds_ADM0 : ee.FeatureCollection, optional
-        Cached geoboundaries feature collection
+    bounds_ADM1 : ee.FeatureCollection, optional
+        Cached admin_boundaries feature collection
 
     Returns
     -------
@@ -984,7 +984,7 @@ def get_stats_feature(
     )
 
     # Get basic feature information with cached images
-    feature_info = get_type_and_location(feature, water_all, gbounds_ADM0)
+    feature_info = get_type_and_location(feature, water_all, bounds_ADM1)
 
     # add statistics unit type (e.g., percentage or hectares) to dictionary
     stats_unit_type = ee.Dictionary({stats_unit_type_column: unit_type})
@@ -1033,11 +1033,11 @@ def get_stats_feature(
 
 
 # Get basic feature information - uses admin and water datasets in gee.
-def get_type_and_location(feature, water_all=None, gbounds_ADM0=None):
+def get_type_and_location(feature, water_all=None, bounds_ADM1=None):
     """
     Extracts basic feature information including country, admin area, geometry type, coordinates, and water flags.
 
-    OPTIMIZATION: Accepts cached water flag image and geoboundaries collection
+    OPTIMIZATION: Accepts cached water flag image and admin_boundaries collection
     to avoid recreating them for every feature (saves 7-15 seconds per analysis).
 
     Parameters
@@ -1046,8 +1046,8 @@ def get_type_and_location(feature, water_all=None, gbounds_ADM0=None):
         The feature to extract information from
     water_all : ee.Image, optional
         Cached water flag image. If None, creates it.
-    gbounds_ADM0 : ee.FeatureCollection, optional
-        Cached geoboundaries feature collection. If None, loads it.
+    bounds_ADM1 : ee.FeatureCollection, optional
+        Cached admin_boundaries feature collection. If None, loads it.
 
     Returns
     -------
@@ -1057,12 +1057,12 @@ def get_type_and_location(feature, water_all=None, gbounds_ADM0=None):
     # Get centroid of the feature's geometry
     centroid = feature.geometry().centroid(0.1)
 
-    # OPTIMIZATION: Use cached geoboundaries
-    if gbounds_ADM0 is None:
-        gbounds_ADM0 = get_geoboundaries_fc()
+    # OPTIMIZATION: Use cached admin_boundaries
+    if bounds_ADM1 is None:
+        bounds_ADM1 = get_admin_boundaries_fc()
 
     # Fetch location info from GAUL 2024 L1 (country, admin)
-    location = ee.Dictionary(get_geoboundaries_info(centroid, gbounds_ADM0))
+    location = ee.Dictionary(get_admin_boundaries_info(centroid, bounds_ADM1))
     country = ee.Dictionary({iso3_country_column: location.get("iso3_code")})
 
     admin_1 = ee.Dictionary(
@@ -1129,7 +1129,7 @@ def percent_and_format(val, area_ha):
 
 
 # GAUL 2024 L1 - admin units from FAO, allows commercial use
-def get_geoboundaries_info(geometry, gbounds_ADM0=None):
+def get_admin_boundaries_info(geometry, bounds_ADM1=None):
     """
     Get GAUL 2024 L1 info for a geometry (country ISO3 code and admin boundary name).
 
@@ -1140,7 +1140,7 @@ def get_geoboundaries_info(geometry, gbounds_ADM0=None):
     ----------
     geometry : ee.Geometry
         The geometry to query
-    gbounds_ADM0 : ee.FeatureCollection, optional
+    bounds_ADM1 : ee.FeatureCollection, optional
         Cached GAUL 2024 L1 feature collection. If None, loads it.
 
     Returns
@@ -1148,10 +1148,10 @@ def get_geoboundaries_info(geometry, gbounds_ADM0=None):
     ee.Dictionary
         Dictionary with iso3_code (country) and gaul1_name (admin boundary name)
     """
-    if gbounds_ADM0 is None:
-        gbounds_ADM0 = get_geoboundaries_fc()
+    if bounds_ADM1 is None:
+        bounds_ADM1 = get_admin_boundaries_fc()
 
-    polygonsIntersectPoint = gbounds_ADM0.filterBounds(geometry)
+    polygonsIntersectPoint = bounds_ADM1.filterBounds(geometry)
     backup_dict = ee.Dictionary({"iso3_code": "Unknown", "gaul1_name": "Unknown"})
     return ee.Algorithms.If(
         polygonsIntersectPoint.size().gt(0),

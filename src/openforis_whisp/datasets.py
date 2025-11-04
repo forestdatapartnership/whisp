@@ -1308,8 +1308,11 @@ def combine_datasets(
 def list_functions(national_codes=None):
     """
     Returns a list of functions that end with "_prep" and either:
-    - Start with "g_" (global/regional products)
+    - Start with "g_" (global/regional products, excluding context bands)
     - Start with any provided national code prefix (nXX_)
+
+    Context band functions (g_gaul_admin_code, g_water_mask_prep) are handled
+    separately and excluded from this list to avoid duplication.
 
     Args:
         national_codes: List of ISO2 country codes (without the 'n' prefix)
@@ -1321,15 +1324,19 @@ def list_functions(national_codes=None):
     if national_codes is None:
         national_codes = []
 
+    # Context band functions that are handled separately
+    context_functions = {"g_gaul_admin_code", "g_water_mask_prep"}
+
     # Create prefixes list with proper formatting ('n' + code + '_')
     allowed_prefixes = ["g_"] + [f"n{code.lower()}_" for code in national_codes]
 
-    # Filter functions in a single pass
+    # Filter functions in a single pass, excluding context band functions
     functions = [
         func
         for name, func in inspect.getmembers(current_module, inspect.isfunction)
         if name.endswith("_prep")
         and any(name.startswith(prefix) for prefix in allowed_prefixes)
+        and name not in context_functions
     ]
 
     return functions
