@@ -101,7 +101,7 @@ def convert_geojson_to_ee(
 
                 success_message_key = f"z_coords_success_{file_path}"
                 if success_message_key not in convert_geojson_to_ee._printed_z_messages:
-                    print("✓ Successfully converted after stripping Z coordinates")
+                    print("Successfully converted after stripping Z coordinates")
                     convert_geojson_to_ee._printed_z_messages.add(success_message_key)
 
                 return feature_collection

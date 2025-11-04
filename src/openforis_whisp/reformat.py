@@ -761,8 +761,13 @@ def format_stats_dataframe(
     # Helper: drop columns with a given suffix
     def _drop_suffix_columns(df, suffix):
         if suffix is None or suffix == "":
+            logger.debug(f"Suffix is None or empty, returning df as-is")
             return df
-        return df.loc[:, ~df.columns.str.endswith(suffix)]
+        cols_to_drop = df.columns[df.columns.str.endswith(suffix)].tolist()
+        logger.debug(f"Columns ending with '{suffix}': {cols_to_drop}")
+        result = df.loc[:, ~df.columns.str.endswith(suffix)]
+        logger.debug(f"After dropping '{suffix}': {result.columns.tolist()}")
+        return result
 
     # Helper: build converted stats (returns DataFrame of new columns indexed same as df)
     def _build_converted_stats(
@@ -816,10 +821,27 @@ def format_stats_dataframe(
 
     # 2) Optionally drop median (or other) columns
     if remove_columns and remove_columns_suffix:
+        logger.debug(f"Dropping columns ending with '{remove_columns_suffix}'")
+        logger.debug(
+            f"Columns before drop: {[c for c in df.columns if c.endswith(remove_columns_suffix)]}"
+        )
         df = _drop_suffix_columns(df, remove_columns_suffix)
+        logger.debug(
+            f"Columns after drop: {[c for c in df.columns if c.endswith(remove_columns_suffix)]}"
+        )
 
     # 3) Collect stat columns to convert (those ending with strip_suffix and not equal to area_col)
+    # EXCLUDE intermediate admin/context columns that should be completely dropped, not stripped
+    columns_to_exclude_from_stripping = ["admin_code", "water_flag"]
     stat_cols = _collect_stat_columns(df.columns, strip_suffix, area_col)
+    stat_cols = [
+        c
+        for c in stat_cols
+        if not any(exc in c for exc in columns_to_exclude_from_stripping)
+    ]
+    logger.debug(
+        f"Stat columns after excluding intermediate admin/context columns: {stat_cols}"
+    )
 
     # 4) Build converted stats DataFrame (these will have suffix removed as column names)
     if stat_cols:

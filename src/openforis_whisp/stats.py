@@ -65,20 +65,22 @@ def get_water_flag_image():
 
 def get_geoboundaries_fc():
     """
-    Get cached geoboundaries feature collection.
+    Get cached GAUL 2024 L1 administrative boundary feature collection.
 
-    OPTIMIZATION: Geoboundaries collection is loaded once and reused for all features.
+    OPTIMIZATION: GAUL 2024 L1 collection is loaded once and reused for all features.
     This avoids loading the large FeatureCollection for every feature (previously
     called in get_geoboundaries_info for each feature).
 
     Returns
     -------
     ee.FeatureCollection
-        Cached geoboundaries feature collection
+        Cached GAUL 2024 L1 administrative boundary feature collection
     """
     global _GEOBOUNDARIES_FC
     if _GEOBOUNDARIES_FC is None:
-        _GEOBOUNDARIES_FC = ee.FeatureCollection("WM/geoLab/geoBoundaries/600/ADM1")
+        _GEOBOUNDARIES_FC = ee.FeatureCollection(
+            "projects/sat-io/open-datasets/FAO/GAUL/GAUL_2024_L1"
+        )
     return _GEOBOUNDARIES_FC
 
 
@@ -765,8 +767,8 @@ def reformat_geometry_type(df: pd.DataFrame) -> pd.DataFrame:
 
     # Log the changes
     num_reformatted = multipolygon_mask.sum()
-    if num_reformatted > 0:
-        print(f"Reformatted {num_reformatted} MultiPolygon geometries to Polygon")
+    # if num_reformatted > 0:
+    #     print(f"Reformatted {num_reformatted} MultiPolygon geometries to Polygon")
 
     return df_modified
 
@@ -1053,19 +1055,19 @@ def get_type_and_location(feature, water_all=None, gbounds_ADM0=None):
         Dictionary with feature information
     """
     # Get centroid of the feature's geometry
-    centroid = feature.geometry().centroid(1)
+    centroid = feature.geometry().centroid(0.1)
 
     # OPTIMIZATION: Use cached geoboundaries
     if gbounds_ADM0 is None:
         gbounds_ADM0 = get_geoboundaries_fc()
 
-    # Fetch location info from geoboundaries (country, admin)
+    # Fetch location info from GAUL 2024 L1 (country, admin)
     location = ee.Dictionary(get_geoboundaries_info(centroid, gbounds_ADM0))
-    country = ee.Dictionary({iso3_country_column: location.get("shapeGroup")})
+    country = ee.Dictionary({iso3_country_column: location.get("iso3_code")})
 
     admin_1 = ee.Dictionary(
-        {admin_1_column: location.get("shapeName")}
-    )  # Administrative level 1 (if available)
+        {admin_1_column: location.get("gaul1_name")}
+    )  # Administrative level 1 (from GAUL 2024 L1)
 
     # OPTIMIZATION: Use cached water flag image
     if water_all is None:
@@ -1083,8 +1085,12 @@ def get_type_and_location(feature, water_all=None, gbounds_ADM0=None):
     coords_list = centroid.coordinates()
     coords_dict = ee.Dictionary(
         {
-            centroid_x_coord_column: coords_list.get(0),  # Longitude
-            centroid_y_coord_column: coords_list.get(1),  # Latitude
+            centroid_x_coord_column: ee.Number(coords_list.get(0)).format(
+                "%.6f"
+            ),  # Longitude (6 dp)
+            centroid_y_coord_column: ee.Number(coords_list.get(1)).format(
+                "%.6f"
+            ),  # Latitude (6 dp)
         }
     )
 
@@ -1122,12 +1128,12 @@ def percent_and_format(val, area_ha):
     return ee.Number(formatted_value)
 
 
-# geoboundaries - admin units from a freqently updated database, allows commercial use (CC BY 4.0 DEED) (disputed territories may need checking)
+# GAUL 2024 L1 - admin units from FAO, allows commercial use
 def get_geoboundaries_info(geometry, gbounds_ADM0=None):
     """
-    Get geoboundaries info for a geometry.
+    Get GAUL 2024 L1 info for a geometry (country ISO3 code and admin boundary name).
 
-    OPTIMIZATION: Accepts cached geoboundaries FeatureCollection to avoid
+    OPTIMIZATION: Accepts cached GAUL 2024 L1 FeatureCollection to avoid
     reloading it for every feature (saves 2-5 seconds per analysis).
 
     Parameters
@@ -1135,23 +1141,23 @@ def get_geoboundaries_info(geometry, gbounds_ADM0=None):
     geometry : ee.Geometry
         The geometry to query
     gbounds_ADM0 : ee.FeatureCollection, optional
-        Cached geoboundaries feature collection. If None, loads it.
+        Cached GAUL 2024 L1 feature collection. If None, loads it.
 
     Returns
     -------
     ee.Dictionary
-        Dictionary with shapeGroup and shapeName
+        Dictionary with iso3_code (country) and gaul1_name (admin boundary name)
     """
     if gbounds_ADM0 is None:
         gbounds_ADM0 = get_geoboundaries_fc()
 
     polygonsIntersectPoint = gbounds_ADM0.filterBounds(geometry)
-    backup_dict = ee.Dictionary({"shapeGroup": "Unknown", "shapeName": "Unknown"})
+    backup_dict = ee.Dictionary({"iso3_code": "Unknown", "gaul1_name": "Unknown"})
     return ee.Algorithms.If(
         polygonsIntersectPoint.size().gt(0),
         polygonsIntersectPoint.first()
         .toDictionary()
-        .select(["shapeGroup", "shapeName"]),
+        .select(["iso3_code", "gaul1_name"]),
         backup_dict,
     )
 
