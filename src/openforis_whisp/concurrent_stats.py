@@ -6,7 +6,7 @@ with Whisp datasets using concurrent batching (for high-volume processing)
 and standard sequential processing.
 
 Key features:
-  - whisp_concurrent_stats_geojson_to_df/ee_to_df/geojson_to_geojson/ee_to_ee
+  - whisp_stats_geojson_to_df_concurrent/ee_to_df/geojson_to_geojson/ee_to_ee
   - whisp_stats_geojson_to_df_sequential (standard endpoint, sequential)
   - Proper logging at different levels (WARNING, INFO, DEBUG)
   - Progress tracking without external dependencies
@@ -430,7 +430,7 @@ def validate_ee_endpoint(endpoint_type: str = "high-volume", raise_error: bool =
             f"Current URL: {ee.data._cloud_api_base_url}\n"
             f"\nTo use {endpoint_type} endpoint, run:\n"
         )
-
+        msg += "ee.Reset()\n"
         if endpoint_type == "high-volume":
             msg += "  ee.Initialize(opt_url='https://earthengine-highvolume.googleapis.com')"
         else:
@@ -452,7 +452,7 @@ def extract_centroid_and_geomtype_client(
     x_col: str = None,
     y_col: str = None,
     type_col: str = None,
-    external_id_col: str = None,
+    external_id_column: str = None,
     return_attributes_only: bool = True,
 ) -> pd.DataFrame:
     """
@@ -468,7 +468,7 @@ def extract_centroid_and_geomtype_client(
         Column name for centroid y. Defaults to config value
     type_col : str, optional
         Column name for geometry type. Defaults to config value
-    external_id_col : str, optional
+    external_id_column: : str, optional
         Name of external ID column to preserve
     return_attributes_only : bool
         If True, return only attribute columns (no geometry)
@@ -494,17 +494,30 @@ def extract_centroid_and_geomtype_client(
     gdf[type_col] = gdf.geometry.geom_type
 
     if return_attributes_only:
-        cols = [x_col, y_col, type_col]
-        if external_id_col and external_id_col in gdf.columns:
-            cols = [external_id_col] + cols
+        # Build column list starting with merge keys
+        cols = []
+
+        # Always include __row_id__ first if present (needed for row-level merging)
+        if "__row_id__" in gdf.columns:
+            cols.append("__row_id__")
 
         # Always include plot_id_column if present (needed for merging batches)
-        if plot_id_column in gdf.columns and plot_id_column not in cols:
-            cols = [plot_id_column] + cols
+        if plot_id_column in gdf.columns:
+            cols.append(plot_id_column)
 
-        # Always include __row_id__ if present (needed for merging)
-        if "__row_id__" in gdf.columns and "__row_id__" not in cols:
-            cols = ["__row_id__"] + cols
+        # Include external_id_column if provided and exists
+        if (
+            external_id_column
+            and external_id_column in gdf.columns
+            and external_id_column not in cols
+        ):
+            cols.append(external_id_column)
+
+        # Always include metadata columns (centroid, geometry type)
+        cols.extend([x_col, y_col, type_col])
+
+        # Remove any duplicates while preserving order
+        cols = list(dict.fromkeys(cols))
 
         return gdf[cols].reset_index(drop=True)
 
@@ -772,7 +785,7 @@ def process_ee_batch(
 # ============================================================================
 
 
-def whisp_concurrent_stats_geojson_to_df(
+def whisp_stats_geojson_to_df_concurrent(
     input_geojson_filepath: str,
     external_id_column: str = None,
     remove_geom: bool = False,
@@ -780,8 +793,8 @@ def whisp_concurrent_stats_geojson_to_df(
     unit_type: str = "ha",
     whisp_image: ee.Image = None,
     custom_bands: Dict[str, Any] = None,
-    batch_size: int = 25,
-    max_concurrent: int = 10,
+    batch_size: int = 10,
+    max_concurrent: int = 20,
     validate_geometries: bool = True,
     max_retries: int = 3,
     add_metadata_server: bool = False,
@@ -904,7 +917,7 @@ def whisp_concurrent_stats_geojson_to_df(
             # Client-side: extract metadata using GeoPandas
             df_client = extract_centroid_and_geomtype_client(
                 batch,
-                external_id_col=external_id_column,
+                external_id_column=external_id_column,
                 return_attributes_only=True,
             )
 
@@ -931,7 +944,10 @@ def whisp_concurrent_stats_geojson_to_df(
                     df_server[plot_id_column] = range(len(df_server))
 
                 merged = df_server.merge(
-                    df_client, on=plot_id_column, how="left", suffixes=("", "_client")
+                    df_client,
+                    on=plot_id_column,
+                    how="left",
+                    suffixes=("_ee", "_client"),
                 )
                 results.append(merged)
                 progress.update()
@@ -1007,6 +1023,32 @@ def whisp_concurrent_stats_geojson_to_df(
         # Ensure all column names are strings (fixes pandas .str accessor issues later)
         combined.columns = combined.columns.astype(str)
 
+        # Clean up duplicate external_id columns created by merges
+        # Rename external_id_column to standardized 'external_id' for schema validation
+        if external_id_column:
+            # Find all columns related to external_id
+            external_id_variants = [
+                col
+                for col in combined.columns
+                if external_id_column.lower() in col.lower()
+            ]
+
+            if external_id_variants:
+                # Use the base column name if it exists, otherwise use first variant
+                base_col = (
+                    external_id_column
+                    if external_id_column in combined.columns
+                    else external_id_variants[0]
+                )
+
+                # Rename to standardized 'external_id'
+                if base_col != "external_id":
+                    combined = combined.rename(columns={base_col: "external_id"})
+
+                # Drop all other variants
+                cols_to_drop = [c for c in external_id_variants if c != base_col]
+                combined = combined.drop(columns=cols_to_drop, errors="ignore")
+
         # plotId column is already present from batch processing
         # Just ensure it's at position 0
         if plot_id_column in combined.columns:
@@ -1073,7 +1115,7 @@ def whisp_concurrent_stats_geojson_to_df(
                         )
                         df_client = extract_centroid_and_geomtype_client(
                             batch,
-                            external_id_col=external_id_column,
+                            external_id_column=external_id_column,
                             return_attributes_only=True,
                         )
                     return batch_idx, df_server, df_client
@@ -1089,6 +1131,14 @@ def whisp_concurrent_stats_geojson_to_df(
                             batch_idx, df_server, df_client = future.result()
                             if plot_id_column not in df_server.columns:
                                 df_server[plot_id_column] = range(len(df_server))
+
+                            # Drop external_id_column from df_client if it exists (already in df_server)
+                            if (
+                                external_id_column
+                                and external_id_column in df_client.columns
+                            ):
+                                df_client = df_client.drop(columns=[external_id_column])
+
                             merged = df_server.merge(
                                 df_client,
                                 on=plot_id_column,
@@ -1105,6 +1155,32 @@ def whisp_concurrent_stats_geojson_to_df(
                     combined = pd.concat(results_validated, ignore_index=True)
                     # Ensure all column names are strings (fixes pandas .str accessor issues later)
                     combined.columns = combined.columns.astype(str)
+
+                    # Clean up duplicate external_id columns created by merges
+                    if external_id_column:
+                        external_id_variants = [
+                            col
+                            for col in combined.columns
+                            if external_id_column.lower() in col.lower()
+                        ]
+
+                        if external_id_variants:
+                            base_col = external_id_column
+                            if (
+                                base_col not in combined.columns
+                                and external_id_variants
+                            ):
+                                base_col = external_id_variants[0]
+                                combined = combined.rename(
+                                    columns={base_col: "external_id"}
+                                )
+
+                            cols_to_drop = [
+                                c for c in external_id_variants if c != base_col
+                            ]
+                            combined = combined.drop(
+                                columns=cols_to_drop, errors="ignore"
+                            )
 
                     # plotId column is already present, just ensure it's at position 0
                     if plot_id_column in combined.columns:
@@ -1306,9 +1382,13 @@ def whisp_stats_geojson_to_df_sequential(
         logger.debug("Extracting client-side metadata...")
         df_client = extract_centroid_and_geomtype_client(
             gdf,
-            external_id_col=external_id_column,
+            external_id_column=external_id_column,
             return_attributes_only=True,
         )
+
+        # Drop external_id_column from df_client if it exists (already in df_server)
+        if external_id_column and external_id_column in df_client.columns:
+            df_client = df_client.drop(columns=[external_id_column])
 
         # Merge
         result = df_server.merge(
@@ -1346,6 +1426,27 @@ def whisp_stats_geojson_to_df_sequential(
     )
 
     logger.info(f"Processed {len(formatted):,} features")
+
+    # Consolidate external_id_column to standardized 'external_id'
+    if external_id_column:
+        variants = [
+            col
+            for col in formatted.columns
+            if external_id_column.lower() in col.lower()
+        ]
+        if variants:
+            base_col = (
+                external_id_column
+                if external_id_column in formatted.columns
+                else variants[0]
+            )
+            if base_col != "external_id":
+                formatted = formatted.rename(columns={base_col: "external_id"})
+            # Drop other variants
+            formatted = formatted.drop(
+                columns=[c for c in variants if c != base_col], errors="ignore"
+            )
+
     return formatted
 
 
@@ -1354,7 +1455,7 @@ def whisp_stats_geojson_to_df_sequential(
 # ============================================================================
 
 
-def whisp_concurrent_formatted_stats_geojson_to_df(
+def whisp_formatted_stats_geojson_to_df_concurrent(
     input_geojson_filepath: str,
     external_id_column: str = None,
     remove_geom: bool = False,
@@ -1362,8 +1463,8 @@ def whisp_concurrent_formatted_stats_geojson_to_df(
     unit_type: str = "ha",
     whisp_image: ee.Image = None,
     custom_bands: Dict[str, Any] = None,
-    batch_size: int = 25,
-    max_concurrent: int = 10,
+    batch_size: int = 10,
+    max_concurrent: int = 20,
     validate_geometries: bool = True,
     max_retries: int = 3,
     add_metadata_server: bool = False,
@@ -1378,7 +1479,7 @@ def whisp_concurrent_formatted_stats_geojson_to_df(
     """
     Process GeoJSON concurrently with automatic formatting and validation.
 
-    Combines whisp_concurrent_stats_geojson_to_df + format_stats_dataframe + validation
+    Combines whisp_stats_geojson_to_df_concurrent + format_stats_dataframe + validation
     for a complete pipeline: extract stats → convert units → format output → validate schema.
 
     Uses high-volume endpoint and concurrent batching.
@@ -1442,7 +1543,7 @@ def whisp_concurrent_formatted_stats_geojson_to_df(
 
     # Step 1: Get raw stats
     logger.debug("Step 1/2: Extracting statistics (concurrent)...")
-    df_raw = whisp_concurrent_stats_geojson_to_df(
+    df_raw = whisp_stats_geojson_to_df_concurrent(
         input_geojson_filepath=input_geojson_filepath,
         external_id_column=external_id_column,
         remove_geom=remove_geom,

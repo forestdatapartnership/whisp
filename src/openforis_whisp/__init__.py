@@ -48,8 +48,8 @@ from openforis_whisp.stats import (
 )
 
 from openforis_whisp.concurrent_stats import (
-    whisp_concurrent_stats_geojson_to_df,
-    whisp_concurrent_formatted_stats_geojson_to_df,
+    whisp_stats_geojson_to_df_concurrent,
+    whisp_formatted_stats_geojson_to_df_concurrent,
     whisp_stats_geojson_to_df_sequential,
     whisp_formatted_stats_geojson_to_df_sequential,
     setup_concurrent_logger,
