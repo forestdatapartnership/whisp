@@ -49,14 +49,10 @@ from openforis_whisp.stats import (
 
 from openforis_whisp.concurrent_stats import (
     whisp_concurrent_stats_geojson_to_df,
-    whisp_concurrent_stats_ee_to_df,
-    whisp_concurrent_stats_ee_to_ee,
-    whisp_stats_geojson_to_df_non_concurrent,
     whisp_concurrent_formatted_stats_geojson_to_df,
-    whisp_formatted_stats_geojson_to_df_non_concurrent,
+    whisp_stats_geojson_to_df_sequential,
+    whisp_formatted_stats_geojson_to_df_sequential,
     setup_concurrent_logger,
-    check_ee_endpoint,
-    validate_ee_endpoint,
 )
 
 # temporary parameters to be removed once isio3 to iso2 conversion server side is implemented
@@ -86,3 +82,10 @@ from openforis_whisp.data_conversion import (
 from openforis_whisp.risk import whisp_risk, detect_unit_type
 
 from openforis_whisp.utils import get_example_data_path, generate_test_polygons
+
+from openforis_whisp.data_checks import (
+    analyze_geojson,
+    validate_geojson_constraints,
+    _check_metric_constraints,
+    suggest_method,
+)

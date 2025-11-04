@@ -1182,15 +1182,17 @@ def g_gaul_admin_code():
     return admin_image.rename("admin_code")
 
 
-def g_water_mask():
+def g_water_mask_prep():
     """
     Water mask from JRC/USGS combined dataset.
     Used to identify water bodies for downstream filtering and context.
 
+    Multiplied by pixel area to get water area in hectares.
+
     Returns
     -------
     ee.Image
-        Binary water mask image renamed to water_flag
+        Binary water mask image renamed to In_waterbody (will be multiplied by pixel area)
     """
     from openforis_whisp.parameters.config_runtime import water_flag
 
@@ -1202,7 +1204,10 @@ def g_water_mask():
 
 
 def combine_datasets(
-    national_codes=None, validate_bands=False, include_context_bands=True
+    national_codes=None,
+    validate_bands=False,
+    include_context_bands=True,
+    auto_recovery=False,
 ):
     """
     Combines datasets into a single multiband image, with fallback if assets are missing.
@@ -1217,91 +1222,73 @@ def combine_datasets(
     include_context_bands : bool, optional
         If True (default), includes context bands (admin_code, water_flag) in the output.
         Set to False when using stats.py implementations that compile datasets differently.
+    auto_recovery : bool, optional
+        If True (default), automatically enables validate_bands when an error is detected
+        during initial assembly. This allows graceful recovery from missing/broken datasets.
 
     Returns
     -------
     ee.Image
         Combined multiband image with all datasets (and optionally context bands)
     """
-    img_combined = ee.Image(1).rename(geometry_area_column)
-
-    # Combine images directly
-    for img in [func() for func in list_functions(national_codes=national_codes)]:
+    # Step 1: Combine all main dataset images
+    all_images = [ee.Image(1).rename(geometry_area_column)]
+    for func in list_functions(national_codes=national_codes):
         try:
-            img_combined = img_combined.addBands(img)
-            # img_combined = img_combined.addBands(img)
+            all_images.append(func())
         except ee.EEException as e:
-            # logger.error(f"Error adding image: {e}")
-            print(f"Error adding image: {e}")
+            print(f"Error loading image: {e}")
 
-    # Track whether context bands are valid (for use with validation mode)
-    admin_code_valid = True
-    water_mask_valid = True
+    img_combined = ee.Image.cat(all_images)
 
-    # OPTIMIZATION: Removed slow .getInfo() call for band validation
-    # The validation is now optional and disabled by default
-    # Image processing will fail downstream if there's an issue, which is handled by exception blocks
-    if validate_bands:
+    # Step 2: Determine if validation needed
+    should_validate = validate_bands
+    if auto_recovery and not validate_bands:
         try:
-            # This is SLOW - only use for debugging
-            img_combined.bandNames().getInfo()
-            # Also validate context bands if requested
+            # Fast error detection: batch check main + context bands in one call
+            bands_to_check = [img_combined.bandNames().get(0)]
             if include_context_bands:
-                try:
-                    admin_image = g_gaul_admin_code()
-                    admin_image.bandNames().getInfo()
-                except ee.EEException as e:
-                    print(f"Warning: admin_code band validation failed: {e}")
-                    admin_code_valid = False
-
-                try:
-                    water_mask = g_water_mask()
-                    water_mask.bandNames().getInfo()
-                except ee.EEException as e:
-                    print(f"Warning: water_flag band validation failed: {e}")
-                    water_mask_valid = False
+                admin_image = g_gaul_admin_code()
+                water_mask = g_water_mask_prep()
+                bands_to_check.extend(
+                    [admin_image.bandNames().get(0), water_mask.bandNames().get(0)]
+                )
+            ee.List(bands_to_check).getInfo()  # trigger error if any band is invalid
         except ee.EEException as e:
-            # logger.error(f"Error validating band names: {e}")
-            # logger.info("Running code for filtering to only valid datasets due to error in input")
-            print("using valid datasets filter due to error in validation")
-            # Validate images
-            images_to_test = [
-                func() for func in list_functions(national_codes=national_codes)
-            ]
-            valid_imgs = keep_valid_images(images_to_test)  # Validate images
+            print(f"Error detected, enabling recovery mode: {str(e)[:80]}...")
+            should_validate = True
 
-            # Retry combining images after validation
-            img_combined = ee.Image(1).rename(geometry_area_column)
-            for img in valid_imgs:
-                img_combined = img_combined.addBands(img)
+    # Step 3: Validate and recover if needed
+    if should_validate:
+        try:
+            img_combined.bandNames().getInfo()  # check all bands
+        except ee.EEException as e:
+            print("Using valid datasets filter due to error in validation")
+            valid_imgs = keep_valid_images(
+                [func() for func in list_functions(national_codes=national_codes)]
+            )
+            all_images_retry = [ee.Image(1).rename(geometry_area_column)]
+            all_images_retry.extend(valid_imgs)
+            img_combined = ee.Image.cat(all_images_retry)
 
-            # Context bands are not valid after error recovery
-            admin_code_valid = False
-            water_mask_valid = False
-
+    # Step 4: Multiply main datasets by pixel area
     img_combined = img_combined.multiply(ee.Image.pixelArea())
 
-    # Add context bands AFTER pixel area multiplication to preserve their original values
-    # Only add if they passed validation (or if validation was not enabled)
+    # Step 5: Add context bands (admin_code only - water mask is now in prep functions)
     if include_context_bands:
-        # Only add admin_code if validation was not enabled OR if it passed validation
-        if not validate_bands or admin_code_valid:
+        for band_func, band_name in [
+            (g_gaul_admin_code, "admin_code"),
+            (g_water_mask_prep, "In_waterbody"),
+        ]:
             try:
-                admin_image = g_gaul_admin_code()
-                img_combined = img_combined.addBands(admin_image)
+                band_img = band_func()
+                if should_validate:
+                    band_img.bandNames().getInfo()
+                img_combined = img_combined.addBands(band_img)
             except ee.EEException as e:
-                print(f"Warning: Could not add admin_code band: {e}")
-
-        # Only add water_mask if validation was not enabled OR if it passed validation
-        if not validate_bands or water_mask_valid:
-            try:
-                water_mask = g_water_mask()
-                img_combined = img_combined.addBands(water_mask)
-            except ee.EEException as e:
-                print(f"Warning: Could not add water_flag band: {e}")
+                print(f"Warning: Could not add {band_name} band: {e}")
 
     print("Whisp multiband image compiled")
-
     return img_combined
 
 
@@ -1426,3 +1413,6 @@ def combine_custom_bands(custom_images, custom_bands_info):
     custom_ee_image = custom_ee_image.multiply(ee.Image.pixelArea())
 
     return custom_ee_image  # Only return the image
+
+
+# %%

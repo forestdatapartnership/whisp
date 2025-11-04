@@ -1,5 +1,5 @@
 """
-Concurrent and non-concurrent statistics processing for WHISP.
+Concurrent and sequential statistics processing for WHISP.
 
 This module provides functions for processing GeoJSON/EE FeatureCollections
 with Whisp datasets using concurrent batching (for high-volume processing)
@@ -7,7 +7,7 @@ and standard sequential processing.
 
 Key features:
   - whisp_concurrent_stats_geojson_to_df/ee_to_df/geojson_to_geojson/ee_to_ee
-  - whisp_stats_geojson_to_df_non_concurrent (standard endpoint, sequential)
+  - whisp_stats_geojson_to_df_sequential (standard endpoint, sequential)
   - Proper logging at different levels (WARNING, INFO, DEBUG)
   - Progress tracking without external dependencies
   - Client-side and server-side metadata extraction options
@@ -53,6 +53,10 @@ from openforis_whisp.data_conversion import (
 )
 from openforis_whisp.datasets import combine_datasets
 from openforis_whisp.reformat import validate_dataframe_using_lookups_flexible
+from openforis_whisp.stats import (
+    reformat_geometry_type,
+    set_point_geometry_area_to_zero,
+)
 
 
 # ============================================================================
@@ -371,7 +375,7 @@ class ProgressTracker:
         """Log completion."""
         with self.lock:
             self.logger.info(
-                f"✅ Processing complete: {self.completed}/{self.total} batches"
+                f"Processing complete: {self.completed}/{self.total} batches"
             )
 
 
@@ -422,7 +426,7 @@ def validate_ee_endpoint(endpoint_type: str = "high-volume", raise_error: bool =
     """
     if not check_ee_endpoint(endpoint_type):
         msg = (
-            f"❌ Not using {endpoint_type.upper()} endpoint.\n"
+            f"Not using {endpoint_type.upper()} endpoint.\n"
             f"Current URL: {ee.data._cloud_api_base_url}\n"
             f"\nTo use {endpoint_type} endpoint, run:\n"
         )
@@ -1135,200 +1139,27 @@ def whisp_concurrent_stats_geojson_to_df(
                         convert_water_flag=True,
                     )
                 else:
-                    logger.error("❌ Reprocessing with validation produced no results")
+                    logger.error(" Reprocessing with validation produced no results")
                     return pd.DataFrame()
             except Exception as retry_e:
                 logger.error(
-                    f"❌ Failed to recover from formatting error: {str(retry_e)[:100]}"
+                    f"Failed to recover from formatting error: {str(retry_e)[:100]}"
                 )
                 raise retry_e
 
-        logger.info(f"✅ Processed {len(formatted):,} features successfully")
+        logger.info(f"Processed {len(formatted):,} features successfully")
         return formatted
     else:
-        logger.error("❌ No results produced")
+        logger.error(" No results produced")
         return pd.DataFrame()
 
 
-def whisp_concurrent_stats_ee_to_ee(
-    feature_collection: ee.FeatureCollection,
-    external_id_column: str = None,
-    remove_geom: bool = False,
-    national_codes: List[str] = None,
-    unit_type: str = "ha",
-    whisp_image: ee.Image = None,
-    custom_bands: Dict[str, Any] = None,
-    batch_size: int = 25,
-    max_concurrent: int = 10,
-    max_retries: int = 3,
-    add_metadata_server: bool = True,
-    logger: logging.Logger = None,
-) -> ee.FeatureCollection:
-    """
-    Process EE FeatureCollection concurrently to compute Whisp statistics (server-side).
-
-    Returns results as EE FeatureCollection with statistics as properties.
-    Everything stays on the server side - no download to local.
-
-    Parameters
-    ----------
-    feature_collection : ee.FeatureCollection
-        Input FeatureCollection
-    external_id_column : str, optional
-        Column name for external IDs
-    remove_geom : bool
-        Remove geometry from output
-    national_codes : List[str], optional
-        ISO2 codes for national datasets
-    unit_type : str
-        "ha" or "percent"
-    whisp_image : ee.Image, optional
-        Pre-combined image
-    custom_bands : Dict[str, Any], optional
-        Custom band information
-    batch_size : int
-        Features per batch (default 25)
-    max_concurrent : int
-        Maximum concurrent EE calls (default 10)
-    max_retries : int
-        Retry attempts per batch (default 3)
-    add_metadata_server : bool
-        Add metadata server-side (default True)
-    logger : logging.Logger, optional
-        Logger for output
-
-    Returns
-    -------
-    ee.FeatureCollection
-        Results as EE FeatureCollection with stats as properties
-    """
-    logger = logger or setup_concurrent_logger()
-
-    # Validate endpoint
-    validate_ee_endpoint("high-volume", raise_error=True)
-
-    # Get stats as DataFrame via geojson conversion
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".geojson", text=True)
-    try:
-        os.close(temp_fd)
-
-        # Convert EE FC to GeoJSON
-        import json
-
-        geojson_data = convert_ee_to_geojson(feature_collection)
-        with open(temp_path, "w") as f:
-            json.dump(geojson_data, f)
-
-        # Get stats as DataFrame
-        df_stats = whisp_concurrent_stats_geojson_to_df(
-            temp_path,
-            external_id_column=external_id_column,
-            remove_geom=remove_geom,
-            national_codes=national_codes,
-            unit_type=unit_type,
-            whisp_image=whisp_image,
-            custom_bands=custom_bands,
-            batch_size=batch_size,
-            max_concurrent=max_concurrent,
-            max_retries=max_retries,
-            add_metadata_server=add_metadata_server,
-            logger=logger,
-        )
-
-        # Convert back to EE FeatureCollection
-        result_fc = convert_geojson_to_ee(df_stats.to_dict("records"))
-        logger.info("✅ Concurrent EE→EE processing complete")
-        return result_fc
-
-    finally:
-        if os.path.exists(temp_path):
-            try:
-                os.unlink(temp_path)
-            except OSError:
-                pass
-
-
-def whisp_concurrent_stats_ee_to_df(
-    feature_collection: ee.FeatureCollection,
-    external_id_column: str = None,
-    remove_geom: bool = False,
-    national_codes: List[str] = None,
-    unit_type: str = "ha",
-    whisp_image: ee.Image = None,
-    custom_bands: Dict[str, Any] = None,
-    batch_size: int = 25,
-    max_concurrent: int = 10,
-    max_retries: int = 3,
-    add_metadata_server: bool = True,
-    logger: logging.Logger = None,
-) -> pd.DataFrame:
-    """
-    Process EE FeatureCollection concurrently to compute Whisp statistics.
-
-    Wrapper around whisp_concurrent_stats_ee_to_ee that converts output to DataFrame.
-
-    Parameters
-    ----------
-    feature_collection : ee.FeatureCollection
-        Input FeatureCollection
-    external_id_column : str, optional
-        Column name for external IDs
-    remove_geom : bool
-        Remove geometry from output
-    national_codes : List[str], optional
-        ISO2 codes for national datasets
-    unit_type : str
-        "ha" or "percent"
-    whisp_image : ee.Image, optional
-        Pre-combined image
-    custom_bands : Dict[str, Any], optional
-        Custom band information
-    batch_size : int
-        Features per batch (default 25)
-    max_concurrent : int
-        Maximum concurrent EE calls (default 10)
-    max_retries : int
-        Retry attempts per batch (default 3)
-    add_metadata_server : bool
-        Add metadata server-side (default True)
-    logger : logging.Logger, optional
-        Logger for output
-
-    Returns
-    -------
-    pd.DataFrame
-        Results DataFrame
-    """
-    logger = logger or setup_concurrent_logger()
-
-    # Use ee_to_ee version to get EE FC, then convert to DataFrame
-    result_fc = whisp_concurrent_stats_ee_to_ee(
-        feature_collection=feature_collection,
-        external_id_column=external_id_column,
-        remove_geom=remove_geom,
-        national_codes=national_codes,
-        unit_type=unit_type,
-        whisp_image=whisp_image,
-        custom_bands=custom_bands,
-        batch_size=batch_size,
-        max_concurrent=max_concurrent,
-        max_retries=max_retries,
-        add_metadata_server=add_metadata_server,
-        logger=logger,
-    )
-
-    # Convert EE FC to DataFrame
-    df_result = convert_ee_to_df(result_fc)
-    logger.info("✅ Concurrent EE→DF processing complete")
-    return df_result
-
-
 # ============================================================================
-# NON-CONCURRENT PROCESSING (STANDARD ENDPOINT)
+# SEQUENTIAL PROCESSING (STANDARD ENDPOINT)
 # ============================================================================
 
 
-def whisp_stats_geojson_to_df_non_concurrent(
+def whisp_stats_geojson_to_df_sequential(
     input_geojson_filepath: str,
     external_id_column: str = None,
     remove_geom: bool = False,
@@ -1336,13 +1167,13 @@ def whisp_stats_geojson_to_df_non_concurrent(
     unit_type: str = "ha",
     whisp_image: ee.Image = None,
     custom_bands: Dict[str, Any] = None,
-    add_metadata_client: bool = True,
+    add_metadata_client_side: bool = True,
     logger: logging.Logger = None,
     # Format parameters (auto-detect from config if not provided)
     decimal_places: int = None,
 ) -> pd.DataFrame:
     """
-    Process GeoJSON non-concurrently using standard EE endpoint with automatic formatting.
+    Process GeoJSON sequentially using standard EE endpoint with automatic formatting.
 
     Uses reduceRegions for server-side processing and client-side metadata
     extraction via GeoPandas. Suitable for smaller datasets or when high-volume
@@ -1366,7 +1197,7 @@ def whisp_stats_geojson_to_df_non_concurrent(
         Pre-combined image
     custom_bands : Dict[str, Any], optional
         Custom band information
-    add_metadata_client : bool
+    add_metadata_client_side : bool
         Add client-side metadata (recommended)
     logger : logging.Logger, optional
         Logger for output
@@ -1397,6 +1228,9 @@ def whisp_stats_geojson_to_df_non_concurrent(
     # Clean geometries
     gdf = clean_geodataframe(gdf, logger=logger)
 
+    # Add stable plotIds for merging (starting from 1, not 0)
+    gdf[plot_id_column] = range(1, len(gdf) + 1)
+
     # Add stable row IDs
     row_id_col = "__row_id__"
     gdf[row_id_col] = range(len(gdf))
@@ -1406,7 +1240,19 @@ def whisp_stats_geojson_to_df_non_concurrent(
         logger.debug("Creating Whisp image...")
         # Suppress print statements from combine_datasets
         with redirect_stdout(io.StringIO()):
-            whisp_image = combine_datasets(national_codes=national_codes)
+            try:
+                # First try without validation
+                whisp_image = combine_datasets(
+                    national_codes=national_codes, validate_bands=False
+                )
+            except Exception as e:
+                logger.warning(
+                    f"First attempt failed: {str(e)[:100]}. Retrying with validate_bands=True..."
+                )
+                # Retry with validation to catch and fix bad bands
+                whisp_image = combine_datasets(
+                    national_codes=national_codes, validate_bands=True
+                )
 
     # Convert to EE (suppress print statements from convert_geojson_to_ee)
     logger.debug("Converting to EE FeatureCollection...")
@@ -1416,10 +1262,38 @@ def whisp_stats_geojson_to_df_non_concurrent(
     # Create reducer
     reducer = ee.Reducer.sum().combine(ee.Reducer.median(), sharedInputs=True)
 
-    # Process server-side
+    # Process server-side with error handling for bad bands
     logger.info("Processing with Earth Engine...")
-    results_fc = whisp_image.reduceRegions(collection=fc, reducer=reducer, scale=10)
-    df_server = convert_ee_to_df(results_fc)
+    try:
+        results_fc = whisp_image.reduceRegions(collection=fc, reducer=reducer, scale=10)
+        df_server = convert_ee_to_df(results_fc)
+    except Exception as e:
+        # Check if this is a band error
+        error_msg = str(e)
+        is_band_error = any(
+            keyword in error_msg
+            for keyword in ["Image.load", "asset", "not found", "does not exist"]
+        )
+
+        if is_band_error and whisp_image is not None:
+            logger.warning(
+                f"Detected bad band error: {error_msg[:100]}. Retrying with validate_bands=True..."
+            )
+            try:
+                with redirect_stdout(io.StringIO()):
+                    whisp_image = combine_datasets(
+                        national_codes=national_codes, validate_bands=True
+                    )
+                logger.info("Image recreated with validation. Retrying processing...")
+                results_fc = whisp_image.reduceRegions(
+                    collection=fc, reducer=reducer, scale=10
+                )
+                df_server = convert_ee_to_df(results_fc)
+            except Exception as retry_e:
+                logger.error(f"Retry failed: {str(retry_e)[:100]}")
+                raise
+        else:
+            raise
 
     logger.debug("Server-side processing complete")
 
@@ -1428,7 +1302,7 @@ def whisp_stats_geojson_to_df_non_concurrent(
         df_server[row_id_col] = range(len(df_server))
 
     # Add client-side metadata if requested
-    if add_metadata_client:
+    if add_metadata_client_side:
         logger.debug("Extracting client-side metadata...")
         df_client = extract_centroid_and_geomtype_client(
             gdf,
@@ -1471,7 +1345,7 @@ def whisp_stats_geojson_to_df_non_concurrent(
         convert_water_flag=True,
     )
 
-    logger.info(f"✅ Processed {len(formatted):,} features")
+    logger.info(f"Processed {len(formatted):,} features")
     return formatted
 
 
@@ -1586,6 +1460,11 @@ def whisp_concurrent_formatted_stats_geojson_to_df(
 
     # Step 2: Format the output
     logger.debug("Step 2/2: Formatting output...")
+    median_cols_before = [c for c in df_raw.columns if c.endswith("_median")]
+    logger.debug(
+        f"Columns ending with '_median' BEFORE formatting: {median_cols_before}"
+    )
+
     df_formatted = format_stats_dataframe(
         df=df_raw,
         area_col=f"{geometry_area_column}_sum",
@@ -1597,6 +1476,20 @@ def whisp_concurrent_formatted_stats_geojson_to_df(
         sort_column=sort_column,
     )
 
+    median_cols_after = [c for c in df_formatted.columns if c.endswith("_median")]
+    logger.debug(f"Columns ending with '_median' AFTER formatting: {median_cols_after}")
+
+    # Step 2b: Reformat geometry and handle point areas
+    try:
+        df_formatted = reformat_geometry_type(df_formatted)
+    except Exception as e:
+        logger.warning(f"Error reformatting geometry type: {e}")
+
+    try:
+        df_formatted = set_point_geometry_area_to_zero(df_formatted)
+    except Exception as e:
+        logger.warning(f"Error setting point geometry area to zero: {e}")
+
     # Step 3: Validate against schema
     logger.debug("Step 3/3: Validating against schema...")
     from openforis_whisp.reformat import validate_dataframe_using_lookups_flexible
@@ -1607,11 +1500,11 @@ def whisp_concurrent_formatted_stats_geojson_to_df(
         custom_bands=custom_bands,
     )
 
-    logger.info("✅ Concurrent processing + formatting + validation complete")
+    logger.info("Concurrent processing + formatting + validation complete")
     return df_validated
 
 
-def whisp_formatted_stats_geojson_to_df_non_concurrent(
+def whisp_formatted_stats_geojson_to_df_sequential(
     input_geojson_filepath: str,
     external_id_column: str = None,
     remove_geom: bool = False,
@@ -1619,7 +1512,7 @@ def whisp_formatted_stats_geojson_to_df_non_concurrent(
     unit_type: str = "ha",
     whisp_image: ee.Image = None,
     custom_bands: Dict[str, Any] = None,
-    add_metadata_client: bool = True,
+    add_metadata_client_side: bool = True,
     logger: logging.Logger = None,
     # Format parameters (auto-detect from config if not provided)
     decimal_places: int = None,
@@ -1629,9 +1522,9 @@ def whisp_formatted_stats_geojson_to_df_non_concurrent(
     sort_column: str = "plotId",
 ) -> pd.DataFrame:
     """
-    Process GeoJSON non-concurrently with automatic formatting and validation.
+    Process GeoJSON sequentially with automatic formatting and validation.
 
-    Combines whisp_stats_geojson_to_df_non_concurrent + format_stats_dataframe + validation
+    Combines whisp_stats_geojson_to_df_sequential + format_stats_dataframe + validation
     for a complete pipeline: extract stats → convert units → format output → validate schema.
 
     Uses standard endpoint for sequential processing.
@@ -1652,7 +1545,7 @@ def whisp_formatted_stats_geojson_to_df_non_concurrent(
         Pre-combined image
     custom_bands : Dict[str, Any], optional
         Custom band information
-    add_metadata_client : bool
+    add_metadata_client_side : bool
         Add client-side metadata (default True)
     logger : logging.Logger, optional
         Logger for output
@@ -1686,8 +1579,8 @@ def whisp_formatted_stats_geojson_to_df_non_concurrent(
         logger.debug(f"Using decimal_places={decimal_places} from config")
 
     # Step 1: Get raw stats
-    logger.debug("Step 1/2: Extracting statistics (non-concurrent)...")
-    df_raw = whisp_stats_geojson_to_df_non_concurrent(
+    logger.debug("Step 1/2: Extracting statistics (sequential)...")
+    df_raw = whisp_stats_geojson_to_df_sequential(
         input_geojson_filepath=input_geojson_filepath,
         external_id_column=external_id_column,
         remove_geom=remove_geom,
@@ -1695,12 +1588,17 @@ def whisp_formatted_stats_geojson_to_df_non_concurrent(
         unit_type=unit_type,
         whisp_image=whisp_image,
         custom_bands=custom_bands,
-        add_metadata_client=add_metadata_client,
+        add_metadata_client_side=add_metadata_client_side,
         logger=logger,
     )
 
     # Step 2: Format the output
     logger.debug("Step 2/2: Formatting output...")
+    median_cols_before = [c for c in df_raw.columns if c.endswith("_median")]
+    logger.debug(
+        f"Columns ending with '_median' BEFORE formatting: {median_cols_before}"
+    )
+
     df_formatted = format_stats_dataframe(
         df=df_raw,
         area_col=f"{geometry_area_column}_sum",
@@ -1712,6 +1610,20 @@ def whisp_formatted_stats_geojson_to_df_non_concurrent(
         sort_column=sort_column,
     )
 
+    median_cols_after = [c for c in df_formatted.columns if c.endswith("_median")]
+    logger.debug(f"Columns ending with '_median' AFTER formatting: {median_cols_after}")
+
+    # Step 2b: Reformat geometry and handle point areas
+    try:
+        df_formatted = reformat_geometry_type(df_formatted)
+    except Exception as e:
+        logger.warning(f"Error reformatting geometry type: {e}")
+
+    try:
+        df_formatted = set_point_geometry_area_to_zero(df_formatted)
+    except Exception as e:
+        logger.warning(f"Error setting point geometry area to zero: {e}")
+
     # Step 3: Validate against schema
     logger.debug("Step 3/3: Validating against schema...")
     from openforis_whisp.reformat import validate_dataframe_using_lookups_flexible
@@ -1722,23 +1634,5 @@ def whisp_formatted_stats_geojson_to_df_non_concurrent(
         custom_bands=custom_bands,
     )
 
-    logger.info("✅ Non-concurrent processing + formatting + validation complete")
+    logger.info("Sequential processing + formatting + validation complete")
     return df_validated
-
-
-# ============================================================================
-# PLACEHOLDER FOR EXPORTS (to be added to __init__.py)
-# ============================================================================
-
-__all__ = [
-    "whisp_concurrent_stats_geojson_to_df",
-    "whisp_concurrent_stats_ee_to_ee",
-    "whisp_concurrent_stats_ee_to_df",
-    "whisp_stats_geojson_to_df_non_concurrent",
-    "whisp_concurrent_formatted_stats_geojson_to_df",
-    "whisp_formatted_stats_geojson_to_df_non_concurrent",
-    "setup_concurrent_logger",
-    "check_ee_endpoint",
-    "validate_ee_endpoint",
-    "ProgressTracker",
-]
