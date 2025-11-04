@@ -1,12 +1,16 @@
 """
-Concurrent and sequential statistics processing for WHISP.
+Advanced statistics processing for WHISP - concurrent and sequential endpoints.
 
-This module provides functions for processing GeoJSON/EE FeatureCollections
+This module provides optimized functions for processing GeoJSON/EE FeatureCollections
 with Whisp datasets using concurrent batching (for high-volume processing)
 and standard sequential processing.
 
+NOTE: This module is a transition state. The plan is to eventually merge these
+functions into stats.py and replace the standard functions there as the primary
+implementation, deprecating the legacy versions.
+
 Key features:
-  - whisp_stats_geojson_to_df_concurrent/ee_to_df/geojson_to_geojson/ee_to_ee
+  - whisp_stats_geojson_to_df_concurrent
   - whisp_stats_geojson_to_df_sequential (standard endpoint, sequential)
   - Proper logging at different levels (WARNING, INFO, DEBUG)
   - Progress tracking without external dependencies
@@ -1019,9 +1023,15 @@ def whisp_stats_geojson_to_df_concurrent(
                 return pd.DataFrame()
 
     if results:
-        combined = pd.concat(results, ignore_index=True)
-        # Ensure all column names are strings (fixes pandas .str accessor issues later)
-        combined.columns = combined.columns.astype(str)
+        # Filter out empty DataFrames to avoid FutureWarning in pd.concat
+        results = [df for df in results if not df.empty]
+
+        if results:
+            combined = pd.concat(results, ignore_index=True)
+            # Ensure all column names are strings (fixes pandas .str accessor issues later)
+            combined.columns = combined.columns.astype(str)
+        else:
+            return pd.DataFrame()
 
         # Clean up duplicate external_id columns created by merges
         # Rename external_id_column to standardized 'external_id' for schema validation
@@ -1737,3 +1747,176 @@ def whisp_formatted_stats_geojson_to_df_sequential(
 
     logger.info("Sequential processing + formatting + validation complete")
     return df_validated
+
+
+# ============================================================================
+# FAST PROCESSING WITH AUTO-ROUTING
+# ============================================================================
+
+
+def whisp_formatted_stats_geojson_to_df_fast(
+    input_geojson_filepath: str,
+    external_id_column: str = None,
+    remove_geom: bool = False,
+    national_codes: List[str] = None,
+    unit_type: str = "ha",
+    whisp_image: ee.Image = None,
+    custom_bands: Dict[str, Any] = None,
+    mode: str = "auto",
+    # Concurrent-specific parameters
+    batch_size: int = 10,
+    max_concurrent: int = 20,
+    validate_geometries: bool = True,
+    max_retries: int = 3,
+    add_metadata_server: bool = False,
+    # Format parameters (auto-detect from config if not provided)
+    decimal_places: int = None,
+    remove_median_columns: bool = True,
+    convert_water_flag: bool = True,
+    water_flag_threshold: float = 0.5,
+    sort_column: str = "plotId",
+) -> pd.DataFrame:
+    """
+    Process GeoJSON to Whisp statistics with optimized fast processing.
+
+    Automatically selects between concurrent (high-volume endpoint) and sequential
+    (standard endpoint) based on file size, or allows explicit mode selection.
+
+    This is the recommended entry point for most users who want automatic optimization.
+
+    Parameters
+    ----------
+    input_geojson_filepath : str
+        Path to input GeoJSON file
+    external_id_column : str, optional
+        Column name for external IDs
+    remove_geom : bool
+        Remove geometry column from output
+    national_codes : List[str], optional
+        ISO2 codes for national datasets
+    unit_type : str
+        "ha" or "percent"
+    whisp_image : ee.Image, optional
+        Pre-combined image
+    custom_bands : Dict[str, Any], optional
+        Custom band information
+    mode : str
+        Processing mode:
+        - "auto": Choose based on file size (default)
+          * <1MB: sequential
+          * 1-5MB: sequential
+          * >5MB: concurrent
+        - "concurrent": Force high-volume endpoint (batch processing)
+        - "sequential": Force standard endpoint (single-threaded)
+    batch_size : int
+        Features per batch (only for concurrent mode)
+    max_concurrent : int
+        Maximum concurrent EE calls (only for concurrent mode)
+    validate_geometries : bool
+        Validate and clean geometries
+    max_retries : int
+        Retry attempts per batch (only for concurrent mode)
+    add_metadata_server : bool
+        Add metadata server-side (only for concurrent mode)
+    decimal_places : int, optional
+        Decimal places for rounding. If None, auto-detects from config.
+    remove_median_columns : bool
+        Remove '_median' columns
+    convert_water_flag : bool
+        Convert water flag to boolean
+    water_flag_threshold : float
+        Water flag ratio threshold
+    sort_column : str
+        Column to sort by
+
+    Returns
+    -------
+    pd.DataFrame
+        Validated, formatted results DataFrame
+
+    Examples
+    --------
+    >>> # Auto-detect best method based on file size
+    >>> df = whisp_formatted_stats_geojson_to_df_fast("data.geojson")
+
+    >>> # Force concurrent processing for large datasets
+    >>> df = whisp_formatted_stats_geojson_to_df_fast(
+    ...     "large_data.geojson",
+    ...     mode="concurrent"
+    ... )
+
+    >>> # Use sequential for guaranteed completion
+    >>> df = whisp_formatted_stats_geojson_to_df_fast(
+    ...     "data.geojson",
+    ...     mode="sequential"
+    ... )
+    """
+    logger = setup_concurrent_logger()
+
+    # Determine processing mode
+    if mode == "auto":
+        try:
+            file_size = Path(input_geojson_filepath).stat().st_size
+            if file_size > 5_000_000:  # >5MB
+                chosen_mode = "concurrent"
+                logger.info(
+                    f"File size {file_size/1e6:.1f}MB → Using concurrent (high-volume endpoint)"
+                )
+            else:  # <=5MB
+                chosen_mode = "sequential"
+                logger.info(
+                    f"File size {file_size/1e6:.1f}MB → Using sequential (standard endpoint)"
+                )
+        except Exception as e:
+            logger.warning(
+                f"Could not determine file size: {e}. Defaulting to sequential."
+            )
+            chosen_mode = "sequential"
+    elif mode in ("concurrent", "sequential"):
+        chosen_mode = mode
+        logger.info(f"Mode explicitly set to: {mode}")
+    else:
+        raise ValueError(
+            f"Invalid mode '{mode}'. Must be 'auto', 'concurrent', or 'sequential'."
+        )
+
+    # Route to appropriate function
+    if chosen_mode == "concurrent":
+        logger.debug("Routing to concurrent processing...")
+        return whisp_formatted_stats_geojson_to_df_concurrent(
+            input_geojson_filepath=input_geojson_filepath,
+            external_id_column=external_id_column,
+            remove_geom=remove_geom,
+            national_codes=national_codes,
+            unit_type=unit_type,
+            whisp_image=whisp_image,
+            custom_bands=custom_bands,
+            batch_size=batch_size,
+            max_concurrent=max_concurrent,
+            validate_geometries=validate_geometries,
+            max_retries=max_retries,
+            add_metadata_server=add_metadata_server,
+            logger=logger,
+            decimal_places=decimal_places,
+            remove_median_columns=remove_median_columns,
+            convert_water_flag=convert_water_flag,
+            water_flag_threshold=water_flag_threshold,
+            sort_column=sort_column,
+        )
+    else:  # sequential
+        logger.debug("Routing to sequential processing...")
+        return whisp_formatted_stats_geojson_to_df_sequential(
+            input_geojson_filepath=input_geojson_filepath,
+            external_id_column=external_id_column,
+            remove_geom=remove_geom,
+            national_codes=national_codes,
+            unit_type=unit_type,
+            whisp_image=whisp_image,
+            custom_bands=custom_bands,
+            logger=logger,
+            decimal_places=decimal_places,
+            remove_median_columns=remove_median_columns,
+            convert_water_flag=convert_water_flag,
+            water_flag_threshold=water_flag_threshold,
+            sort_column=sort_column,
+        )

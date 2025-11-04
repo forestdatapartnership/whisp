@@ -2,8 +2,11 @@ import ee
 from google.oauth2 import service_account
 
 
-def initialize_ee(credentials_path=None):
-    """Initializes Google Earth Engine using the provided path or defaults to normal if no path is given."""
+def initialize_ee(credentials_path=None, use_high_vol_endpoint=False):
+    """Initializes Google Earth Engine using the provided path or defaults to normal if no path is given.
+    Args:
+    use_high_vol_endpoint: True/False to use high-volume endpoint via opt_url parameter (defaults to False).
+    """
     try:
         if not ee.data._initialized:
             print(credentials_path)
@@ -12,10 +15,21 @@ def initialize_ee(credentials_path=None):
                     credentials_path,
                     scopes=["https://www.googleapis.com/auth/earthengine"],
                 )
-                ee.Initialize(credentials)
+                if use_high_vol_endpoint == False:
+                    ee.Initialize(credentials)
+                else:
+                    ee.Initialize(
+                        credentials,
+                        opt_url="https://earthengine-highvolume.googleapis.com",
+                    )
                 print("EE initialized with credentials from:", credentials_path)
             else:
-                ee.Initialize()
+                if use_high_vol_endpoint == False:
+                    ee.Initialize()
+                else:
+                    ee.Initialize(
+                        opt_url="https://earthengine-highvolume.googleapis.com"
+                    )
                 print("EE initialized with default credentials.")
     except Exception as e:
         print("Error initializing EE:", e)
@@ -47,11 +61,12 @@ from openforis_whisp.stats import (
     convert_iso3_to_iso2,
 )
 
-from openforis_whisp.concurrent_stats import (
+from openforis_whisp.advanced_stats import (
     whisp_stats_geojson_to_df_concurrent,
     whisp_formatted_stats_geojson_to_df_concurrent,
     whisp_stats_geojson_to_df_sequential,
     whisp_formatted_stats_geojson_to_df_sequential,
+    whisp_formatted_stats_geojson_to_df_fast,
     setup_concurrent_logger,
 )
 
