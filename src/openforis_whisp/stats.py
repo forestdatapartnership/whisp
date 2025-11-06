@@ -190,7 +190,8 @@ def whisp_formatted_stats_geojson_to_geojson(
     # Convert the df to GeoJSON
     convert_df_to_geojson(df, output_geojson_filepath, geo_column)
 
-    print(f"GeoJSON with Whisp stats saved to {output_geojson_filepath}")
+    # Suppress verbose output
+    # print(f"GeoJSON with Whisp stats saved to {output_geojson_filepath}")
 
 
 def whisp_formatted_stats_ee_to_geojson(

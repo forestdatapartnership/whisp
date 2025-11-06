@@ -34,6 +34,19 @@ class StdoutLogger:
     def setLevel(self, level):
         self.logger.setLevel(level)
 
+    @property
+    def level(self):
+        """Return the logger's effective level."""
+        return self.logger.level
+
+    def hasHandlers(self):
+        """Check if the logger has any handlers."""
+        return self.logger.hasHandlers()
+
+    def addHandler(self, handler):
+        """Add a handler to the logger."""
+        self.logger.addHandler(handler)
+
 
 class FileLogger:
     def __init__(
@@ -73,3 +86,16 @@ class FileLogger:
 
     def setLevel(self, level):
         self.logger.setLevel(level)
+
+    @property
+    def level(self):
+        """Return the logger's effective level."""
+        return self.logger.level
+
+    def hasHandlers(self):
+        """Check if the logger has any handlers."""
+        return self.logger.hasHandlers()
+
+    def addHandler(self, handler):
+        """Add a handler to the logger."""
+        self.logger.addHandler(handler)

@@ -1,7 +1,7 @@
 """
 Advanced statistics processing for WHISP - concurrent and sequential endpoints.
 
-This module provides optimized functions for processing GeoJSON/EE FeatureCollections
+This module provides optimized functions for processing GeoJSON FeatureCollections
 with Whisp datasets using concurrent batching (for high-volume processing)
 and standard sequential processing.
 
@@ -28,12 +28,55 @@ import time
 import warnings
 import json
 import io
-from contextlib import redirect_stdout
+import os
+import subprocess
+from contextlib import redirect_stdout, contextmanager
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import tempfile
-import os
+
+# ============================================================================
+# STDOUT/STDERR SUPPRESSION CONTEXT MANAGER (for C-level output)
+# ============================================================================
+
+
+@contextmanager
+def suppress_c_level_output():
+    """Suppress C-level stdout/stderr writes from libraries like Fiona."""
+    if sys.platform == "win32":
+        # Windows doesn't support dup2() reliably for STDOUT/STDERR
+        # Fall back to Python-level suppression
+        with redirect_stdout(io.StringIO()):
+            yield
+    else:
+        # Unix-like systems: use file descriptor redirection
+        saved_stdout = os.dup(1)
+        saved_stderr = os.dup(2)
+        try:
+            devnull = os.open(os.devnull, os.O_WRONLY)
+            os.dup2(devnull, 1)
+            os.dup2(devnull, 2)
+            yield
+        finally:
+            os.dup2(saved_stdout, 1)
+            os.dup2(saved_stderr, 2)
+            os.close(devnull)
+            os.close(saved_stdout)
+            os.close(saved_stderr)
+
+
+# Suppress verbose warnings globally for this module
+# Note: FutureWarnings are kept (they signal important API changes)
+warnings.filterwarnings("ignore", category=UserWarning, message=".*geographic CRS.*")
+warnings.simplefilter("ignore", UserWarning)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+# Suppress verbose logging from GeoPandas/Fiona/pyogrio
+logging.getLogger("fiona").setLevel(logging.WARNING)
+logging.getLogger("fiona.ogrext").setLevel(logging.WARNING)
+logging.getLogger("pyogrio").setLevel(logging.WARNING)
+logging.getLogger("pyogrio._io").setLevel(logging.WARNING)
 
 from openforis_whisp.parameters.config_runtime import (
     plot_id_column,
@@ -66,6 +109,76 @@ from openforis_whisp.stats import (
 # ============================================================================
 # LOGGING & PROGRESS UTILITIES
 # ============================================================================
+
+
+def _suppress_verbose_output(max_concurrent: int = None):
+    """
+    Suppress verbose warnings and logging from dependencies.
+
+    Dynamically adjusts urllib3 logger level based on max_concurrent to prevent
+    "Connection pool is full" warnings during high-concurrency scenarios.
+
+    Parameters
+    ----------
+    max_concurrent : int, optional
+        Maximum concurrent workers. Adjusts urllib3 logging level:
+        - max_concurrent <= 20: WARNING (pool rarely full)
+        - max_concurrent 21-35: CRITICAL (suppress pool warnings)
+        - max_concurrent >= 36: CRITICAL (maximum suppression)
+    """
+    warnings.filterwarnings("ignore", category=UserWarning)
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+    # Suppress urllib3 connection pool warnings via filters
+    warnings.filterwarnings("ignore", message=".*Connection pool is full.*")
+    warnings.filterwarnings("ignore", message=".*discarding connection.*")
+
+    # Set logger levels to WARNING to suppress INFO messages
+    for mod_name in [
+        "openforis_whisp.reformat",
+        "openforis_whisp.data_conversion",
+        "geopandas",
+        "fiona",
+        "pyogrio._io",
+        "urllib3",
+    ]:
+        logging.getLogger(mod_name).setLevel(logging.WARNING)
+
+    # ALL urllib3 loggers: use CRITICAL to suppress ALL connection pool warnings
+    # (these appear at WARNING level during high concurrency)
+    urllib3_loggers = [
+        "urllib3.connectionpool",
+        "urllib3.poolmanager",
+        "urllib3",
+        "requests.packages.urllib3.connectionpool",
+        "requests.packages.urllib3.poolmanager",
+        "requests.packages.urllib3",
+    ]
+
+    for logger_name in urllib3_loggers:
+        logging.getLogger(logger_name).setLevel(logging.CRITICAL)
+
+    # Suppress warning logs specifically from reformat module during validation
+    reformat_logger = logging.getLogger("openforis_whisp.reformat")
+    reformat_logger.setLevel(logging.ERROR)
+
+
+def _load_geojson_silently(filepath: str) -> gpd.GeoDataFrame:
+    """Load GeoJSON file with all output suppressed."""
+    fiona_logger = logging.getLogger("fiona")
+    pyogrio_logger = logging.getLogger("pyogrio._io")
+    old_fiona_level = fiona_logger.level
+    old_pyogrio_level = pyogrio_logger.level
+    fiona_logger.setLevel(logging.CRITICAL)
+    pyogrio_logger.setLevel(logging.CRITICAL)
+
+    try:
+        with redirect_stdout(io.StringIO()):
+            gdf = gpd.read_file(filepath)
+        return gdf
+    finally:
+        fiona_logger.setLevel(old_fiona_level)
+        pyogrio_logger.setLevel(old_pyogrio_level)
 
 
 def _extract_decimal_places(format_string: str) -> int:
@@ -291,48 +404,12 @@ def join_admin_codes(
         return df
 
 
-def setup_concurrent_logger(name: str = "whisp-concurrent", level: int = logging.INFO):
-    """
-    Configure logging for concurrent operations with minimal duplication.
-
-    Parameters
-    ----------
-    name : str
-        Logger name
-    level : int
-        Logging level (logging.INFO, logging.DEBUG, etc.)
-
-    Returns
-    -------
-    logging.Logger
-        Configured logger
-    """
-    logger = logging.getLogger(name)
-
-    # Remove ALL existing handlers to ensure no duplicates
-    logger.handlers.clear()
-
-    # Disable propagation to prevent duplicate output from parent loggers
-    logger.propagate = False
-
-    # Create and add a single handler
-    handler = logging.StreamHandler(sys.stdout)
-    formatter = logging.Formatter("%(levelname)s: %(message)s")
-    handler.setFormatter(formatter)
-    handler.setLevel(level)
-
-    logger.addHandler(handler)
-    logger.setLevel(level)
-
-    return logger
-
-
 class ProgressTracker:
     """
-    Track batch processing progress with minimal output.
+    Track batch processing progress with time estimation.
 
-    Shows cumulative progress at key milestones (25%, 50%, 75%, 100%)
-    instead of per-batch updates.
+    Shows progress at key milestones (25%, 50%, 75%, 100%) with estimated
+    time remaining based on processing speed.
     """
 
     def __init__(self, total: int, logger: logging.Logger = None):
@@ -352,6 +429,8 @@ class ProgressTracker:
         self.logger = logger or logging.getLogger("whisp-concurrent")
         self.milestones = {25, 50, 75, 100}
         self.shown_milestones = set()
+        self.start_time = time.time()
+        self.last_update_time = self.start_time
 
     def update(self, n: int = 1) -> None:
         """
@@ -370,16 +449,45 @@ class ProgressTracker:
             for milestone in sorted(self.milestones):
                 if percent >= milestone and milestone not in self.shown_milestones:
                     self.shown_milestones.add(milestone)
-                    self.logger.info(
-                        f"Progress: {self.completed}/{self.total} "
-                        f"({percent}% complete)"
-                    )
+
+                    # Calculate time metrics
+                    elapsed = time.time() - self.start_time
+                    rate = self.completed / elapsed if elapsed > 0 else 0
+                    remaining_items = self.total - self.completed
+                    eta_seconds = remaining_items / rate if rate > 0 else 0
+
+                    # Format time strings
+                    eta_str = self._format_time(eta_seconds)
+                    elapsed_str = self._format_time(elapsed)
+
+                    # Build progress message
+                    msg = f"Progress: {self.completed}/{self.total} ({percent}%)"
+                    if percent < 100:
+                        msg += f" | Elapsed: {elapsed_str} | ETA: {eta_str}"
+                    else:
+                        msg += f" | Total time: {elapsed_str}"
+
+                    self.logger.info(msg)
+
+    @staticmethod
+    def _format_time(seconds: float) -> str:
+        """Format seconds as human-readable string."""
+        if seconds < 60:
+            return f"{seconds:.0f}s"
+        elif seconds < 3600:
+            mins = seconds / 60
+            return f"{mins:.1f}m"
+        else:
+            hours = seconds / 3600
+            return f"{hours:.1f}h"
 
     def finish(self) -> None:
         """Log completion."""
         with self.lock:
+            total_time = time.time() - self.start_time
+            time_str = self._format_time(total_time)
             self.logger.info(
-                f"Processing complete: {self.completed}/{self.total} batches"
+                f"Processing complete: {self.completed}/{self.total} batches in {time_str}"
             )
 
 
@@ -488,9 +596,10 @@ def extract_centroid_and_geomtype_client(
 
     gdf = gdf.copy()
 
-    # Extract centroid coordinates (suppressing geographic CRS warning)
+    # Extract centroid coordinates (suppressing geographic CRS warning from Shapely)
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=UserWarning)
+        warnings.simplefilter("ignore", UserWarning)  # Additional suppression
         centroid_points = gdf.geometry.centroid
 
     gdf[x_col] = centroid_points.x.round(6)
@@ -851,7 +960,10 @@ def whisp_stats_geojson_to_df_concurrent(
     """
     from openforis_whisp.reformat import format_stats_dataframe
 
-    logger = logger or setup_concurrent_logger()
+    logger = logger or logging.getLogger("whisp-concurrent")
+
+    # Suppress verbose output from dependencies (dynamically adjust based on max_concurrent)
+    _suppress_verbose_output(max_concurrent=max_concurrent)
 
     # Auto-detect decimal places from config if not provided
     if decimal_places is None:
@@ -861,8 +973,8 @@ def whisp_stats_geojson_to_df_concurrent(
     # Validate endpoint
     validate_ee_endpoint("high-volume", raise_error=True)
 
-    logger.info(f"Loading GeoJSON: {input_geojson_filepath}")
-    gdf = gpd.read_file(input_geojson_filepath)
+    # Load GeoJSON with output suppressed
+    gdf = _load_geojson_silently(input_geojson_filepath)
     logger.info(f"Loaded {len(gdf):,} features")
 
     if validate_geometries:
@@ -933,36 +1045,50 @@ def whisp_stats_geojson_to_df_concurrent(
     # Track if we had errors that suggest bad bands
     batch_errors = []
 
-    with ThreadPoolExecutor(max_workers=pool_workers) as executor:
-        futures = {
-            executor.submit(process_batch, i, batch): i
-            for i, batch in enumerate(batches)
-        }
+    # Suppress fiona logging during batch processing (threads create new loggers)
+    fiona_logger = logging.getLogger("fiona")
+    pyogrio_logger = logging.getLogger("pyogrio._io")
+    old_fiona_level = fiona_logger.level
+    old_pyogrio_level = pyogrio_logger.level
+    fiona_logger.setLevel(logging.CRITICAL)
+    pyogrio_logger.setLevel(logging.CRITICAL)
 
-        for future in as_completed(futures):
-            try:
-                batch_idx, df_server, df_client = future.result()
+    try:
+        with redirect_stdout(io.StringIO()):
+            with ThreadPoolExecutor(max_workers=pool_workers) as executor:
+                futures = {
+                    executor.submit(process_batch, i, batch): i
+                    for i, batch in enumerate(batches)
+                }
 
-                # Merge server and client results
-                if plot_id_column not in df_server.columns:
-                    df_server[plot_id_column] = range(len(df_server))
+                for future in as_completed(futures):
+                    try:
+                        batch_idx, df_server, df_client = future.result()
 
-                merged = df_server.merge(
-                    df_client,
-                    on=plot_id_column,
-                    how="left",
-                    suffixes=("_ee", "_client"),
-                )
-                results.append(merged)
-                progress.update()
+                        # Merge server and client results
+                        if plot_id_column not in df_server.columns:
+                            df_server[plot_id_column] = range(len(df_server))
 
-            except Exception as e:
-                error_msg = str(e)
-                logger.error(f"Batch processing error: {error_msg[:100]}")
-                import traceback
+                        merged = df_server.merge(
+                            df_client,
+                            on=plot_id_column,
+                            how="left",
+                            suffixes=("_ee", "_client"),
+                        )
+                        results.append(merged)
+                        progress.update()
 
-                logger.debug(traceback.format_exc())
-                batch_errors.append(error_msg)
+                    except Exception as e:
+                        error_msg = str(e)
+                        logger.error(f"Batch processing error: {error_msg[:100]}")
+                        import traceback
+
+                        logger.debug(traceback.format_exc())
+                        batch_errors.append(error_msg)
+    finally:
+        # Restore logger levels
+        fiona_logger.setLevel(old_fiona_level)
+        pyogrio_logger.setLevel(old_pyogrio_level)
 
     progress.finish()
 
@@ -991,31 +1117,44 @@ def whisp_stats_geojson_to_df_concurrent(
                 results = []
                 progress = ProgressTracker(len(batches), logger=logger)
 
-                with ThreadPoolExecutor(max_workers=pool_workers) as executor:
-                    futures = {
-                        executor.submit(process_batch, i, batch): i
-                        for i, batch in enumerate(batches)
-                    }
+                # Suppress fiona logging during batch processing (threads create new loggers)
+                fiona_logger = logging.getLogger("fiona")
+                pyogrio_logger = logging.getLogger("pyogrio._io")
+                old_fiona_level = fiona_logger.level
+                old_pyogrio_level = pyogrio_logger.level
+                fiona_logger.setLevel(logging.CRITICAL)
+                pyogrio_logger.setLevel(logging.CRITICAL)
 
-                    for future in as_completed(futures):
-                        try:
-                            batch_idx, df_server, df_client = future.result()
-                            if plot_id_column not in df_server.columns:
-                                df_server[plot_id_column] = range(len(df_server))
-                            merged = df_server.merge(
-                                df_client,
-                                on=plot_id_column,
-                                how="left",
-                                suffixes=("", "_client"),
-                            )
-                            results.append(merged)
-                            progress.update()
-                        except Exception as e:
-                            logger.error(
-                                f"Batch processing error (retry): {str(e)[:100]}"
-                            )
+                try:
+                    with ThreadPoolExecutor(max_workers=pool_workers) as executor:
+                        futures = {
+                            executor.submit(process_batch, i, batch): i
+                            for i, batch in enumerate(batches)
+                        }
 
-                progress.finish()
+                        for future in as_completed(futures):
+                            try:
+                                batch_idx, df_server, df_client = future.result()
+                                if plot_id_column not in df_server.columns:
+                                    df_server[plot_id_column] = range(len(df_server))
+                                merged = df_server.merge(
+                                    df_client,
+                                    on=plot_id_column,
+                                    how="left",
+                                    suffixes=("", "_client"),
+                                )
+                                results.append(merged)
+                                progress.update()
+                            except Exception as e:
+                                logger.error(
+                                    f"Batch processing error (retry): {str(e)[:100]}"
+                                )
+
+                    progress.finish()
+                finally:
+                    # Restore logger levels
+                    fiona_logger.setLevel(old_fiona_level)
+                    pyogrio_logger.setLevel(old_pyogrio_level)
             except Exception as validation_e:
                 logger.error(
                     f"Failed to recover with validation: {str(validation_e)[:100]}"
@@ -1023,11 +1162,19 @@ def whisp_stats_geojson_to_df_concurrent(
                 return pd.DataFrame()
 
     if results:
-        # Filter out empty DataFrames to avoid FutureWarning in pd.concat
-        results = [df for df in results if not df.empty]
+        # Filter out empty DataFrames and all-NA columns to avoid FutureWarning in pd.concat
+        results_filtered = []
+        for df in results:
+            if not df.empty:
+                # Drop columns that are entirely NA
+                df_clean = df.dropna(axis=1, how="all")
+                if not df_clean.empty:
+                    results_filtered.append(df_clean)
+        results = results_filtered
 
         if results:
-            combined = pd.concat(results, ignore_index=True)
+            # Concatenate with explicit dtype handling to suppress FutureWarning
+            combined = pd.concat(results, ignore_index=True, sort=False)
             # Ensure all column names are strings (fixes pandas .str accessor issues later)
             combined.columns = combined.columns.astype(str)
         else:
@@ -1162,7 +1309,10 @@ def whisp_stats_geojson_to_df_concurrent(
                             )
 
                 if results_validated:
-                    combined = pd.concat(results_validated, ignore_index=True)
+                    # Concatenate with explicit dtype handling to suppress FutureWarning
+                    combined = pd.concat(
+                        results_validated, ignore_index=True, sort=False
+                    )
                     # Ensure all column names are strings (fixes pandas .str accessor issues later)
                     combined.columns = combined.columns.astype(str)
 
@@ -1297,7 +1447,10 @@ def whisp_stats_geojson_to_df_sequential(
     """
     from openforis_whisp.reformat import format_stats_dataframe
 
-    logger = logger or setup_concurrent_logger()
+    logger = logger or logging.getLogger("whisp-concurrent")
+
+    # Suppress verbose output from dependencies (sequential has lower concurrency, use default)
+    _suppress_verbose_output(max_concurrent=1)
 
     # Auto-detect decimal places from config if not provided
     if decimal_places is None:
@@ -1307,8 +1460,8 @@ def whisp_stats_geojson_to_df_sequential(
     # Validate endpoint
     validate_ee_endpoint("standard", raise_error=True)
 
-    logger.info(f"Loading GeoJSON: {input_geojson_filepath}")
-    gdf = gpd.read_file(input_geojson_filepath)
+    # Load GeoJSON with output suppressed
+    gdf = _load_geojson_silently(input_geojson_filepath)
     logger.info(f"Loaded {len(gdf):,} features")
 
     # Clean geometries
@@ -1543,7 +1696,7 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
     """
     from openforis_whisp.reformat import format_stats_dataframe
 
-    logger = logger or setup_concurrent_logger()
+    logger = logger or logging.getLogger("whisp-concurrent")
 
     # Auto-detect decimal places from config if not provided
     if decimal_places is None:
@@ -1681,7 +1834,7 @@ def whisp_formatted_stats_geojson_to_df_sequential(
     """
     from openforis_whisp.reformat import format_stats_dataframe
 
-    logger = logger or setup_concurrent_logger()
+    logger = logger or logging.getLogger("whisp-concurrent")
 
     # Auto-detect decimal places from config if not provided
     if decimal_places is None:
@@ -1851,7 +2004,7 @@ def whisp_formatted_stats_geojson_to_df_fast(
     ...     mode="sequential"
     ... )
     """
-    logger = setup_concurrent_logger()
+    logger = logging.getLogger("whisp-concurrent")
 
     # Determine processing mode
     if mode == "auto":

@@ -31,14 +31,6 @@ def convert_geojson_to_ee(
     if isinstance(geojson_filepath, (str, Path)):
         file_path = os.path.abspath(geojson_filepath)
 
-        # Apply print_once deduplication for file reading message
-        if not hasattr(convert_geojson_to_ee, "_printed_file_messages"):
-            convert_geojson_to_ee._printed_file_messages = set()
-
-        if file_path not in convert_geojson_to_ee._printed_file_messages:
-            print(f"Reading GeoJSON file from: {file_path}")
-            convert_geojson_to_ee._printed_file_messages.add(file_path)
-
         # Use GeoPandas to read the file and handle CRS
         gdf = gpd.read_file(file_path)
 
@@ -56,9 +48,9 @@ def convert_geojson_to_ee(
         # Check and convert CRS if needed
         if enforce_wgs84:
             if gdf.crs is None:
-                print("Warning: Input GeoJSON has no CRS defined, assuming WGS 84")
+                # Assuming WGS 84 if no CRS defined
+                pass
             elif gdf.crs != "EPSG:4326":
-                print(f"Converting CRS from {gdf.crs} to WGS 84 (EPSG:4326)")
                 gdf = gdf.to_crs("EPSG:4326")
 
         # Convert to GeoJSON
@@ -483,7 +475,7 @@ def convert_csv_to_geojson(
     try:
         df = pd.read_csv(csv_filepath)
 
-        df_to_geojson(df, geojson_filepath, geo_column)
+        convert_df_to_geojson(df, geojson_filepath, geo_column)
 
     except Exception as e:
         print(f"An error occurred while converting CSV to GeoJSON: {e}")
