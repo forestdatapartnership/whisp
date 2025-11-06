@@ -67,7 +67,6 @@ from openforis_whisp.advanced_stats import (
     whisp_stats_geojson_to_df_sequential,
     whisp_formatted_stats_geojson_to_df_sequential,
     whisp_formatted_stats_geojson_to_df_fast,
-    setup_concurrent_logger,
 )
 
 # temporary parameters to be removed once isio3 to iso2 conversion server side is implemented

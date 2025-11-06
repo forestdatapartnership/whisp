@@ -81,7 +81,10 @@ def load_schema_if_any_file_changed(file_paths=None, national_codes=None):
         or load_schema_if_any_file_changed._last_cache_key != current_cache_key
     ):
 
-        print(f"Creating schema for national_codes: {national_codes}")
+        # Suppress verbose output
+        if logger.level <= logging.INFO:
+            logger.debug(f"Creating schema for national_codes: {national_codes}")
+        # else: suppress entirely
 
         # Load and combine lookup files
         combined_lookup_df = append_csvs_to_dataframe(file_paths)
@@ -102,7 +105,10 @@ def load_schema_if_any_file_changed(file_paths=None, national_codes=None):
 
         return schema
     else:
-        print(f"Using cached schema for national_codes: {national_codes}")
+        # Suppress verbose output
+        if logger.level <= logging.INFO:
+            logger.debug(f"Using cached schema for national_codes: {national_codes}")
+        # else: suppress entirely
         return load_schema_if_any_file_changed._cached_schema
 
 
