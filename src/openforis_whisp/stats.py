@@ -3,6 +3,7 @@ import pandas as pd
 from pathlib import Path
 from .datasets import combine_datasets
 import json
+import logging
 import country_converter as coco
 from openforis_whisp.parameters.config_runtime import (
     plot_id_column,
@@ -84,7 +85,7 @@ def get_admin_boundaries_fc():
     return _admin_boundaries_FC
 
 
-def whisp_formatted_stats_geojson_to_df(
+def whisp_formatted_stats_geojson_to_df_legacy(
     input_geojson_filepath: Path | str,
     external_id_column=None,
     remove_geom=False,
@@ -92,9 +93,15 @@ def whisp_formatted_stats_geojson_to_df(
     unit_type="ha",
     whisp_image=None,
     custom_bands=None,  # New parameter
+    validate_geometries: bool = False,
 ) -> pd.DataFrame:
     """
-        Main function for most users.
+        Legacy function for basic Whisp stats extraction.
+
+        DEPRECATED: This is the original implementation maintained for backward compatibility.
+        Use whisp_formatted_stats_geojson_to_df() for new code, which provides automatic
+        optimization, formatting, and schema validation.
+
         Converts a GeoJSON file to a pandas DataFrame containing Whisp stats for the input ROI.
         Output df is validated against a panderas schema (created on the fly from the two lookup CSVs).
 
@@ -128,13 +135,48 @@ def whisp_formatted_stats_geojson_to_df(
             - List of band names: ['Aa_test', 'elevation']
             - Dict with types: {'Aa_test': 'float64', 'elevation': 'float32'}
             - None: preserves all extra columns automatically
+        validate_geometries : bool, optional
+            Whether to validate and fix invalid geometries, by default False.
+            Set to True to automatically fix invalid/self-intersecting polygons.
 
     Returns
         -------
         df_stats : pd.DataFrame
             The DataFrame containing the Whisp stats for the input ROI.
     """
-    feature_collection = convert_geojson_to_ee(str(input_geojson_filepath))
+    # Load GeoJSON and validate geometries if requested
+    if validate_geometries:
+        import json
+        import geopandas as gpd
+        from shapely.validation import make_valid
+        import logging as py_logging
+
+        logger = py_logging.getLogger("whisp-legacy")
+
+        # Load GeoJSON file
+        with open(input_geojson_filepath, "r") as f:
+            geojson_data = json.load(f)
+
+        # Convert to GeoDataFrame
+        gdf = gpd.GeoDataFrame.from_features(geojson_data["features"])
+
+        # Validate and fix invalid geometries
+        valid_count = gdf.geometry.is_valid.sum()
+        invalid_count = len(gdf) - valid_count
+        if invalid_count > 0:
+            logger.warning(f"Fixing {invalid_count} invalid geometries")
+            gdf["geometry"] = gdf["geometry"].apply(
+                lambda g: make_valid(g) if g and not g.is_valid else g
+            )
+
+        # Convert back to GeoJSON dict (stays in memory - no temp files!)
+        geojson_cleaned = json.loads(gdf.to_json())
+
+        # OPTIMIZATION: Pass GeoJSON dict directly - eliminates file I/O overhead
+        feature_collection = convert_geojson_to_ee(geojson_cleaned)
+    else:
+        # Original path - no validation
+        feature_collection = convert_geojson_to_ee(str(input_geojson_filepath))
 
     return whisp_formatted_stats_ee_to_df(
         feature_collection,
@@ -145,6 +187,169 @@ def whisp_formatted_stats_geojson_to_df(
         whisp_image=whisp_image,
         custom_bands=custom_bands,  # Pass through
     )
+
+
+def whisp_formatted_stats_geojson_to_df(
+    input_geojson_filepath: Path | str,
+    external_id_column=None,
+    remove_geom=False,
+    national_codes=None,
+    unit_type="ha",
+    whisp_image=None,
+    custom_bands=None,
+    mode: str = "sequential",
+    batch_size: int = 10,
+    max_concurrent: int = 20,
+    validate_geometries: bool = False,
+) -> pd.DataFrame:
+    """
+    Main entry point for converting GeoJSON to Whisp statistics.
+
+    Routes to the appropriate processing mode with automatic formatting and validation.
+
+    Converts a GeoJSON file to a pandas DataFrame containing Whisp stats for the input ROI.
+    Output DataFrame is validated against a Panderas schema (created from lookup CSVs).
+    Results are automatically formatted and unit-converted (ha or percent).
+
+    If `external_id_column` is provided, it will be used to link external identifiers
+    from the input GeoJSON to the output DataFrame.
+
+    Parameters
+    ----------
+    input_geojson_filepath : Path | str
+        The filepath to the GeoJSON of the ROI to analyze.
+    external_id_column : str, optional
+        The column in the GeoJSON containing external IDs to be preserved in the output DataFrame.
+        This column must exist as a property in ALL features of the GeoJSON file.
+        Use debug_feature_collection_properties() to inspect available properties if you encounter errors.
+    remove_geom : bool, default=False
+        If True, the geometry of the GeoJSON is removed from the output DataFrame.
+    national_codes : list, optional
+        List of ISO2 country codes to include national datasets.
+    unit_type: str, optional
+        Whether to use hectares ("ha") or percentage ("percent"), by default "ha".
+    whisp_image : ee.Image, optional
+        Pre-combined multiband Earth Engine Image containing all Whisp datasets.
+        If provided, this image will be used instead of combining datasets based on national_codes.
+        If None, datasets will be combined automatically using national_codes parameter.
+    custom_bands : list or dict, optional
+        Custom band information for extra columns. Can be:
+        - List of band names: ['Aa_test', 'elevation']
+        - Dict with types: {'Aa_test': 'float64', 'elevation': 'float32'}
+        - None: preserves all extra columns automatically
+    mode : str, optional
+        Processing mode, by default "concurrent":
+        - "concurrent": Uses high-volume endpoint with concurrent batching (recommended for large files)
+        - "sequential": Uses standard endpoint for sequential processing (more stable)
+        - "legacy": Uses original implementation (basic stats extraction only, no formatting)
+    batch_size : int, optional
+        Features per batch for concurrent/sequential modes, by default 10.
+        Only applicable for "concurrent" and "sequential" modes.
+    max_concurrent : int, optional
+        Maximum concurrent EE calls for concurrent mode, by default 20.
+        Only applicable for "concurrent" mode.
+    validate_geometries : bool, optional
+        Whether to validate and fix invalid geometries, by default False.
+        Set to True to automatically fix invalid/self-intersecting polygons.
+        For production workflows, it's recommended to use geometry validation and
+        cleaning tools BEFORE processing with this function.
+
+    Returns
+    -------
+    df_stats : pd.DataFrame
+        The DataFrame containing the Whisp stats for the input ROI,
+        automatically formatted and validated.
+
+    Examples
+    --------
+    >>> # Use concurrent processing (default, recommended for large datasets)
+    >>> df = whisp_formatted_stats_geojson_to_df("data.geojson")
+
+    >>> # Use sequential processing for more stable/predictable results
+    >>> df = whisp_formatted_stats_geojson_to_df(
+    ...     "data.geojson",
+    ...     mode="sequential"
+    ... )
+
+    >>> # Adjust concurrency parameters
+    >>> df = whisp_formatted_stats_geojson_to_df(
+    ...     "large_data.geojson",
+    ...     mode="concurrent",
+    ...     max_concurrent=30,
+    ...     batch_size=15
+    ... )
+
+    >>> # Use legacy mode for backward compatibility (basic extraction only)
+    >>> df = whisp_formatted_stats_geojson_to_df(
+    ...     "data.geojson",
+    ...     mode="legacy"
+    ... )
+    """
+    # Import here to avoid circular imports
+    try:
+        from openforis_whisp.advanced_stats import (
+            whisp_formatted_stats_geojson_to_df_fast,
+        )
+    except ImportError:
+        # Fallback to legacy if advanced_stats not available
+        mode = "legacy"
+
+    logger = logging.getLogger("whisp")
+
+    if mode == "legacy":
+        # Log info if batch_size or max_concurrent were passed but won't be used
+        if batch_size != 10 or max_concurrent != 20:
+            unused = []
+            if batch_size != 10:
+                unused.append(f"batch_size={batch_size}")
+            if max_concurrent != 20:
+                unused.append(f"max_concurrent={max_concurrent}")
+            logger.info(
+                f"Mode is 'legacy': {', '.join(unused)}\n"
+                "parameter(s) are not used in legacy mode."
+            )
+        # Use original implementation (basic stats extraction only)
+        return whisp_formatted_stats_geojson_to_df_legacy(
+            input_geojson_filepath=input_geojson_filepath,
+            external_id_column=external_id_column,
+            remove_geom=remove_geom,
+            national_codes=national_codes,
+            unit_type=unit_type,
+            whisp_image=whisp_image,
+            custom_bands=custom_bands,
+            validate_geometries=validate_geometries,
+        )
+    elif mode in ("concurrent", "sequential"):
+        # Log info if batch_size or max_concurrent are not used in sequential mode
+        if mode == "sequential":
+            unused = []
+            if batch_size != 10:
+                unused.append(f"batch_size={batch_size}")
+            if max_concurrent != 20:
+                unused.append(f"max_concurrent={max_concurrent}")
+            if unused:
+                logger.info(
+                    f"Mode is 'sequential': {', '.join(unused)}\n"
+                    "parameter(s) are not used in sequential (single-threaded) mode."
+                )
+        # Route to fast function with explicit mode (skip auto-detection)
+        return whisp_formatted_stats_geojson_to_df_fast(
+            input_geojson_filepath=input_geojson_filepath,
+            external_id_column=external_id_column,
+            remove_geom=remove_geom,
+            national_codes=national_codes,
+            unit_type=unit_type,
+            whisp_image=whisp_image,
+            custom_bands=custom_bands,
+            mode=mode,  # Pass mode directly (concurrent or sequential)
+            batch_size=batch_size,
+            max_concurrent=max_concurrent,
+            validate_geometries=validate_geometries,
+        )
+    else:
+        raise ValueError(
+            f"Invalid mode '{mode}'. Must be 'concurrent', 'sequential', or 'legacy'."
+        )
 
 
 def whisp_formatted_stats_geojson_to_geojson(

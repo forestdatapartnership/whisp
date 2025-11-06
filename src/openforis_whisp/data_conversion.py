@@ -4,7 +4,7 @@ from shapely.geometry import shape
 from pathlib import Path
 
 # Existing imports
-from typing import List, Any
+from typing import List, Any, Union
 from geojson import Feature, FeatureCollection, Polygon, Point
 import json
 import os
@@ -13,22 +13,30 @@ import ee
 
 
 def convert_geojson_to_ee(
-    geojson_filepath: Any, enforce_wgs84: bool = True, strip_z_coords: bool = True
+    geojson_filepath: Union[str, Path, dict],
+    enforce_wgs84: bool = True,
+    strip_z_coords: bool = True,
 ) -> ee.FeatureCollection:
     """
-    Reads a GeoJSON file from the given path and converts it to an Earth Engine FeatureCollection.
+    Converts GeoJSON data to an Earth Engine FeatureCollection.
+    Accepts either a file path or a GeoJSON dictionary object.
     Optionally checks and converts the CRS to WGS 84 (EPSG:4326) if needed.
     Automatically handles 3D coordinates by stripping Z values when necessary.
 
     Args:
-        geojson_filepath (Any): The filepath to the GeoJSON file.
+        geojson_filepath (Union[str, Path, dict]): The filepath to the GeoJSON file (str or Path)
+                                                    or a GeoJSON dictionary object.
         enforce_wgs84 (bool): Whether to enforce WGS 84 projection (EPSG:4326). Defaults to True.
+                              Only applies when input is a file path (dicts are assumed to be in WGS84).
         strip_z_coords (bool): Whether to automatically strip Z coordinates from 3D geometries. Defaults to True.
 
     Returns:
         ee.FeatureCollection: Earth Engine FeatureCollection created from the GeoJSON.
     """
-    if isinstance(geojson_filepath, (str, Path)):
+    if isinstance(geojson_filepath, dict):
+        # Input is already a GeoJSON dictionary - skip file reading
+        geojson_data = geojson_filepath
+    elif isinstance(geojson_filepath, (str, Path)):
         file_path = os.path.abspath(geojson_filepath)
 
         # Use GeoPandas to read the file and handle CRS
@@ -56,7 +64,9 @@ def convert_geojson_to_ee(
         # Convert to GeoJSON
         geojson_data = json.loads(gdf.to_json())
     else:
-        raise ValueError("Input must be a file path (str or Path)")
+        raise ValueError(
+            "Input must be a file path (str or Path) or a GeoJSON dictionary object (dict)"
+        )
 
     validation_errors = validate_geojson(geojson_data)
     if validation_errors:
