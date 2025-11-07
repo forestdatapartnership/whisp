@@ -4,7 +4,7 @@ from shapely.geometry import shape
 from pathlib import Path
 
 # Existing imports
-from typing import List, Any
+from typing import List, Any, Union
 from geojson import Feature, FeatureCollection, Polygon, Point
 import json
 import os
@@ -13,31 +13,31 @@ import ee
 
 
 def convert_geojson_to_ee(
-    geojson_filepath: Any, enforce_wgs84: bool = True, strip_z_coords: bool = True
+    geojson_filepath: Union[str, Path, dict],
+    enforce_wgs84: bool = True,
+    strip_z_coords: bool = True,
 ) -> ee.FeatureCollection:
     """
-    Reads a GeoJSON file from the given path and converts it to an Earth Engine FeatureCollection.
+    Converts GeoJSON data to an Earth Engine FeatureCollection.
+    Accepts either a file path or a GeoJSON dictionary object.
     Optionally checks and converts the CRS to WGS 84 (EPSG:4326) if needed.
     Automatically handles 3D coordinates by stripping Z values when necessary.
 
     Args:
-        geojson_filepath (Any): The filepath to the GeoJSON file.
+        geojson_filepath (Union[str, Path, dict]): The filepath to the GeoJSON file (str or Path)
+                                                    or a GeoJSON dictionary object.
         enforce_wgs84 (bool): Whether to enforce WGS 84 projection (EPSG:4326). Defaults to True.
+                              Only applies when input is a file path (dicts are assumed to be in WGS84).
         strip_z_coords (bool): Whether to automatically strip Z coordinates from 3D geometries. Defaults to True.
 
     Returns:
         ee.FeatureCollection: Earth Engine FeatureCollection created from the GeoJSON.
     """
-    if isinstance(geojson_filepath, (str, Path)):
+    if isinstance(geojson_filepath, dict):
+        # Input is already a GeoJSON dictionary - skip file reading
+        geojson_data = geojson_filepath
+    elif isinstance(geojson_filepath, (str, Path)):
         file_path = os.path.abspath(geojson_filepath)
-
-        # Apply print_once deduplication for file reading message
-        if not hasattr(convert_geojson_to_ee, "_printed_file_messages"):
-            convert_geojson_to_ee._printed_file_messages = set()
-
-        if file_path not in convert_geojson_to_ee._printed_file_messages:
-            print(f"Reading GeoJSON file from: {file_path}")
-            convert_geojson_to_ee._printed_file_messages.add(file_path)
 
         # Use GeoPandas to read the file and handle CRS
         gdf = gpd.read_file(file_path)
@@ -56,15 +56,17 @@ def convert_geojson_to_ee(
         # Check and convert CRS if needed
         if enforce_wgs84:
             if gdf.crs is None:
-                print("Warning: Input GeoJSON has no CRS defined, assuming WGS 84")
+                # Assuming WGS 84 if no CRS defined
+                pass
             elif gdf.crs != "EPSG:4326":
-                print(f"Converting CRS from {gdf.crs} to WGS 84 (EPSG:4326)")
                 gdf = gdf.to_crs("EPSG:4326")
 
         # Convert to GeoJSON
         geojson_data = json.loads(gdf.to_json())
     else:
-        raise ValueError("Input must be a file path (str or Path)")
+        raise ValueError(
+            "Input must be a file path (str or Path) or a GeoJSON dictionary object (dict)"
+        )
 
     validation_errors = validate_geojson(geojson_data)
     if validation_errors:
@@ -101,7 +103,7 @@ def convert_geojson_to_ee(
 
                 success_message_key = f"z_coords_success_{file_path}"
                 if success_message_key not in convert_geojson_to_ee._printed_z_messages:
-                    print("✓ Successfully converted after stripping Z coordinates")
+                    print("Successfully converted after stripping Z coordinates")
                     convert_geojson_to_ee._printed_z_messages.add(success_message_key)
 
                 return feature_collection
@@ -250,6 +252,58 @@ def convert_shapefile_to_ee(shapefile_path):
     return roi
 
 
+# def convert_ee_to_df(
+#     ee_object,
+#     columns=None,
+#     remove_geom=False,
+#     **kwargs,
+# ):
+#     """Converts an ee.FeatureCollection to pandas dataframe.
+
+#     Args:
+#         ee_object (ee.FeatureCollection): ee.FeatureCollection.
+#         columns (list): List of column names. Defaults to None.
+#         remove_geom (bool): Whether to remove the geometry column. Defaults to True.
+#         kwargs: Additional arguments passed to ee.data.computeFeature.
+
+#     Raises:
+#         TypeError: ee_object must be an ee.FeatureCollection
+
+#     Returns:
+#         pd.DataFrame: pandas DataFrame
+#     """
+#     if isinstance(ee_object, ee.Feature):
+#         ee_object = ee.FeatureCollection([ee_object])
+
+#     if not isinstance(ee_object, ee.FeatureCollection):
+#         raise TypeError("ee_object must be an ee.FeatureCollection")
+
+#     try:
+#         if remove_geom:
+#             data = ee_object.map(
+#                 lambda f: ee.Feature(None, f.toDictionary(f.propertyNames().sort()))
+#             )
+#         else:
+#             data = ee_object
+
+#         kwargs["expression"] = data
+#         kwargs["fileFormat"] = "PANDAS_DATAFRAME"
+
+#         df = ee.data.computeFeatures(kwargs)
+
+#         if isinstance(columns, list):
+#             df = df[columns]
+
+#         if remove_geom and ("geometry" in df.columns):
+#             df = df.drop(columns=["geometry"], axis=1)
+
+#         # Sorting columns is not supported server-side and is removed from this function.
+
+#         return df
+#     except Exception as e:
+#         raise Exception(e)
+
+
 def convert_ee_to_df(
     ee_object,
     columns=None,
@@ -257,48 +311,36 @@ def convert_ee_to_df(
     sort_columns=False,
     **kwargs,
 ):
-    """Converts an ee.FeatureCollection to pandas dataframe.
+    """
+    Converts an ee.FeatureCollection to pandas DataFrame, maximizing server-side operations.
 
     Args:
         ee_object (ee.FeatureCollection): ee.FeatureCollection.
-        columns (list): List of column names. Defaults to None.
-        remove_geom (bool): Whether to remove the geometry column. Defaults to True.
-        sort_columns (bool): Whether to sort the column names. Defaults to False.
-        kwargs: Additional arguments passed to ee.data.computeFeature.
-
-    Raises:
-        TypeError: ee_object must be an ee.FeatureCollection
+        columns (list): List of column names to select (server-side if possible).
+        remove_geom (bool): Remove geometry column server-side.
+        kwargs: Additional arguments for ee.data.computeFeatures.
 
     Returns:
         pd.DataFrame: pandas DataFrame
     """
+    import ee
+
     if isinstance(ee_object, ee.Feature):
         ee_object = ee.FeatureCollection([ee_object])
 
     if not isinstance(ee_object, ee.FeatureCollection):
         raise TypeError("ee_object must be an ee.FeatureCollection")
 
+    # Server-side: select columns and remove geometry
+    if columns is not None:
+        ee_object = ee_object.select(columns)
+    if remove_geom:
+        ee_object = ee_object.map(lambda f: ee.Feature(None, f.toDictionary()))
+
     try:
-        if remove_geom:
-            data = ee_object.map(
-                lambda f: ee.Feature(None, f.toDictionary(f.propertyNames().sort()))
-            )
-        else:
-            data = ee_object
-
-        kwargs["expression"] = data
+        kwargs["expression"] = ee_object
         kwargs["fileFormat"] = "PANDAS_DATAFRAME"
-
         df = ee.data.computeFeatures(kwargs)
-
-        if isinstance(columns, list):
-            df = df[columns]
-
-        if remove_geom and ("geometry" in df.columns):
-            df = df.drop(columns=["geometry"], axis=1)
-
-        if sort_columns:
-            df = df.reindex(sorted(df.columns), axis=1)
 
         return df
     except Exception as e:
@@ -443,7 +485,7 @@ def convert_csv_to_geojson(
     try:
         df = pd.read_csv(csv_filepath)
 
-        df_to_geojson(df, geojson_filepath, geo_column)
+        convert_df_to_geojson(df, geojson_filepath, geo_column)
 
     except Exception as e:
         print(f"An error occurred while converting CSV to GeoJSON: {e}")

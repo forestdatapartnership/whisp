@@ -177,7 +177,7 @@ def g_jrc_tmf_plantation_prep():
     plantation_2020 = plantation.where(
         deforestation_year.gte(2021), 0
     )  # update from https://github.com/forestdatapartnership/whisp/issues/42
-    return plantation_2020.rename("TMF_plant")
+    return plantation_2020.rename("TMF_plant").selfMask()
 
 
 # # Oil_palm_Descals
@@ -390,6 +390,7 @@ def g_radd_year_prep():
             .updateMask(radd_date.lte(end))
             .gt(0)
             .rename("RADD_year_" + "20" + str(year))
+            .selfMask()
         )
         return ee.Image(img_stack).addBands(radd_year)
 
@@ -403,6 +404,7 @@ def g_radd_year_prep():
         .updateMask(radd_date.lte(end))
         .gt(0)
         .rename(band_name)
+        .selfMask()
     )
 
     def make_band(year, img_stack):
@@ -415,6 +417,7 @@ def g_radd_year_prep():
             .updateMask(radd_date.lte(end))
             .gt(0)
             .rename(band_name)
+            .selfMask()
         )
         return ee.Image(img_stack).addBands(radd_year)
 
@@ -431,7 +434,7 @@ def g_tmf_def_per_year_prep():
     for i in range(0, 24 + 1):
         year_num = ee.Number(2000 + i)
         band_name = ee.String("TMF_def_").cat(year_num.format("%d"))
-        tmf_def_year = tmf_def.eq(year_num).rename(band_name)
+        tmf_def_year = tmf_def.eq(year_num).rename(band_name).selfMask()
         if img_stack is None:
             img_stack = tmf_def_year
         else:
@@ -448,7 +451,7 @@ def g_tmf_deg_per_year_prep():
     for i in range(0, 24 + 1):
         year_num = ee.Number(2000 + i)
         band_name = ee.String("TMF_deg_").cat(year_num.format("%d"))
-        tmf_def_year = tmf_def.eq(year_num).rename(band_name)
+        tmf_def_year = tmf_def.eq(year_num).rename(band_name).selfMask()
         if img_stack is None:
             img_stack = tmf_def_year
         else:
@@ -468,7 +471,7 @@ def g_glad_gfc_loss_per_year_prep():
         gfc_loss_year = (
             gfc.select(["lossyear"]).eq(i).And(gfc.select(["treecover2000"]).gt(10))
         )
-        gfc_loss_year = gfc_loss_year.rename(band_name)
+        gfc_loss_year = gfc_loss_year.rename(band_name).selfMask()
         if img_stack is None:
             img_stack = gfc_loss_year
         else:
@@ -499,6 +502,7 @@ def g_modis_fire_prep():
             .select(["BurnDate"])
             .gte(0)
             .rename(band_name)
+            .selfMask()
         )
         img_stack = modis_year if img_stack is None else img_stack.addBands(modis_year)
 
@@ -528,6 +532,7 @@ def g_esa_fire_prep():
             .select(["BurnDate"])
             .gte(0)
             .rename(band_name)
+            .selfMask()
         )
         img_stack = esa_year if img_stack is None else img_stack.addBands(esa_year)
 
@@ -1155,10 +1160,55 @@ def nci_ocs2020_prep():
     ).selfMask()  # cocoa from national land cover map for Côte d'Ivoire
 
 
+# ============================================================================
+# CONTEXT BANDS (Administrative boundaries and water mask)
+# ============================================================================
+
+
+def g_gaul_admin_code():
+    """
+    GAUL 2024 Level 1 administrative boundary codes (500m resolution).
+    Used for spatial context and administrative aggregation.
+
+    Returns
+    -------
+    ee.Image
+        Image with admin codes renamed to 'admin_code' (as int32)
+    """
+    admin_image = ee.Image(
+        "projects/ee-andyarnellgee/assets/gaul_2024_level_1_code_500m"
+    )
+    # Cast to int32 to ensure integer GAUL codes, then rename
+    return admin_image.rename("admin_code")
+
+
+def g_water_mask_prep():
+    """
+    Water mask from JRC/USGS combined dataset.
+    Used to identify water bodies for downstream filtering and context.
+
+    Multiplied by pixel area to get water area in hectares.
+
+    Returns
+    -------
+    ee.Image
+        Binary water mask image renamed to In_waterbody (will be multiplied by pixel area)
+    """
+    from openforis_whisp.parameters.config_runtime import water_flag
+
+    water_mask_image = ee.Image("projects/ee-andyarnellgee/assets/water_mask_jrc_usgs")
+    return water_mask_image.selfMask().rename(water_flag)
+
+
 ###Combining datasets
 
 
-def combine_datasets(national_codes=None, validate_bands=False):
+def combine_datasets(
+    national_codes=None,
+    validate_bands=False,
+    include_context_bands=True,
+    auto_recovery=False,
+):
     """
     Combines datasets into a single multiband image, with fallback if assets are missing.
 
@@ -1169,48 +1219,76 @@ def combine_datasets(national_codes=None, validate_bands=False):
     validate_bands : bool, optional
         If True, validates band names with a slow .getInfo() call (default: False)
         Only enable for debugging. Normal operation relies on exception handling.
+    include_context_bands : bool, optional
+        If True (default), includes context bands (admin_code, water_flag) in the output.
+        Set to False when using stats.py implementations that compile datasets differently.
+    auto_recovery : bool, optional
+        If True (default), automatically enables validate_bands when an error is detected
+        during initial assembly. This allows graceful recovery from missing/broken datasets.
 
     Returns
     -------
     ee.Image
-        Combined multiband image with all datasets
+        Combined multiband image with all datasets (and optionally context bands)
     """
-    img_combined = ee.Image(1).rename(geometry_area_column)
-
-    # Combine images directly
-    for img in [func() for func in list_functions(national_codes=national_codes)]:
+    # Step 1: Combine all main dataset images
+    all_images = [ee.Image(1).rename(geometry_area_column)]
+    for func in list_functions(national_codes=national_codes):
         try:
-            img_combined = img_combined.addBands(img)
-            # img_combined = img_combined.addBands(img)
+            all_images.append(func())
         except ee.EEException as e:
-            # logger.error(f"Error adding image: {e}")
-            print(f"Error adding image: {e}")
+            print(f"Error loading image: {e}")
 
-    # OPTIMIZATION: Removed slow .getInfo() call for band validation
-    # The validation is now optional and disabled by default
-    # Image processing will fail downstream if there's an issue, which is handled by exception blocks
-    if validate_bands:
+    img_combined = ee.Image.cat(all_images)
+
+    # Step 2: Determine if validation needed
+    should_validate = validate_bands
+    if auto_recovery and not validate_bands:
         try:
-            # This is SLOW - only use for debugging
-            img_combined.bandNames().getInfo()
+            # Fast error detection: batch check main + context bands in one call
+            bands_to_check = [img_combined.bandNames().get(0)]
+            if include_context_bands:
+                admin_image = g_gaul_admin_code()
+                water_mask = g_water_mask_prep()
+                bands_to_check.extend(
+                    [admin_image.bandNames().get(0), water_mask.bandNames().get(0)]
+                )
+            ee.List(bands_to_check).getInfo()  # trigger error if any band is invalid
         except ee.EEException as e:
-            # logger.error(f"Error validating band names: {e}")
-            # logger.info("Running code for filtering to only valid datasets due to error in input")
-            print("using valid datasets filter due to error in validation")
-            # Validate images
-            images_to_test = [
-                func() for func in list_functions(national_codes=national_codes)
-            ]
-            valid_imgs = keep_valid_images(images_to_test)  # Validate images
+            print(f"Error detected, enabling recovery mode: {str(e)[:80]}...")
+            should_validate = True
 
-            # Retry combining images after validation
-            img_combined = ee.Image(1).rename(geometry_area_column)
-            for img in valid_imgs:
-                img_combined = img_combined.addBands(img)
+    # Step 3: Validate and recover if needed
+    if should_validate:
+        try:
+            img_combined.bandNames().getInfo()  # check all bands
+        except ee.EEException as e:
+            print("Using valid datasets filter due to error in validation")
+            valid_imgs = keep_valid_images(
+                [func() for func in list_functions(national_codes=national_codes)]
+            )
+            all_images_retry = [ee.Image(1).rename(geometry_area_column)]
+            all_images_retry.extend(valid_imgs)
+            img_combined = ee.Image.cat(all_images_retry)
 
+    # Step 4: Multiply main datasets by pixel area
     img_combined = img_combined.multiply(ee.Image.pixelArea())
-    print("Whisp multiband image compiled")
 
+    # Step 5: Add context bands (admin_code only - water mask is now in prep functions)
+    if include_context_bands:
+        for band_func, band_name in [
+            (g_gaul_admin_code, "admin_code"),
+            (g_water_mask_prep, "In_waterbody"),
+        ]:
+            try:
+                band_img = band_func()
+                if should_validate:
+                    band_img.bandNames().getInfo()
+                img_combined = img_combined.addBands(band_img)
+            except ee.EEException as e:
+                print(f"Warning: Could not add {band_name} band: {e}")
+
+    print("Whisp multiband image compiled")
     return img_combined
 
 
@@ -1230,8 +1308,11 @@ def combine_datasets(national_codes=None, validate_bands=False):
 def list_functions(national_codes=None):
     """
     Returns a list of functions that end with "_prep" and either:
-    - Start with "g_" (global/regional products)
+    - Start with "g_" (global/regional products, excluding context bands)
     - Start with any provided national code prefix (nXX_)
+
+    Context band functions (g_gaul_admin_code, g_water_mask_prep) are handled
+    separately and excluded from this list to avoid duplication.
 
     Args:
         national_codes: List of ISO2 country codes (without the 'n' prefix)
@@ -1243,15 +1324,19 @@ def list_functions(national_codes=None):
     if national_codes is None:
         national_codes = []
 
+    # Context band functions that are handled separately
+    context_functions = {"g_gaul_admin_code", "g_water_mask_prep"}
+
     # Create prefixes list with proper formatting ('n' + code + '_')
     allowed_prefixes = ["g_"] + [f"n{code.lower()}_" for code in national_codes]
 
-    # Filter functions in a single pass
+    # Filter functions in a single pass, excluding context band functions
     functions = [
         func
         for name, func in inspect.getmembers(current_module, inspect.isfunction)
         if name.endswith("_prep")
         and any(name.startswith(prefix) for prefix in allowed_prefixes)
+        and name not in context_functions
     ]
 
     return functions
@@ -1335,3 +1420,6 @@ def combine_custom_bands(custom_images, custom_bands_info):
     custom_ee_image = custom_ee_image.multiply(ee.Image.pixelArea())
 
     return custom_ee_image  # Only return the image
+
+
+# %%
