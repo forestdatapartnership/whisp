@@ -151,7 +151,7 @@ def whisp_formatted_stats_geojson_to_df_legacy(
         from shapely.validation import make_valid
         import logging as py_logging
 
-        logger = py_logging.getLogger("whisp-legacy")
+        logger = py_logging.getLogger("whisp")
 
         # Load GeoJSON file
         with open(input_geojson_filepath, "r") as f:
@@ -169,11 +169,14 @@ def whisp_formatted_stats_geojson_to_df_legacy(
                 lambda g: make_valid(g) if g and not g.is_valid else g
             )
 
-        # Convert back to GeoJSON dict (stays in memory - no temp files!)
-        geojson_cleaned = json.loads(gdf.to_json())
-
-        # OPTIMIZATION: Pass GeoJSON dict directly - eliminates file I/O overhead
-        feature_collection = convert_geojson_to_ee(geojson_cleaned)
+        # Pass GeoDataFrame directly to preserve CRS metadata
+        # convert_geojson_to_ee will handle:
+        # - CRS detection and conversion to WGS84 if needed
+        # - Data type sanitization (datetime, object columns)
+        # - Geometry validation and Z-coordinate stripping
+        feature_collection = convert_geojson_to_ee(
+            gdf, enforce_wgs84=True, strip_z_coords=True
+        )
     else:
         # Original path - no validation
         feature_collection = convert_geojson_to_ee(str(input_geojson_filepath))
@@ -201,6 +204,7 @@ def whisp_formatted_stats_geojson_to_df(
     batch_size: int = 10,
     max_concurrent: int = 20,
     validate_geometries: bool = False,
+    include_geometry_audit_trail: bool = False,
 ) -> pd.DataFrame:
     """
     Main entry point for converting GeoJSON to Whisp statistics.
@@ -253,6 +257,16 @@ def whisp_formatted_stats_geojson_to_df(
         Set to True to automatically fix invalid/self-intersecting polygons.
         For production workflows, it's recommended to use geometry validation and
         cleaning tools BEFORE processing with this function.
+    include_geometry_audit_trail : bool, default True
+        If True (default), includes audit trail columns:
+        - geo_original: Original input geometry
+        - geometry_type_original: Original geometry type
+        - geometry_type: Processed geometry type (from EE)
+        - geometry_type_changed: Boolean flag if geometry changed
+        - geometry_degradation_type: Description of how it changed
+
+        Processing metadata stored in df.attrs['processing_metadata'].
+        These columns enable full transparency for geometry modifications during processing.
 
     Returns
     -------
@@ -345,6 +359,7 @@ def whisp_formatted_stats_geojson_to_df(
             batch_size=batch_size,
             max_concurrent=max_concurrent,
             validate_geometries=validate_geometries,
+            include_geometry_audit_trail=include_geometry_audit_trail,
         )
     else:
         raise ValueError(
