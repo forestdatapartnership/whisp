@@ -3,6 +3,7 @@ import pandas as pd
 from pathlib import Path
 from .datasets import combine_datasets
 import json
+import logging
 import country_converter as coco
 from openforis_whisp.parameters.config_runtime import (
     plot_id_column,
@@ -41,7 +42,7 @@ from .reformat import (
 # to avoid repeated expensive operations. This saves 7-15 seconds per analysis.
 
 _WATER_FLAG_IMAGE = None
-_GEOBOUNDARIES_FC = None
+_admin_boundaries_FC = None
 
 
 def get_water_flag_image():
@@ -63,26 +64,28 @@ def get_water_flag_image():
     return _WATER_FLAG_IMAGE
 
 
-def get_geoboundaries_fc():
+def get_admin_boundaries_fc():
     """
-    Get cached geoboundaries feature collection.
+    Get cached GAUL 2024 L1 administrative boundary feature collection.
 
-    OPTIMIZATION: Geoboundaries collection is loaded once and reused for all features.
+    OPTIMIZATION: GAUL 2024 L1 collection is loaded once and reused for all features.
     This avoids loading the large FeatureCollection for every feature (previously
-    called in get_geoboundaries_info for each feature).
+    called in get_admin_boundaries_info for each feature).
 
     Returns
     -------
     ee.FeatureCollection
-        Cached geoboundaries feature collection
+        Cached GAUL 2024 L1 administrative boundary feature collection
     """
-    global _GEOBOUNDARIES_FC
-    if _GEOBOUNDARIES_FC is None:
-        _GEOBOUNDARIES_FC = ee.FeatureCollection("WM/geoLab/geoBoundaries/600/ADM1")
-    return _GEOBOUNDARIES_FC
+    global _admin_boundaries_FC
+    if _admin_boundaries_FC is None:
+        _admin_boundaries_FC = ee.FeatureCollection(
+            "projects/sat-io/open-datasets/FAO/GAUL/GAUL_2024_L1"
+        )
+    return _admin_boundaries_FC
 
 
-def whisp_formatted_stats_geojson_to_df(
+def whisp_formatted_stats_geojson_to_df_legacy(
     input_geojson_filepath: Path | str,
     external_id_column=None,
     remove_geom=False,
@@ -90,9 +93,15 @@ def whisp_formatted_stats_geojson_to_df(
     unit_type="ha",
     whisp_image=None,
     custom_bands=None,  # New parameter
+    validate_geometries: bool = False,
 ) -> pd.DataFrame:
     """
-        Main function for most users.
+        Legacy function for basic Whisp stats extraction.
+
+        DEPRECATED: This is the original implementation maintained for backward compatibility.
+        Use whisp_formatted_stats_geojson_to_df() for new code, which provides automatic
+        optimization, formatting, and schema validation.
+
         Converts a GeoJSON file to a pandas DataFrame containing Whisp stats for the input ROI.
         Output df is validated against a panderas schema (created on the fly from the two lookup CSVs).
 
@@ -126,13 +135,48 @@ def whisp_formatted_stats_geojson_to_df(
             - List of band names: ['Aa_test', 'elevation']
             - Dict with types: {'Aa_test': 'float64', 'elevation': 'float32'}
             - None: preserves all extra columns automatically
+        validate_geometries : bool, optional
+            Whether to validate and fix invalid geometries, by default False.
+            Set to True to automatically fix invalid/self-intersecting polygons.
 
     Returns
         -------
         df_stats : pd.DataFrame
             The DataFrame containing the Whisp stats for the input ROI.
     """
-    feature_collection = convert_geojson_to_ee(str(input_geojson_filepath))
+    # Load GeoJSON and validate geometries if requested
+    if validate_geometries:
+        import json
+        import geopandas as gpd
+        from shapely.validation import make_valid
+        import logging as py_logging
+
+        logger = py_logging.getLogger("whisp-legacy")
+
+        # Load GeoJSON file
+        with open(input_geojson_filepath, "r") as f:
+            geojson_data = json.load(f)
+
+        # Convert to GeoDataFrame
+        gdf = gpd.GeoDataFrame.from_features(geojson_data["features"])
+
+        # Validate and fix invalid geometries
+        valid_count = gdf.geometry.is_valid.sum()
+        invalid_count = len(gdf) - valid_count
+        if invalid_count > 0:
+            logger.warning(f"Fixing {invalid_count} invalid geometries")
+            gdf["geometry"] = gdf["geometry"].apply(
+                lambda g: make_valid(g) if g and not g.is_valid else g
+            )
+
+        # Convert back to GeoJSON dict (stays in memory - no temp files!)
+        geojson_cleaned = json.loads(gdf.to_json())
+
+        # OPTIMIZATION: Pass GeoJSON dict directly - eliminates file I/O overhead
+        feature_collection = convert_geojson_to_ee(geojson_cleaned)
+    else:
+        # Original path - no validation
+        feature_collection = convert_geojson_to_ee(str(input_geojson_filepath))
 
     return whisp_formatted_stats_ee_to_df(
         feature_collection,
@@ -143,6 +187,169 @@ def whisp_formatted_stats_geojson_to_df(
         whisp_image=whisp_image,
         custom_bands=custom_bands,  # Pass through
     )
+
+
+def whisp_formatted_stats_geojson_to_df(
+    input_geojson_filepath: Path | str,
+    external_id_column=None,
+    remove_geom=False,
+    national_codes=None,
+    unit_type="ha",
+    whisp_image=None,
+    custom_bands=None,
+    mode: str = "sequential",
+    batch_size: int = 10,
+    max_concurrent: int = 20,
+    validate_geometries: bool = False,
+) -> pd.DataFrame:
+    """
+    Main entry point for converting GeoJSON to Whisp statistics.
+
+    Routes to the appropriate processing mode with automatic formatting and validation.
+
+    Converts a GeoJSON file to a pandas DataFrame containing Whisp stats for the input ROI.
+    Output DataFrame is validated against a Panderas schema (created from lookup CSVs).
+    Results are automatically formatted and unit-converted (ha or percent).
+
+    If `external_id_column` is provided, it will be used to link external identifiers
+    from the input GeoJSON to the output DataFrame.
+
+    Parameters
+    ----------
+    input_geojson_filepath : Path | str
+        The filepath to the GeoJSON of the ROI to analyze.
+    external_id_column : str, optional
+        The column in the GeoJSON containing external IDs to be preserved in the output DataFrame.
+        This column must exist as a property in ALL features of the GeoJSON file.
+        Use debug_feature_collection_properties() to inspect available properties if you encounter errors.
+    remove_geom : bool, default=False
+        If True, the geometry of the GeoJSON is removed from the output DataFrame.
+    national_codes : list, optional
+        List of ISO2 country codes to include national datasets.
+    unit_type: str, optional
+        Whether to use hectares ("ha") or percentage ("percent"), by default "ha".
+    whisp_image : ee.Image, optional
+        Pre-combined multiband Earth Engine Image containing all Whisp datasets.
+        If provided, this image will be used instead of combining datasets based on national_codes.
+        If None, datasets will be combined automatically using national_codes parameter.
+    custom_bands : list or dict, optional
+        Custom band information for extra columns. Can be:
+        - List of band names: ['Aa_test', 'elevation']
+        - Dict with types: {'Aa_test': 'float64', 'elevation': 'float32'}
+        - None: preserves all extra columns automatically
+    mode : str, optional
+        Processing mode, by default "concurrent":
+        - "concurrent": Uses high-volume endpoint with concurrent batching (recommended for large files)
+        - "sequential": Uses standard endpoint for sequential processing (more stable)
+        - "legacy": Uses original implementation (basic stats extraction only, no formatting)
+    batch_size : int, optional
+        Features per batch for concurrent/sequential modes, by default 10.
+        Only applicable for "concurrent" and "sequential" modes.
+    max_concurrent : int, optional
+        Maximum concurrent EE calls for concurrent mode, by default 20.
+        Only applicable for "concurrent" mode.
+    validate_geometries : bool, optional
+        Whether to validate and fix invalid geometries, by default False.
+        Set to True to automatically fix invalid/self-intersecting polygons.
+        For production workflows, it's recommended to use geometry validation and
+        cleaning tools BEFORE processing with this function.
+
+    Returns
+    -------
+    df_stats : pd.DataFrame
+        The DataFrame containing the Whisp stats for the input ROI,
+        automatically formatted and validated.
+
+    Examples
+    --------
+    >>> # Use concurrent processing (default, recommended for large datasets)
+    >>> df = whisp_formatted_stats_geojson_to_df("data.geojson")
+
+    >>> # Use sequential processing for more stable/predictable results
+    >>> df = whisp_formatted_stats_geojson_to_df(
+    ...     "data.geojson",
+    ...     mode="sequential"
+    ... )
+
+    >>> # Adjust concurrency parameters
+    >>> df = whisp_formatted_stats_geojson_to_df(
+    ...     "large_data.geojson",
+    ...     mode="concurrent",
+    ...     max_concurrent=30,
+    ...     batch_size=15
+    ... )
+
+    >>> # Use legacy mode for backward compatibility (basic extraction only)
+    >>> df = whisp_formatted_stats_geojson_to_df(
+    ...     "data.geojson",
+    ...     mode="legacy"
+    ... )
+    """
+    # Import here to avoid circular imports
+    try:
+        from openforis_whisp.advanced_stats import (
+            whisp_formatted_stats_geojson_to_df_fast,
+        )
+    except ImportError:
+        # Fallback to legacy if advanced_stats not available
+        mode = "legacy"
+
+    logger = logging.getLogger("whisp")
+
+    if mode == "legacy":
+        # Log info if batch_size or max_concurrent were passed but won't be used
+        if batch_size != 10 or max_concurrent != 20:
+            unused = []
+            if batch_size != 10:
+                unused.append(f"batch_size={batch_size}")
+            if max_concurrent != 20:
+                unused.append(f"max_concurrent={max_concurrent}")
+            logger.info(
+                f"Mode is 'legacy': {', '.join(unused)}\n"
+                "parameter(s) are not used in legacy mode."
+            )
+        # Use original implementation (basic stats extraction only)
+        return whisp_formatted_stats_geojson_to_df_legacy(
+            input_geojson_filepath=input_geojson_filepath,
+            external_id_column=external_id_column,
+            remove_geom=remove_geom,
+            national_codes=national_codes,
+            unit_type=unit_type,
+            whisp_image=whisp_image,
+            custom_bands=custom_bands,
+            validate_geometries=validate_geometries,
+        )
+    elif mode in ("concurrent", "sequential"):
+        # Log info if batch_size or max_concurrent are not used in sequential mode
+        if mode == "sequential":
+            unused = []
+            if batch_size != 10:
+                unused.append(f"batch_size={batch_size}")
+            if max_concurrent != 20:
+                unused.append(f"max_concurrent={max_concurrent}")
+            if unused:
+                logger.info(
+                    f"Mode is 'sequential': {', '.join(unused)}\n"
+                    "parameter(s) are not used in sequential (single-threaded) mode."
+                )
+        # Route to fast function with explicit mode (skip auto-detection)
+        return whisp_formatted_stats_geojson_to_df_fast(
+            input_geojson_filepath=input_geojson_filepath,
+            external_id_column=external_id_column,
+            remove_geom=remove_geom,
+            national_codes=national_codes,
+            unit_type=unit_type,
+            whisp_image=whisp_image,
+            custom_bands=custom_bands,
+            mode=mode,  # Pass mode directly (concurrent or sequential)
+            batch_size=batch_size,
+            max_concurrent=max_concurrent,
+            validate_geometries=validate_geometries,
+        )
+    else:
+        raise ValueError(
+            f"Invalid mode '{mode}'. Must be 'concurrent', 'sequential', or 'legacy'."
+        )
 
 
 def whisp_formatted_stats_geojson_to_geojson(
@@ -188,7 +395,8 @@ def whisp_formatted_stats_geojson_to_geojson(
     # Convert the df to GeoJSON
     convert_df_to_geojson(df, output_geojson_filepath, geo_column)
 
-    print(f"GeoJSON with Whisp stats saved to {output_geojson_filepath}")
+    # Suppress verbose output
+    # print(f"GeoJSON with Whisp stats saved to {output_geojson_filepath}")
 
 
 def whisp_formatted_stats_ee_to_geojson(
@@ -765,8 +973,8 @@ def reformat_geometry_type(df: pd.DataFrame) -> pd.DataFrame:
 
     # Log the changes
     num_reformatted = multipolygon_mask.sum()
-    if num_reformatted > 0:
-        print(f"Reformatted {num_reformatted} MultiPolygon geometries to Polygon")
+    # if num_reformatted > 0:
+    #     print(f"Reformatted {num_reformatted} MultiPolygon geometries to Polygon")
 
     return df_modified
 
@@ -857,7 +1065,9 @@ def get_stats(
         print("Using provided whisp_image")
     else:
         img_combined = combine_datasets(
-            national_codes=national_codes, validate_bands=validate_bands
+            national_codes=national_codes,
+            validate_bands=validate_bands,
+            include_context_bands=False,
         )
         print(f"Combining datasets with national_codes: {national_codes}")
 
@@ -866,7 +1076,7 @@ def get_stats(
         print("Processing single feature")
         # OPTIMIZATION: Create cached images for single feature processing
         water_all = get_water_flag_image()
-        gbounds_ADM0 = get_geoboundaries_fc()
+        bounds_ADM1 = get_admin_boundaries_fc()
         output = ee.FeatureCollection(
             [
                 get_stats_feature(
@@ -874,7 +1084,7 @@ def get_stats(
                     img_combined,
                     unit_type=unit_type,
                     water_all=water_all,
-                    gbounds_ADM0=gbounds_ADM0,
+                    bounds_ADM1=bounds_ADM1,
                 )
             ]
         )
@@ -896,7 +1106,7 @@ def get_stats_fc(feature_col, national_codes=None, unit_type="ha", img_combined=
     """
     Calculate statistics for a feature collection using Whisp datasets.
 
-    OPTIMIZATION: Creates water flag and geoboundaries images once and reuses
+    OPTIMIZATION: Creates water flag and admin_boundaries images once and reuses
     them for all features instead of recreating them for each feature.
     This saves 7-15 seconds per analysis.
 
@@ -922,7 +1132,7 @@ def get_stats_fc(feature_col, national_codes=None, unit_type="ha", img_combined=
     # OPTIMIZATION: Create cached images once before processing features
     # These will be reused for all features instead of being recreated each time
     water_all = get_water_flag_image()
-    gbounds_ADM0 = get_geoboundaries_fc()
+    bounds_ADM1 = get_admin_boundaries_fc()
 
     out_feature_col = ee.FeatureCollection(
         feature_col.map(
@@ -931,7 +1141,7 @@ def get_stats_fc(feature_col, national_codes=None, unit_type="ha", img_combined=
                 img_combined,
                 unit_type=unit_type,
                 water_all=water_all,
-                gbounds_ADM0=gbounds_ADM0,
+                bounds_ADM1=bounds_ADM1,
             )
         )
     )
@@ -945,12 +1155,12 @@ def get_stats_fc(feature_col, national_codes=None, unit_type="ha", img_combined=
 
 
 def get_stats_feature(
-    feature, img_combined, unit_type="ha", water_all=None, gbounds_ADM0=None
+    feature, img_combined, unit_type="ha", water_all=None, bounds_ADM1=None
 ):
     """
     Get statistics for a single feature using a pre-combined image.
 
-    OPTIMIZATION: Accepts cached water/geoboundaries images to avoid recreating
+    OPTIMIZATION: Accepts cached water/admin_boundaries images to avoid recreating
     them for every feature.
 
     Parameters
@@ -963,8 +1173,8 @@ def get_stats_feature(
         Whether to use hectares ("ha") or percentage ("percent"), by default "ha".
     water_all : ee.Image, optional
         Cached water flag image
-    gbounds_ADM0 : ee.FeatureCollection, optional
-        Cached geoboundaries feature collection
+    bounds_ADM1 : ee.FeatureCollection, optional
+        Cached admin_boundaries feature collection
 
     Returns
     -------
@@ -980,7 +1190,7 @@ def get_stats_feature(
     )
 
     # Get basic feature information with cached images
-    feature_info = get_type_and_location(feature, water_all, gbounds_ADM0)
+    feature_info = get_type_and_location(feature, water_all, bounds_ADM1)
 
     # add statistics unit type (e.g., percentage or hectares) to dictionary
     stats_unit_type = ee.Dictionary({stats_unit_type_column: unit_type})
@@ -1029,11 +1239,11 @@ def get_stats_feature(
 
 
 # Get basic feature information - uses admin and water datasets in gee.
-def get_type_and_location(feature, water_all=None, gbounds_ADM0=None):
+def get_type_and_location(feature, water_all=None, bounds_ADM1=None):
     """
     Extracts basic feature information including country, admin area, geometry type, coordinates, and water flags.
 
-    OPTIMIZATION: Accepts cached water flag image and geoboundaries collection
+    OPTIMIZATION: Accepts cached water flag image and admin_boundaries collection
     to avoid recreating them for every feature (saves 7-15 seconds per analysis).
 
     Parameters
@@ -1042,8 +1252,8 @@ def get_type_and_location(feature, water_all=None, gbounds_ADM0=None):
         The feature to extract information from
     water_all : ee.Image, optional
         Cached water flag image. If None, creates it.
-    gbounds_ADM0 : ee.FeatureCollection, optional
-        Cached geoboundaries feature collection. If None, loads it.
+    bounds_ADM1 : ee.FeatureCollection, optional
+        Cached admin_boundaries feature collection. If None, loads it.
 
     Returns
     -------
@@ -1051,19 +1261,23 @@ def get_type_and_location(feature, water_all=None, gbounds_ADM0=None):
         Dictionary with feature information
     """
     # Get centroid of the feature's geometry
-    centroid = feature.geometry().centroid(1)
+    centroid = feature.geometry().centroid(0.1)
 
-    # OPTIMIZATION: Use cached geoboundaries
-    if gbounds_ADM0 is None:
-        gbounds_ADM0 = get_geoboundaries_fc()
+    # OPTIMIZATION: Use cached admin_boundaries
+    if bounds_ADM1 is None:
+        bounds_ADM1 = get_admin_boundaries_fc()
 
-    # Fetch location info from geoboundaries (country, admin)
-    location = ee.Dictionary(get_geoboundaries_info(centroid, gbounds_ADM0))
-    country = ee.Dictionary({iso3_country_column: location.get("shapeGroup")})
+    # Fetch location info from GAUL 2024 L1 (country, admin)
+    location = ee.Dictionary(get_admin_boundaries_info(centroid, bounds_ADM1))
+    country = ee.Dictionary({iso3_country_column: location.get("iso3_code")})
 
     admin_1 = ee.Dictionary(
-        {admin_1_column: location.get("shapeName")}
-    )  # Administrative level 1 (if available)
+        {admin_1_column: location.get("gaul1_name")}
+    )  # Administrative level 1 (from GAUL 2024 L1)
+
+    # OPTIMIZATION: Use cached water flag image
+    if water_all is None:
+        water_all = get_water_flag_image()
 
     # OPTIMIZATION: Use cached water flag image
     if water_all is None:
@@ -1081,8 +1295,12 @@ def get_type_and_location(feature, water_all=None, gbounds_ADM0=None):
     coords_list = centroid.coordinates()
     coords_dict = ee.Dictionary(
         {
-            centroid_x_coord_column: coords_list.get(0),  # Longitude
-            centroid_y_coord_column: coords_list.get(1),  # Latitude
+            centroid_x_coord_column: ee.Number(coords_list.get(0)).format(
+                "%.6f"
+            ),  # Longitude (6 dp)
+            centroid_y_coord_column: ee.Number(coords_list.get(1)).format(
+                "%.6f"
+            ),  # Latitude (6 dp)
         }
     )
 
@@ -1120,36 +1338,36 @@ def percent_and_format(val, area_ha):
     return ee.Number(formatted_value)
 
 
-# geoboundaries - admin units from a freqently updated database, allows commercial use (CC BY 4.0 DEED) (disputed territories may need checking)
-def get_geoboundaries_info(geometry, gbounds_ADM0=None):
+# GAUL 2024 L1 - admin units from FAO, allows commercial use
+def get_admin_boundaries_info(geometry, bounds_ADM1=None):
     """
-    Get geoboundaries info for a geometry.
+    Get GAUL 2024 L1 info for a geometry (country ISO3 code and admin boundary name).
 
-    OPTIMIZATION: Accepts cached geoboundaries FeatureCollection to avoid
+    OPTIMIZATION: Accepts cached GAUL 2024 L1 FeatureCollection to avoid
     reloading it for every feature (saves 2-5 seconds per analysis).
 
     Parameters
     ----------
     geometry : ee.Geometry
         The geometry to query
-    gbounds_ADM0 : ee.FeatureCollection, optional
-        Cached geoboundaries feature collection. If None, loads it.
+    bounds_ADM1 : ee.FeatureCollection, optional
+        Cached GAUL 2024 L1 feature collection. If None, loads it.
 
     Returns
     -------
     ee.Dictionary
-        Dictionary with shapeGroup and shapeName
+        Dictionary with iso3_code (country) and gaul1_name (admin boundary name)
     """
-    if gbounds_ADM0 is None:
-        gbounds_ADM0 = get_geoboundaries_fc()
+    if bounds_ADM1 is None:
+        bounds_ADM1 = get_admin_boundaries_fc()
 
-    polygonsIntersectPoint = gbounds_ADM0.filterBounds(geometry)
-    backup_dict = ee.Dictionary({"shapeGroup": "Unknown", "shapeName": "Unknown"})
+    polygonsIntersectPoint = bounds_ADM1.filterBounds(geometry)
+    backup_dict = ee.Dictionary({"iso3_code": "Unknown", "gaul1_name": "Unknown"})
     return ee.Algorithms.If(
         polygonsIntersectPoint.size().gt(0),
         polygonsIntersectPoint.first()
         .toDictionary()
-        .select(["shapeGroup", "shapeName"]),
+        .select(["iso3_code", "gaul1_name"]),
         backup_dict,
     )
 
