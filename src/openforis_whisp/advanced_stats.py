@@ -32,7 +32,7 @@ import os
 import subprocess
 from contextlib import redirect_stdout, contextmanager
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any, Tuple, Union
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import tempfile
 
@@ -203,6 +203,57 @@ def _extract_decimal_places(format_string: str) -> int:
     return 2  # Default to 2 decimal places
 
 
+def _normalize_keep_external_columns(
+    keep_external_columns: Union[bool, List[str]],
+    all_columns: List[str],
+    plot_id_column: str = "plotId",
+) -> List[str]:
+    """
+    Normalize keep_external_columns parameter to a list of column names.
+
+    Converts flexible user input (bool or list) to a concrete list of columns to keep.
+
+    Parameters
+    ----------
+    keep_external_columns : bool or List[str]
+        - False: keep nothing (return empty list)
+        - True: keep all columns except geometry and plot_id
+        - List[str]: keep specific columns (return as-is)
+    all_columns : List[str]
+        All available columns to choose from
+    plot_id_column : str
+        Name of plot ID column to exclude
+
+    Returns
+    -------
+    List[str]
+        Columns to keep from external (GeoJSON) data
+
+    Examples
+    --------
+    >>> cols = _normalize_keep_external_columns(False, ["id", "Country", "geom"], "id")
+    >>> cols
+    []
+
+    >>> cols = _normalize_keep_external_columns(True, ["id", "Country", "geom"], "id")
+    >>> cols
+    ['Country']
+
+    >>> cols = _normalize_keep_external_columns(["Country"], ["id", "Country", "geom"], "id")
+    >>> cols
+    ['Country']
+    """
+    if keep_external_columns is True:
+        # Keep all columns except geometry and plot_id
+        return [c for c in all_columns if c not in [plot_id_column, "geometry"]]
+    elif keep_external_columns is False:
+        # Keep nothing
+        return []
+    else:
+        # Use provided list (handle None case)
+        return keep_external_columns or []
+
+
 def _add_admin_context(
     df: pd.DataFrame, admin_code_col: str = "admin_code_median", debug: bool = False
 ) -> pd.DataFrame:
@@ -226,7 +277,7 @@ def _add_admin_context(
     pd.DataFrame
         DataFrame with added Country, ProducerCountry, Admin_Level_1 columns
     """
-    logger = logging.getLogger("whisp-concurrent")
+    logger = logging.getLogger("whisp")
 
     # Return early if admin code column doesn't exist
     if admin_code_col not in df.columns:
@@ -347,7 +398,7 @@ def join_admin_codes(
     pd.DataFrame
         DataFrame with added Country, ProducerCountry, Admin_Level_1 columns
     """
-    logger = logging.getLogger("whisp-concurrent")
+    logger = logging.getLogger("whisp")
 
     # Return early if admin code column doesn't exist
     if id_col not in df.columns:
@@ -408,8 +459,9 @@ class ProgressTracker:
     """
     Track batch processing progress with time estimation.
 
-    Shows progress at key milestones (25%, 50%, 75%, 100%) with estimated
-    time remaining based on processing speed.
+    Shows progress at adaptive milestones (more frequent for small datasets,
+    less frequent for large datasets) with estimated time remaining based on
+    processing speed.
     """
 
     def __init__(self, total: int, logger: logging.Logger = None):
@@ -426,8 +478,19 @@ class ProgressTracker:
         self.total = total
         self.completed = 0
         self.lock = threading.Lock()
-        self.logger = logger or logging.getLogger("whisp-concurrent")
-        self.milestones = {25, 50, 75, 100}
+        self.logger = logger or logging.getLogger("whisp")
+
+        # Adaptive milestones based on dataset size
+        # Small datasets (< 50): show every 25% (not too spammy)
+        # Medium (50-500): show every 20%
+        # Large (500+): show every 10% (more frequent feedback on long runs)
+        if total < 50:
+            self.milestones = {25, 50, 75, 100}
+        elif total < 500:
+            self.milestones = {20, 40, 60, 80, 100}
+        else:
+            self.milestones = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100}
+
         self.shown_milestones = set()
         self.start_time = time.time()
         self.last_update_time = self.start_time
@@ -544,9 +607,11 @@ def validate_ee_endpoint(endpoint_type: str = "high-volume", raise_error: bool =
         )
         msg += "ee.Reset()\n"
         if endpoint_type == "high-volume":
-            msg += "  ee.Initialize(opt_url='https://earthengine-highvolume.googleapis.com')"
+            msg += (
+                "ee.Initialize(opt_url='https://earthengine-highvolume.googleapis.com')"
+            )
         else:
-            msg += "  ee.Initialize()  # Uses standard endpoint by default"
+            msg += "ee.Initialize()  # Uses standard endpoint by default"
 
         if raise_error:
             raise RuntimeError(msg)
@@ -713,8 +778,8 @@ def convert_batch_to_ee(batch_gdf: gpd.GeoDataFrame) -> ee.FeatureCollection:
     """
     Convert a batch GeoDataFrame to EE FeatureCollection efficiently.
 
-    OPTIMIZATION: Uses GeoJSON dict input directly to avoid temp file I/O.
-    This provides ~67% performance improvement over writing to disk.
+    OPTIMIZATION: Passes GeoDataFrame directly to convert_geojson_to_ee to preserve CRS.
+    This ensures proper coordinate system handling and reprojection to WGS84 if needed.
 
     Preserves the __row_id__ column if present so it can be retrieved after processing.
 
@@ -728,10 +793,13 @@ def convert_batch_to_ee(batch_gdf: gpd.GeoDataFrame) -> ee.FeatureCollection:
     ee.FeatureCollection
         EE FeatureCollection with __row_id__ as a feature property
     """
-    # OPTIMIZATION: Convert to GeoJSON dict and pass directly
-    # This eliminates the need to write to/read from temp files (~67% faster)
-    geojson_dict = json.loads(batch_gdf.to_json())
-    fc = convert_geojson_to_ee(geojson_dict)
+    # Pass GeoDataFrame directly to preserve CRS metadata
+    # convert_geojson_to_ee will handle:
+    # - CRS detection and conversion to WGS84 if needed
+    # - Data type sanitization (datetime, object columns)
+    # - Geometry validation and Z-coordinate stripping
+
+    fc = convert_geojson_to_ee(batch_gdf, enforce_wgs84=True, strip_z_coords=True)
 
     # If __row_id__ is in the original GeoDataFrame, it will be preserved
     # as a feature property in the GeoJSON and thus in the EE FeatureCollection
@@ -763,7 +831,7 @@ def clean_geodataframe(
     gpd.GeoDataFrame
         Cleaned GeoDataFrame
     """
-    logger = logger or logging.getLogger("whisp-concurrent")
+    logger = logger or logging.getLogger("whisp")
 
     if remove_nulls:
         null_count = gdf.geometry.isna().sum()
@@ -828,7 +896,7 @@ def process_ee_batch(
     RuntimeError
         If processing fails after all retries
     """
-    logger = logger or logging.getLogger("whisp-concurrent")
+    logger = logger or logging.getLogger("whisp")
 
     for attempt in range(max_retries):
         try:
@@ -955,7 +1023,7 @@ def whisp_stats_geojson_to_df_concurrent(
     """
     from openforis_whisp.reformat import format_stats_dataframe
 
-    logger = logger or logging.getLogger("whisp-concurrent")
+    logger = logger or logging.getLogger("whisp")
 
     # Suppress verbose output from dependencies (dynamically adjust based on max_concurrent)
     _suppress_verbose_output(max_concurrent=max_concurrent)
@@ -977,6 +1045,16 @@ def whisp_stats_geojson_to_df_concurrent(
 
     # Add stable plotIds for merging (starting from 1, not 0)
     gdf[plot_id_column] = range(1, len(gdf) + 1)
+
+    # Strip unnecessary properties before sending to EE
+    # Keep only: geometry, plot_id_column, and external_id_column
+    # This prevents duplication of GeoJSON properties in EE results
+    keep_cols = ["geometry", plot_id_column]
+    if external_id_column and external_id_column in gdf.columns:
+        keep_cols.append(external_id_column)
+
+    gdf_for_ee = gdf[keep_cols].copy()
+    logger.debug(f"Stripped GeoJSON to essential columns: {keep_cols}")
 
     # Create image if not provided
     if whisp_image is None:
@@ -1001,8 +1079,8 @@ def whisp_stats_geojson_to_df_concurrent(
     reducer = ee.Reducer.sum().combine(ee.Reducer.median(), sharedInputs=True)
 
     # Batch the data
-    batches = batch_geodataframe(gdf, batch_size)
-    logger.info(f"Processing {len(gdf):,} features in {len(batches)} batches")
+    batches = batch_geodataframe(gdf_for_ee, batch_size)
+    logger.info(f"Processing {len(gdf_for_ee):,} features in {len(batches)} batches")
 
     # Setup semaphore for EE concurrency control
     ee_semaphore = threading.BoundedSemaphore(max_concurrent)
@@ -1064,8 +1142,35 @@ def whisp_stats_geojson_to_df_concurrent(
                         if plot_id_column not in df_server.columns:
                             df_server[plot_id_column] = range(len(df_server))
 
-                        merged = df_server.merge(
-                            df_client,
+                        # Keep all EE statistics from server (all columns with _sum and _median suffixes)
+                        # These are the actual EE processing results
+                        df_server_clean = df_server.copy()
+
+                        # Keep external metadata: plot_id, external_id, geometry, geometry type, and centroids from client
+                        # (formatted wrapper handles keep_external_columns parameter)
+                        keep_external_columns = [plot_id_column]
+                        if (
+                            external_id_column
+                            and external_id_column in df_client.columns
+                        ):
+                            keep_external_columns.append(external_id_column)
+                        if "geometry" in df_client.columns:
+                            keep_external_columns.append("geometry")
+                        # Keep geometry type column (Geometry_type)
+                        if geometry_type_column in df_client.columns:
+                            keep_external_columns.append(geometry_type_column)
+                        # Also keep centroid columns (Centroid_lon, Centroid_lat)
+                        centroid_cols = [
+                            c for c in df_client.columns if c.startswith("Centroid_")
+                        ]
+                        keep_external_columns.extend(centroid_cols)
+
+                        df_client_clean = df_client[
+                            [c for c in keep_external_columns if c in df_client.columns]
+                        ].drop_duplicates()
+
+                        merged = df_server_clean.merge(
+                            df_client_clean,
                             on=plot_id_column,
                             how="left",
                             suffixes=("_ee", "_client"),
@@ -1442,7 +1547,7 @@ def whisp_stats_geojson_to_df_sequential(
     """
     from openforis_whisp.reformat import format_stats_dataframe
 
-    logger = logger or logging.getLogger("whisp-concurrent")
+    logger = logger or logging.getLogger("whisp")
 
     # Suppress verbose output from dependencies (sequential has lower concurrency, use default)
     _suppress_verbose_output(max_concurrent=1)
@@ -1469,6 +1574,16 @@ def whisp_stats_geojson_to_df_sequential(
     row_id_col = "__row_id__"
     gdf[row_id_col] = range(len(gdf))
 
+    # Strip unnecessary properties before sending to EE
+    # Keep only: geometry, plot_id_column, and external_id_column
+    # This prevents duplication of GeoJSON properties in EE results
+    keep_cols = ["geometry", plot_id_column, row_id_col]
+    if external_id_column and external_id_column in gdf.columns:
+        keep_cols.append(external_id_column)
+
+    gdf_for_ee = gdf[keep_cols].copy()
+    logger.debug(f"Stripped GeoJSON to essential columns: {keep_cols}")
+
     # Create image if not provided
     if whisp_image is None:
         logger.debug("Creating Whisp image...")
@@ -1491,7 +1606,7 @@ def whisp_stats_geojson_to_df_sequential(
     # Convert to EE (suppress print statements from convert_geojson_to_ee)
     logger.debug("Converting to EE FeatureCollection...")
     with redirect_stdout(io.StringIO()):
-        fc = convert_geojson_to_ee(input_geojson_filepath)
+        fc = convert_geojson_to_ee(gdf_for_ee, enforce_wgs84=True, strip_z_coords=True)
 
     # Create reducer
     reducer = ee.Reducer.sum().combine(ee.Reducer.median(), sharedInputs=True)
@@ -1633,6 +1748,7 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
     convert_water_flag: bool = True,
     water_flag_threshold: float = 0.5,
     sort_column: str = "plotId",
+    include_geometry_audit_trail: bool = False,
 ) -> pd.DataFrame:
     """
     Process GeoJSON concurrently with automatic formatting and validation.
@@ -1683,21 +1799,35 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
         Water flag ratio threshold (default 0.5)
     sort_column : str
         Column to sort by (default "plotId", None to skip)
+    include_geometry_audit_trail : bool, default False
+        If True, includes audit trail columns:
+        - geo_original: Original input geometry (before EE processing)
+        - geometry_type_original: Original geometry type
+        - geometry_type: Processed geometry type (from EE)
+        - geometry_type_changed: Boolean flag if geometry changed
+        - geometry_type_transition: Description of how it changed
+        These columns enable full transparency and auditability for compliance tracking.
 
     Returns
     -------
     pd.DataFrame
-        Validated, formatted results DataFrame
+        Validated, formatted results DataFrame with optional audit trail
     """
     from openforis_whisp.reformat import format_stats_dataframe
+    from datetime import datetime, timezone
+    import json
+    from shapely.geometry import mapping
 
-    logger = logger or logging.getLogger("whisp-concurrent")
+    logger = logger or logging.getLogger("whisp")
 
     # Auto-detect decimal places from config if not provided
     if decimal_places is None:
         # Use stats_area_columns_formatting as default for most columns
         decimal_places = _extract_decimal_places(stats_area_columns_formatting)
         logger.debug(f"Using decimal_places={decimal_places} from config")
+
+    # Normalize keep_external_columns parameter early (will be used in merge logic later)
+    # Load GeoJSON temporarily to get column names for normalization
 
     # Step 1: Get raw stats
     logger.debug("Step 1/2: Extracting statistics (concurrent)...")
@@ -1759,6 +1889,113 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
         custom_bands=custom_bands,
     )
 
+    # Step 2c: Add audit trail columns (AFTER validation to preserve columns)
+    if include_geometry_audit_trail:
+        logger.debug("Adding audit trail columns...")
+        try:
+            # Capture original geometries AFTER we have the raw stats
+            logger.debug("Capturing original geometries for audit trail...")
+            gdf_original = _load_geojson_silently(input_geojson_filepath)
+
+            # Use plotId from df_validated to maintain mapping
+            df_original_geom = pd.DataFrame(
+                {
+                    "plotId": df_validated["plotId"].values[: len(gdf_original)],
+                    "geo_original": gdf_original["geometry"].apply(
+                        lambda g: json.dumps(mapping(g)) if g is not None else None
+                    ),
+                    "geometry_type_original": gdf_original["geometry"].geom_type.values,
+                }
+            )
+
+            # Merge original geometries back
+            df_validated = df_validated.merge(df_original_geom, on="plotId", how="left")
+
+            # Extract geometry type from processed 'geo' column if it exists
+            # Note: 'geo' column may not exist after validation removes extra columns
+            if "geo" in df_validated.columns:
+                # Use geo column from validated dataframe
+                def extract_geom_type(x):
+                    try:
+                        if isinstance(x, dict):
+                            return x.get("type")
+                        elif isinstance(x, str):
+                            # Handle both JSON strings and Python dict string representations
+                            try:
+                                parsed = json.loads(x)
+                            except:
+                                # Try ast.literal_eval for Python dict representations
+                                import ast
+
+                                parsed = ast.literal_eval(x)
+                            return (
+                                parsed.get("type") if isinstance(parsed, dict) else None
+                            )
+                    except:
+                        pass
+                    return None
+
+                df_validated["geometry_type"] = df_validated["geo"].apply(
+                    extract_geom_type
+                )
+            else:
+                # If geo doesn't exist, just use the original type
+                df_validated["geometry_type"] = df_validated["geometry_type_original"]
+
+            # Flag if geometry changed
+            df_validated["geometry_type_changed"] = (
+                df_validated["geometry_type_original"] != df_validated["geometry_type"]
+            )
+
+            # Classify the geometry type transition
+            def classify_transition(orig, proc):
+                if orig == proc:
+                    return "no_change"
+                elif proc == "LineString":
+                    return f"{orig}_simplified_to_linestring"
+                elif proc == "Point":
+                    return f"{orig}_simplified_to_point"
+                else:
+                    return f"{orig}_to_{proc}"
+
+            df_validated["geometry_type_transition"] = df_validated.apply(
+                lambda row: classify_transition(
+                    row["geometry_type_original"], row["geometry_type"]
+                ),
+                axis=1,
+            )
+
+            # Store processing metadata
+            df_validated.attrs["processing_metadata"] = {
+                "whisp_version": "2.0",
+                "processing_date": datetime.now().isoformat(),
+                "processing_mode": "concurrent",
+                "ee_endpoint": "high_volume",
+                "validate_geometries": validate_geometries,
+                "datasets_used": national_codes or [],
+                "include_geometry_audit_trail": True,
+            }
+
+            logger.info(
+                f"Audit trail added: {df_validated['geometry_type_changed'].sum()} geometries with type changes"
+            )
+
+        except Exception as e:
+            logger.warning(f"Error adding audit trail: {e}")
+            # Continue without audit trail if something fails
+
+    # Add processing metadata column using pd.concat to avoid fragmentation warning
+    metadata_dict = {
+        "whisp_version": "3.0.0a1",
+        "processing_timestamp_utc": datetime.now(timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S UTC"
+        ),
+    }
+    metadata_series = pd.Series(
+        [metadata_dict] * len(df_validated), name="whisp_processing_metadata"
+    )
+    df_validated = pd.concat([df_validated, metadata_series], axis=1)
+
     logger.info("Concurrent processing + formatting + validation complete")
     return df_validated
 
@@ -1779,6 +2016,7 @@ def whisp_formatted_stats_geojson_to_df_sequential(
     convert_water_flag: bool = True,
     water_flag_threshold: float = 0.5,
     sort_column: str = "plotId",
+    include_geometry_audit_trail: bool = False,
 ) -> pd.DataFrame:
     """
     Process GeoJSON sequentially with automatic formatting and validation.
@@ -1821,15 +2059,26 @@ def whisp_formatted_stats_geojson_to_df_sequential(
         Water flag ratio threshold (default 0.5)
     sort_column : str
         Column to sort by (default "plotId", None to skip)
+    include_geometry_audit_trail : bool, default True
+        If True, includes audit trail columns:
+        - geo_original: Original input geometry (before EE processing)
+        - geometry_type_original: Original geometry type
+        - geometry_type: Processed geometry type (from EE)
+        - geometry_type_changed: Boolean flag if geometry changed
+        - geometry_type_transition: Description of how it changed
+        These columns enable full transparency and auditability for EUDR compliance.
 
     Returns
     -------
     pd.DataFrame
-        Validated, formatted results DataFrame
+        Validated, formatted results DataFrame with optional audit trail
     """
     from openforis_whisp.reformat import format_stats_dataframe
+    from datetime import datetime, timezone
+    import json
+    from shapely.geometry import mapping
 
-    logger = logger or logging.getLogger("whisp-concurrent")
+    logger = logger or logging.getLogger("whisp")
 
     # Auto-detect decimal places from config if not provided
     if decimal_places is None:
@@ -1893,6 +2142,112 @@ def whisp_formatted_stats_geojson_to_df_sequential(
         custom_bands=custom_bands,
     )
 
+    # Step 2c: Add audit trail columns (AFTER validation to preserve columns)
+    if include_geometry_audit_trail:
+        logger.debug("Adding audit trail columns...")
+        try:
+            # Capture original geometries AFTER we have the raw stats
+            logger.debug("Capturing original geometries for audit trail...")
+            gdf_original = _load_geojson_silently(input_geojson_filepath)
+
+            # Use plotId from df_validated to maintain mapping
+            df_original_geom = pd.DataFrame(
+                {
+                    "plotId": df_validated["plotId"].values[: len(gdf_original)],
+                    "geo_original": gdf_original["geometry"].apply(
+                        lambda g: json.dumps(mapping(g)) if g is not None else None
+                    ),
+                    "geometry_type_original": gdf_original["geometry"].geom_type.values,
+                }
+            )
+
+            # Merge original geometries back
+            df_validated = df_validated.merge(df_original_geom, on="plotId", how="left")
+
+            # Extract geometry type from processed 'geo' column if it exists
+            # Note: 'geo' column may not exist after validation removes extra columns
+            if "geo" in df_validated.columns:
+                # Use geo column from validated dataframe
+                def extract_geom_type(x):
+                    try:
+                        if isinstance(x, dict):
+                            return x.get("type")
+                        elif isinstance(x, str):
+                            # Handle both JSON strings and Python dict string representations
+                            try:
+                                parsed = json.loads(x)
+                            except:
+                                # Try ast.literal_eval for Python dict representations
+                                import ast
+
+                                parsed = ast.literal_eval(x)
+                            return (
+                                parsed.get("type") if isinstance(parsed, dict) else None
+                            )
+                    except:
+                        pass
+                    return None
+
+                df_validated["geometry_type"] = df_validated["geo"].apply(
+                    extract_geom_type
+                )
+            else:
+                # If geo doesn't exist, just use the original type
+                df_validated["geometry_type"] = df_validated["geometry_type_original"]
+
+            # Flag if geometry changed
+            df_validated["geometry_type_changed"] = (
+                df_validated["geometry_type_original"] != df_validated["geometry_type"]
+            )
+
+            # Classify the geometry type transition
+            def classify_transition(orig, proc):
+                if orig == proc:
+                    return "no_change"
+                elif proc == "LineString":
+                    return f"{orig}_simplified_to_linestring"
+                elif proc == "Point":
+                    return f"{orig}_simplified_to_point"
+                else:
+                    return f"{orig}_to_{proc}"
+
+            df_validated["geometry_type_transition"] = df_validated.apply(
+                lambda row: classify_transition(
+                    row["geometry_type_original"], row["geometry_type"]
+                ),
+                axis=1,
+            )
+
+            # Store processing metadata
+            df_validated.attrs["processing_metadata"] = {
+                "whisp_version": "2.0",
+                "processing_date": datetime.now().isoformat(),
+                "processing_mode": "sequential",
+                "ee_endpoint": "standard",
+                "datasets_used": national_codes or [],
+                "include_geometry_audit_trail": True,
+            }
+
+            logger.info(
+                f"Audit trail added: {df_validated['geometry_type_changed'].sum()} geometries with type changes"
+            )
+
+        except Exception as e:
+            logger.warning(f"Error adding audit trail: {e}")
+            # Continue without audit trail if something fails
+
+    # Add processing metadata column using pd.concat to avoid fragmentation warning
+    metadata_dict = {
+        "whisp_version": "3.0.0a1",
+        "processing_timestamp_utc": datetime.now(timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S UTC"
+        ),
+    }
+    metadata_series = pd.Series(
+        [metadata_dict] * len(df_validated), name="whisp_processing_metadata"
+    )
+    df_validated = pd.concat([df_validated, metadata_series], axis=1)
+
     logger.info("Sequential processing + formatting + validation complete")
     return df_validated
 
@@ -1923,6 +2278,7 @@ def whisp_formatted_stats_geojson_to_df_fast(
     convert_water_flag: bool = True,
     water_flag_threshold: float = 0.5,
     sort_column: str = "plotId",
+    include_geometry_audit_trail: bool = False,
 ) -> pd.DataFrame:
     """
     Process GeoJSON to Whisp statistics with optimized fast processing.
@@ -1999,7 +2355,7 @@ def whisp_formatted_stats_geojson_to_df_fast(
     ...     mode="sequential"
     ... )
     """
-    logger = logging.getLogger("whisp-concurrent")
+    logger = logging.getLogger("whisp")
 
     # Determine processing mode
     if mode == "auto":
@@ -2050,6 +2406,7 @@ def whisp_formatted_stats_geojson_to_df_fast(
             convert_water_flag=convert_water_flag,
             water_flag_threshold=water_flag_threshold,
             sort_column=sort_column,
+            include_geometry_audit_trail=include_geometry_audit_trail,
         )
     else:  # sequential
         logger.debug("Routing to sequential processing...")
@@ -2067,4 +2424,5 @@ def whisp_formatted_stats_geojson_to_df_fast(
             convert_water_flag=convert_water_flag,
             water_flag_threshold=water_flag_threshold,
             sort_column=sort_column,
+            include_geometry_audit_trail=include_geometry_audit_trail,
         )
