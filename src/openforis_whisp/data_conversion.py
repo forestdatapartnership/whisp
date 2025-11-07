@@ -12,67 +12,81 @@ import geopandas as gpd
 import ee
 
 
-def convert_geojson_to_ee(
-    geojson_filepath: Union[str, Path, dict],
-    enforce_wgs84: bool = True,
-    strip_z_coords: bool = True,
-) -> ee.FeatureCollection:
+# ============================================================================
+# HELPER FUNCTIONS FOR UNIFIED PROCESSING PATHWAY
+# ============================================================================
+
+
+def _sanitize_geodataframe(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """
-    Converts GeoJSON data to an Earth Engine FeatureCollection.
-    Accepts either a file path or a GeoJSON dictionary object.
-    Optionally checks and converts the CRS to WGS 84 (EPSG:4326) if needed.
-    Automatically handles 3D coordinates by stripping Z values when necessary.
+    Sanitize GeoDataFrame data types for JSON serialization.
+
+    Converts problematic data types that cannot be directly serialized:
+    - DateTime/Timestamp columns → ISO format strings
+    - Object columns → strings
+    - Skips geometry column
 
     Args:
-        geojson_filepath (Union[str, Path, dict]): The filepath to the GeoJSON file (str or Path)
-                                                    or a GeoJSON dictionary object.
-        enforce_wgs84 (bool): Whether to enforce WGS 84 projection (EPSG:4326). Defaults to True.
-                              Only applies when input is a file path (dicts are assumed to be in WGS84).
-        strip_z_coords (bool): Whether to automatically strip Z coordinates from 3D geometries. Defaults to True.
+        gdf (gpd.GeoDataFrame): Input GeoDataFrame
 
     Returns:
-        ee.FeatureCollection: Earth Engine FeatureCollection created from the GeoJSON.
+        gpd.GeoDataFrame: GeoDataFrame with sanitized data types
     """
-    if isinstance(geojson_filepath, dict):
-        # Input is already a GeoJSON dictionary - skip file reading
-        geojson_data = geojson_filepath
-    elif isinstance(geojson_filepath, (str, Path)):
-        file_path = os.path.abspath(geojson_filepath)
+    gdf = gdf.copy()
+    for col in gdf.columns:
+        if col != gdf.geometry.name:  # Skip geometry column
+            # Handle datetime/timestamp columns
+            if pd.api.types.is_datetime64_any_dtype(gdf[col]):
+                gdf[col] = gdf[col].dt.strftime("%Y-%m-%d %H:%M:%S").fillna("")
+            # Handle other problematic types
+            elif gdf[col].dtype == "object":
+                # Convert any remaining non-serializable objects to strings
+                gdf[col] = gdf[col].astype(str)
+    return gdf
 
-        # Use GeoPandas to read the file and handle CRS
-        gdf = gpd.read_file(file_path)
 
-        # NEW: Handle problematic data types before JSON conversion
-        for col in gdf.columns:
-            if col != gdf.geometry.name:  # Skip geometry column
-                # Handle datetime/timestamp columns
-                if pd.api.types.is_datetime64_any_dtype(gdf[col]):
-                    gdf[col] = gdf[col].dt.strftime("%Y-%m-%d %H:%M:%S").fillna("")
-                # Handle other problematic types
-                elif gdf[col].dtype == "object":
-                    # Convert any remaining non-serializable objects to strings
-                    gdf[col] = gdf[col].astype(str)
+def _ensure_wgs84_crs(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """
+    Ensure GeoDataFrame uses WGS 84 (EPSG:4326) coordinate reference system.
 
-        # Check and convert CRS if needed
-        if enforce_wgs84:
-            if gdf.crs is None:
-                # Assuming WGS 84 if no CRS defined
-                pass
-            elif gdf.crs != "EPSG:4326":
-                gdf = gdf.to_crs("EPSG:4326")
+    - If CRS is None, assumes WGS 84
+    - If CRS is not WGS 84, converts to WGS 84
+    - If already WGS 84, returns unchanged
 
-        # Convert to GeoJSON
-        geojson_data = json.loads(gdf.to_json())
-    else:
-        raise ValueError(
-            "Input must be a file path (str or Path) or a GeoJSON dictionary object (dict)"
-        )
+    Args:
+        gdf (gpd.GeoDataFrame): Input GeoDataFrame
 
-    validation_errors = validate_geojson(geojson_data)
-    if validation_errors:
-        raise ValueError(f"GeoJSON validation errors: {validation_errors}")
+    Returns:
+        gpd.GeoDataFrame: GeoDataFrame in WGS 84
+    """
+    if gdf.crs is None:
+        # Assuming WGS 84 if no CRS defined
+        return gdf
+    elif gdf.crs != "EPSG:4326":
+        return gdf.to_crs("EPSG:4326")
+    return gdf
 
-    # Try to create the feature collection, handle 3D coordinate issues automatically
+
+def _create_ee_feature_collection(
+    geojson_data: dict, strip_z_coords: bool = True, input_source: str = "input"
+) -> ee.FeatureCollection:
+    """
+    Create Earth Engine FeatureCollection from GeoJSON dict with error recovery.
+
+    Attempts to create EE FeatureCollection. If it fails due to 3D coordinates
+    and strip_z_coords is True, automatically strips Z values and retries.
+
+    Args:
+        geojson_data (dict): GeoJSON data dictionary
+        strip_z_coords (bool): Whether to retry with 2D geometries on failure
+        input_source (str): Description of input source for logging
+
+    Returns:
+        ee.FeatureCollection: Earth Engine FeatureCollection
+
+    Raises:
+        ee.EEException: If conversion fails even after retries
+    """
     try:
         feature_collection = ee.FeatureCollection(
             create_feature_collection(geojson_data)
@@ -81,16 +95,16 @@ def convert_geojson_to_ee(
     except ee.EEException as e:
         if "Invalid GeoJSON geometry" in str(e) and strip_z_coords:
             # Apply print_once deduplication for Z-coordinate stripping messages
-            if not hasattr(convert_geojson_to_ee, "_printed_z_messages"):
-                convert_geojson_to_ee._printed_z_messages = set()
+            if not hasattr(_create_ee_feature_collection, "_printed_z_messages"):
+                _create_ee_feature_collection._printed_z_messages = set()
 
-            z_message_key = f"z_coords_{file_path}"
-            if z_message_key not in convert_geojson_to_ee._printed_z_messages:
+            z_message_key = f"z_coords_{input_source}"
+            if z_message_key not in _create_ee_feature_collection._printed_z_messages:
                 print(
                     "Warning: Invalid GeoJSON geometry detected, likely due to 3D coordinates."
                 )
                 print("Attempting to fix by stripping Z coordinates...")
-                convert_geojson_to_ee._printed_z_messages.add(z_message_key)
+                _create_ee_feature_collection._printed_z_messages.add(z_message_key)
 
             # Apply Z-coordinate stripping
             geojson_data_fixed = _strip_z_coordinates_from_geojson(geojson_data)
@@ -101,10 +115,15 @@ def convert_geojson_to_ee(
                     create_feature_collection(geojson_data_fixed)
                 )
 
-                success_message_key = f"z_coords_success_{file_path}"
-                if success_message_key not in convert_geojson_to_ee._printed_z_messages:
+                success_message_key = f"z_coords_success_{input_source}"
+                if (
+                    success_message_key
+                    not in _create_ee_feature_collection._printed_z_messages
+                ):
                     print("Successfully converted after stripping Z coordinates")
-                    convert_geojson_to_ee._printed_z_messages.add(success_message_key)
+                    _create_ee_feature_collection._printed_z_messages.add(
+                        success_message_key
+                    )
 
                 return feature_collection
             except Exception as retry_error:
@@ -113,6 +132,82 @@ def convert_geojson_to_ee(
                 )
         else:
             raise e
+
+
+def convert_geojson_to_ee(
+    geojson_input: Union[str, Path, dict, gpd.GeoDataFrame],
+    enforce_wgs84: bool = True,
+    strip_z_coords: bool = True,
+) -> ee.FeatureCollection:
+    """
+    Converts GeoJSON data to an Earth Engine FeatureCollection.
+
+    Accepts flexible input types with a unified processing pathway:
+    - File path (str or Path) → loads with GeoPandas
+    - GeoJSON dict → uses directly
+    - GeoDataFrame → uses directly
+
+    Automatically handles:
+    - CRS conversion to WGS 84 (EPSG:4326) if needed
+    - DateTime/Timestamp columns → converts to ISO strings before JSON serialization
+    - Non-serializable objects → converts to strings
+    - 3D coordinates → strips Z values when necessary
+    - Z-coordinate errors → retries with 2D geometries if enabled
+
+    Args:
+        geojson_input (Union[str, Path, dict, gpd.GeoDataFrame]):
+            - File path (str or Path) to GeoJSON file
+            - GeoJSON dictionary object
+            - GeoPandas GeoDataFrame
+        enforce_wgs84 (bool): Whether to enforce WGS 84 projection (EPSG:4326).
+            Defaults to True. Only applies to file path and GeoDataFrame inputs.
+        strip_z_coords (bool): Whether to automatically strip Z coordinates from 3D geometries.
+            Defaults to True.
+
+    Returns:
+        ee.FeatureCollection: Earth Engine FeatureCollection created from the GeoJSON.
+
+    Raises:
+        ValueError: If input type is unsupported or GeoJSON validation fails.
+        ee.EEException: If GeoJSON cannot be converted even after retries.
+    """
+    # UNIFIED INPUT NORMALIZATION: Convert all inputs to GeoDataFrame first
+    if isinstance(geojson_input, gpd.GeoDataFrame):
+        gdf = geojson_input.copy()
+        input_source = "GeoDataFrame"
+    elif isinstance(geojson_input, dict):
+        # Convert dict to GeoDataFrame for unified processing
+        gdf = gpd.GeoDataFrame.from_features(geojson_input.get("features", []))
+        input_source = "dict"
+    elif isinstance(geojson_input, (str, Path)):
+        # Load file and convert to GeoDataFrame
+        file_path = os.path.abspath(geojson_input)
+        gdf = gpd.read_file(file_path)
+        input_source = f"file ({file_path})"
+    else:
+        raise ValueError(
+            f"Input must be a file path (str or Path), GeoJSON dict, or GeoDataFrame. "
+            f"Got {type(geojson_input).__name__}"
+        )
+
+    # UNIFIED DATA SANITIZATION PATHWAY
+    # Handle problematic data types before JSON conversion
+    gdf = _sanitize_geodataframe(gdf)
+
+    # UNIFIED CRS HANDLING
+    if enforce_wgs84:
+        gdf = _ensure_wgs84_crs(gdf)
+
+    # UNIFIED GEOJSON CONVERSION
+    geojson_data = json.loads(gdf.to_json())
+
+    # UNIFIED VALIDATION
+    validation_errors = validate_geojson(geojson_data)
+    if validation_errors:
+        raise ValueError(f"GeoJSON validation errors: {validation_errors}")
+
+    # UNIFIED EE CONVERSION with error recovery
+    return _create_ee_feature_collection(geojson_data, strip_z_coords, input_source)
 
 
 def _strip_z_coordinates_from_geojson(geojson_data: dict) -> dict:
