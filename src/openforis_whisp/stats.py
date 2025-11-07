@@ -1279,6 +1279,10 @@ def get_type_and_location(feature, water_all=None, bounds_ADM1=None):
     if water_all is None:
         water_all = get_water_flag_image()
 
+    # OPTIMIZATION: Use cached water flag image
+    if water_all is None:
+        water_all = get_water_flag_image()
+
     # Prepare the water flag information
     water_flag_dict = value_at_point_flag(
         point=centroid, image=water_all, band_name=water_flag, output_name=water_flag
