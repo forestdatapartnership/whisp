@@ -125,7 +125,7 @@ def validate_dataframe(
     Returns:
         pd.DataFrame: The validated DataFrame with columns ordered according to the schema, or None if validation fails.
     """
-    log_missing_columns(df_stats, schema)
+    _log_missing_columns(df_stats, schema)
 
     # df_stats = df_stats.reindex(schema.columns.keys(), axis=1)
 
@@ -251,7 +251,7 @@ def create_schema_from_dataframe(schema_df: pd.DataFrame) -> pa.DataFrameSchema:
 #     return logger
 
 
-def log_missing_columns(df_stats: pd.DataFrame, template_schema: pa.DataFrameSchema):
+def _log_missing_columns(df_stats: pd.DataFrame, template_schema: pa.DataFrameSchema):
     # Initialize the logger
     logger = setup_logger(__name__)
 
@@ -675,33 +675,6 @@ def _process_custom_bands(df_extra: pd.DataFrame, custom_bands) -> pd.DataFrame:
 
 
 # Fix the duplicate logging issue
-def log_missing_columns(df_stats: pd.DataFrame, template_schema: pa.DataFrameSchema):
-    # Remove the duplicate logger creation line
-    # logger = setup_logger(__name__)  # DELETE THIS LINE
-
-    # Use the existing module-level logger (line 18: logger = StdoutLogger(__name__))
-
-    # Extract the expected columns from the DataFrameSchema
-    template_columns = list(template_schema.columns.keys())
-    df_stats_columns = df_stats.columns.tolist()
-
-    # Find missing and extra columns
-    missing_in_df = [col for col in template_columns if col not in df_stats_columns]
-    extra_in_df = [col for col in df_stats_columns if col not in template_columns]
-
-    # Log missing schema columns
-    if missing_in_df:
-        logger.warning(f"Missing expected schema columns: {missing_in_df}")
-    else:
-        logger.info("All expected schema columns found in DataFrame.")
-
-    # Log extra columns (will be preserved)
-    if extra_in_df:
-        logger.info(f"Extra columns found (will be preserved): {extra_in_df}")
-    else:
-        logger.info("No extra columns found in DataFrame.")
-
-
 def format_stats_dataframe(
     df,
     area_col="Area_sum",
