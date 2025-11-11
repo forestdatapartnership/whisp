@@ -63,10 +63,6 @@ from openforis_whisp.stats import (
 )
 
 from openforis_whisp.advanced_stats import (
-    whisp_stats_geojson_to_df_concurrent,
-    whisp_formatted_stats_geojson_to_df_concurrent,
-    whisp_stats_geojson_to_df_sequential,
-    whisp_formatted_stats_geojson_to_df_sequential,
     whisp_formatted_stats_geojson_to_df_fast,
 )
 
@@ -83,7 +79,6 @@ from openforis_whisp.reformat import (
     create_schema_from_dataframe,
     load_schema_if_any_file_changed,
     format_stats_dataframe,
-    # log_missing_columns,
 )
 
 from openforis_whisp.data_conversion import (
@@ -96,11 +91,16 @@ from openforis_whisp.data_conversion import (
 
 from openforis_whisp.risk import whisp_risk, detect_unit_type
 
-from openforis_whisp.utils import get_example_data_path, generate_test_polygons
+from openforis_whisp.utils import (
+    get_example_data_path,
+    generate_test_polygons,  # to be deprecated
+    generate_random_features,
+    generate_random_points,
+    generate_random_polygons,
+)
 
 from openforis_whisp.data_checks import (
     analyze_geojson,
     validate_geojson_constraints,
-    _check_metric_constraints,
     suggest_method,
 )

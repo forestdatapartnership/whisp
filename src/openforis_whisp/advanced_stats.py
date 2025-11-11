@@ -600,18 +600,22 @@ def validate_ee_endpoint(endpoint_type: str = "high-volume", raise_error: bool =
         If incorrect endpoint and raise_error=True
     """
     if not check_ee_endpoint(endpoint_type):
-        msg = (
-            f"Not using {endpoint_type.upper()} endpoint.\n"
-            f"Current URL: {ee.data._cloud_api_base_url}\n"
-            f"\nTo use {endpoint_type} endpoint, run:\n"
-        )
-        msg += "ee.Reset()\n"
         if endpoint_type == "high-volume":
-            msg += (
-                "ee.Initialize(opt_url='https://earthengine-highvolume.googleapis.com')"
+            msg = (
+                "Concurrent mode requires the HIGH-VOLUME endpoint. To change endpoint run:\n"
+                "ee.Reset()\n"
+                "ee.Initialize(opt_url='https://earthengine-highvolume.googleapis.com')\n"
+                "Or with project specified (e.g. when in Colab):\n"
+                "ee.Initialize(project='your_cloud_project_name', opt_url='https://earthengine-highvolume.googleapis.com')"
             )
-        else:
-            msg += "ee.Initialize()  # Uses standard endpoint by default"
+        else:  # standard endpoint
+            msg = (
+                "Sequential mode requires the STANDARD endpoint. To change endpoint run:\n"
+                "ee.Reset()\n"
+                "ee.Initialize()\n"
+                "Or with project specified (e.g. when in Colab):\n"
+                "ee.Initialize(project='your_cloud_project_name')"
+            )
 
         if raise_error:
             raise RuntimeError(msg)
@@ -808,8 +812,8 @@ def convert_batch_to_ee(batch_gdf: gpd.GeoDataFrame) -> ee.FeatureCollection:
 
 def clean_geodataframe(
     gdf: gpd.GeoDataFrame,
-    remove_nulls: bool = True,
-    fix_invalid: bool = True,
+    remove_nulls: bool = False,
+    repair_geometries: bool = False,
     logger: logging.Logger = None,
 ) -> gpd.GeoDataFrame:
     """
@@ -820,9 +824,11 @@ def clean_geodataframe(
     gdf : gpd.GeoDataFrame
         Input GeoDataFrame
     remove_nulls : bool
-        Remove null geometries
-    fix_invalid : bool
-        Fix invalid geometries
+        Remove null geometries. Defaults to False to preserve data integrity.
+        Set to True only if you explicitly want to drop rows with null geometries.
+    repair_geometries : bool
+        Repair invalid geometries using Shapely's make_valid(). Defaults to False to preserve
+        original geometries. Set to True only if you want to automatically repair invalid geometries.
     logger : logging.Logger, optional
         Logger for output
 
@@ -839,11 +845,11 @@ def clean_geodataframe(
             logger.warning(f"Removing {null_count} null geometries")
             gdf = gdf[~gdf.geometry.isna()].copy()
 
-    if fix_invalid:
+    if repair_geometries:
         valid_count = gdf.geometry.is_valid.sum()
         invalid_count = len(gdf) - valid_count
         if invalid_count > 0:
-            logger.warning(f"Fixing {invalid_count} invalid geometries")
+            logger.warning(f"Repairing {invalid_count} invalid geometries")
             from shapely.validation import make_valid
 
             gdf = gdf.copy()
@@ -853,6 +859,19 @@ def clean_geodataframe(
 
     logger.debug(f"Validation complete: {len(gdf):,} geometries ready")
     return gdf
+
+
+# ============================================================================
+# BATCH RETRY HELPER
+# ============================================================================
+
+
+# ============================================================================
+# BATCH RETRY HELPER - DEPRECATED (removed due to semaphore deadlock issues)
+# ============================================================================
+# Note: Retry logic via sub-batching has been removed. Instead, use fail-fast
+# approach: when a batch fails, reduce batch_size parameter and retry manually.
+# This avoids semaphore deadlocks and provides clearer error messages.
 
 
 # ============================================================================
@@ -1041,7 +1060,9 @@ def whisp_stats_geojson_to_df_concurrent(
     logger.info(f"Loaded {len(gdf):,} features")
 
     if validate_geometries:
-        gdf = clean_geodataframe(gdf, logger=logger)
+        gdf = clean_geodataframe(
+            gdf, remove_nulls=False, repair_geometries=False, logger=logger
+        )
 
     # Add stable plotIds for merging (starting from 1, not 0)
     gdf[plot_id_column] = range(1, len(gdf) + 1)
@@ -1134,7 +1155,12 @@ def whisp_stats_geojson_to_df_concurrent(
                     for i, batch in enumerate(batches)
                 }
 
+                # Track which batches failed for retry
+                batch_map = {i: batch for i, batch in enumerate(batches)}
+                batch_futures = {future: i for future, i in futures.items()}
+
                 for future in as_completed(futures):
+                    batch_idx = batch_futures[future]
                     try:
                         batch_idx, df_server, df_client = future.result()
 
@@ -1179,12 +1205,16 @@ def whisp_stats_geojson_to_df_concurrent(
                         progress.update()
 
                     except Exception as e:
+                        # Batch failed - fail fast with clear guidance
                         error_msg = str(e)
-                        logger.error(f"Batch processing error: {error_msg[:100]}")
-                        import traceback
+                        logger.error(f"Batch {batch_idx} failed: {error_msg[:100]}")
+                        logger.debug(f"Full error: {error_msg}")
 
-                        logger.debug(traceback.format_exc())
-                        batch_errors.append(error_msg)
+                        # Get original batch for error reporting
+                        original_batch = batch_map[batch_idx]
+
+                        # Add to batch errors for final reporting
+                        batch_errors.append((batch_idx, original_batch, error_msg))
     finally:
         # Restore logger levels
         fiona_logger.setLevel(old_fiona_level)
@@ -1192,8 +1222,60 @@ def whisp_stats_geojson_to_df_concurrent(
 
     progress.finish()
 
-    # Check if we should retry with validation due to band errors
-    if batch_errors and not results:
+    # If we have batch errors after retry attempts, fail the entire process
+    if batch_errors:
+        total_failed_rows = sum(len(batch) for _, batch, _ in batch_errors)
+        failed_batch_indices = [str(idx) for idx, _, _ in batch_errors]
+
+        # Format detailed error information for debugging
+        error_details_list = []
+        for idx, batch, msg in batch_errors:
+            error_details_list.append(f"  Batch {idx} ({len(batch)} features): {msg}")
+        error_details = "\n".join(error_details_list)
+
+        # Analyze error patterns for debugging hints
+        error_patterns = {
+            "memory": any("memory" in msg.lower() for _, _, msg in batch_errors),
+            "request_size": any(
+                keyword in msg.lower()
+                for _, _, msg in batch_errors
+                for keyword in ["too large", "10mb", "payload", "size limit"]
+            ),
+            "quota": any("quota" in msg.lower() for _, _, msg in batch_errors),
+            "timeout": any("timeout" in msg.lower() for _, _, msg in batch_errors),
+        }
+
+        # Build helpful suggestions based on error patterns
+        suggestions = []
+        if error_patterns["memory"]:
+            suggestions.append(
+                f"  • Reduce batch_size parameter (currently: {batch_size}). Try: batch_size=5 or lower"
+            )
+        if error_patterns["request_size"]:
+            suggestions.append(
+                "  • Request payload too large: reduce batch_size or simplify input geometries"
+            )
+        if error_patterns["quota"]:
+            suggestions.append("  • Earth Engine quota exceeded: wait and retry later")
+        if error_patterns["timeout"]:
+            suggestions.append(
+                "  • Processing timeout: reduce batch_size or simplify input geometries"
+            )
+
+        suggestions_text = (
+            "\nDebugging hints:\n" + "\n".join(suggestions) if suggestions else ""
+        )
+
+        raise RuntimeError(
+            f"Failed to process {len(batch_errors)} batch(es):\n"
+            f"\n{error_details}\n"
+            f"\nTotal rows affected: {total_failed_rows}\n"
+            f"{suggestions_text}\n"
+            f"Please reduce batch_size and try again."
+        )
+
+    # Check if we should retry with validation due to band errors (legacy band error handling)
+    if not results:
         # All batches failed - likely a bad band issue
         is_band_error = any(
             keyword in str(batch_errors)
@@ -1564,8 +1646,10 @@ def whisp_stats_geojson_to_df_sequential(
     gdf = _load_geojson_silently(input_geojson_filepath)
     logger.info(f"Loaded {len(gdf):,} features")
 
-    # Clean geometries
-    gdf = clean_geodataframe(gdf, logger=logger)
+    # Clean geometries (preserve both null and invalid geometries by default)
+    gdf = clean_geodataframe(
+        gdf, remove_nulls=False, repair_geometries=False, logger=logger
+    )
 
     # Add stable plotIds for merging (starting from 1, not 0)
     gdf[plot_id_column] = range(1, len(gdf) + 1)
@@ -1748,7 +1832,7 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
     convert_water_flag: bool = True,
     water_flag_threshold: float = 0.5,
     sort_column: str = "plotId",
-    include_geometry_audit_trail: bool = False,
+    geometry_audit_trail: bool = False,
 ) -> pd.DataFrame:
     """
     Process GeoJSON concurrently with automatic formatting and validation.
@@ -1799,14 +1883,10 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
         Water flag ratio threshold (default 0.5)
     sort_column : str
         Column to sort by (default "plotId", None to skip)
-    include_geometry_audit_trail : bool, default False
-        If True, includes audit trail columns:
-        - geo_original: Original input geometry (before EE processing)
-        - geometry_type_original: Original geometry type
-        - geometry_type: Processed geometry type (from EE)
-        - geometry_type_changed: Boolean flag if geometry changed
-        - geometry_type_transition: Description of how it changed
-        These columns enable full transparency and auditability for compliance tracking.
+    geometry_audit_trail : bool, default False
+        If True, includes original input geometry column:
+        - geo_original: Original input geometry (before EE processing), stored as GeoJSON
+        Enables geometry traceability for compliance and audit purposes.
 
     Returns
     -------
@@ -1826,8 +1906,11 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
         decimal_places = _extract_decimal_places(stats_area_columns_formatting)
         logger.debug(f"Using decimal_places={decimal_places} from config")
 
-    # Normalize keep_external_columns parameter early (will be used in merge logic later)
-    # Load GeoJSON temporarily to get column names for normalization
+    # Load original geometries once here if needed for audit trail (avoid reloading later)
+    gdf_original_geoms = None
+    if geometry_audit_trail:
+        logger.debug("Pre-loading GeoJSON for geometry audit trail...")
+        gdf_original_geoms = _load_geojson_silently(input_geojson_filepath)
 
     # Step 1: Get raw stats
     logger.debug("Step 1/2: Extracting statistics (concurrent)...")
@@ -1890,95 +1973,39 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
     )
 
     # Step 2c: Add audit trail columns (AFTER validation to preserve columns)
-    if include_geometry_audit_trail:
+    if geometry_audit_trail:
         logger.debug("Adding audit trail columns...")
         try:
-            # Capture original geometries AFTER we have the raw stats
-            logger.debug("Capturing original geometries for audit trail...")
-            gdf_original = _load_geojson_silently(input_geojson_filepath)
+            # Use pre-loaded original geometries (loaded at wrapper start to avoid reloading)
+            if gdf_original_geoms is None:
+                logger.warning("Original geometries not pre-loaded, loading now...")
+                gdf_original_geoms = _load_geojson_silently(input_geojson_filepath)
 
             # Use plotId from df_validated to maintain mapping
             df_original_geom = pd.DataFrame(
                 {
-                    "plotId": df_validated["plotId"].values[: len(gdf_original)],
-                    "geo_original": gdf_original["geometry"].apply(
+                    "plotId": df_validated["plotId"].values[: len(gdf_original_geoms)],
+                    "geo_original": gdf_original_geoms["geometry"].apply(
                         lambda g: json.dumps(mapping(g)) if g is not None else None
                     ),
-                    "geometry_type_original": gdf_original["geometry"].geom_type.values,
                 }
             )
 
             # Merge original geometries back
             df_validated = df_validated.merge(df_original_geom, on="plotId", how="left")
 
-            # Extract geometry type from processed 'geo' column if it exists
-            # Note: 'geo' column may not exist after validation removes extra columns
-            if "geo" in df_validated.columns:
-                # Use geo column from validated dataframe
-                def extract_geom_type(x):
-                    try:
-                        if isinstance(x, dict):
-                            return x.get("type")
-                        elif isinstance(x, str):
-                            # Handle both JSON strings and Python dict string representations
-                            try:
-                                parsed = json.loads(x)
-                            except:
-                                # Try ast.literal_eval for Python dict representations
-                                import ast
-
-                                parsed = ast.literal_eval(x)
-                            return (
-                                parsed.get("type") if isinstance(parsed, dict) else None
-                            )
-                    except:
-                        pass
-                    return None
-
-                df_validated["geometry_type"] = df_validated["geo"].apply(
-                    extract_geom_type
-                )
-            else:
-                # If geo doesn't exist, just use the original type
-                df_validated["geometry_type"] = df_validated["geometry_type_original"]
-
-            # Flag if geometry changed
-            df_validated["geometry_type_changed"] = (
-                df_validated["geometry_type_original"] != df_validated["geometry_type"]
-            )
-
-            # Classify the geometry type transition
-            def classify_transition(orig, proc):
-                if orig == proc:
-                    return "no_change"
-                elif proc == "LineString":
-                    return f"{orig}_simplified_to_linestring"
-                elif proc == "Point":
-                    return f"{orig}_simplified_to_point"
-                else:
-                    return f"{orig}_to_{proc}"
-
-            df_validated["geometry_type_transition"] = df_validated.apply(
-                lambda row: classify_transition(
-                    row["geometry_type_original"], row["geometry_type"]
-                ),
-                axis=1,
-            )
-
             # Store processing metadata
             df_validated.attrs["processing_metadata"] = {
-                "whisp_version": "2.0",
+                "whisp_version": "3.0.0a1",
                 "processing_date": datetime.now().isoformat(),
                 "processing_mode": "concurrent",
                 "ee_endpoint": "high_volume",
                 "validate_geometries": validate_geometries,
                 "datasets_used": national_codes or [],
-                "include_geometry_audit_trail": True,
+                "geometry_audit_trail": True,
             }
 
-            logger.info(
-                f"Audit trail added: {df_validated['geometry_type_changed'].sum()} geometries with type changes"
-            )
+            logger.info(f"Audit trail added: geo_original column")
 
         except Exception as e:
             logger.warning(f"Error adding audit trail: {e}")
@@ -2016,7 +2043,7 @@ def whisp_formatted_stats_geojson_to_df_sequential(
     convert_water_flag: bool = True,
     water_flag_threshold: float = 0.5,
     sort_column: str = "plotId",
-    include_geometry_audit_trail: bool = False,
+    geometry_audit_trail: bool = False,
 ) -> pd.DataFrame:
     """
     Process GeoJSON sequentially with automatic formatting and validation.
@@ -2059,14 +2086,10 @@ def whisp_formatted_stats_geojson_to_df_sequential(
         Water flag ratio threshold (default 0.5)
     sort_column : str
         Column to sort by (default "plotId", None to skip)
-    include_geometry_audit_trail : bool, default True
-        If True, includes audit trail columns:
-        - geo_original: Original input geometry (before EE processing)
-        - geometry_type_original: Original geometry type
-        - geometry_type: Processed geometry type (from EE)
-        - geometry_type_changed: Boolean flag if geometry changed
-        - geometry_type_transition: Description of how it changed
-        These columns enable full transparency and auditability for EUDR compliance.
+    geometry_audit_trail : bool, default True
+        If True, includes original input geometry column:
+        - geo_original: Original input geometry (before EE processing), stored as GeoJSON
+        Enables geometry traceability for compliance and audit purposes.
 
     Returns
     -------
@@ -2085,6 +2108,12 @@ def whisp_formatted_stats_geojson_to_df_sequential(
         # Use stats_area_columns_formatting as default for most columns
         decimal_places = _extract_decimal_places(stats_area_columns_formatting)
         logger.debug(f"Using decimal_places={decimal_places} from config")
+
+    # Load original geometries once here if needed for audit trail (avoid reloading later)
+    gdf_original_geoms = None
+    if geometry_audit_trail:
+        logger.debug("Pre-loading GeoJSON for geometry audit trail...")
+        gdf_original_geoms = _load_geojson_silently(input_geojson_filepath)
 
     # Step 1: Get raw stats
     logger.debug("Step 1/2: Extracting statistics (sequential)...")
@@ -2143,94 +2172,38 @@ def whisp_formatted_stats_geojson_to_df_sequential(
     )
 
     # Step 2c: Add audit trail columns (AFTER validation to preserve columns)
-    if include_geometry_audit_trail:
+    if geometry_audit_trail:
         logger.debug("Adding audit trail columns...")
         try:
-            # Capture original geometries AFTER we have the raw stats
-            logger.debug("Capturing original geometries for audit trail...")
-            gdf_original = _load_geojson_silently(input_geojson_filepath)
+            # Use pre-loaded original geometries (loaded at wrapper start to avoid reloading)
+            if gdf_original_geoms is None:
+                logger.warning("Original geometries not pre-loaded, loading now...")
+                gdf_original_geoms = _load_geojson_silently(input_geojson_filepath)
 
             # Use plotId from df_validated to maintain mapping
             df_original_geom = pd.DataFrame(
                 {
-                    "plotId": df_validated["plotId"].values[: len(gdf_original)],
-                    "geo_original": gdf_original["geometry"].apply(
+                    "plotId": df_validated["plotId"].values[: len(gdf_original_geoms)],
+                    "geo_original": gdf_original_geoms["geometry"].apply(
                         lambda g: json.dumps(mapping(g)) if g is not None else None
                     ),
-                    "geometry_type_original": gdf_original["geometry"].geom_type.values,
                 }
             )
 
             # Merge original geometries back
             df_validated = df_validated.merge(df_original_geom, on="plotId", how="left")
 
-            # Extract geometry type from processed 'geo' column if it exists
-            # Note: 'geo' column may not exist after validation removes extra columns
-            if "geo" in df_validated.columns:
-                # Use geo column from validated dataframe
-                def extract_geom_type(x):
-                    try:
-                        if isinstance(x, dict):
-                            return x.get("type")
-                        elif isinstance(x, str):
-                            # Handle both JSON strings and Python dict string representations
-                            try:
-                                parsed = json.loads(x)
-                            except:
-                                # Try ast.literal_eval for Python dict representations
-                                import ast
-
-                                parsed = ast.literal_eval(x)
-                            return (
-                                parsed.get("type") if isinstance(parsed, dict) else None
-                            )
-                    except:
-                        pass
-                    return None
-
-                df_validated["geometry_type"] = df_validated["geo"].apply(
-                    extract_geom_type
-                )
-            else:
-                # If geo doesn't exist, just use the original type
-                df_validated["geometry_type"] = df_validated["geometry_type_original"]
-
-            # Flag if geometry changed
-            df_validated["geometry_type_changed"] = (
-                df_validated["geometry_type_original"] != df_validated["geometry_type"]
-            )
-
-            # Classify the geometry type transition
-            def classify_transition(orig, proc):
-                if orig == proc:
-                    return "no_change"
-                elif proc == "LineString":
-                    return f"{orig}_simplified_to_linestring"
-                elif proc == "Point":
-                    return f"{orig}_simplified_to_point"
-                else:
-                    return f"{orig}_to_{proc}"
-
-            df_validated["geometry_type_transition"] = df_validated.apply(
-                lambda row: classify_transition(
-                    row["geometry_type_original"], row["geometry_type"]
-                ),
-                axis=1,
-            )
-
             # Store processing metadata
             df_validated.attrs["processing_metadata"] = {
-                "whisp_version": "2.0",
+                "whisp_version": "3.0.0a1",
                 "processing_date": datetime.now().isoformat(),
                 "processing_mode": "sequential",
                 "ee_endpoint": "standard",
                 "datasets_used": national_codes or [],
-                "include_geometry_audit_trail": True,
+                "geometry_audit_trail": True,
             }
 
-            logger.info(
-                f"Audit trail added: {df_validated['geometry_type_changed'].sum()} geometries with type changes"
-            )
+            logger.info(f"Audit trail added: geo_original column")
 
         except Exception as e:
             logger.warning(f"Error adding audit trail: {e}")
@@ -2265,7 +2238,7 @@ def whisp_formatted_stats_geojson_to_df_fast(
     unit_type: str = "ha",
     whisp_image: ee.Image = None,
     custom_bands: Dict[str, Any] = None,
-    mode: str = "auto",
+    mode: str = "sequential",
     # Concurrent-specific parameters
     batch_size: int = 10,
     max_concurrent: int = 20,
@@ -2278,15 +2251,15 @@ def whisp_formatted_stats_geojson_to_df_fast(
     convert_water_flag: bool = True,
     water_flag_threshold: float = 0.5,
     sort_column: str = "plotId",
-    include_geometry_audit_trail: bool = False,
+    geometry_audit_trail: bool = False,
 ) -> pd.DataFrame:
     """
     Process GeoJSON to Whisp statistics with optimized fast processing.
 
-    Automatically selects between concurrent (high-volume endpoint) and sequential
-    (standard endpoint) based on file size, or allows explicit mode selection.
+    Routes to concurrent (high-volume endpoint) or sequential (standard endpoint)
+    based on explicit mode selection.
 
-    This is the recommended entry point for most users who want automatic optimization.
+    This is the recommended entry point for most users.
 
     Parameters
     ----------
@@ -2306,12 +2279,8 @@ def whisp_formatted_stats_geojson_to_df_fast(
         Custom band information
     mode : str
         Processing mode:
-        - "auto": Choose based on file size (default)
-          * <1MB: sequential
-          * 1-5MB: sequential
-          * >5MB: concurrent
-        - "concurrent": Force high-volume endpoint (batch processing)
-        - "sequential": Force standard endpoint (single-threaded)
+        - "concurrent": Uses high-volume endpoint with batch processing
+        - "sequential": Uses standard endpoint for sequential processing
     batch_size : int
         Features per batch (only for concurrent mode)
     max_concurrent : int
@@ -2332,6 +2301,8 @@ def whisp_formatted_stats_geojson_to_df_fast(
         Water flag ratio threshold
     sort_column : str
         Column to sort by
+    geometry_audit_trail : bool
+        Include geometry modification audit trail columns
 
     Returns
     -------
@@ -2340,16 +2311,13 @@ def whisp_formatted_stats_geojson_to_df_fast(
 
     Examples
     --------
-    >>> # Auto-detect best method based on file size
-    >>> df = whisp_formatted_stats_geojson_to_df_fast("data.geojson")
-
-    >>> # Force concurrent processing for large datasets
+    >>> # Use concurrent processing (recommended for most datasets)
     >>> df = whisp_formatted_stats_geojson_to_df_fast(
-    ...     "large_data.geojson",
+    ...     "data.geojson",
     ...     mode="concurrent"
     ... )
 
-    >>> # Use sequential for guaranteed completion
+    >>> # Use sequential processing for more stable results
     >>> df = whisp_formatted_stats_geojson_to_df_fast(
     ...     "data.geojson",
     ...     mode="sequential"
@@ -2357,35 +2325,16 @@ def whisp_formatted_stats_geojson_to_df_fast(
     """
     logger = logging.getLogger("whisp")
 
-    # Determine processing mode
-    if mode == "auto":
-        try:
-            file_size = Path(input_geojson_filepath).stat().st_size
-            if file_size > 5_000_000:  # >5MB
-                chosen_mode = "concurrent"
-                logger.info(
-                    f"File size {file_size/1e6:.1f}MB → Using concurrent (high-volume endpoint)"
-                )
-            else:  # <=5MB
-                chosen_mode = "sequential"
-                logger.info(
-                    f"File size {file_size/1e6:.1f}MB → Using sequential (standard endpoint)"
-                )
-        except Exception as e:
-            logger.warning(
-                f"Could not determine file size: {e}. Defaulting to sequential."
-            )
-            chosen_mode = "sequential"
-    elif mode in ("concurrent", "sequential"):
-        chosen_mode = mode
-        logger.info(f"Mode explicitly set to: {mode}")
-    else:
+    # Validate mode parameter
+    if mode not in ("concurrent", "sequential"):
         raise ValueError(
-            f"Invalid mode '{mode}'. Must be 'auto', 'concurrent', or 'sequential'."
+            f"Invalid mode '{mode}'. Must be 'concurrent' or 'sequential'."
         )
 
+    logger.info(f"Mode: {mode}")
+
     # Route to appropriate function
-    if chosen_mode == "concurrent":
+    if mode == "concurrent":
         logger.debug("Routing to concurrent processing...")
         return whisp_formatted_stats_geojson_to_df_concurrent(
             input_geojson_filepath=input_geojson_filepath,
@@ -2406,7 +2355,7 @@ def whisp_formatted_stats_geojson_to_df_fast(
             convert_water_flag=convert_water_flag,
             water_flag_threshold=water_flag_threshold,
             sort_column=sort_column,
-            include_geometry_audit_trail=include_geometry_audit_trail,
+            geometry_audit_trail=geometry_audit_trail,
         )
     else:  # sequential
         logger.debug("Routing to sequential processing...")
@@ -2424,5 +2373,5 @@ def whisp_formatted_stats_geojson_to_df_fast(
             convert_water_flag=convert_water_flag,
             water_flag_threshold=water_flag_threshold,
             sort_column=sort_column,
-            include_geometry_audit_trail=include_geometry_audit_trail,
+            geometry_audit_trail=geometry_audit_trail,
         )
