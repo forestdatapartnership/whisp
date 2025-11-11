@@ -238,11 +238,11 @@ def generate_random_polygon(
     center_point = Point(center_lon, center_lat)
 
     # Use buffer with resolution to control vertices for smaller vertex counts
-    if vertex_count <= 50:
+    if vertex_count <= 20:
         poly = center_point.buffer(radius_degrees, resolution=vertex_count // 4)
 
-    # Manual vertex creation for higher vertex counts
-    if vertex_count > 50:
+    # Manual vertex creation for higher vertex counts (sine wave distortions for realistic shapes)
+    if vertex_count > 20:
         angles = np.linspace(0, 2 * math.pi, vertex_count, endpoint=False)
 
         base_radius = radius_degrees
@@ -319,6 +319,10 @@ def generate_test_polygons(
     """
     Generate synthetic test polygons with exact vertex count control.
 
+    **Deprecated**: This is a legacy alias for generate_random_polygons().
+    Use generate_random_polygons() for new code, which provides additional
+    features like save_path and seed parameters.
+
     This utility is useful for testing WHISP processing with controlled test data,
     especially when you need polygons with specific characteristics (area, complexity).
 
@@ -326,10 +330,6 @@ def generate_test_polygons(
     ----------
     bounds : list or ee.Geometry
         Either a list of [min_lon, min_lat, max_lon, max_lat] or an Earth Engine Geometry.
-        Examples:
-            - Simple bounds: [-81.0, -19.3, -31.5, 9.6]
-            - EE Geometry: ee.FeatureCollection('USDOS/LSIB_SIMPLE/2017').filter(
-                              ee.Filter.eq('country_na', 'Brazil')).first().geometry()
     num_polygons : int, optional
         Number of polygons to generate (default: 25)
     min_area_ha : float, optional
@@ -344,36 +344,153 @@ def generate_test_polygons(
     Returns
     -------
     dict
-        GeoJSON FeatureCollection with generated polygons. Each feature includes:
-        - internal_id: Sequential ID starting from 1
-        - requested_vertices: Number of vertices requested
-        - actual_vertices: Actual number of vertices created
+        GeoJSON FeatureCollection with generated polygons.
+
+    See Also
+    --------
+    generate_random_polygons : Recommended replacement with additional options
+    """
+    return generate_random_polygons(
+        bounds=bounds,
+        num_polygons=num_polygons,
+        min_area_ha=min_area_ha,
+        max_area_ha=max_area_ha,
+        min_number_vert=min_number_vert,
+        max_number_vert=max_number_vert,
+    )
+
+
+def generate_random_features(
+    bounds,
+    feature_type="point",
+    num_features=10,
+    seed=None,
+    min_area_ha=1,
+    max_area_ha=10,
+    min_number_vert=10,
+    max_number_vert=20,
+    multipolygon_pct=20,
+    min_parts=2,
+    max_parts=4,
+    save_path=None,
+    return_path=False,
+):
+    """
+    Generate random test features (points, polygons, or mixed) with exact geographic bounds control.
+
+    This utility is useful for testing WHISP processing with random feature data,
+    especially when you need features with specific geographic characteristics.
+    For polygon features, reuses the production polygon generation logic from
+    generate_random_polygon() to ensure consistency.
+
+    Parameters
+    ----------
+    bounds : list or ee.Geometry
+        Either a list of [min_lon, min_lat, max_lon, max_lat] or an Earth Engine Geometry.
+        Examples:
+            - Simple bounds: [-81.0, -19.3, -31.5, 9.6]
+            - EE Geometry: ee.FeatureCollection('USDOS/LSIB_SIMPLE/2017').filter(
+                              ee.Filter.eq('country_na', 'Brazil')).first().geometry()
+    feature_type : str, optional
+        Type of features to generate:
+        - 'point': Random points
+        - 'polygon': Single-part polygons
+        - 'mixed': Blend of single polygons and multipolygons (default: 'point')
+    num_features : int, optional
+        Number of features to generate (default: 10)
+    seed : int or None, optional
+        Random seed for reproducibility. None = different each run to avoid GEE caching (default: None)
+    min_area_ha : float, optional
+        Minimum area in hectares for polygons (default: 1)
+    max_area_ha : float, optional
+        Maximum area in hectares for polygons (default: 10)
+    min_number_vert : int, optional
+        Minimum vertices per polygon (default: 10)
+    max_number_vert : int, optional
+        Maximum vertices per polygon (default: 20)
+    multipolygon_pct : float, optional
+        Percentage of features that are multipolygons for 'mixed' type (0-100, default: 20)
+    min_parts : int, optional
+        Minimum polygon parts per multipolygon (default: 2)
+    max_parts : int, optional
+        Maximum polygon parts per multipolygon (default: 4)
+    save_path : str or Path, optional
+        Directory path where to save the GeoJSON file. If None, file is not saved (default: None)
+    return_path : bool, optional
+        If True, return the file path instead of the GeoJSON dict. Only used if save_path is provided (default: False)
+
+    Returns
+    -------
+    dict or Path
+        If save_path is None: GeoJSON FeatureCollection dict
+        If save_path is provided and return_path=False: GeoJSON FeatureCollection dict
+        If save_path is provided and return_path=True: Path to saved GeoJSON file
+
+        All features include:
+        - internal_id: Sequential feature ID
+        - geometry_type: 'Point', 'Polygon', or 'MultiPolygon' (for distinguishing feature types)
+
+        For polygons, features include:
+        - requested_vertices: Requested vertex count
+        - actual_vertices: Actual vertices created
         - requested_area_ha: Target area in hectares
         - actual_area_ha: Actual area in hectares
 
     Examples
     --------
     >>> import openforis_whisp as whisp
-    >>> import ee
     >>>
-    >>> # Using simple bounds (list)
-    >>> bounds_list = [-81.0, -19.3, -31.5, 9.6]
-    >>> geojson = whisp.generate_test_polygons(bounds_list, num_polygons=100)
+    >>> # Generate random points (in-memory)
+    >>> bounds = [-81.0, -19.3, -31.5, 9.6]
+    >>> geojson = whisp.generate_random_features(bounds, feature_type='point', num_features=50)
     >>>
-    >>> # Using Earth Engine Geometry
-    >>> brazil = ee.FeatureCollection('USDOS/LSIB_SIMPLE/2017').filter(
-    ...     ee.Filter.eq('country_na', 'Brazil')
-    ... ).first().geometry()
-    >>> geojson = whisp.generate_test_polygons(brazil, num_polygons=100,
-    ...                                        min_area_ha=100, max_area_ha=1000)
+    >>> # Generate and save to file
+    >>> from pathlib import Path
+    >>> save_dir = Path.home() / 'downloads'
+    >>> geojson = whisp.generate_random_features(
+    ...     bounds,
+    ...     feature_type='polygon',
+    ...     num_features=100,
+    ...     save_path=save_dir
+    ... )
     >>>
-    >>> # Save to file
-    >>> import json
-    >>> with open('test_polygons.geojson', 'w') as f:
-    ...     json.dump(geojson, f)
+    >>> # Generate mixed geometries and return file path
+    >>> file_path = whisp.generate_random_features(
+    ...     bounds,
+    ...     feature_type='mixed',
+    ...     num_features=100,
+    ...     multipolygon_pct=30,
+    ...     min_parts=2,
+    ...     max_parts=5,
+    ...     save_path=save_dir,
+    ...     return_path=True
+    ... )
     """
+    # Validate feature_type
+    if feature_type not in ("point", "polygon", "mixed"):
+        raise ValueError(
+            f"feature_type must be 'point', 'polygon', or 'mixed' (got {feature_type!r})"
+        )
 
-    # Handle Earth Engine Geometry or simple bounds
+    # Validate num_features
+    if num_features < 1:
+        raise ValueError(f"num_features must be at least 1 (got {num_features})")
+
+    # Validate multipolygon_pct
+    if not (0 <= multipolygon_pct <= 100):
+        raise ValueError(
+            f"multipolygon_pct must be between 0-100 (got {multipolygon_pct})"
+        )
+
+    # Validate min/max parts
+    if min_parts < 2:
+        raise ValueError(f"min_parts must be at least 2 (got {min_parts})")
+    if min_parts > max_parts:
+        raise ValueError(
+            f"min_parts ({min_parts}) cannot be greater than max_parts ({max_parts})"
+        )
+
+    # Extract and validate bounds
     if hasattr(bounds, "bounds"):  # It's an ee.Geometry
         logger.logger.info("Extracting bounds from Earth Engine Geometry...")
         try:
@@ -404,7 +521,13 @@ def generate_test_polygons(
             "  - An Earth Engine Geometry (ee.Geometry, ee.Feature.geometry(), etc.)"
         )
 
-    # Validate parameters
+    # Validate bounds
+    if min_lon >= max_lon:
+        raise ValueError(f"min_lon ({min_lon}) must be less than max_lon ({max_lon})")
+    if min_lat >= max_lat:
+        raise ValueError(f"min_lat ({min_lat}) must be less than max_lat ({max_lat})")
+
+    # Validate vertex and area parameters
     if min_number_vert > max_number_vert:
         raise ValueError(
             f"min_number_vert ({min_number_vert}) cannot be greater than max_number_vert ({max_number_vert})"
@@ -413,75 +536,321 @@ def generate_test_polygons(
         raise ValueError(
             f"min_area_ha ({min_area_ha}) cannot be greater than max_area_ha ({max_area_ha})"
         )
-    if num_polygons < 1:
-        raise ValueError(f"num_polygons must be at least 1 (got {num_polygons})")
 
-    logger.logger.info(
-        f"Generating {num_polygons} test polygons with {min_number_vert}-{max_number_vert} vertices..."
-    )
+    # Set random seed if provided
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+
+    logger.logger.info(f"Generating {num_features} test {feature_type} features...")
 
     features = []
 
-    # Pre-generate all random values
-    vertex_counts = np.random.randint(
-        min_number_vert, max_number_vert + 1, num_polygons
-    )
-    target_areas = np.random.uniform(min_area_ha, max_area_ha, num_polygons)
+    if feature_type == "point":
+        # Generate point features
+        for i in range(num_features):
+            lon = random.uniform(min_lon, max_lon)
+            lat = random.uniform(min_lat, max_lat)
+            feature = {
+                "type": "Feature",
+                "properties": {
+                    "internal_id": i + 1,
+                    "name": f"Point_{i+1}",
+                    "geometry_type": "Point",
+                },
+                "geometry": {"type": "Point", "coordinates": [lon, lat]},
+            }
+            features.append(feature)
 
-    for i in range(num_polygons):
-        if i > 0 and i % 250 == 0:
-            logger.logger.info(
-                f"Generated {i}/{num_polygons} polygons ({i/num_polygons*100:.0f}%)..."
-            )
-
-        requested_vertices = vertex_counts[i]
-
-        polygon, actual_area = generate_random_polygon(
-            min_lon,
-            min_lat,
-            max_lon,
-            max_lat,
-            min_area_ha=target_areas[i] * 0.9,
-            max_area_ha=target_areas[i] * 1.1,
-            vertex_count=requested_vertices,
+    elif feature_type == "polygon":
+        # Generate single polygon features - reuse production polygon generation
+        vertex_counts = np.random.randint(
+            min_number_vert, max_number_vert + 1, num_features
         )
 
-        actual_vertex_count = len(list(polygon.exterior.coords)) - 1
+        for i in range(num_features):
+            if i > 0 and i % 250 == 0:
+                logger.logger.info(
+                    f"Generated {i}/{num_features} polygons ({i/num_features*100:.0f}%)..."
+                )
 
-        properties = {
-            "internal_id": i + 1,
-            "requested_vertices": int(requested_vertices),
-            "actual_vertices": int(actual_vertex_count),
-            "requested_area_ha": round(target_areas[i], 2),
-            "actual_area_ha": round(actual_area, 2),
-        }
+            polygon, actual_area = generate_random_polygon(
+                min_lon,
+                min_lat,
+                max_lon,
+                max_lat,
+                min_area_ha=min_area_ha,
+                max_area_ha=max_area_ha,
+                vertex_count=vertex_counts[i],
+            )
 
-        feature = {
-            "type": "Feature",
-            "properties": properties,
-            "geometry": mapping(polygon),
-        }
+            actual_vertex_count = len(list(polygon.exterior.coords)) - 1
 
-        features.append(feature)
+            properties = {
+                "internal_id": i + 1,
+                "geometry_type": "Polygon",
+                "requested_vertices": int(vertex_counts[i]),
+                "actual_vertices": int(actual_vertex_count),
+                "requested_area_ha": round(random.uniform(min_area_ha, max_area_ha), 2),
+                "actual_area_ha": round(actual_area, 2),
+            }
 
-    logger.logger.info(f"Generated {num_polygons} polygons!")
+            feature = {
+                "type": "Feature",
+                "properties": properties,
+                "geometry": mapping(polygon),
+            }
 
-    # Print summary statistics
-    actual_vertex_counts = [f["properties"]["actual_vertices"] for f in features]
-    requested_vertex_counts = [f["properties"]["requested_vertices"] for f in features]
+            features.append(feature)
 
-    logger.logger.info(
-        f"Vertex count - Requested: {min(requested_vertex_counts)}-{max(requested_vertex_counts)}, "
-        f"Actual: {min(actual_vertex_counts)}-{max(actual_vertex_counts)}"
-    )
+    else:  # mixed
+        # Generate blend of single polygons and multipolygons
+        num_multipolygons = int(num_features * multipolygon_pct / 100)
+        num_polygons = num_features - num_multipolygons
 
-    actual_area_counts = [f["properties"]["actual_area_ha"] for f in features]
-    requested_area_counts = [f["properties"]["requested_area_ha"] for f in features]
+        # Generate single polygons
+        if num_polygons > 0:
+            vertex_counts = np.random.randint(
+                min_number_vert, max_number_vert + 1, num_polygons
+            )
 
-    logger.logger.info(
-        f"Area (ha) - Requested: {min(requested_area_counts):.1f}-{max(requested_area_counts):.1f}, "
-        f"Actual: {min(actual_area_counts):.1f}-{max(actual_area_counts):.1f}"
-    )
+            for i in range(num_polygons):
+                if i > 0 and i % 250 == 0:
+                    logger.logger.info(
+                        f"Generated {i}/{num_features} features ({i/num_features*100:.0f}%)..."
+                    )
+
+                polygon, actual_area = generate_random_polygon(
+                    min_lon,
+                    min_lat,
+                    max_lon,
+                    max_lat,
+                    min_area_ha=min_area_ha,
+                    max_area_ha=max_area_ha,
+                    vertex_count=vertex_counts[i],
+                )
+
+                actual_vertex_count = len(list(polygon.exterior.coords)) - 1
+
+                properties = {
+                    "internal_id": i + 1,
+                    "geometry_type": "Polygon",
+                    "requested_vertices": int(vertex_counts[i]),
+                    "actual_vertices": int(actual_vertex_count),
+                    "requested_area_ha": round(
+                        random.uniform(min_area_ha, max_area_ha), 2
+                    ),
+                    "actual_area_ha": round(actual_area, 2),
+                }
+
+                feature = {
+                    "type": "Feature",
+                    "properties": properties,
+                    "geometry": mapping(polygon),
+                }
+
+                features.append(feature)
+
+        # Generate multipolygons
+        if num_multipolygons > 0:
+            for i in range(num_multipolygons):
+                if i > 0 and i % 50 == 0:
+                    logger.logger.info(
+                        f"Generated {num_polygons + i}/{num_features} features ({(num_polygons + i)/num_features*100:.0f}%)..."
+                    )
+
+                num_parts = random.randint(min_parts, max_parts)
+                polygon_parts = []
+                total_area_ha = 0
+
+                # Generate a target total area for this multipolygon
+                target_total_area = random.uniform(min_area_ha, max_area_ha)
+                # Divide target area among parts (with some randomness)
+                part_areas = []
+                remaining_area = target_total_area
+                for part_idx in range(num_parts):
+                    if part_idx == num_parts - 1:
+                        # Last part gets all remaining area
+                        part_area = remaining_area
+                    else:
+                        # Distribute remaining area with randomness
+                        max_for_part = remaining_area * 0.8
+                        part_area = random.uniform(remaining_area * 0.3, max_for_part)
+                    part_areas.append(part_area)
+                    remaining_area -= part_area
+
+                for part, area_budget in enumerate(part_areas):
+                    # Generate each part in the full bounds (randomization spreads them naturally)
+                    polygon, actual_area = generate_random_polygon(
+                        min_lon,
+                        min_lat,
+                        max_lon,
+                        max_lat,
+                        min_area_ha=area_budget * 0.8,
+                        max_area_ha=area_budget * 1.2,
+                        vertex_count=random.randint(min_number_vert, max_number_vert),
+                    )
+
+                    polygon_parts.append([list(polygon.exterior.coords)])
+                    total_area_ha += actual_area
+
+                properties = {
+                    "internal_id": num_polygons + i + 1,
+                    "geometry_type": "MultiPolygon",
+                    "num_parts": num_parts,
+                    "total_area_ha": round(total_area_ha, 2),
+                }
+
+                feature = {
+                    "type": "Feature",
+                    "properties": properties,
+                    "geometry": {
+                        "type": "MultiPolygon",
+                        "coordinates": polygon_parts,
+                    },
+                }
+
+                features.append(feature)
 
     geojson = {"type": "FeatureCollection", "features": features}
+
+    logger.logger.info(f"Generated {num_features} test {feature_type} features!")
+
+    # Save to file if save_path is provided
+    if save_path is not None:
+        import json
+
+        save_path = Path(save_path)
+        save_path.mkdir(parents=True, exist_ok=True)
+
+        output_file = save_path / f"{feature_type}s_{num_features}_features.geojson"
+
+        with open(output_file, "w") as f:
+            json.dump(geojson, f, indent=2)
+
+        logger.logger.info(f"GeoJSON saved to: {output_file}")
+
+        if return_path:
+            return output_file
+
     return geojson
+
+
+def generate_random_points(bounds, num_features=10, seed=None, save_path=None):
+    """
+    Generate random test points with optional save.
+
+    Simplified wrapper around generate_random_features for point-only generation.
+
+    Parameters
+    ----------
+    bounds : list or ee.Geometry
+        Either a list of [min_lon, min_lat, max_lon, max_lat] or an Earth Engine Geometry.
+    num_features : int, optional
+        Number of points to generate (default: 10)
+    seed : int or None, optional
+        Random seed for reproducibility (default: None)
+    save_path : str or Path, optional
+        Directory path where to save the GeoJSON file. If None, file is not saved (default: None)
+
+    Returns
+    -------
+    dict or Path
+        If save_path is None: GeoJSON FeatureCollection dict
+        If save_path is provided: Path to saved GeoJSON file
+
+    Examples
+    --------
+    >>> import openforis_whisp as whisp
+    >>>
+    >>> bounds = [-81.0, -19.3, -31.5, 9.6]
+    >>> geojson = whisp.generate_random_points(bounds, num_features=100)
+    >>>
+    >>> # Generate and save
+    >>> from pathlib import Path
+    >>> file_path = whisp.generate_random_points(
+    ...     bounds,
+    ...     num_features=500,
+    ...     save_path=Path.home() / 'downloads'
+    ... )
+    """
+    return generate_random_features(
+        bounds=bounds,
+        feature_type="point",
+        num_features=num_features,
+        seed=seed,
+        save_path=save_path,
+        return_path=True if save_path else False,
+    )
+
+
+def generate_random_polygons(
+    bounds,
+    num_polygons=25,
+    min_area_ha=1,
+    max_area_ha=10,
+    min_number_vert=10,
+    max_number_vert=20,
+    seed=None,
+    save_path=None,
+):
+    """
+    Generate random test polygons with optional save.
+
+    Wrapper around generate_random_features for polygon-only generation.
+    Uses the same production-quality polygon generation as generate_test_polygons.
+
+    Parameters
+    ----------
+    bounds : list or ee.Geometry
+        Either a list of [min_lon, min_lat, max_lon, max_lon] or an Earth Engine Geometry.
+    num_polygons : int, optional
+        Number of polygons to generate (default: 25)
+    min_area_ha : float, optional
+        Minimum area in hectares (default: 1)
+    max_area_ha : float, optional
+        Maximum area in hectares (default: 10)
+    min_number_vert : int, optional
+        Minimum number of vertices per polygon (default: 10)
+    max_number_vert : int, optional
+        Maximum number of vertices per polygon (default: 20)
+    seed : int or None, optional
+        Random seed for reproducibility (default: None)
+    save_path : str or Path, optional
+        Directory path where to save the GeoJSON file. If None, file is not saved (default: None)
+
+    Returns
+    -------
+    dict or Path
+        If save_path is None: GeoJSON FeatureCollection dict
+        If save_path is provided: Path to saved GeoJSON file
+
+    Examples
+    --------
+    >>> import openforis_whisp as whisp
+    >>>
+    >>> bounds = [-81.0, -19.3, -31.5, 9.6]
+    >>> geojson = whisp.generate_random_polygons(bounds, num_polygons=50)
+    >>>
+    >>> # Generate and save
+    >>> from pathlib import Path
+    >>> file_path = whisp.generate_random_polygons(
+    ...     bounds,
+    ...     num_polygons=100,
+    ...     min_area_ha=5,
+    ...     max_area_ha=50,
+    ...     save_path=Path.home() / 'downloads'
+    ... )
+    """
+    return generate_random_features(
+        bounds=bounds,
+        feature_type="polygon",
+        num_features=num_polygons,
+        seed=seed,
+        min_area_ha=min_area_ha,
+        max_area_ha=max_area_ha,
+        min_number_vert=min_number_vert,
+        max_number_vert=max_number_vert,
+        save_path=save_path,
+        return_path=True if save_path else False,
+    )
