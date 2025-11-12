@@ -1059,6 +1059,25 @@ def whisp_stats_geojson_to_df_concurrent(
     gdf = _load_geojson_silently(input_geojson_filepath)
     logger.info(f"Loaded {len(gdf):,} features")
 
+    # Validate external_id_column if provided (lightweight client-side check)
+    if external_id_column and external_id_column not in gdf.columns:
+        # Exclude geometry column from available columns list
+        available_cols = [c for c in gdf.columns if c != gdf.geometry.name]
+        raise ValueError(
+            f"Column '{external_id_column}' not found in GeoJSON properties. "
+            f"Available columns: {available_cols}"
+        )
+
+    # Check completeness of external_id_column (warn if nulls exist)
+    if external_id_column and external_id_column in gdf.columns:
+        null_count = gdf[external_id_column].isna().sum()
+        if null_count > 0:
+            null_pct = (null_count / len(gdf)) * 100
+            logger.warning(
+                f"Column '{external_id_column}' has {null_count:,} null values ({null_pct:.1f}% of {len(gdf):,} features). "
+                f"These features may have missing external IDs in output."
+            )
+
     if validate_geometries:
         gdf = clean_geodataframe(
             gdf, remove_nulls=False, repair_geometries=False, logger=logger
@@ -1193,7 +1212,9 @@ def whisp_stats_geojson_to_df_concurrent(
 
                         df_client_clean = df_client[
                             [c for c in keep_external_columns if c in df_client.columns]
-                        ].drop_duplicates()
+                        ]
+                        # Don't drop duplicates - we need one row per feature (one per plot_id)
+                        # Each plot_id should have exactly one row with its metadata
 
                         merged = df_server_clean.merge(
                             df_client_clean,
@@ -1645,6 +1666,25 @@ def whisp_stats_geojson_to_df_sequential(
     # Load GeoJSON with output suppressed
     gdf = _load_geojson_silently(input_geojson_filepath)
     logger.info(f"Loaded {len(gdf):,} features")
+
+    # Validate external_id_column if provided (lightweight client-side check)
+    if external_id_column and external_id_column not in gdf.columns:
+        # Exclude geometry column from available columns list
+        available_cols = [c for c in gdf.columns if c != gdf.geometry.name]
+        raise ValueError(
+            f"Column '{external_id_column}' not found in GeoJSON properties. "
+            f"Available columns: {available_cols}"
+        )
+
+    # Check completeness of external_id_column (warn if nulls exist)
+    if external_id_column and external_id_column in gdf.columns:
+        null_count = gdf[external_id_column].isna().sum()
+        if null_count > 0:
+            null_pct = (null_count / len(gdf)) * 100
+            logger.warning(
+                f"Column '{external_id_column}' has {null_count:,} null values ({null_pct:.1f}% of {len(gdf):,} features). "
+                f"These features may have missing external IDs in output."
+            )
 
     # Clean geometries (preserve both null and invalid geometries by default)
     gdf = clean_geodataframe(
