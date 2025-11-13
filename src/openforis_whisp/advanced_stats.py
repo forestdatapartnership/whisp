@@ -524,7 +524,9 @@ class ProgressTracker:
                     elapsed_str = self._format_time(elapsed)
 
                     # Build progress message
-                    msg = f"Progress: {self.completed}/{self.total} ({percent}%)"
+                    msg = (
+                        f"Progress: {self.completed}/{self.total} batches ({percent}%)"
+                    )
                     if percent < 100:
                         msg += f" | Elapsed: {elapsed_str} | ETA: {eta_str}"
                     else:
