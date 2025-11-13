@@ -36,6 +36,24 @@ from typing import Optional, List, Dict, Any, Tuple, Union
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import tempfile
 
+# Configure the "whisp" logger with auto-flush handler for Colab visibility
+_whisp_logger = logging.getLogger("whisp")
+if not _whisp_logger.handlers:
+    _handler = logging.StreamHandler(sys.stdout)
+    _handler.setLevel(logging.DEBUG)
+    _handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+    # Override emit to force flush after each message for Colab
+    _original_emit = _handler.emit
+
+    def _emit_with_flush(record):
+        _original_emit(record)
+        sys.stdout.flush()
+
+    _handler.emit = _emit_with_flush
+    _whisp_logger.addHandler(_handler)
+    _whisp_logger.setLevel(logging.INFO)
+    _whisp_logger.propagate = False  # Don't propagate to root to avoid duplicates
+
 # ============================================================================
 # STDOUT/STDERR SUPPRESSION CONTEXT MANAGER (for C-level output)
 # ============================================================================
@@ -461,10 +479,16 @@ class ProgressTracker:
 
     Shows progress at adaptive milestones (more frequent for small datasets,
     less frequent for large datasets) with estimated time remaining based on
-    processing speed.
+    processing speed. Includes time-based heartbeat to prevent long silences.
     """
 
-    def __init__(self, total: int, logger: logging.Logger = None):
+    def __init__(
+        self,
+        total: int,
+        logger: logging.Logger = None,
+        heartbeat_interval: int = 180,
+        status_file: str = None,
+    ):
         """
         Initialize progress tracker.
 
@@ -474,26 +498,147 @@ class ProgressTracker:
             Total number of items to process
         logger : logging.Logger, optional
             Logger for output
+        heartbeat_interval : int, optional
+            Seconds between heartbeat messages (default: 180 = 3 minutes)
+        status_file : str, optional
+            Path to JSON status file for API/web app consumption.
+            Checkpoints auto-save to same directory as status_file.
         """
         self.total = total
         self.completed = 0
         self.lock = threading.Lock()
         self.logger = logger or logging.getLogger("whisp")
+        self.heartbeat_interval = heartbeat_interval
+
+        # Handle status_file: if directory passed, auto-generate filename
+        if status_file:
+            import os
+
+            if os.path.isdir(status_file):
+                self.status_file = os.path.join(
+                    status_file, "whisp_processing_status.json"
+                )
+            else:
+                # Validate that parent directory exists
+                parent_dir = os.path.dirname(status_file)
+                if parent_dir and not os.path.isdir(parent_dir):
+                    self.logger.warning(
+                        f"Status file directory does not exist: {parent_dir}"
+                    )
+                    self.status_file = None
+                else:
+                    self.status_file = status_file
+        else:
+            self.status_file = None
 
         # Adaptive milestones based on dataset size
         # Small datasets (< 50): show every 25% (not too spammy)
         # Medium (50-500): show every 20%
-        # Large (500+): show every 10% (more frequent feedback on long runs)
+        # Large (500-1000): show every 10%
+        # Very large (1000+): show every 5% (cleaner for long jobs)
         if total < 50:
             self.milestones = {25, 50, 75, 100}
         elif total < 500:
             self.milestones = {20, 40, 60, 80, 100}
-        else:
+        elif total < 1000:
             self.milestones = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100}
+        else:
+            self.milestones = {
+                5,
+                10,
+                15,
+                20,
+                25,
+                30,
+                35,
+                40,
+                45,
+                50,
+                55,
+                60,
+                65,
+                70,
+                75,
+                80,
+                85,
+                90,
+                95,
+                100,
+            }
 
         self.shown_milestones = set()
         self.start_time = time.time()
         self.last_update_time = self.start_time
+        self.heartbeat_stop = threading.Event()
+        self.heartbeat_thread = None
+
+    def _write_status_file(self, status: str = "processing") -> None:
+        """Write current progress to JSON status file using atomic write."""
+        if not self.status_file:
+            return
+
+        try:
+            import json
+            import os
+
+            elapsed = time.time() - self.start_time
+            percent = (self.completed / self.total * 100) if self.total > 0 else 0
+            rate = self.completed / elapsed if elapsed > 0 else 0
+            eta = (
+                (self.total - self.completed) / rate * 1.15
+                if rate > 0 and percent >= 5
+                else None
+            )
+
+            # Write to temp file then atomic rename to prevent partial reads
+            from datetime import datetime
+
+            temp_file = self.status_file + ".tmp"
+            with open(temp_file, "w") as f:
+                json.dump(
+                    {
+                        "status": status,
+                        "progress": f"{self.completed}/{self.total}",
+                        "percent": round(percent, 1),
+                        "elapsed_sec": round(elapsed),
+                        "eta_sec": round(eta) if eta else None,
+                        "updated_at": datetime.now().isoformat(),
+                    },
+                    f,
+                )
+            os.replace(temp_file, self.status_file)
+        except Exception:
+            pass
+
+    def start_heartbeat(self) -> None:
+        """Start background heartbeat thread for time-based progress updates."""
+        if self.heartbeat_thread is None or not self.heartbeat_thread.is_alive():
+            self.heartbeat_stop.clear()
+            self.heartbeat_thread = threading.Thread(
+                target=self._heartbeat_loop, daemon=True
+            )
+            self.heartbeat_thread.start()
+            # Write initial status
+            self._write_status_file(status="processing")
+
+    def _heartbeat_loop(self) -> None:
+        """Background loop that logs progress at time intervals."""
+        while not self.heartbeat_stop.wait(self.heartbeat_interval):
+            with self.lock:
+                # Only log if we haven't shown a milestone recently
+                time_since_update = time.time() - self.last_update_time
+                if (
+                    time_since_update >= self.heartbeat_interval
+                    and self.completed < self.total
+                ):
+                    elapsed = time.time() - self.start_time
+                    percent = int((self.completed / self.total) * 100)
+                    elapsed_str = self._format_time(elapsed)
+                    self.logger.info(
+                        f"[Processing] {self.completed:,}/{self.total:,} batches ({percent}%) | "
+                        f"Elapsed: {elapsed_str}"
+                    )
+                    self.last_update_time = time.time()
 
     def update(self, n: int = 1) -> None:
         """
@@ -508,7 +653,7 @@ class ProgressTracker:
             self.completed += n
             percent = int((self.completed / self.total) * 100)
 
-            # Show milestone messages (25%, 50%, 75%, 100%)
+            # Show milestone messages (5%, 10%, 15%... for large datasets)
             for milestone in sorted(self.milestones):
                 if percent >= milestone and milestone not in self.shown_milestones:
                     self.shown_milestones.add(milestone)
@@ -517,20 +662,36 @@ class ProgressTracker:
                     elapsed = time.time() - self.start_time
                     rate = self.completed / elapsed if elapsed > 0 else 0
                     remaining_items = self.total - self.completed
-                    eta_seconds = remaining_items / rate if rate > 0 else 0
+
+                    # Calculate ETA with padding for overhead (loading, joins, etc.)
+                    # Don't show ETA until we have some samples (at least 5% complete)
+                    if rate > 0 and self.completed >= max(5, self.total * 0.05):
+                        eta_seconds = (
+                            remaining_items / rate
+                        ) * 1.15  # Add 15% padding for overhead
+                    else:
+                        eta_seconds = 0
 
                     # Format time strings
-                    eta_str = self._format_time(eta_seconds)
+                    eta_str = (
+                        self._format_time(eta_seconds)
+                        if eta_seconds > 0
+                        else "calculating..."
+                    )
                     elapsed_str = self._format_time(elapsed)
 
                     # Build progress message
-                    msg = f"Progress: {self.completed}/{self.total} ({percent}%)"
+                    msg = f"Progress: {self.completed:,}/{self.total:,} batches ({percent}%)"
                     if percent < 100:
                         msg += f" | Elapsed: {elapsed_str} | ETA: {eta_str}"
                     else:
                         msg += f" | Total time: {elapsed_str}"
 
                     self.logger.info(msg)
+                    self.last_update_time = time.time()
+
+        # Update status file for API consumption
+        self._write_status_file()
 
     @staticmethod
     def _format_time(seconds: float) -> str:
@@ -544,14 +705,21 @@ class ProgressTracker:
             hours = seconds / 3600
             return f"{hours:.1f}h"
 
-    def finish(self) -> None:
-        """Log completion."""
+    def finish(self, output_file: str = None) -> None:
+        """Stop heartbeat and log completion."""
+        # Stop heartbeat thread
+        self.heartbeat_stop.set()
+        if self.heartbeat_thread and self.heartbeat_thread.is_alive():
+            self.heartbeat_thread.join(timeout=1)
+
         with self.lock:
             total_time = time.time() - self.start_time
             time_str = self._format_time(total_time)
-            self.logger.info(
-                f"Processing complete: {self.completed}/{self.total} batches in {time_str}"
-            )
+            msg = f"Processing complete: {self.completed:,}/{self.total:,} batches in {time_str}"
+            self.logger.info(msg)
+
+        # Write final status
+        self._write_status_file(status="completed")
 
 
 # ============================================================================
@@ -983,7 +1151,6 @@ def process_ee_batch(
 def whisp_stats_geojson_to_df_concurrent(
     input_geojson_filepath: str,
     external_id_column: str = None,
-    remove_geom: bool = False,
     national_codes: List[str] = None,
     unit_type: str = "ha",
     whisp_image: ee.Image = None,
@@ -996,6 +1163,7 @@ def whisp_stats_geojson_to_df_concurrent(
     logger: logging.Logger = None,
     # Format parameters (auto-detect from config if not provided)
     decimal_places: int = None,
+    status_file: str = None,
 ) -> pd.DataFrame:
     """
     Process GeoJSON concurrently to compute Whisp statistics with automatic formatting.
@@ -1010,8 +1178,6 @@ def whisp_stats_geojson_to_df_concurrent(
         Path to input GeoJSON file
     external_id_column : str, optional
         Column name for external IDs
-    remove_geom : bool
-        Remove geometry column from output
     national_codes : List[str], optional
         ISO2 codes for national datasets
     unit_type : str
@@ -1120,13 +1286,18 @@ def whisp_stats_geojson_to_df_concurrent(
 
     # Batch the data
     batches = batch_geodataframe(gdf_for_ee, batch_size)
-    logger.info(f"Processing {len(gdf_for_ee):,} features in {len(batches)} batches")
+    logger.info(
+        f"Processing {len(gdf_for_ee):,} features in {len(batches)} batches (concurrent mode)..."
+    )
 
     # Setup semaphore for EE concurrency control
     ee_semaphore = threading.BoundedSemaphore(max_concurrent)
 
-    # Progress tracker
-    progress = ProgressTracker(len(batches), logger=logger)
+    # Progress tracker with heartbeat for long-running jobs
+    progress = ProgressTracker(
+        len(batches), logger=logger, heartbeat_interval=180, status_file=status_file
+    )
+    progress.start_heartbeat()
 
     results = []
 
@@ -1233,6 +1404,11 @@ def whisp_stats_geojson_to_df_concurrent(
 
                     # Add to batch errors for final reporting
                     batch_errors.append((batch_idx, original_batch, error_msg))
+    except (KeyboardInterrupt, SystemExit) as interrupt:
+        logger.warning("Processing interrupted by user")
+        # Update status file with interrupted state
+        progress._write_status_file(status="interrupted")
+        raise interrupt
     finally:
         # Restore logger levels
         fiona_logger.setLevel(old_fiona_level)
@@ -1583,7 +1759,7 @@ def whisp_stats_geojson_to_df_concurrent(
                 )
                 raise retry_e
 
-        logger.info(f"Processed {len(formatted):,} features successfully")
+        logger.info(f"Processing complete: {len(formatted):,} features")
         return formatted
     else:
         logger.error(" No results produced")
@@ -1598,7 +1774,6 @@ def whisp_stats_geojson_to_df_concurrent(
 def whisp_stats_geojson_to_df_sequential(
     input_geojson_filepath: str,
     external_id_column: str = None,
-    remove_geom: bool = False,
     national_codes: List[str] = None,
     unit_type: str = "ha",
     whisp_image: ee.Image = None,
@@ -1623,8 +1798,6 @@ def whisp_stats_geojson_to_df_sequential(
         Path to input GeoJSON
     external_id_column : str, optional
         Column name for external IDs
-    remove_geom : bool
-        Remove geometry from output
     national_codes : List[str], optional
         ISO2 codes for national datasets
     unit_type : str
@@ -1733,7 +1906,9 @@ def whisp_stats_geojson_to_df_sequential(
     reducer = ee.Reducer.sum().combine(ee.Reducer.median(), sharedInputs=True)
 
     # Process server-side with error handling for bad bands
-    logger.info("Processing with Earth Engine...")
+    logger.info(
+        f"Processing {len(gdf):,} features with Earth Engine (sequential mode)..."
+    )
     try:
         results_fc = whisp_image.reduceRegions(collection=fc, reducer=reducer, scale=10)
         df_server = convert_ee_to_df(results_fc)
@@ -1819,7 +1994,7 @@ def whisp_stats_geojson_to_df_sequential(
         convert_water_flag=True,
     )
 
-    logger.info(f"Processed {len(formatted):,} features")
+    logger.info(f"Processing complete: {len(formatted):,} features")
 
     # Consolidate external_id_column to standardized 'external_id'
     if external_id_column:
@@ -1852,7 +2027,6 @@ def whisp_stats_geojson_to_df_sequential(
 def whisp_formatted_stats_geojson_to_df_concurrent(
     input_geojson_filepath: str,
     external_id_column: str = None,
-    remove_geom: bool = False,
     national_codes: List[str] = None,
     unit_type: str = "ha",
     whisp_image: ee.Image = None,
@@ -1870,6 +2044,7 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
     water_flag_threshold: float = 0.5,
     sort_column: str = "plotId",
     geometry_audit_trail: bool = False,
+    status_file: str = None,
 ) -> pd.DataFrame:
     """
     Process GeoJSON concurrently with automatic formatting and validation.
@@ -1885,8 +2060,6 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
         Path to input GeoJSON file
     external_id_column : str, optional
         Column name for external IDs
-    remove_geom : bool
-        Remove geometry column from output
     national_codes : List[str], optional
         ISO2 codes for national datasets
     unit_type : str
@@ -1954,7 +2127,6 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
     df_raw = whisp_stats_geojson_to_df_concurrent(
         input_geojson_filepath=input_geojson_filepath,
         external_id_column=external_id_column,
-        remove_geom=remove_geom,
         national_codes=national_codes,
         unit_type=unit_type,
         whisp_image=whisp_image,
@@ -1965,6 +2137,7 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
         max_retries=max_retries,
         add_metadata_server=add_metadata_server,
         logger=logger,
+        status_file=status_file,
     )
 
     # Step 2: Format the output
@@ -2067,7 +2240,6 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
 def whisp_formatted_stats_geojson_to_df_sequential(
     input_geojson_filepath: str,
     external_id_column: str = None,
-    remove_geom: bool = False,
     national_codes: List[str] = None,
     unit_type: str = "ha",
     whisp_image: ee.Image = None,
@@ -2081,6 +2253,7 @@ def whisp_formatted_stats_geojson_to_df_sequential(
     water_flag_threshold: float = 0.5,
     sort_column: str = "plotId",
     geometry_audit_trail: bool = False,
+    status_file: str = None,
 ) -> pd.DataFrame:
     """
     Process GeoJSON sequentially with automatic formatting and validation.
@@ -2096,8 +2269,6 @@ def whisp_formatted_stats_geojson_to_df_sequential(
         Path to input GeoJSON file
     external_id_column : str, optional
         Column name for external IDs
-    remove_geom : bool
-        Remove geometry from output
     national_codes : List[str], optional
         ISO2 codes for national datasets
     unit_type : str
@@ -2157,7 +2328,6 @@ def whisp_formatted_stats_geojson_to_df_sequential(
     df_raw = whisp_stats_geojson_to_df_sequential(
         input_geojson_filepath=input_geojson_filepath,
         external_id_column=external_id_column,
-        remove_geom=remove_geom,
         national_codes=national_codes,
         unit_type=unit_type,
         whisp_image=whisp_image,
@@ -2270,7 +2440,6 @@ def whisp_formatted_stats_geojson_to_df_sequential(
 def whisp_formatted_stats_geojson_to_df_fast(
     input_geojson_filepath: str,
     external_id_column: str = None,
-    remove_geom: bool = False,
     national_codes: List[str] = None,
     unit_type: str = "ha",
     whisp_image: ee.Image = None,
@@ -2289,6 +2458,7 @@ def whisp_formatted_stats_geojson_to_df_fast(
     water_flag_threshold: float = 0.5,
     sort_column: str = "plotId",
     geometry_audit_trail: bool = False,
+    status_file: str = None,
 ) -> pd.DataFrame:
     """
     Process GeoJSON to Whisp statistics with optimized fast processing.
@@ -2304,8 +2474,6 @@ def whisp_formatted_stats_geojson_to_df_fast(
         Path to input GeoJSON file
     external_id_column : str, optional
         Column name for external IDs
-    remove_geom : bool
-        Remove geometry column from output
     national_codes : List[str], optional
         ISO2 codes for national datasets
     unit_type : str
@@ -2376,7 +2544,6 @@ def whisp_formatted_stats_geojson_to_df_fast(
         return whisp_formatted_stats_geojson_to_df_concurrent(
             input_geojson_filepath=input_geojson_filepath,
             external_id_column=external_id_column,
-            remove_geom=remove_geom,
             national_codes=national_codes,
             unit_type=unit_type,
             whisp_image=whisp_image,
@@ -2393,13 +2560,13 @@ def whisp_formatted_stats_geojson_to_df_fast(
             water_flag_threshold=water_flag_threshold,
             sort_column=sort_column,
             geometry_audit_trail=geometry_audit_trail,
+            status_file=status_file,
         )
     else:  # sequential
         logger.debug("Routing to sequential processing...")
         return whisp_formatted_stats_geojson_to_df_sequential(
             input_geojson_filepath=input_geojson_filepath,
             external_id_column=external_id_column,
-            remove_geom=remove_geom,
             national_codes=national_codes,
             unit_type=unit_type,
             whisp_image=whisp_image,
@@ -2411,4 +2578,5 @@ def whisp_formatted_stats_geojson_to_df_fast(
             water_flag_threshold=water_flag_threshold,
             sort_column=sort_column,
             geometry_audit_trail=geometry_audit_trail,
+            status_file=status_file,
         )

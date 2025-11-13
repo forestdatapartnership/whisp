@@ -88,7 +88,6 @@ def get_admin_boundaries_fc():
 def whisp_formatted_stats_geojson_to_df_legacy(
     input_geojson_filepath: Path | str,
     external_id_column=None,
-    remove_geom=False,
     national_codes=None,
     unit_type="ha",
     whisp_image=None,
@@ -147,7 +146,6 @@ def whisp_formatted_stats_geojson_to_df_legacy(
     return whisp_formatted_stats_ee_to_df(
         feature_collection,
         external_id_column,
-        remove_geom,
         national_codes=national_codes,
         unit_type=unit_type,
         whisp_image=whisp_image,
@@ -167,6 +165,7 @@ def whisp_formatted_stats_geojson_to_df(
     batch_size: int = 10,
     max_concurrent: int = 20,
     geometry_audit_trail: bool = False,
+    status_file: str = None,
 ) -> pd.DataFrame:
     """
     Main entry point for converting GeoJSON to Whisp statistics.
@@ -188,11 +187,7 @@ def whisp_formatted_stats_geojson_to_df(
         The column in the GeoJSON containing external IDs to be preserved in the output DataFrame.
         This column must exist as a property in ALL features of the GeoJSON file.
         Use debug_feature_collection_properties() to inspect available properties if you encounter errors.
-    remove_geom : bool, default=False
-        If True, the geometry of the GeoJSON is removed from the output DataFrame.
     national_codes : list, optional
-        List of ISO2 country codes to include national datasets.
-    unit_type: str, optional
         Whether to use hectares ("ha") or percentage ("percent"), by default "ha".
     whisp_image : ee.Image, optional
         Pre-combined multiband Earth Engine Image containing all Whisp datasets.
@@ -224,6 +219,13 @@ def whisp_formatted_stats_geojson_to_df(
 
         Processing metadata stored in df.attrs['processing_metadata'].
         These columns enable full transparency for geometry modifications during processing.
+    status_file : str, optional
+        Path to JSON status file or directory for real-time progress tracking.
+        If a directory is provided, creates 'whisp_processing_status.json' in that directory.
+        Updates every 3 minutes and at progress milestones (5%, 10%, etc.).
+        Format: {"status": "processing", "progress": "450/1000", "percent": 45.0,
+                 "elapsed_sec": 120, "eta_sec": 145, "updated_at": "2025-11-13T14:23:45"}
+        Most useful for large concurrent jobs. Works in both concurrent and sequential modes.
 
     Returns
     -------
@@ -283,7 +285,6 @@ def whisp_formatted_stats_geojson_to_df(
         return whisp_formatted_stats_geojson_to_df_legacy(
             input_geojson_filepath=input_geojson_filepath,
             external_id_column=external_id_column,
-            remove_geom=remove_geom,
             national_codes=national_codes,
             unit_type=unit_type,
             whisp_image=whisp_image,
@@ -306,7 +307,6 @@ def whisp_formatted_stats_geojson_to_df(
         return whisp_formatted_stats_geojson_to_df_fast(
             input_geojson_filepath=input_geojson_filepath,
             external_id_column=external_id_column,
-            remove_geom=remove_geom,
             national_codes=national_codes,
             unit_type=unit_type,
             whisp_image=whisp_image,
@@ -315,6 +315,7 @@ def whisp_formatted_stats_geojson_to_df(
             batch_size=batch_size,
             max_concurrent=max_concurrent,
             geometry_audit_trail=geometry_audit_trail,
+            status_file=status_file,
         )
     else:
         raise ValueError(
@@ -473,7 +474,6 @@ def whisp_formatted_stats_ee_to_df(
 def whisp_stats_geojson_to_df(
     input_geojson_filepath: Path | str,
     external_id_column=None,
-    remove_geom=False,
     national_codes=None,
     unit_type="ha",
     whisp_image=None,  # New parameter
@@ -506,7 +506,6 @@ def whisp_stats_geojson_to_df(
     return whisp_stats_ee_to_df(
         feature_collection,
         external_id_column,
-        remove_geom,
         national_codes=national_codes,
         unit_type=unit_type,
         whisp_image=whisp_image,  # Pass through

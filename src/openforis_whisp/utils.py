@@ -5,6 +5,8 @@ import os
 import pandas as pd
 import random
 import numpy as np
+import logging
+import sys
 
 import urllib.request
 import os
@@ -19,6 +21,23 @@ from shapely.validation import make_valid
 
 from .logger import StdoutLogger
 
+# Configure the "whisp" logger with auto-flush handler for Colab visibility
+_whisp_logger = logging.getLogger("whisp")
+if not _whisp_logger.handlers:
+    _handler = logging.StreamHandler(sys.stdout)
+    _handler.setLevel(logging.DEBUG)
+    _handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+    # Override emit to force flush after each message for Colab
+    _original_emit = _handler.emit
+
+    def _emit_with_flush(record):
+        _original_emit(record)
+        sys.stdout.flush()
+
+    _handler.emit = _emit_with_flush
+    _whisp_logger.addHandler(_handler)
+    _whisp_logger.setLevel(logging.INFO)
+    _whisp_logger.propagate = False  # Don't propagate to root to avoid duplicates
 
 logger = StdoutLogger(__name__)
 
