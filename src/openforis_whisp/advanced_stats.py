@@ -36,6 +36,24 @@ from typing import Optional, List, Dict, Any, Tuple, Union
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import tempfile
 
+# Configure the "whisp" logger with auto-flush handler for Colab visibility
+_whisp_logger = logging.getLogger("whisp")
+if not _whisp_logger.handlers:
+    _handler = logging.StreamHandler(sys.stdout)
+    _handler.setLevel(logging.DEBUG)
+    _handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+    # Override emit to force flush after each message for Colab
+    _original_emit = _handler.emit
+
+    def _emit_with_flush(record):
+        _original_emit(record)
+        sys.stdout.flush()
+
+    _handler.emit = _emit_with_flush
+    _whisp_logger.addHandler(_handler)
+    _whisp_logger.setLevel(logging.INFO)
+    _whisp_logger.propagate = False  # Don't propagate to root to avoid duplicates
+
 # ============================================================================
 # STDOUT/STDERR SUPPRESSION CONTEXT MANAGER (for C-level output)
 # ============================================================================
@@ -1121,7 +1139,9 @@ def whisp_stats_geojson_to_df_concurrent(
 
     # Batch the data
     batches = batch_geodataframe(gdf_for_ee, batch_size)
-    logger.info(f"Processing {len(gdf_for_ee):,} features in {len(batches)} batches")
+    logger.info(
+        f"Processing {len(gdf_for_ee):,} features in {len(batches)} batches (concurrent mode)..."
+    )
 
     # Setup semaphore for EE concurrency control
     ee_semaphore = threading.BoundedSemaphore(max_concurrent)
@@ -1584,7 +1604,7 @@ def whisp_stats_geojson_to_df_concurrent(
                 )
                 raise retry_e
 
-        logger.info(f"Processed {len(formatted):,} features successfully")
+        logger.info(f"Processing complete: {len(formatted):,} features")
         return formatted
     else:
         logger.error(" No results produced")
