@@ -8,9 +8,21 @@ BASE_MSG_FORMAT = (
 
 class StdoutLogger:
     def __init__(self, name: str, msg_format: str = BASE_MSG_FORMAT) -> None:
-        self.handler = logging.StreamHandler(sys.stdout)
-        self.handler.setFormatter(logging.Formatter(msg_format))
-        self.handler.setLevel(logging.DEBUG)
+        # Create handler that auto-flushes for Colab/notebook visibility
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(logging.Formatter(msg_format))
+        handler.setLevel(logging.DEBUG)
+
+        # Override emit to force flush after each message
+        original_emit = handler.emit
+
+        def emit_with_flush(record):
+            original_emit(record)
+            sys.stdout.flush()
+
+        handler.emit = emit_with_flush
+
+        self.handler = handler
         self.logger = logging.getLogger(name)
         self.logger.addHandler(self.handler)
         self.logger.propagate = False
