@@ -533,8 +533,6 @@ class ProgressTracker:
                         msg += f" | Total time: {elapsed_str}"
 
                     self.logger.info(msg)
-                    # Also print to stdout for Colab visibility (logger may not show)
-                    print(msg, flush=True)
 
     @staticmethod
     def _format_time(seconds: float) -> str:
@@ -555,8 +553,6 @@ class ProgressTracker:
             time_str = self._format_time(total_time)
             msg = f"Processing complete: {self.completed}/{self.total} batches in {time_str}"
             self.logger.info(msg)
-            # Also print to stdout for Colab visibility
-            print(msg, flush=True)
 
 
 # ============================================================================
@@ -1738,7 +1734,9 @@ def whisp_stats_geojson_to_df_sequential(
     reducer = ee.Reducer.sum().combine(ee.Reducer.median(), sharedInputs=True)
 
     # Process server-side with error handling for bad bands
-    logger.info("Processing with Earth Engine...")
+    logger.info(
+        f"Processing {len(gdf):,} features with Earth Engine (sequential mode)..."
+    )
     try:
         results_fc = whisp_image.reduceRegions(collection=fc, reducer=reducer, scale=10)
         df_server = convert_ee_to_df(results_fc)
@@ -1824,7 +1822,7 @@ def whisp_stats_geojson_to_df_sequential(
         convert_water_flag=True,
     )
 
-    logger.info(f"Processed {len(formatted):,} features")
+    logger.info(f"Processing complete: {len(formatted):,} features")
 
     # Consolidate external_id_column to standardized 'external_id'
     if external_id_column:
