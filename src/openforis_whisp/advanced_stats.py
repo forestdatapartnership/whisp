@@ -531,6 +531,8 @@ class ProgressTracker:
                         msg += f" | Total time: {elapsed_str}"
 
                     self.logger.info(msg)
+                    # Also print to stdout for Colab visibility (logger may not show)
+                    print(msg, flush=True)
 
     @staticmethod
     def _format_time(seconds: float) -> str:
@@ -549,9 +551,10 @@ class ProgressTracker:
         with self.lock:
             total_time = time.time() - self.start_time
             time_str = self._format_time(total_time)
-            self.logger.info(
-                f"Processing complete: {self.completed}/{self.total} batches in {time_str}"
-            )
+            msg = f"Processing complete: {self.completed}/{self.total} batches in {time_str}"
+            self.logger.info(msg)
+            # Also print to stdout for Colab visibility
+            print(msg, flush=True)
 
 
 # ============================================================================
