@@ -1167,75 +1167,72 @@ def whisp_stats_geojson_to_df_concurrent(
     pyogrio_logger.setLevel(logging.CRITICAL)
 
     try:
-        with redirect_stdout(io.StringIO()):
-            with ThreadPoolExecutor(max_workers=pool_workers) as executor:
-                futures = {
-                    executor.submit(process_batch, i, batch): i
-                    for i, batch in enumerate(batches)
-                }
+        # Don't suppress stdout here - we want progress messages to show in Colab
+        with ThreadPoolExecutor(max_workers=pool_workers) as executor:
+            futures = {
+                executor.submit(process_batch, i, batch): i
+                for i, batch in enumerate(batches)
+            }
 
-                # Track which batches failed for retry
-                batch_map = {i: batch for i, batch in enumerate(batches)}
-                batch_futures = {future: i for future, i in futures.items()}
+            # Track which batches failed for retry
+            batch_map = {i: batch for i, batch in enumerate(batches)}
+            batch_futures = {future: i for future, i in futures.items()}
 
-                for future in as_completed(futures):
-                    batch_idx = batch_futures[future]
-                    try:
-                        batch_idx, df_server, df_client = future.result()
+            for future in as_completed(futures):
+                batch_idx = batch_futures[future]
+                try:
+                    batch_idx, df_server, df_client = future.result()
 
-                        # Merge server and client results
-                        if plot_id_column not in df_server.columns:
-                            df_server[plot_id_column] = range(len(df_server))
+                    # Merge server and client results
+                    if plot_id_column not in df_server.columns:
+                        df_server[plot_id_column] = range(len(df_server))
 
-                        # Keep all EE statistics from server (all columns with _sum and _median suffixes)
-                        # These are the actual EE processing results
-                        df_server_clean = df_server.copy()
+                    # Keep all EE statistics from server (all columns with _sum and _median suffixes)
+                    # These are the actual EE processing results
+                    df_server_clean = df_server.copy()
 
-                        # Keep external metadata: plot_id, external_id, geometry, geometry type, and centroids from client
-                        # (formatted wrapper handles keep_external_columns parameter)
-                        keep_external_columns = [plot_id_column]
-                        if (
-                            external_id_column
-                            and external_id_column in df_client.columns
-                        ):
-                            keep_external_columns.append(external_id_column)
-                        if "geometry" in df_client.columns:
-                            keep_external_columns.append("geometry")
-                        # Keep geometry type column (Geometry_type)
-                        if geometry_type_column in df_client.columns:
-                            keep_external_columns.append(geometry_type_column)
-                        # Also keep centroid columns (Centroid_lon, Centroid_lat)
-                        centroid_cols = [
-                            c for c in df_client.columns if c.startswith("Centroid_")
-                        ]
-                        keep_external_columns.extend(centroid_cols)
+                    # Keep external metadata: plot_id, external_id, geometry, geometry type, and centroids from client
+                    # (formatted wrapper handles keep_external_columns parameter)
+                    keep_external_columns = [plot_id_column]
+                    if external_id_column and external_id_column in df_client.columns:
+                        keep_external_columns.append(external_id_column)
+                    if "geometry" in df_client.columns:
+                        keep_external_columns.append("geometry")
+                    # Keep geometry type column (Geometry_type)
+                    if geometry_type_column in df_client.columns:
+                        keep_external_columns.append(geometry_type_column)
+                    # Also keep centroid columns (Centroid_lon, Centroid_lat)
+                    centroid_cols = [
+                        c for c in df_client.columns if c.startswith("Centroid_")
+                    ]
+                    keep_external_columns.extend(centroid_cols)
 
-                        df_client_clean = df_client[
-                            [c for c in keep_external_columns if c in df_client.columns]
-                        ]
-                        # Don't drop duplicates - we need one row per feature (one per plot_id)
-                        # Each plot_id should have exactly one row with its metadata
+                    df_client_clean = df_client[
+                        [c for c in keep_external_columns if c in df_client.columns]
+                    ]
+                    # Don't drop duplicates - we need one row per feature (one per plot_id)
+                    # Each plot_id should have exactly one row with its metadata
 
-                        merged = df_server_clean.merge(
-                            df_client_clean,
-                            on=plot_id_column,
-                            how="left",
-                            suffixes=("_ee", "_client"),
-                        )
-                        results.append(merged)
-                        progress.update()
+                    merged = df_server_clean.merge(
+                        df_client_clean,
+                        on=plot_id_column,
+                        how="left",
+                        suffixes=("_ee", "_client"),
+                    )
+                    results.append(merged)
+                    progress.update()
 
-                    except Exception as e:
-                        # Batch failed - fail fast with clear guidance
-                        error_msg = str(e)
-                        logger.error(f"Batch {batch_idx} failed: {error_msg[:100]}")
-                        logger.debug(f"Full error: {error_msg}")
+                except Exception as e:
+                    # Batch failed - fail fast with clear guidance
+                    error_msg = str(e)
+                    logger.error(f"Batch {batch_idx} failed: {error_msg[:100]}")
+                    logger.debug(f"Full error: {error_msg}")
 
-                        # Get original batch for error reporting
-                        original_batch = batch_map[batch_idx]
+                    # Get original batch for error reporting
+                    original_batch = batch_map[batch_idx]
 
-                        # Add to batch errors for final reporting
-                        batch_errors.append((batch_idx, original_batch, error_msg))
+                    # Add to batch errors for final reporting
+                    batch_errors.append((batch_idx, original_batch, error_msg))
     finally:
         # Restore logger levels
         fiona_logger.setLevel(old_fiona_level)
