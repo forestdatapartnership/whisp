@@ -1,5 +1,10 @@
-import pandera as pa
-from pandera.typing import DataFrame, Series
+# Support both old and new pandera import paths
+try:
+    import pandera.pandas as pa
+    from pandera.typing.pandas import DataFrame, Series
+except (ImportError, ModuleNotFoundError):
+    import pandera as pa
+    from pandera.typing import DataFrame, Series
 
 # Define a schema for validating a DataFrame related to GEE (Google Earth Engine) datasets.
 class DataLookupSchema(pa.DataFrameModel):
