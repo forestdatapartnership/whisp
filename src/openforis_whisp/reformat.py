@@ -1,5 +1,10 @@
 # !pip install pandera[io] # special version used
-import pandera as pa
+# Support both old and new pandera import paths
+try:
+    import pandera.pandas as pa
+except (ImportError, ModuleNotFoundError):
+    import pandera as pa
+
 import pandas as pd
 import os
 import logging
