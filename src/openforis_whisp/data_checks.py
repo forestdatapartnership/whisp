@@ -750,23 +750,43 @@ def validate_geojson_constraints(
     return results
 
 
-def suggest_method(polygon_count, mean_area_ha, mean_vertices=None, verbose=True):
+def suggest_processing_mode(
+    feature_count,
+    mean_area_ha=None,
+    mean_vertices=None,
+    feature_type="polygon",
+    verbose=True,
+):
     """
-    Suggest processing method based on polygon characteristics.
+    Suggest processing mode based on feature characteristics.
 
-    Decision thresholds from benchmark data (area per polygon × polygon count):
-    - Small polygons (10 ha): need 250+ polygons for concurrent
-    - Medium polygons (100 ha): breakeven at ~100 polygons
-    - Large polygons (500 ha): concurrent wins at 50+ polygons
+    Decision thresholds from comprehensive benchmark data (Nov 2025):
+
+    POINTS:
+    - Break-even: 750-1000 features
+    - Sequential faster: < 750 features
+    - Concurrent faster: >= 750 features
+
+    POLYGONS (area-based thresholds):
+    - Tiny (< 1 ha): break-even ~500 features
+    - Small (1-5 ha, simple): break-even ~500 features
+    - Small (1-5 ha, complex 20-50v): break-even ~500 features
+    - Medium (5-20 ha): break-even ~250 features
+    - Large (20-100 ha): break-even ~250 features
+    - Very large (50-200 ha): break-even ~250 features
+
+    Vertex complexity adjustment: High vertex counts (>50) favor concurrent at lower thresholds
 
     Parameters:
     -----------
-    polygon_count : int
-        Number of polygons
-    mean_area_ha : float
-        Mean area per polygon in hectares
+    feature_count : int
+        Number of features (polygons or points)
+    mean_area_ha : float, optional
+        Mean area per polygon in hectares (required for polygons, ignored for points)
     mean_vertices : float, optional
-        Mean number of vertices per polygon (can influence decision for complex geometries)
+        Mean number of vertices per polygon (influences decision for complex geometries)
+    feature_type : str
+        'polygon', 'multipolygon', or 'point' (default: 'polygon')
     verbose : bool
         Print recommendation explanation
 
@@ -775,31 +795,63 @@ def suggest_method(polygon_count, mean_area_ha, mean_vertices=None, verbose=True
     str: 'concurrent' or 'sequential'
     """
 
-    # Primary decision based on area
-    if mean_area_ha >= 300:  # Large polygons
-        breakeven = 50
-        method = "concurrent" if polygon_count >= breakeven else "sequential"
-    elif mean_area_ha >= 50:  # Medium polygons
-        breakeven = 100
-        method = "concurrent" if polygon_count >= breakeven else "sequential"
-    else:  # Small polygons
-        breakeven = 250
-        method = "concurrent" if polygon_count >= breakeven else "sequential"
+    # Points: simple threshold-based decision
+    if feature_type == "point":
+        breakeven = 750
+        method = "concurrent" if feature_count >= breakeven else "sequential"
 
-    # Optional adjustment based on vertex complexity (very high complexity favors concurrent)
-    if mean_vertices is not None and mean_vertices > 500:
-        # Reduce breakeven by 25% for very complex geometries
-        adjusted_breakeven = int(breakeven * 0.75)
-        method = "concurrent" if polygon_count >= adjusted_breakeven else "sequential"
+        if verbose:
+            print(f"\nMETHOD RECOMMENDATION (Points)")
+            print(f"   Features: {feature_count} points")
+            print(f"   Break-even: {breakeven} features | Method: {method.upper()}")
+
+        return method
+
+    # Polygons and MultiPolygons: area and complexity-based decision
+    # MultiPolygons use same breakpoints as Polygons
+    if mean_area_ha is None:
+        # Default to conservative threshold if area unknown
+        breakeven = 500
+        method = "concurrent" if feature_count >= breakeven else "sequential"
+
+        if verbose:
+            print(f"\nMETHOD RECOMMENDATION (Polygons - area unknown)")
+            print(f"   Features: {feature_count} polygons")
+            print(
+                f"   Break-even: {breakeven} (conservative) | Method: {method.upper()}"
+            )
+
+        return method
+
+    # Area-based thresholds from benchmark data
+    if mean_area_ha >= 20:  # Large to very large polygons
+        breakeven = 250
+    elif mean_area_ha >= 5:  # Medium polygons
+        breakeven = 250
+    elif mean_area_ha >= 1:  # Small polygons
+        # Vertex complexity matters more for small polygons
+        if mean_vertices is not None and mean_vertices >= 30:
+            breakeven = 500  # Complex small polygons
+        else:
+            breakeven = 500  # Simple small polygons
+    else:  # Tiny polygons (< 1 ha)
+        breakeven = 500
+
+    # Vertex complexity adjustment for high-complexity geometries
+    if mean_vertices is not None and mean_vertices >= 50:
+        # High complexity: reduce breakeven by 20% (concurrent beneficial sooner)
+        breakeven = int(breakeven * 0.8)
+
+    method = "concurrent" if feature_count >= breakeven else "sequential"
 
     if verbose:
-        print(f"\nMETHOD RECOMMENDATION")
+        print(f"\nMETHOD RECOMMENDATION (Polygons)")
         print(
-            f"   Polygons: {polygon_count} | Mean Area: {mean_area_ha:.1f} ha", end=""
+            f"   Features: {feature_count} | Mean Area: {mean_area_ha:.1f} ha", end=""
         )
         if mean_vertices is not None:
             print(f" | Mean Vertices: {mean_vertices:.1f}", end="")
         print()
-        print(f"   Breakeven: {breakeven} polygons | Method: {method.upper()}")
+        print(f"   Break-even: {breakeven} features | Method: {method.upper()}")
 
     return method
