@@ -463,6 +463,16 @@ def join_admin_codes(
             columns=["admin_code_for_join", "gaul1_code"], errors="ignore"
         )
 
+        # Fill NaN values with "Unknown" and "not found" for features outside admin boundaries
+        # (e.g., points in the ocean or international waters)
+        df_joined[iso3_country_column] = df_joined[iso3_country_column].fillna(
+            "Unknown"
+        )
+        df_joined[iso2_country_column] = df_joined[iso2_country_column].fillna(
+            "not found"
+        )
+        df_joined[admin_1_column] = df_joined[admin_1_column].fillna("Unknown")
+
         logger.debug(
             f"Admin codes joined: {iso3_country_column}, {iso2_country_column}, {admin_1_column}"
         )
