@@ -989,7 +989,7 @@ def whisp_stats_ee_to_drive(
         )
         task.start()
         print(
-            "Exporting to Google Drive: 'whisp_results/whisp_output_table.csv'. To track progress: https://code.earthengine.google.com/tasks"
+            "Exporting to Google Drive: 'whisp_output_table.csv'. To track progress: https://code.earthengine.google.com/tasks"
         )
     except Exception as e:
         print(f"An error occurred during the export: {e}")
