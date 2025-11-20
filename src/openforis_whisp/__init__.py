@@ -102,5 +102,5 @@ from openforis_whisp.utils import (
 from openforis_whisp.data_checks import (
     analyze_geojson,
     validate_geojson_constraints,
-    suggest_method,
+    suggest_processing_mode,
 )
