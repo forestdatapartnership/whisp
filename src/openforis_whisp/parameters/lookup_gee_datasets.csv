@@ -197,3 +197,4 @@ nBR_INPE_TCamz_pasture_2020,2422,BR,commodities,NA,1,1,0,float32,1,0,nbr_terracl
 nBR_INPE_TCcer_pasture_2020,2423,BR,commodities,NA,1,1,0,float32,1,0,nbr_terraclass_cer20_ac_prep
 nBR_MapBiomas_col9_pasture_2020,2424,BR,commodities,NA,1,1,0,float32,1,0,nbr_mapbiomasc9_pasture_prep
 nCI_Cocoa_bnetd,3000,CI,commodities,NA,1,1,0,float32,1,0,nci_ocs2020_prep
+nCM_Treecover_2020,3100,CM,treecover,NA,1,0,0,float32,1,0,ncm_treecover_2020_prep

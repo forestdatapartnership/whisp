@@ -1160,6 +1160,20 @@ def nci_ocs2020_prep():
     ).selfMask()  # cocoa from national land cover map for Côte d'Ivoire
 
 
+# nCM - Cameroon
+# data from Aurelie Shapiro (FAO) working directly with country experts - info on methods and accuracy assessment to follow
+
+
+def ncm_treecover_2020_prep():
+    return (
+        ee.Image("projects/ee-cocoacmr/assets/land_cover/CMR_TNTMMU_2020")
+        .select("FNF_2020")
+        .eq(1)
+        .rename("nCM_Treecover_2020")
+        .selfMask()
+    )
+
+
 # ============================================================================
 # CONTEXT BANDS (Administrative boundaries and water mask)
 # ============================================================================

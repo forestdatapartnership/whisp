@@ -1,4 +1,4 @@
-**Source list of the [layers used for risk evaluation](src/openforis_whisp/parameters/lookup_gee_datasets.csv)**
+**Source list of the [layers used in whisp](src/openforis_whisp/parameters/lookup_gee_datasets.csv)**
 
 To view the layers in action, go to [https://whisp.earthmap.org/](https://whisp.earthmap.org/).
 
@@ -52,7 +52,7 @@ To view the layers in action, go to [https://whisp.earthmap.org/](https://whisp.
     <tr></tr>
     <tr><td>ee.Image(‘projects/ee-nk-cocoa/assets/cocoa_map_threshold_065’)</td></tr>
     <tr><td rowspan="3">Cocoa_bnetd</td><td rowspan="3">Commodity class for cocoa (i.e., class 9). For Côte d'Ivoire only.</td><td rowspan="2">BNETD (2024). <i>Occupation des sols de la Côte d'Ivoire en 2020</i> (Version 2).
-Centre d'Information Géographique et du Numérique / Bureau National d’Études Techniques et de Developpement. Côte d'Ivoire, 2024. Data available online from: https://arcg.is/0uHOi90</td></tr>
+Centre d'Information Géographique et du Numérique / Bureau National d'Études Techniques et de Developpement. Côte d'Ivoire, 2024. Data available online from: https://arcg.is/0uHOi90</td></tr>
     <tr></tr>
     <tr><td>ee.Image("projects/ee-bnetdcign2/assets/OCS_CI_2020vf")</td></tr>
 <tr><td rowspan="3">Rubber_RBGE</td><td rowspan="3">Binary layer for South East Asia.</td><td rowspan="2">Wang et al., (2024) Wang, Y., Hollingsworth, P.M., Zhai, D. et al. High-resolution maps show that rubber causes substantial deforestation. Nature 623, 340–346 (2023). https://doi.org/10.1038/s41586-023-06642-z</td></tr>
@@ -171,11 +171,12 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
 <br>
 
 
-The sources listed in the table above are analyzed and disaggregated into 171 different layers by the Whisp algorithms, some of which are run directly on Google Earth Engine through *Forest Data Partnership's* account and some of which are in the Python codes of this repository. When a geometry (e.g., a polygon) is scanned with Whisp, the zonal statistics of each of these 171 layers are calculated for that geometry, producing a dataframe that holds the 171 different values for that specific geometry. The 171 layers are listed in [lookup_gee_datasets.csv](src/openforis_whisp/parameters/lookup_gee_datasets.csv). Whisping with [Whisp API](https://whisp.openforis.org/) produces a CSV holding all those values in 171 columns, as well as some metadata and crucially the results of the Whisp EUDR risk analysis, which is explained in the [ReadMe](README.md#whisp_datasets). This risk analysis is based on only a subset of all the layers, some of which are, however, aggregate layers that summarize the results from the other layers. These layers used for the risk analysis are marked for the EUDR risk analysis in [lookup_gee_datasets.csv](src/openforis_whisp/parameters/lookup_gee_datasets.csv) in the right-most column 'use_for_risk' or 'use_for_risk_timber' by value '1'. All layers marked by no value or value '0' do not contribute directly to the EUDR risk analysis, but only indirectly by being part of the aggregate layers.
+The sources listed in the table above are analyzed and disaggregated into ~200 different layers by the Whisp algorithms, some of which are run directly on Google Earth Engine through *Forest Data Partnership's* account and some of which are in the Python codes of this repository. When a geometry (e.g., a polygon) is scanned with Whisp, the zonal statistics of each of these ~200 layers are calculated for that geometry, producing a dataframe that holds the ~200 different values for that specific geometry. The ~200 layers are listed in [lookup_gee_datasets.csv](src/openforis_whisp/parameters/lookup_gee_datasets.csv). Whisping with [Whisp API](https://whisp.openforis.org/) produces a CSV holding all those values in ~200 columns, as well as some metadata and crucially the results of the Whisp EUDR risk analysis, which is explained in the [ReadMe](README.md#whisp_datasets). This risk analysis is based on only a subset of all the layers, some of which are, however, aggregate layers that summarize the results from the other layers. These layers used for the risk analysis are marked for the EUDR risk analysis in [lookup_gee_datasets.csv](src/openforis_whisp/parameters/lookup_gee_datasets.csv) in the right-most column 'use_for_risk' or 'use_for_risk_timber' by value '1'. All layers marked by no value or value '0' do not contribute directly to the EUDR risk analysis, but only indirectly by being part of the aggregate layers.
 Overall, the output CSV from Whisping a geometry therefore holds:
 - 124 values from disaggregated layers;
 - 26 values from aggregate or stand-alone layers crucial to the risk analysis;
+- 29 (optional) national layers described in the whisp_columns.xlsx in the whisp_outputs_national tab.
 - the yes & no answers to the risk categories in the [decision tree](https://github.com/user-attachments/assets/007b5f50-3939-4707-95fa-98be4d56745f) and the final risk category ("low", "high", or "more info needed") for the perennial crops, annual crops, timber and livestock;
 - some additional metadata and geographic information, e.g. ID, geometry type, hectares, country, etc...
 
-*(Disclaimer: The number of layers is subject to changes. The number of 171 layers mentioned (124+26) might deviate slightly, but not fundamentally.)*
+*(Disclaimer: The number of layers is subject to changes. The number of ~200 layers mentioned might deviate slightly, but not fundamentally.)*
