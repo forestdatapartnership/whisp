@@ -211,10 +211,14 @@ def _load_and_prepare_geojson(
         with redirect_stdout(io.StringIO()):
             gdf = gpd.read_file(filepath)
 
-        # Rename external_id column early to avoid confusion later
+        # Rename external_id column early and convert to string
         if external_id_column and external_id_column in gdf.columns:
             if external_id_column != "external_id":
-                gdf = gdf.rename(columns={external_id_column: "external_id"})
+                gdf = gdf.rename(
+                    columns={external_id_column: "external_id"}
+                )  # hard coding here to avoid confusion later
+            # Convert to string to ensure consistent type throughout pipeline
+            gdf["external_id"] = gdf["external_id"].astype(str)
 
         return gdf
     finally:
@@ -886,13 +890,13 @@ def extract_centroid_and_geomtype_client(
         if plot_id_column in gdf.columns:
             cols.append(plot_id_column)
 
-        # Include external_id_column if provided and exists
+        # Include external_id if it exists (already renamed during load)
         if (
             external_id_column
-            and external_id_column in gdf.columns
-            and external_id_column not in cols
+            and "external_id" in gdf.columns
+            and "external_id" not in cols
         ):
-            cols.append(external_id_column)
+            cols.append("external_id")
 
         # Always include metadata columns (centroid, geometry type)
         cols.extend([x_col, y_col, type_col])
@@ -986,6 +990,10 @@ def convert_batch_to_ee(batch_gdf: gpd.GeoDataFrame) -> ee.FeatureCollection:
 
     Preserves the __row_id__ column if present so it can be retrieved after processing.
 
+    IMPORTANT: Drops external_id column before sending to EE to enable query caching.
+    external_id is user metadata that's not needed for EE computation. Including it
+    breaks EE's caching mechanism since each unique external_id creates a different query.
+
     Parameters
     ----------
     batch_gdf : gpd.GeoDataFrame
@@ -994,15 +1002,21 @@ def convert_batch_to_ee(batch_gdf: gpd.GeoDataFrame) -> ee.FeatureCollection:
     Returns
     -------
     ee.FeatureCollection
-        EE FeatureCollection with __row_id__ as a feature property
+        EE FeatureCollection with __row_id__ as a feature property (no external_id)
     """
+    # Drop external_id before sending to EE to enable caching
+    # (external_id is preserved separately on client side for merging)
+    batch_for_ee = batch_gdf.copy()
+    if "external_id" in batch_for_ee.columns:
+        batch_for_ee = batch_for_ee.drop(columns=["external_id"])
+
     # Pass GeoDataFrame directly to preserve CRS metadata
     # convert_geojson_to_ee will handle:
     # - CRS detection and conversion to WGS84 if needed
     # - Data type sanitization (datetime, object columns)
     # - Geometry validation and Z-coordinate stripping
 
-    fc = convert_geojson_to_ee(batch_gdf, enforce_wgs84=True, strip_z_coords=True)
+    fc = convert_geojson_to_ee(batch_for_ee, enforce_wgs84=True, strip_z_coords=True)
 
     # If __row_id__ is in the original GeoDataFrame, it will be preserved
     # as a feature property in the GeoJSON and thus in the EE FeatureCollection
@@ -1432,11 +1446,15 @@ def whisp_stats_geojson_to_df_concurrent(
                     # These are the actual EE processing results
                     df_server_clean = df_server.copy()
 
+                    # Drop external_id from df_server if it exists (already in df_client)
+                    if "external_id" in df_server_clean.columns:
+                        df_server_clean = df_server_clean.drop(columns=["external_id"])
+
                     # Keep external metadata: plot_id, external_id, geometry, geometry type, and centroids from client
                     # (formatted wrapper handles keep_external_columns parameter)
                     keep_external_columns = [plot_id_column]
-                    if external_id_column and external_id_column in df_client.columns:
-                        keep_external_columns.append(external_id_column)
+                    if external_id_column and "external_id" in df_client.columns:
+                        keep_external_columns.append("external_id")
                     if "geometry" in df_client.columns:
                         keep_external_columns.append("geometry")
                     # Keep geometry type column (Geometry_type)
@@ -1629,31 +1647,21 @@ def whisp_stats_geojson_to_df_concurrent(
         else:
             return pd.DataFrame()
 
-        # Clean up duplicate external_id columns created by merges
-        # Rename external_id_column to standardized 'external_id' for schema validation
-        if external_id_column:
-            # Find all columns related to external_id
-            external_id_variants = [
+        # Clean up duplicate external_id columns created by merges (if any exist)
+        # external_id was already renamed during load, so we just need to handle duplicates
+        if external_id_column and "external_id" in combined.columns:
+            # Find merge duplicates like external_id_x, external_id_y, external_id_ee, external_id_client
+            duplicate_variants = [
                 col
                 for col in combined.columns
-                if external_id_column.lower() in col.lower()
+                if col != "external_id" and col.startswith("external_id_")
             ]
 
-            if external_id_variants:
-                # Use the base column name if it exists, otherwise use first variant
-                base_col = (
-                    external_id_column
-                    if external_id_column in combined.columns
-                    else external_id_variants[0]
+            if duplicate_variants:
+                logger.debug(
+                    f"Dropping duplicate external_id columns: {duplicate_variants}"
                 )
-
-                # Rename to standardized 'external_id'
-                if base_col != "external_id":
-                    combined = combined.rename(columns={base_col: "external_id"})
-
-                # Drop all other variants
-                cols_to_drop = [c for c in external_id_variants if c != base_col]
-                combined = combined.drop(columns=cols_to_drop, errors="ignore")
+                combined = combined.drop(columns=duplicate_variants, errors="ignore")
 
         # plotId column is already present from batch processing
         # Just ensure it's at position 0
@@ -1753,12 +1761,9 @@ def whisp_stats_geojson_to_df_concurrent(
                                     df_client[plot_id_column], errors="coerce"
                                 ).astype("Int64")
 
-                            # Drop external_id_column from df_client if it exists (already in df_server)
-                            if (
-                                external_id_column
-                                and external_id_column in df_client.columns
-                            ):
-                                df_client = df_client.drop(columns=[external_id_column])
+                            # Drop external_id from df_server if it exists (already in df_client)
+                            if "external_id" in df_server.columns:
+                                df_server = df_server.drop(columns=["external_id"])
 
                             merged = df_server.merge(
                                 df_client,
@@ -1780,30 +1785,22 @@ def whisp_stats_geojson_to_df_concurrent(
                     # Ensure all column names are strings (fixes pandas .str accessor issues later)
                     combined.columns = combined.columns.astype(str)
 
-                    # Clean up duplicate external_id columns created by merges
-                    if external_id_column:
-                        external_id_variants = [
+                    # Clean up duplicate external_id columns created by merges (if any exist)
+                    # external_id was already renamed during load, so we just need to handle duplicates
+                    if external_id_column and "external_id" in combined.columns:
+                        # Find merge duplicates like external_id_x, external_id_y, external_id_ee, external_id_client
+                        duplicate_variants = [
                             col
                             for col in combined.columns
-                            if external_id_column.lower() in col.lower()
+                            if col != "external_id" and col.startswith("external_id_")
                         ]
 
-                        if external_id_variants:
-                            base_col = external_id_column
-                            if (
-                                base_col not in combined.columns
-                                and external_id_variants
-                            ):
-                                base_col = external_id_variants[0]
-                                combined = combined.rename(
-                                    columns={base_col: "external_id"}
-                                )
-
-                            cols_to_drop = [
-                                c for c in external_id_variants if c != base_col
-                            ]
+                        if duplicate_variants:
+                            logger.debug(
+                                f"Dropping duplicate external_id columns: {duplicate_variants}"
+                            )
                             combined = combined.drop(
-                                columns=cols_to_drop, errors="ignore"
+                                columns=duplicate_variants, errors="ignore"
                             )
 
                     # plotId column is already present, just ensure it's at position 0
@@ -2000,10 +1997,19 @@ def whisp_stats_geojson_to_df_sequential(
                     national_codes=national_codes, validate_bands=True
                 )
 
+    # Drop external_id before sending to EE to enable caching
+    # (external_id is preserved separately in gdf for client-side merging)
+    gdf_for_ee_clean = gdf_for_ee.copy()
+    if "external_id" in gdf_for_ee_clean.columns:
+        gdf_for_ee_clean = gdf_for_ee_clean.drop(columns=["external_id"])
+        logger.debug("Dropped external_id from data sent to EE (enables caching)")
+
     # Convert to EE (suppress print statements from convert_geojson_to_ee)
     logger.debug("Converting to EE FeatureCollection...")
     with redirect_stdout(io.StringIO()):
-        fc = convert_geojson_to_ee(gdf_for_ee, enforce_wgs84=True, strip_z_coords=True)
+        fc = convert_geojson_to_ee(
+            gdf_for_ee_clean, enforce_wgs84=True, strip_z_coords=True
+        )
 
     # Create reducer
     reducer = ee.Reducer.sum().combine(ee.Reducer.median(), sharedInputs=True)
@@ -2044,24 +2050,12 @@ def whisp_stats_geojson_to_df_sequential(
             raise
 
     logger.info("Server-side processing complete")
-    logger.info(
-        f"Columns returned from EE: {list(df_server.columns)[:10]}..."
-    )  # First 10 columns
-    logger.info(
-        f"External ID column '{external_id_column}' in results: {external_id_column in df_server.columns if external_id_column else 'N/A'}"
-    )
 
     # Ensure plotId is Int64 type for fast merges
     if plot_id_column in df_server.columns:
-        logger.info(
-            f"plotId BEFORE conversion - dtype: {df_server[plot_id_column].dtype}, values: {df_server[plot_id_column].head(5).tolist()}"
-        )
         df_server[plot_id_column] = pd.to_numeric(
             df_server[plot_id_column], errors="coerce"
         ).astype("Int64")
-        logger.info(
-            f"plotId AFTER conversion - dtype: {df_server[plot_id_column].dtype}, values: {df_server[plot_id_column].head(5).tolist()}"
-        )
 
     # Add client-side metadata if requested
     if add_metadata_client_side:
@@ -2078,9 +2072,9 @@ def whisp_stats_geojson_to_df_sequential(
                 df_client[plot_id_column], errors="coerce"
             ).astype("Int64")
 
-        # Drop external_id from df_client if it exists (already in df_server)
-        if "external_id" in df_client.columns:
-            df_client = df_client.drop(columns=["external_id"])
+        # Drop external_id from df_server if it exists (keep from df_client - more reliable)
+        if "external_id" in df_server.columns:
+            df_server = df_server.drop(columns=["external_id"])
 
         # Merge on plotId (same strategy as concurrent mode)
         result = df_server.merge(
