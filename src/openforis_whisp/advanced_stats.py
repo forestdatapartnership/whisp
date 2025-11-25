@@ -181,8 +181,25 @@ def _suppress_verbose_output(max_concurrent: int = None):
     reformat_logger.setLevel(logging.ERROR)
 
 
-def _load_geojson_silently(filepath: str) -> gpd.GeoDataFrame:
-    """Load GeoJSON file with all output suppressed."""
+def _load_and_prepare_geojson(
+    filepath: str, external_id_column: Optional[str] = None
+) -> gpd.GeoDataFrame:
+    """Load GeoJSON file and prepare for processing.
+
+    Suppresses logging output and optionally renames external_id column.
+
+    Parameters
+    ----------
+    filepath : str
+        Path to GeoJSON file
+    external_id_column : str, optional
+        If provided, rename this column to 'external_id' immediately after loading
+
+    Returns
+    -------
+    gpd.GeoDataFrame
+        Loaded GeoDataFrame with external_id renamed if specified
+    """
     fiona_logger = logging.getLogger("fiona")
     pyogrio_logger = logging.getLogger("pyogrio._io")
     old_fiona_level = fiona_logger.level
@@ -193,6 +210,12 @@ def _load_geojson_silently(filepath: str) -> gpd.GeoDataFrame:
     try:
         with redirect_stdout(io.StringIO()):
             gdf = gpd.read_file(filepath)
+
+        # Rename external_id column early to avoid confusion later
+        if external_id_column and external_id_column in gdf.columns:
+            if external_id_column != "external_id":
+                gdf = gdf.rename(columns={external_id_column: "external_id"})
+
         return gdf
     finally:
         fiona_logger.setLevel(old_fiona_level)
@@ -780,19 +803,17 @@ def validate_ee_endpoint(endpoint_type: str = "high-volume", raise_error: bool =
     if not check_ee_endpoint(endpoint_type):
         if endpoint_type == "high-volume":
             msg = (
-                "Concurrent mode requires the HIGH-VOLUME endpoint. To change endpoint run:\n"
+                "# Concurrent mode requires the HIGH-VOLUME endpoint. To change endpoint run:\n"
                 "ee.Reset()\n"
-                "ee.Initialize(opt_url='https://earthengine-highvolume.googleapis.com')\n"
-                "Or with project specified (e.g. when in Colab):\n"
-                "ee.Initialize(project='your_cloud_project_name', opt_url='https://earthengine-highvolume.googleapis.com')"
+                "ee.Initialize(project=gee_project_name, opt_url='https://earthengine-highvolume.googleapis.com')\n"
+                "# where gee_project_name is your GEE project (necessary in Colab)"
             )
         else:  # standard endpoint
             msg = (
                 "Sequential mode requires the STANDARD endpoint. To change endpoint run:\n"
                 "ee.Reset()\n"
-                "ee.Initialize()\n"
-                "Or with project specified (e.g. when in Colab):\n"
-                "ee.Initialize(project='your_cloud_project_name')"
+                "ee.Initialize(project=gee_project_name)\n"
+                "# where gee_project_name is your GEE project (necessary in Colab)"
             )
 
         if raise_error:
@@ -1107,7 +1128,19 @@ def process_ee_batch(
             # Ensure plot_id_column is present for merging
             # It should come from the feature properties (added before EE processing)
             if plot_id_column not in df.columns:
-                df[plot_id_column] = range(len(df))
+                logger.warning(
+                    f"Batch {batch_idx + 1}: plotId column DROPPED by EE. "
+                    f"Regenerating with 1-indexed range. "
+                    f"Columns from EE: {list(df.columns)}"
+                )
+                # Use 1-indexed range to match client-side assignment
+                df[plot_id_column] = range(1, len(df) + 1)
+
+            # Ensure plotId is integer type (EE may return as string)
+            if plot_id_column in df.columns:
+                df[plot_id_column] = pd.to_numeric(
+                    df[plot_id_column], errors="coerce"
+                ).astype("Int64")
 
             # Ensure all column names are strings (fixes pandas .str accessor issues)
             df.columns = df.columns.astype(str)
@@ -1231,12 +1264,15 @@ def whisp_stats_geojson_to_df_concurrent(
     # Validate endpoint
     validate_ee_endpoint("high-volume", raise_error=True)
 
-    # Load GeoJSON with output suppressed
-    gdf = _load_geojson_silently(input_geojson_filepath)
+    # Load GeoJSON with output suppressed (external_id_column renamed to 'external_id' if provided)
+    gdf = _load_and_prepare_geojson(
+        input_geojson_filepath, external_id_column=external_id_column
+    )
     logger.info(f"Loaded {len(gdf):,} features")
 
-    # Validate external_id_column if provided (lightweight client-side check)
-    if external_id_column and external_id_column not in gdf.columns:
+    # Validate external_id if provided (lightweight client-side check)
+    # Note: external_id_column already renamed to 'external_id' during load
+    if external_id_column and "external_id" not in gdf.columns:
         # Exclude geometry column from available columns list
         available_cols = [c for c in gdf.columns if c != gdf.geometry.name]
         raise ValueError(
@@ -1244,13 +1280,13 @@ def whisp_stats_geojson_to_df_concurrent(
             f"Available columns: {available_cols}"
         )
 
-    # Check completeness of external_id_column (warn if nulls exist)
-    if external_id_column and external_id_column in gdf.columns:
-        null_count = gdf[external_id_column].isna().sum()
+    # Check completeness of external_id (warn if nulls exist)
+    if external_id_column and "external_id" in gdf.columns:
+        null_count = gdf["external_id"].isna().sum()
         if null_count > 0:
             null_pct = (null_count / len(gdf)) * 100
             logger.warning(
-                f"Column '{external_id_column}' has {null_count:,} null values ({null_pct:.1f}% of {len(gdf):,} features). "
+                f"Column 'external_id' (from '{external_id_column}') has {null_count:,} null values ({null_pct:.1f}% of {len(gdf):,} features). "
                 f"These features may have missing external IDs in output."
             )
 
@@ -1263,13 +1299,21 @@ def whisp_stats_geojson_to_df_concurrent(
     gdf[plot_id_column] = range(1, len(gdf) + 1)
 
     # Strip unnecessary properties before sending to EE
-    # Keep only: geometry, plot_id_column, and external_id_column
+    # Keep only: geometry, plot_id_column, and external_id
     # This prevents duplication of GeoJSON properties in EE results
     keep_cols = ["geometry", plot_id_column]
-    if external_id_column and external_id_column in gdf.columns:
-        keep_cols.append(external_id_column)
+    if (
+        external_id_column and "external_id" in gdf.columns
+    ):  # Already renamed during load
+        keep_cols.append("external_id")
 
     gdf_for_ee = gdf[keep_cols].copy()
+
+    # CRITICAL: Convert external_id to string to prevent EE from confusing it with integer plotId
+    if external_id_column and "external_id" in gdf_for_ee.columns:
+        gdf_for_ee["external_id"] = gdf_for_ee["external_id"].astype(str)
+        logger.debug(f"Converted external_id column to string type")
+
     logger.debug(f"Stripped GeoJSON to essential columns: {keep_cols}")
 
     # Create image if not provided
@@ -1366,7 +1410,23 @@ def whisp_stats_geojson_to_df_concurrent(
 
                     # Merge server and client results
                     if plot_id_column not in df_server.columns:
-                        df_server[plot_id_column] = range(len(df_server))
+                        logger.warning(
+                            f"Batch {batch_idx + 1} (concurrent merge): plotId DROPPED by EE. "
+                            f"Regenerating. Columns from EE: {list(df_server.columns)}"
+                        )
+                        df_server[plot_id_column] = pd.array(
+                            range(1, len(df_server) + 1), dtype="Int64"
+                        )
+                    else:
+                        df_server[plot_id_column] = pd.to_numeric(
+                            df_server[plot_id_column], errors="coerce"
+                        ).astype("Int64")
+
+                    # Ensure plotId is Int64 in client data too
+                    if plot_id_column in df_client.columns:
+                        df_client[plot_id_column] = pd.to_numeric(
+                            df_client[plot_id_column], errors="coerce"
+                        ).astype("Int64")
 
                     # Keep all EE statistics from server (all columns with _sum and _median suffixes)
                     # These are the actual EE processing results
@@ -1522,7 +1582,10 @@ def whisp_stats_geojson_to_df_concurrent(
                             try:
                                 batch_idx, df_server, df_client = future.result()
                                 if plot_id_column not in df_server.columns:
-                                    df_server[plot_id_column] = range(len(df_server))
+                                    # Use 1-indexed range to match client-side assignment
+                                    df_server[plot_id_column] = range(
+                                        1, len(df_server) + 1
+                                    )
                                 merged = df_server.merge(
                                     df_client,
                                     on=plot_id_column,
@@ -1673,7 +1736,22 @@ def whisp_stats_geojson_to_df_concurrent(
                         try:
                             batch_idx, df_server, df_client = future.result()
                             if plot_id_column not in df_server.columns:
-                                df_server[plot_id_column] = range(len(df_server))
+                                logger.warning(
+                                    f"Batch {batch_idx + 1} (retry): plotId DROPPED by EE. "
+                                    f"Regenerating. Columns from EE: {list(df_server.columns)}"
+                                )
+                                # Use 1-indexed range to match client-side assignment
+                                df_server[plot_id_column] = range(1, len(df_server) + 1)
+
+                            # Ensure plotId is integer type (EE may return as string)
+                            if plot_id_column in df_server.columns:
+                                df_server[plot_id_column] = pd.to_numeric(
+                                    df_server[plot_id_column], errors="coerce"
+                                ).astype("Int64")
+                            if plot_id_column in df_client.columns:
+                                df_client[plot_id_column] = pd.to_numeric(
+                                    df_client[plot_id_column], errors="coerce"
+                                ).astype("Int64")
 
                             # Drop external_id_column from df_client if it exists (already in df_server)
                             if (
@@ -1769,6 +1847,14 @@ def whisp_stats_geojson_to_df_concurrent(
                 )
                 raise retry_e
 
+        # Ensure plot_id is present (should already be there from batch processing)
+        if plot_id_column not in formatted.columns:
+            logger.warning(f"{plot_id_column} column missing, regenerating...")
+            formatted.insert(0, plot_id_column, range(1, len(formatted) + 1))
+
+        # Sort by plot_id to ensure consistent output order
+        formatted = formatted.sort_values(by=plot_id_column).reset_index(drop=True)
+
         logger.info(f"Processing complete: {len(formatted):,} features")
         return formatted
     else:
@@ -1843,12 +1929,15 @@ def whisp_stats_geojson_to_df_sequential(
     # Validate endpoint
     validate_ee_endpoint("standard", raise_error=True)
 
-    # Load GeoJSON with output suppressed
-    gdf = _load_geojson_silently(input_geojson_filepath)
+    # Load GeoJSON with output suppressed (external_id_column renamed to 'external_id' if provided)
+    gdf = _load_and_prepare_geojson(
+        input_geojson_filepath, external_id_column=external_id_column
+    )
     logger.info(f"Loaded {len(gdf):,} features")
 
-    # Validate external_id_column if provided (lightweight client-side check)
-    if external_id_column and external_id_column not in gdf.columns:
+    # Validate external_id if provided (lightweight client-side check)
+    # Note: external_id_column already renamed to 'external_id' during load
+    if external_id_column and "external_id" not in gdf.columns:
         # Exclude geometry column from available columns list
         available_cols = [c for c in gdf.columns if c != gdf.geometry.name]
         raise ValueError(
@@ -1856,13 +1945,13 @@ def whisp_stats_geojson_to_df_sequential(
             f"Available columns: {available_cols}"
         )
 
-    # Check completeness of external_id_column (warn if nulls exist)
-    if external_id_column and external_id_column in gdf.columns:
-        null_count = gdf[external_id_column].isna().sum()
+    # Check completeness of external_id (warn if nulls exist)
+    if external_id_column and "external_id" in gdf.columns:
+        null_count = gdf["external_id"].isna().sum()
         if null_count > 0:
             null_pct = (null_count / len(gdf)) * 100
             logger.warning(
-                f"Column '{external_id_column}' has {null_count:,} null values ({null_pct:.1f}% of {len(gdf):,} features). "
+                f"Column 'external_id' (from '{external_id_column}') has {null_count:,} null values ({null_pct:.1f}% of {len(gdf):,} features). "
                 f"These features may have missing external IDs in output."
             )
 
@@ -1874,18 +1963,22 @@ def whisp_stats_geojson_to_df_sequential(
     # Add stable plotIds for merging (starting from 1, not 0)
     gdf[plot_id_column] = range(1, len(gdf) + 1)
 
-    # Add stable row IDs
-    row_id_col = "__row_id__"
-    gdf[row_id_col] = range(len(gdf))
-
     # Strip unnecessary properties before sending to EE
-    # Keep only: geometry, plot_id_column, and external_id_column
+    # Keep only: geometry, plot_id_column, and external_id
     # This prevents duplication of GeoJSON properties in EE results
-    keep_cols = ["geometry", plot_id_column, row_id_col]
-    if external_id_column and external_id_column in gdf.columns:
-        keep_cols.append(external_id_column)
+    keep_cols = ["geometry", plot_id_column]
+    if (
+        external_id_column and "external_id" in gdf.columns
+    ):  # Already renamed during load
+        keep_cols.append("external_id")
 
     gdf_for_ee = gdf[keep_cols].copy()
+
+    # CRITICAL: Convert external_id to string to prevent EE from confusing it with integer plotId
+    if external_id_column and "external_id" in gdf_for_ee.columns:
+        gdf_for_ee["external_id"] = gdf_for_ee["external_id"].astype(str)
+        logger.debug(f"Converted external_id column to string type")
+
     logger.debug(f"Stripped GeoJSON to essential columns: {keep_cols}")
 
     # Create image if not provided
@@ -1950,11 +2043,25 @@ def whisp_stats_geojson_to_df_sequential(
         else:
             raise
 
-    logger.debug("Server-side processing complete")
+    logger.info("Server-side processing complete")
+    logger.info(
+        f"Columns returned from EE: {list(df_server.columns)[:10]}..."
+    )  # First 10 columns
+    logger.info(
+        f"External ID column '{external_id_column}' in results: {external_id_column in df_server.columns if external_id_column else 'N/A'}"
+    )
 
-    # Add row_id if missing
-    if row_id_col not in df_server.columns:
-        df_server[row_id_col] = range(len(df_server))
+    # Ensure plotId is Int64 type for fast merges
+    if plot_id_column in df_server.columns:
+        logger.info(
+            f"plotId BEFORE conversion - dtype: {df_server[plot_id_column].dtype}, values: {df_server[plot_id_column].head(5).tolist()}"
+        )
+        df_server[plot_id_column] = pd.to_numeric(
+            df_server[plot_id_column], errors="coerce"
+        ).astype("Int64")
+        logger.info(
+            f"plotId AFTER conversion - dtype: {df_server[plot_id_column].dtype}, values: {df_server[plot_id_column].head(5).tolist()}"
+        )
 
     # Add client-side metadata if requested
     if add_metadata_client_side:
@@ -1965,20 +2072,22 @@ def whisp_stats_geojson_to_df_sequential(
             return_attributes_only=True,
         )
 
-        # Drop external_id_column from df_client if it exists (already in df_server)
-        if external_id_column and external_id_column in df_client.columns:
-            df_client = df_client.drop(columns=[external_id_column])
+        # Ensure plotId is Int64 type for fast merges
+        if plot_id_column in df_client.columns:
+            df_client[plot_id_column] = pd.to_numeric(
+                df_client[plot_id_column], errors="coerce"
+            ).astype("Int64")
 
-        # Merge
+        # Drop external_id from df_client if it exists (already in df_server)
+        if "external_id" in df_client.columns:
+            df_client = df_client.drop(columns=["external_id"])
+
+        # Merge on plotId (same strategy as concurrent mode)
         result = df_server.merge(
-            df_client, on=row_id_col, how="left", suffixes=("", "_client")
+            df_client, on=plot_id_column, how="left", suffixes=("", "_client")
         )
     else:
         result = df_server
-
-    # Remove internal __row_id__ column if present
-    if row_id_col in result.columns:
-        result = result.drop(columns=[row_id_col])
 
     # Format the output
     # Add admin context (Country, ProducerCountry, Admin_Level_1) from admin_code
@@ -2004,27 +2113,14 @@ def whisp_stats_geojson_to_df_sequential(
         convert_water_flag=True,
     )
 
+    # Ensure plot_id exists and sort by it
+    if plot_id_column not in formatted.columns:
+        formatted.insert(0, plot_id_column, range(1, len(formatted) + 1))
+    formatted = formatted.sort_values(by=plot_id_column).reset_index(drop=True)
+
     logger.info(f"Processing complete: {len(formatted):,} features")
 
-    # Consolidate external_id_column to standardized 'external_id'
-    if external_id_column:
-        variants = [
-            col
-            for col in formatted.columns
-            if external_id_column.lower() in col.lower()
-        ]
-        if variants:
-            base_col = (
-                external_id_column
-                if external_id_column in formatted.columns
-                else variants[0]
-            )
-            if base_col != "external_id":
-                formatted = formatted.rename(columns={base_col: "external_id"})
-            # Drop other variants
-            formatted = formatted.drop(
-                columns=[c for c in variants if c != base_col], errors="ignore"
-            )
+    # external_id_column already renamed to 'external_id' during load - no action needed here
 
     return formatted
 
@@ -2130,7 +2226,7 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
     gdf_original_geoms = None
     if geometry_audit_trail:
         logger.debug("Pre-loading GeoJSON for geometry audit trail...")
-        gdf_original_geoms = _load_geojson_silently(input_geojson_filepath)
+        gdf_original_geoms = _load_and_prepare_geojson(input_geojson_filepath)
 
     # Step 1: Get raw stats
     logger.debug("Step 1/2: Extracting statistics (concurrent)...")
@@ -2199,7 +2295,7 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
             # Use pre-loaded original geometries (loaded at wrapper start to avoid reloading)
             if gdf_original_geoms is None:
                 logger.warning("Original geometries not pre-loaded, loading now...")
-                gdf_original_geoms = _load_geojson_silently(input_geojson_filepath)
+                gdf_original_geoms = _load_and_prepare_geojson(input_geojson_filepath)
 
             # Use plotId from df_validated to maintain mapping
             df_original_geom = pd.DataFrame(
@@ -2331,7 +2427,7 @@ def whisp_formatted_stats_geojson_to_df_sequential(
     gdf_original_geoms = None
     if geometry_audit_trail:
         logger.debug("Pre-loading GeoJSON for geometry audit trail...")
-        gdf_original_geoms = _load_geojson_silently(input_geojson_filepath)
+        gdf_original_geoms = _load_and_prepare_geojson(input_geojson_filepath)
 
     # Step 1: Get raw stats
     logger.debug("Step 1/2: Extracting statistics (sequential)...")
@@ -2395,7 +2491,7 @@ def whisp_formatted_stats_geojson_to_df_sequential(
             # Use pre-loaded original geometries (loaded at wrapper start to avoid reloading)
             if gdf_original_geoms is None:
                 logger.warning("Original geometries not pre-loaded, loading now...")
-                gdf_original_geoms = _load_geojson_silently(input_geojson_filepath)
+                gdf_original_geoms = _load_and_prepare_geojson(input_geojson_filepath)
 
             # Use plotId from df_validated to maintain mapping
             df_original_geom = pd.DataFrame(
