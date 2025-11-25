@@ -1,5 +1,5 @@
 name,order,ISO2_code,theme,theme_timber,use_for_risk,use_for_risk_timber,exclude_from_output,col_type,is_nullable,is_required,corresponding_variable
-plotId,-10,,context_and_metadata,context_and_metadata,NA,NA,0,int64,1,0,plot_id_column
+plotId,-10,,context_and_metadata,context_and_metadata,NA,NA,0,string,1,0,plot_id_column
 external_id,-9,,context_and_metadata,context_and_metadata,NA,NA,0,string,1,0,external_id_column
 Area,-8,,context_and_metadata,context_and_metadata,NA,NA,0,float32,1,1,geometry_area_column
 Geometry_type,-7,,context_and_metadata,context_and_metadata,NA,NA,0,string,1,1,geometry_type_column
