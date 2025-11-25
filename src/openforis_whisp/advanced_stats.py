@@ -803,19 +803,17 @@ def validate_ee_endpoint(endpoint_type: str = "high-volume", raise_error: bool =
     if not check_ee_endpoint(endpoint_type):
         if endpoint_type == "high-volume":
             msg = (
-                "Concurrent mode requires the HIGH-VOLUME endpoint. To change endpoint run:\n"
+                "# Concurrent mode requires the HIGH-VOLUME endpoint. To change endpoint run:\n"
                 "ee.Reset()\n"
-                "ee.Initialize(opt_url='https://earthengine-highvolume.googleapis.com')\n"
-                "Or with project specified (e.g. when in Colab):\n"
-                "ee.Initialize(project='your_cloud_project_name', opt_url='https://earthengine-highvolume.googleapis.com')"
+                "ee.Initialize(project=gee_project_name, opt_url='https://earthengine-highvolume.googleapis.com')\n"
+                "# where gee_project_name is your GEE project (necessary in Colab)"
             )
         else:  # standard endpoint
             msg = (
                 "Sequential mode requires the STANDARD endpoint. To change endpoint run:\n"
                 "ee.Reset()\n"
-                "ee.Initialize()\n"
-                "Or with project specified (e.g. when in Colab):\n"
-                "ee.Initialize(project='your_cloud_project_name')"
+                "ee.Initialize(project=gee_project_name)\n"
+                "# where gee_project_name is your GEE project (necessary in Colab)"
             )
 
         if raise_error:
