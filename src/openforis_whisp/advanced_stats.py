@@ -1148,13 +1148,11 @@ def process_ee_batch(
                     f"Columns from EE: {list(df.columns)}"
                 )
                 # Use 1-indexed range to match client-side assignment
-                df[plot_id_column] = range(1, len(df) + 1)
+                df[plot_id_column] = [str(i) for i in range(1, len(df) + 1)]
 
-            # Ensure plotId is integer type (EE may return as string)
+            # Ensure plotId is string type (consistent with creation)
             if plot_id_column in df.columns:
-                df[plot_id_column] = pd.to_numeric(
-                    df[plot_id_column], errors="coerce"
-                ).astype("Int64")
+                df[plot_id_column] = df[plot_id_column].astype(str)
 
             # Ensure all column names are strings (fixes pandas .str accessor issues)
             df.columns = df.columns.astype(str)
@@ -1310,7 +1308,7 @@ def whisp_stats_geojson_to_df_concurrent(
         )
 
     # Add stable plotIds for merging (starting from 1, not 0)
-    gdf[plot_id_column] = range(1, len(gdf) + 1)
+    gdf[plot_id_column] = [str(i) for i in range(1, len(gdf) + 1)]
 
     # Strip unnecessary properties before sending to EE
     # Keep only: geometry, plot_id_column, and external_id
@@ -1323,7 +1321,7 @@ def whisp_stats_geojson_to_df_concurrent(
 
     gdf_for_ee = gdf[keep_cols].copy()
 
-    # CRITICAL: Convert external_id to string to prevent EE from confusing it with integer plotId
+    # CRITICAL: Convert external_id to string (both plotId and external_id are now strings)
     if external_id_column and "external_id" in gdf_for_ee.columns:
         gdf_for_ee["external_id"] = gdf_for_ee["external_id"].astype(str)
         logger.debug(f"Converted external_id column to string type")
@@ -1432,15 +1430,15 @@ def whisp_stats_geojson_to_df_concurrent(
                             range(1, len(df_server) + 1), dtype="Int64"
                         )
                     else:
-                        df_server[plot_id_column] = pd.to_numeric(
-                            df_server[plot_id_column], errors="coerce"
-                        ).astype("Int64")
+                        df_server[plot_id_column] = df_server[plot_id_column].astype(
+                            str
+                        )
 
-                    # Ensure plotId is Int64 in client data too
+                    # Ensure plotId is string in client data too
                     if plot_id_column in df_client.columns:
-                        df_client[plot_id_column] = pd.to_numeric(
-                            df_client[plot_id_column], errors="coerce"
-                        ).astype("Int64")
+                        df_client[plot_id_column] = df_client[plot_id_column].astype(
+                            str
+                        )
 
                     # Keep all EE statistics from server (all columns with _sum and _median suffixes)
                     # These are the actual EE processing results
@@ -1751,15 +1749,15 @@ def whisp_stats_geojson_to_df_concurrent(
                                 # Use 1-indexed range to match client-side assignment
                                 df_server[plot_id_column] = range(1, len(df_server) + 1)
 
-                            # Ensure plotId is integer type (EE may return as string)
+                            # Ensure plotId is string type (consistent with creation)
                             if plot_id_column in df_server.columns:
-                                df_server[plot_id_column] = pd.to_numeric(
-                                    df_server[plot_id_column], errors="coerce"
-                                ).astype("Int64")
+                                df_server[plot_id_column] = df_server[
+                                    plot_id_column
+                                ].astype(str)
                             if plot_id_column in df_client.columns:
-                                df_client[plot_id_column] = pd.to_numeric(
-                                    df_client[plot_id_column], errors="coerce"
-                                ).astype("Int64")
+                                df_client[plot_id_column] = df_client[
+                                    plot_id_column
+                                ].astype(str)
 
                             # Drop external_id from df_server if it exists (already in df_client)
                             if "external_id" in df_server.columns:
@@ -1958,7 +1956,7 @@ def whisp_stats_geojson_to_df_sequential(
     )
 
     # Add stable plotIds for merging (starting from 1, not 0)
-    gdf[plot_id_column] = range(1, len(gdf) + 1)
+    gdf[plot_id_column] = [str(i) for i in range(1, len(gdf) + 1)]
 
     # Strip unnecessary properties before sending to EE
     # Keep only: geometry, plot_id_column, and external_id
@@ -1971,7 +1969,7 @@ def whisp_stats_geojson_to_df_sequential(
 
     gdf_for_ee = gdf[keep_cols].copy()
 
-    # CRITICAL: Convert external_id to string to prevent EE from confusing it with integer plotId
+    # CRITICAL: Convert external_id to string (both plotId and external_id are now strings)
     if external_id_column and "external_id" in gdf_for_ee.columns:
         gdf_for_ee["external_id"] = gdf_for_ee["external_id"].astype(str)
         logger.debug(f"Converted external_id column to string type")
@@ -2051,11 +2049,9 @@ def whisp_stats_geojson_to_df_sequential(
 
     logger.info("Server-side processing complete")
 
-    # Ensure plotId is Int64 type for fast merges
+    # Ensure plotId is string type for consistent merges
     if plot_id_column in df_server.columns:
-        df_server[plot_id_column] = pd.to_numeric(
-            df_server[plot_id_column], errors="coerce"
-        ).astype("Int64")
+        df_server[plot_id_column] = df_server[plot_id_column].astype(str)
 
     # Add client-side metadata if requested
     if add_metadata_client_side:
@@ -2066,11 +2062,9 @@ def whisp_stats_geojson_to_df_sequential(
             return_attributes_only=True,
         )
 
-        # Ensure plotId is Int64 type for fast merges
+        # Ensure plotId is string type for consistent merges
         if plot_id_column in df_client.columns:
-            df_client[plot_id_column] = pd.to_numeric(
-                df_client[plot_id_column], errors="coerce"
-            ).astype("Int64")
+            df_client[plot_id_column] = df_client[plot_id_column].astype(str)
 
         # Drop external_id from df_server if it exists (keep from df_client - more reliable)
         if "external_id" in df_server.columns:
