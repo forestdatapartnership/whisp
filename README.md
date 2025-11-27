@@ -32,11 +32,11 @@
   ***Whisp*** can currently be used directly or implemented in your own code through three different pathways:
 
 
-  1. The Whisp App with its simple interface can be used [right here](https://whisp.openforis.org/) or called from other software by [API](https://whisp.openforis.org/documentation/api-guide). The Whisp App currently supports the processing of up to 1000 geometries per job. The original JS & Python code behind the Whisp App and API can be found [here](https://github.com/forestdatapartnership/whisp-app).
+  1. The Whisp App with its simple interface can be used [right here](https://whisp.openforis.org/) or called from other software by [API](https://whisp.openforis.org/documentation/api-guide). The Whisp App currently supports the processing of up to 3,000 geometries per job. The original JS & Python code behind the Whisp App and API can be found [here](https://github.com/forestdatapartnership/whisp-app).
 
   2. [Whisp in Earthmap](https://whisp.earthmap.org/?aoi=WHISP&boundary=plot1&layers=%7B%22CocoaETH%22%3A%7B%22opacity%22%3A1%7D%2C%22JRCForestMask%22%3A%7B%22opacity%22%3A1%7D%2C%22planet_rgb%22%3A%7B%22opacity%22%3A1%2C%22date%22%3A%222020-12%22%7D%7D&map=%7B%22center%22%3A%7B%22lat%22%3A7%2C%22lng%22%3A4%7D%2C%22zoom%22%3A3%2C%22mapType%22%3A%22satellite%22%7D&statisticsOpen=true) supports the visualization of geometries on actual maps with the possibility to toggle different relevant map products around tree cover, commodities and deforestation. It is practical for demonstration purposes and spot checks of single geometries but not recommended for larger datasets.
 
-  3. Datasets of any size, especially when holding more than 1000 geometries, can be analyzed with Whisp through the [python package on pip](https://pypi.org/project/openforis-whisp/). See example [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/Colab_whisp_geojson_to_csv.ipynb) for implementation with a geojson input. For the detailed procedure please go to the section [Whisp notebooks](#whisp_notebooks).
+  3. Datasets of any size, especially when holding more than 3,000 geometries, can be analyzed with Whisp through the [python package on pip](https://pypi.org/project/openforis-whisp/). See example [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/Colab_whisp_geojson_to_csv.ipynb) for implementation with a geojson input. For the detailed procedure please go to the section [Whisp notebooks](#whisp_notebooks).
 
 
   ## Whisp datasets <a name="whisp_datasets"></a>
@@ -327,3 +327,4 @@ Please read the [contributing guidelines](contributing_guidelines.md) for good p
   **Reporting**
   Users can report violations directly to us by emailing the address listed in the "Contact Us" section of the website:
   https://openforis.org/solutions/whisp/
+
