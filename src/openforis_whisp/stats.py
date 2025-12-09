@@ -165,7 +165,6 @@ def whisp_formatted_stats_geojson_to_df(
     batch_size: int = 10,
     max_concurrent: int = 20,
     geometry_audit_trail: bool = False,
-    status_file: str = None,
 ) -> pd.DataFrame:
     """
     Main entry point for converting GeoJSON to Whisp statistics.
@@ -219,13 +218,6 @@ def whisp_formatted_stats_geojson_to_df(
 
         Processing metadata stored in df.attrs['processing_metadata'].
         These columns enable full transparency for geometry modifications during processing.
-    status_file : str, optional
-        Path to JSON status file or directory for real-time progress tracking.
-        If a directory is provided, creates 'whisp_processing_status.json' in that directory.
-        Updates every 3 minutes and at progress milestones (5%, 10%, etc.).
-        Format: {"status": "processing", "progress": "450/1000", "percent": 45.0,
-                 "elapsed_sec": 120, "eta_sec": 145, "updated_at": "2025-11-13T14:23:45"}
-        Most useful for large concurrent jobs. Works in both concurrent and sequential modes.
 
     Returns
     -------
@@ -315,7 +307,6 @@ def whisp_formatted_stats_geojson_to_df(
             batch_size=batch_size,
             max_concurrent=max_concurrent,
             geometry_audit_trail=geometry_audit_trail,
-            status_file=status_file,
         )
     else:
         raise ValueError(
