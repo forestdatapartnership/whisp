@@ -101,6 +101,8 @@ from openforis_whisp.utils import (
 
 from openforis_whisp.data_checks import (
     analyze_geojson,
-    validate_geojson_constraints,
+    check_geojson_limits,
+    screen_geojson,  # Backward compatibility alias
     suggest_processing_mode,
+    validate_geojson_constraints,  # Backward compatibility alias
 )
