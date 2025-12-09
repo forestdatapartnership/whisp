@@ -1,8 +1,9 @@
 """
 Data validation and constraint checking functions for WHISP.
 
-Provides validation functions to check GeoJSON data against defined limits
+Provides validation functions to check GeoJSON data against user defined limits
 and thresholds, raising informative errors when constraints are violated.
+Note: Defaults in each function are not necessarily enforced.
 """
 
 import json
@@ -11,26 +12,6 @@ from shapely.geometry import Polygon as ShapelyPolygon, shape as shapely_shape
 
 # Note: area summary stats are estimations for use in deciding pathways for analysis
 # (estimation preferred here as allows efficient processing speed and limits overhead of checking file)
-
-
-def _convert_projected_area_to_ha(area_sq_units: float, crs: str = None) -> float:
-    """
-    Convert area from projected CRS units to hectares.
-
-    Most projected CRS use meters as units, so:
-    - area_sq_units is in square meters
-    - 1 hectare = 10,000 m²
-
-    Args:
-        area_sq_units: Area in square units of the projection (typically square meters)
-        crs: CRS string for reference (e.g., 'EPSG:3857'). Used for validation.
-
-    Returns:
-        Area in hectares
-    """
-    # Standard conversion: 1 hectare = 10,000 m²
-    # Most projected CRS use meters, so this works universally
-    return area_sq_units / 10000
 
 
 def _estimate_area_from_bounds(coords, area_conversion_factor: float) -> float:
@@ -75,6 +56,8 @@ def analyze_geojson(
     metrics=[
         "count",
         "geometry_types",
+        "crs",
+        "file_size_mb",
         "min_area_ha",
         "mean_area_ha",
         "median_area_ha",
@@ -107,6 +90,8 @@ def analyze_geojson(
         Which metrics to return. Available metrics:
         - 'count': number of polygons
         - 'geometry_types': dict of geometry type counts (e.g., {'Polygon': 95, 'MultiPolygon': 5})
+        - 'crs': coordinate reference system (e.g., 'EPSG:4326') - only available when geojson_data is a file path
+        - 'file_size_mb': file size in megabytes (only available when geojson_data is a file path)
         - 'min_area_ha', 'mean_area_ha', 'median_area_ha', 'max_area_ha': area statistics (hectares) (accurate only at equator)
         - 'area_percentiles': dict with p25, p50 (median), p75, p90 area values (accurate only at equator)
         - 'min_vertices', 'mean_vertices', 'median_vertices', 'max_vertices': vertex count statistics
@@ -123,6 +108,8 @@ def analyze_geojson(
     dict with requested metrics:
         - 'count': number of polygons
         - 'geometry_types': {'Polygon': int, 'MultiPolygon': int, ...}
+        - 'crs': coordinate reference system string (e.g., 'EPSG:4326', only when geojson_data is a file path)
+        - 'file_size_mb': file size in megabytes (float, only when geojson_data is a file path)
         - 'min_area_ha': minimum area among all polygons in hectares
         - 'mean_area_ha': mean area per polygon in hectares (calculated from coordinates)
         - 'median_area_ha': median area among all polygons in hectares
@@ -134,8 +121,28 @@ def analyze_geojson(
         - 'max_vertices': maximum number of vertices among all polygons
         - 'vertex_percentiles': {'p25': int, 'p50': int, 'p75': int, 'p90': int}
     """
+    # Handle None metrics (use all default metrics)
+    if metrics is None:
+        metrics = [
+            "count",
+            "geometry_types",
+            "crs",
+            "file_size_mb",
+            "min_area_ha",
+            "mean_area_ha",
+            "median_area_ha",
+            "max_area_ha",
+            "area_percentiles",
+            "min_vertices",
+            "mean_vertices",
+            "median_vertices",
+            "max_vertices",
+            "vertex_percentiles",
+        ]
+
     results = {}
     crs_warning = None
+    detected_crs = None
     file_path = None
 
     try:
@@ -144,6 +151,35 @@ def analyze_geojson(
             file_path = Path(geojson_data)
             if not file_path.exists():
                 raise FileNotFoundError(f"GeoJSON file not found: {file_path}")
+
+            # Quick CRS detection BEFORE loading full file (if requested)
+            if "crs" in metrics:
+                try:
+                    # Use fiona which only reads file metadata (fast, doesn't load features)
+                    import fiona
+
+                    with fiona.open(file_path) as src:
+                        if src.crs:
+                            # Convert fiona CRS dict to EPSG string
+                            crs_dict = src.crs
+                            if "init" in crs_dict:
+                                # Old format: {'init': 'epsg:4326'}
+                                detected_crs = (
+                                    crs_dict["init"].upper().replace("EPSG:", "EPSG:")
+                                )
+                            elif isinstance(crs_dict, dict) and crs_dict:
+                                # Try to extract EPSG from dict (json already imported at top)
+                                detected_crs = json.dumps(crs_dict)
+                        else:
+                            # No CRS means WGS84 by GeoJSON spec
+                            detected_crs = "EPSG:4326"
+
+                    # Check if CRS is WGS84
+                    if detected_crs and detected_crs != "EPSG:4326":
+                        crs_warning = f"⚠️  CRS is {detected_crs}, not EPSG:4326. Area metrics will be inaccurate. Data will be auto-reprojected during processing."
+                except Exception as e:
+                    # If fiona fails, assume WGS84 (GeoJSON default)
+                    detected_crs = "EPSG:4326"
 
             # Try UTF-8 first (most common), then fall back to auto-detection
             try:
@@ -166,25 +202,28 @@ def analyze_geojson(
                     with open(file_path, "r", encoding="latin-1") as f:
                         geojson_data = json.load(f)
 
-            # Detect CRS from file if available
-            try:
-                import geopandas as gpd
-
-                gdf = gpd.read_file(file_path)
-                if gdf.crs and gdf.crs != "EPSG:4326":
-                    crs_warning = f"⚠️  CRS is {gdf.crs}, not EPSG:4326. Area metrics will be inaccurate. Data will be auto-reprojected during processing."
-            except Exception:
-                pass  # If we can't detect CRS, continue without warning
-
         features = geojson_data.get("features", [])
 
-        # Add CRS warning to results if detected
-        if crs_warning:
-            results["crs_warning"] = crs_warning
-            print(crs_warning)
+        # Add file size if requested and available
+        if "file_size_mb" in metrics and file_path is not None:
+            size_bytes = file_path.stat().st_size
+            results["file_size_mb"] = round(size_bytes / (1024 * 1024), 2)
+
+        # Add CRS info if requested and detected
+        if "crs" in metrics and detected_crs:
+            results["crs"] = detected_crs
+            # Add warning if not WGS84
+            if crs_warning:
+                results["crs_warning"] = crs_warning
+                print(crs_warning)
 
         if "count" in metrics:
             results["count"] = len(features)
+
+        # Initialize tracking variables (used in quality logging later)
+        bbox_fallback_count = 0
+        geometry_skip_count = 0
+        polygon_type_stats = {}
 
         # Single sweep through features - compute all area/vertex metrics at once
         if any(
@@ -207,11 +246,6 @@ def analyze_geojson(
             vertices_list = []
             geometry_type_counts = {}
             valid_polygons = 0
-
-            # Tracking for fallback geometries
-            bbox_fallback_count = 0  # Geometries that used bounding box estimate
-            geometry_skip_count = 0  # Geometries completely skipped
-            polygon_type_stats = {}  # Track stats by geometry type
 
             # Detect CRS to determine area conversion factor
             area_conversion_factor = 1232100  # Default: WGS84 (degrees to ha)
@@ -489,6 +523,7 @@ def _check_metric_constraints(
     max_max_area_ha=None,
     max_mean_vertices=None,
     max_max_vertices=10_000,
+    max_file_size_mb=None,
 ):
     """
     Check if computed metrics violate any constraints.
@@ -499,7 +534,7 @@ def _check_metric_constraints(
     -----------
     metrics : dict
         Dictionary of computed metrics with keys: count, mean_area_ha, max_area_ha,
-        mean_vertices, max_vertices
+        mean_vertices, max_vertices, file_size_mb (optional)
     max_polygon_count : int
         Maximum allowed number of polygons
     max_mean_area_ha : float
@@ -510,6 +545,8 @@ def _check_metric_constraints(
         Maximum allowed mean vertices per polygon
     max_max_vertices : int, optional
         Maximum allowed vertices per polygon
+    max_file_size_mb : float, optional
+        Maximum allowed file size in megabytes
 
     Returns:
     --------
@@ -523,6 +560,7 @@ def _check_metric_constraints(
     max_area = metrics["max_area_ha"]
     mean_vertices = metrics["mean_vertices"]
     max_vertices_value = metrics["max_vertices"]
+    file_size_mb = metrics.get("file_size_mb")
 
     if polygon_count > max_polygon_count:
         violations.append(
@@ -549,41 +587,63 @@ def _check_metric_constraints(
             f"Max vertices ({max_vertices_value:,}) exceeds limit ({max_max_vertices:,})"
         )
 
+    if (
+        max_file_size_mb is not None
+        and file_size_mb is not None
+        and file_size_mb > max_file_size_mb
+    ):
+        violations.append(
+            f"File size ({file_size_mb:.2f} MB) exceeds limit ({max_file_size_mb:.2f} MB)"
+        )
+
     return violations
 
 
-def validate_geojson_constraints(
-    geojson_data: Path | str | dict,
+def check_geojson_limits(
+    geojson_data: Path | str | dict = None,
+    analysis_results: dict = None,
     max_polygon_count=250_000,
-    max_mean_area_ha=10_000,
-    max_max_area_ha=None,
-    max_mean_vertices=None,
-    max_max_vertices=10_000,
+    max_mean_area_ha=50_000,
+    max_max_area_ha=50_000,
+    max_mean_vertices=50_000,
+    max_max_vertices=50_000,
+    max_file_size_mb=None,
+    allowed_crs=["EPSG:4326"],
     verbose=True,
 ):
     """
-    Validate GeoJSON data against defined constraints.
+    Check GeoJSON data against defined limits for processing readiness.
 
     Raises ValueError if any metrics exceed the specified limits.
     Uses analyze_geojson to compute metrics efficiently in a single sweep.
 
     Parameters:
     -----------
-    geojson_data : Path | str | dict
+    geojson_data : Path | str | dict, optional
         GeoJSON FeatureCollection to validate. Can be:
         - dict: GeoJSON FeatureCollection dictionary
         - str: Path to GeoJSON file as string
         - Path: pathlib.Path to GeoJSON file
+        Note: Cannot be used together with analysis_results
+    analysis_results : dict, optional
+        Pre-computed results from analyze_geojson(). Must contain keys:
+        'count', 'mean_area_ha', 'max_area_ha', 'mean_vertices', 'max_vertices'
+        Note: Cannot be used together with geojson_data
     max_polygon_count : int, optional
         Maximum allowed number of polygons (default: 250,000)
     max_mean_area_ha : float, optional
-        Maximum allowed mean area per polygon in hectares (default: 10,000)
+        Maximum allowed mean area per polygon in hectares (default: 50,000)
     max_max_area_ha : float, optional
-        Maximum allowed maximum area per polygon in hectares (default: None, no limit)
+        Maximum allowed maximum area per polygon in hectares (default: 50,000)
     max_mean_vertices : float, optional
-        Maximum allowed mean vertices per polygon (default: None, no limit)
+        Maximum allowed mean vertices per polygon (default: 50,000)
     max_max_vertices : int, optional
-        Maximum allowed vertices per polygon (default: 10,000)
+        Maximum allowed vertices per polygon (default: 50,000)
+    max_file_size_mb : float, optional
+        Maximum allowed file size in megabytes (default: None, no limit)
+    allowed_crs : list, optional
+        List of allowed coordinate reference systems (default: ["EPSG:4326"])
+        Set to None to skip CRS validation
     verbose : bool
         Print validation results (default: True)
 
@@ -603,22 +663,25 @@ def validate_geojson_constraints(
     Raises:
     -------
     ValueError
-        If any constraint is violated
+        If any constraint is violated, or if both geojson_data and analysis_results are provided,
+        or if neither is provided
     """
-    from openforis_whisp.data_conversion import convert_geojson_to_ee
-    from shapely.geometry import Polygon as ShapelyPolygon
+    # Validate input parameters
+    if geojson_data is not None and analysis_results is not None:
+        raise ValueError(
+            "Cannot provide both 'geojson_data' and 'analysis_results'. "
+            "Please provide only one input source."
+        )
 
-    # Load GeoJSON from file if path provided
-    if isinstance(geojson_data, (str, Path)):
-        file_path = Path(geojson_data)
-        if not file_path.exists():
-            raise FileNotFoundError(f"GeoJSON file not found: {file_path}")
-        with open(file_path, "r") as f:
-            geojson_data = json.load(f)
+    if geojson_data is None and analysis_results is None:
+        raise ValueError(
+            "Must provide either 'geojson_data' or 'analysis_results'. "
+            "Both cannot be None."
+        )
 
     if verbose:
         print("\n" + "=" * 80)
-        print("GEOJSON CONSTRAINT VALIDATION")
+        print("GEOJSON LIMITS CHECK")
         print("=" * 80)
         print("\nConstraint Limits:")
         print(f"  - Max polygon count:     {max_polygon_count:,}")
@@ -629,90 +692,47 @@ def validate_geojson_constraints(
             print(f"  - Max mean vertices:     {max_mean_vertices:,}")
         if max_max_vertices is not None:
             print(f"  - Max vertices per polygon: {max_max_vertices:,}")
+        if max_file_size_mb is not None:
+            print(f"  - Max file size (MB):    {max_file_size_mb:.2f}")
 
-    # Collect all metrics we need to compute
-    metrics_to_compute = [
-        "count",
-        "mean_area_ha",
-        "max_area_ha",
-        "mean_vertices",
-        "max_vertices",
-    ]
+    # Get metrics either from analysis_results or by analyzing geojson_data
+    if analysis_results is not None:
+        # Use pre-computed analysis results
+        metrics = analysis_results
+    else:
+        # Use analyze_geojson to compute all required metrics in a single sweep
+        metrics_to_compute = [
+            "count",
+            "file_size_mb",
+            "mean_area_ha",
+            "max_area_ha",
+            "mean_vertices",
+            "max_vertices",
+        ]
+        # Add CRS if validation is requested
+        if allowed_crs is not None:
+            metrics_to_compute.append("crs")
+        metrics = analyze_geojson(geojson_data, metrics=metrics_to_compute)
 
-    # Import analyze_geojson (will be available after function is defined elsewhere)
-    # For now, we'll compute it here efficiently in a single sweep
-    features = geojson_data.get("features", [])
-
-    # Single sweep computation
-    total_area = 0
-    total_vertices = 0
-    max_area = 0
-    max_vertices_value = 0
-    valid_polygons = 0
-
-    for feature in features:
-        try:
-            coords = feature["geometry"]["coordinates"]
-            geom_type = feature["geometry"]["type"]
-
-            if geom_type == "Polygon":
-                # Count vertices
-                feature_vertices = 0
-                for ring in coords:
-                    feature_vertices += len(ring)
-                total_vertices += feature_vertices
-                max_vertices_value = max(max_vertices_value, feature_vertices)
-
-                # Calculate area
-                try:
-                    poly = ShapelyPolygon(coords[0])
-                    area_ha = abs(poly.area) * 1232100
-                    total_area += area_ha
-                    max_area = max(max_area, area_ha)
-                except:
-                    pass
-                valid_polygons += 1
-
-            elif geom_type == "MultiPolygon":
-                # Count vertices
-                feature_vertices = 0
-                for polygon in coords:
-                    for ring in polygon:
-                        feature_vertices += len(ring)
-                total_vertices += feature_vertices
-                max_vertices_value = max(max_vertices_value, feature_vertices)
-
-                # Calculate area
-                try:
-                    for polygon in coords:
-                        poly = ShapelyPolygon(polygon[0])
-                        area_ha = abs(poly.area) * 1232100
-                        total_area += area_ha
-                        max_area = max(max_area, area_ha)
-                except:
-                    pass
-                valid_polygons += 1
-
-        except:
-            continue
-
-    # Compute means
-    polygon_count = len(features)
-    mean_area = total_area / valid_polygons if valid_polygons > 0 else 0
-    mean_vertices = total_vertices / valid_polygons if valid_polygons > 0 else 0
-
+    # Build results dict with required keys
     results = {
-        "count": polygon_count,
-        "mean_area_ha": round(mean_area, 2),
-        "max_area_ha": round(max_area, 2),
-        "mean_vertices": round(mean_vertices, 2),
-        "max_vertices": max_vertices_value,
+        "count": metrics.get("count", 0),
+        "file_size_mb": metrics.get("file_size_mb"),
+        "mean_area_ha": metrics.get("mean_area_ha", 0),
+        "max_area_ha": metrics.get("max_area_ha", 0),
+        "mean_vertices": metrics.get("mean_vertices", 0),
+        "max_vertices": metrics.get("max_vertices", 0),
+        "crs": metrics.get("crs"),
         "valid": True,
     }
 
     if verbose:
         print("\nComputed Metrics:")
         print(f"  - Polygon count:         {results['count']:,}")
+        if results.get("file_size_mb") is not None:
+            print(f"  - File size (MB):        {results['file_size_mb']:,.2f}")
+        if results.get("crs") is not None:
+            print(f"  - CRS:                   {results['crs']}")
         print(f"  - Mean area (ha):        {results['mean_area_ha']:,}")
         print(f"  - Max area (ha):         {results['max_area_ha']:,}")
         print(f"  - Mean vertices:         {results['mean_vertices']:,}")
@@ -726,34 +746,48 @@ def validate_geojson_constraints(
         max_max_area_ha=max_max_area_ha,
         max_mean_vertices=max_mean_vertices,
         max_max_vertices=max_max_vertices,
+        max_file_size_mb=max_file_size_mb,
     )
+
+    # Check CRS if validation is requested
+    if allowed_crs is not None and results.get("crs"):
+        if results["crs"] not in allowed_crs:
+            violations.append(
+                f"CRS '{results['crs']}' is not in allowed list: {allowed_crs}"
+            )
 
     # Report results
     if verbose:
         print("\n" + "=" * 80)
         if violations:
-            print("VALIDATION FAILED")
+            print("LIMITS CHECK FAILED")
             print("=" * 80)
             for violation in violations:
                 print(f"\n{violation}")
             results["valid"] = False
         else:
-            print("VALIDATION PASSED")
+            print("LIMITS CHECK PASSED")
             print("=" * 80)
             print("\nAll metrics within acceptable limits")
 
     # Raise error with detailed message if any constraint violated
     if violations:
-        error_message = "Constraint validation failed:\n" + "\n".join(violations)
+        error_message = "GeoJSON limits check failed:\n" + "\n".join(violations)
         raise ValueError(error_message)
 
     return results
+
+
+# Backward compatibility aliases
+screen_geojson = check_geojson_limits
+validate_geojson_constraints = check_geojson_limits
 
 
 def suggest_processing_mode(
     feature_count,
     mean_area_ha=None,
     mean_vertices=None,
+    file_size_mb=None,
     feature_type="polygon",
     verbose=True,
 ):
@@ -761,6 +795,9 @@ def suggest_processing_mode(
     Suggest processing mode based on feature characteristics.
 
     Decision thresholds from comprehensive benchmark data (Nov 2025):
+
+    FILE SIZE:
+    - Files >= 10 MB: recommend sequential mode (avoids payload size limits)
 
     POINTS:
     - Break-even: 750-1000 features
@@ -785,6 +822,8 @@ def suggest_processing_mode(
         Mean area per polygon in hectares (required for polygons, ignored for points)
     mean_vertices : float, optional
         Mean number of vertices per polygon (influences decision for complex geometries)
+    file_size_mb : float, optional
+        File size in megabytes (if >= 10 MB, recommends sequential mode)
     feature_type : str
         'polygon', 'multipolygon', or 'point' (default: 'polygon')
     verbose : bool
@@ -794,6 +833,14 @@ def suggest_processing_mode(
     --------
     str: 'concurrent' or 'sequential'
     """
+
+    # File size check: large files should use sequential mode
+    if file_size_mb is not None and file_size_mb >= 10:
+        if verbose:
+            print(f"\nMETHOD RECOMMENDATION (File Size Constraint)")
+            print(f"   File size: {file_size_mb:.2f} MB (>= 10 MB threshold)")
+            print(f"   Method: SEQUENTIAL (avoids payload size limits)")
+        return "sequential"
 
     # Points: simple threshold-based decision
     if feature_type == "point":
