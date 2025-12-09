@@ -510,253 +510,102 @@ def join_admin_codes(
         return df
 
 
-class ProgressTracker:
+def _format_time(seconds: float) -> str:
+    """Format seconds as human-readable string."""
+    if seconds < 60:
+        return f"{seconds:.0f}s"
+    elif seconds < 3600:
+        mins = seconds / 60
+        return f"{mins:.1f}m"
+    else:
+        hours = seconds / 3600
+        return f"{hours:.1f}h"
+
+
+def _get_progress_milestones(total_features: int) -> set:
     """
-    Track batch processing progress with time estimation.
+    Get progress milestones based on dataset size.
 
-    Shows progress at adaptive milestones (more frequent for small datasets,
-    less frequent for large datasets) with estimated time remaining based on
-    processing speed. Includes time-based heartbeat to prevent long silences.
+    Parameters
+    ----------
+    total_features : int
+        Total number of features being processed
+
+    Returns
+    -------
+    set
+        Set of percentage milestones to show
     """
+    # Set milestones based on feature count
+    if total_features < 250:
+        return set(range(20, 101, 20))  # Every 20%: {20, 40, 60, 80, 100}
+    elif total_features < 1000:
+        return set(range(10, 101, 10))  # Every 10%
+    elif total_features < 10000:
+        return set(range(5, 101, 5))  # Every 5%
+    elif total_features < 50000:
+        return set(range(2, 101, 2))  # Every 2%
+    else:
+        return set(range(1, 101))  # Every 1%
 
-    def __init__(
-        self,
-        total: int,
-        logger: logging.Logger = None,
-        heartbeat_interval: int = 180,
-        status_file: str = None,
-    ):
-        """
-        Initialize progress tracker.
 
-        Parameters
-        ----------
-        total : int
-            Total number of items to process
-        logger : logging.Logger, optional
-            Logger for output
-        heartbeat_interval : int, optional
-            Seconds between heartbeat messages (default: 180 = 3 minutes)
-        status_file : str, optional
-            Path to JSON status file for API/web app consumption.
-            Checkpoints auto-save to same directory as status_file.
-        """
-        self.total = total
-        self.completed = 0
-        self.lock = threading.Lock()
-        self.logger = logger or logging.getLogger("whisp")
-        self.heartbeat_interval = heartbeat_interval
+def _log_progress(
+    completed: int,
+    total: int,
+    milestones: set,
+    shown_milestones: set,
+    start_time: float,
+    logger: logging.Logger,
+) -> None:
+    """
+    Log progress at milestone percentages.
 
-        # Handle status_file: if directory passed, auto-generate filename
-        if status_file:
-            import os
+    Parameters
+    ----------
+    completed : int
+        Number of batches completed
+    total : int
+        Total number of batches
+    milestones : set
+        Set of percentage milestones to show
+    shown_milestones : set
+        Set of milestones already shown (modified in place)
+    start_time : float
+        Start time from time.time()
+    logger : logging.Logger
+        Logger for output
+    """
+    percent = int((completed / total) * 100)
 
-            if os.path.isdir(status_file):
-                self.status_file = os.path.join(
-                    status_file, "whisp_processing_status.json"
-                )
+    # Check for new milestones reached
+    for milestone in sorted(milestones):
+        if percent >= milestone and milestone not in shown_milestones:
+            shown_milestones.add(milestone)
+
+            # Calculate time metrics
+            elapsed = time.time() - start_time
+            rate = completed / elapsed if elapsed > 0 else 0
+            remaining_items = total - completed
+
+            # Calculate ETA with padding for overhead (loading, joins, etc.)
+            # Don't show ETA until we have some samples (at least 5% complete)
+            if rate > 0 and completed >= max(5, total * 0.05):
+                eta_seconds = (remaining_items / rate) * 1.15  # Add 15% padding
             else:
-                # Validate that parent directory exists
-                parent_dir = os.path.dirname(status_file)
-                if parent_dir and not os.path.isdir(parent_dir):
-                    self.logger.warning(
-                        f"Status file directory does not exist: {parent_dir}"
-                    )
-                    self.status_file = None
-                else:
-                    self.status_file = status_file
-        else:
-            self.status_file = None
+                eta_seconds = 0
 
-        # Adaptive milestones based on dataset size
-        # Small datasets (< 50): show every 25% (not too spammy)
-        # Medium (50-500): show every 20%
-        # Large (500-1000): show every 10%
-        # Very large (1000+): show every 5% (cleaner for long jobs)
-        if total < 50:
-            self.milestones = {25, 50, 75, 100}
-        elif total < 500:
-            self.milestones = {20, 40, 60, 80, 100}
-        elif total < 1000:
-            self.milestones = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100}
-        else:
-            self.milestones = {
-                5,
-                10,
-                15,
-                20,
-                25,
-                30,
-                35,
-                40,
-                45,
-                50,
-                55,
-                60,
-                65,
-                70,
-                75,
-                80,
-                85,
-                90,
-                95,
-                100,
-            }
+            # Format time strings
+            eta_str = _format_time(eta_seconds) if eta_seconds > 0 else "calculating..."
+            elapsed_str = _format_time(elapsed)
 
-        self.shown_milestones = set()
-        self.start_time = time.time()
-        self.last_update_time = self.start_time
-        self.heartbeat_stop = threading.Event()
-        self.heartbeat_thread = None
+            # Build progress message
+            msg = f"Progress: {completed:,}/{total:,} batches ({percent}%)"
+            if percent < 100:
+                msg += f" | Elapsed: {elapsed_str} | ETA: {eta_str}"
+            else:
+                msg += f" | Total time: {elapsed_str}"
 
-    def _write_status_file(self, status: str = "processing") -> None:
-        """Write current progress to JSON status file using atomic write."""
-        if not self.status_file:
-            return
-
-        try:
-            import json
-            import os
-
-            elapsed = time.time() - self.start_time
-            percent = (self.completed / self.total * 100) if self.total > 0 else 0
-            rate = self.completed / elapsed if elapsed > 0 else 0
-            eta = (
-                (self.total - self.completed) / rate * 1.15
-                if rate > 0 and percent >= 5
-                else None
-            )
-
-            # Write to temp file then atomic rename to prevent partial reads
-            from datetime import datetime
-
-            temp_file = self.status_file + ".tmp"
-            with open(temp_file, "w") as f:
-                json.dump(
-                    {
-                        "status": status,
-                        "progress": f"{self.completed}/{self.total}",
-                        "percent": round(percent, 1),
-                        "elapsed_sec": round(elapsed),
-                        "eta_sec": round(eta) if eta else None,
-                        "updated_at": datetime.now().isoformat(),
-                    },
-                    f,
-                )
-            os.replace(temp_file, self.status_file)
-        except Exception:
-            pass
-
-    def start_heartbeat(self) -> None:
-        """Start background heartbeat thread for time-based progress updates."""
-        if self.heartbeat_thread is None or not self.heartbeat_thread.is_alive():
-            self.heartbeat_stop.clear()
-            self.heartbeat_thread = threading.Thread(
-                target=self._heartbeat_loop, daemon=True
-            )
-            self.heartbeat_thread.start()
-            # Write initial status
-            self._write_status_file(status="processing")
-
-    def _heartbeat_loop(self) -> None:
-        """Background loop that logs progress at time intervals."""
-        while not self.heartbeat_stop.wait(self.heartbeat_interval):
-            with self.lock:
-                # Only log if we haven't shown a milestone recently
-                time_since_update = time.time() - self.last_update_time
-                if (
-                    time_since_update >= self.heartbeat_interval
-                    and self.completed < self.total
-                ):
-                    elapsed = time.time() - self.start_time
-                    percent = int((self.completed / self.total) * 100)
-                    elapsed_str = self._format_time(elapsed)
-                    self.logger.info(
-                        f"[Processing] {self.completed:,}/{self.total:,} batches ({percent}%) | "
-                        f"Elapsed: {elapsed_str}"
-                    )
-                    self.last_update_time = time.time()
-
-    def update(self, n: int = 1) -> None:
-        """
-        Update progress count.
-
-        Parameters
-        ----------
-        n : int
-            Number of items completed
-        """
-        with self.lock:
-            self.completed += n
-            percent = int((self.completed / self.total) * 100)
-
-            # Show milestone messages (5%, 10%, 15%... for large datasets)
-            for milestone in sorted(self.milestones):
-                if percent >= milestone and milestone not in self.shown_milestones:
-                    self.shown_milestones.add(milestone)
-
-                    # Calculate time metrics
-                    elapsed = time.time() - self.start_time
-                    rate = self.completed / elapsed if elapsed > 0 else 0
-                    remaining_items = self.total - self.completed
-
-                    # Calculate ETA with padding for overhead (loading, joins, etc.)
-                    # Don't show ETA until we have some samples (at least 5% complete)
-                    if rate > 0 and self.completed >= max(5, self.total * 0.05):
-                        eta_seconds = (
-                            remaining_items / rate
-                        ) * 1.15  # Add 15% padding for overhead
-                    else:
-                        eta_seconds = 0
-
-                    # Format time strings
-                    eta_str = (
-                        self._format_time(eta_seconds)
-                        if eta_seconds > 0
-                        else "calculating..."
-                    )
-                    elapsed_str = self._format_time(elapsed)
-
-                    # Build progress message
-                    msg = f"Progress: {self.completed:,}/{self.total:,} batches ({percent}%)"
-                    if percent < 100:
-                        msg += f" | Elapsed: {elapsed_str} | ETA: {eta_str}"
-                    else:
-                        msg += f" | Total time: {elapsed_str}"
-
-                    self.logger.info(msg)
-                    self.last_update_time = time.time()
-
-        # Update status file for API consumption
-        self._write_status_file()
-
-    @staticmethod
-    def _format_time(seconds: float) -> str:
-        """Format seconds as human-readable string."""
-        if seconds < 60:
-            return f"{seconds:.0f}s"
-        elif seconds < 3600:
-            mins = seconds / 60
-            return f"{mins:.1f}m"
-        else:
-            hours = seconds / 3600
-            return f"{hours:.1f}h"
-
-    def finish(self, output_file: str = None) -> None:
-        """Stop heartbeat and log completion."""
-        # Stop heartbeat thread
-        self.heartbeat_stop.set()
-        if self.heartbeat_thread and self.heartbeat_thread.is_alive():
-            self.heartbeat_thread.join(timeout=1)
-
-        with self.lock:
-            total_time = time.time() - self.start_time
-            time_str = self._format_time(total_time)
-            msg = f"Processing complete: {self.completed:,}/{self.total:,} batches in {time_str}"
-            self.logger.info(msg)
-
-        # Write final status
-        self._write_status_file(status="completed")
+            logger.info(msg)
 
 
 # ============================================================================
@@ -1218,7 +1067,6 @@ def whisp_stats_geojson_to_df_concurrent(
     logger: logging.Logger = None,
     # Format parameters (auto-detect from config if not provided)
     decimal_places: int = None,
-    status_file: str = None,
 ) -> pd.DataFrame:
     """
     Process GeoJSON concurrently to compute Whisp statistics with automatic formatting.
@@ -1359,11 +1207,12 @@ def whisp_stats_geojson_to_df_concurrent(
     # Setup semaphore for EE concurrency control
     ee_semaphore = threading.BoundedSemaphore(max_concurrent)
 
-    # Progress tracker with heartbeat for long-running jobs
-    progress = ProgressTracker(
-        len(batches), logger=logger, heartbeat_interval=180, status_file=status_file
-    )
-    progress.start_heartbeat()
+    # Progress tracking setup
+    progress_lock = threading.Lock()
+    completed_batches = 0
+    milestones = _get_progress_milestones(len(gdf_for_ee))
+    shown_milestones = set()
+    start_time = time.time()
 
     results = []
 
@@ -1477,7 +1326,18 @@ def whisp_stats_geojson_to_df_concurrent(
                         suffixes=("_ee", "_client"),
                     )
                     results.append(merged)
-                    progress.update()
+
+                    # Update progress
+                    with progress_lock:
+                        completed_batches += 1
+                        _log_progress(
+                            completed_batches,
+                            len(batches),
+                            milestones,
+                            shown_milestones,
+                            start_time,
+                            logger,
+                        )
 
                 except Exception as e:
                     # Batch failed - fail fast with clear guidance
@@ -1492,15 +1352,18 @@ def whisp_stats_geojson_to_df_concurrent(
                     batch_errors.append((batch_idx, original_batch, error_msg))
     except (KeyboardInterrupt, SystemExit) as interrupt:
         logger.warning("Processing interrupted by user")
-        # Update status file with interrupted state
-        progress._write_status_file(status="interrupted")
         raise interrupt
     finally:
         # Restore logger levels
         fiona_logger.setLevel(old_fiona_level)
         pyogrio_logger.setLevel(old_pyogrio_level)
 
-    progress.finish()
+    # Log completion
+    total_time = time.time() - start_time
+    time_str = _format_time(total_time)
+    logger.info(
+        f"Processing complete: {completed_batches:,}/{len(batches):,} batches in {time_str}"
+    )
 
     # If we have batch errors after retry attempts, fail the entire process
     if batch_errors:
@@ -1577,7 +1440,9 @@ def whisp_stats_geojson_to_df_concurrent(
 
                 # Retry batch processing with validated image
                 results = []
-                progress = ProgressTracker(len(batches), logger=logger)
+                retry_completed = 0
+                retry_shown = set()
+                retry_start = time.time()
 
                 # Suppress fiona logging during batch processing (threads create new loggers)
                 fiona_logger = logging.getLogger("fiona")
@@ -1609,13 +1474,28 @@ def whisp_stats_geojson_to_df_concurrent(
                                     suffixes=("", "_client"),
                                 )
                                 results.append(merged)
-                                progress.update()
+
+                                # Update retry progress
+                                with progress_lock:
+                                    retry_completed += 1
+                                    _log_progress(
+                                        retry_completed,
+                                        len(batches),
+                                        milestones,
+                                        retry_shown,
+                                        retry_start,
+                                        logger,
+                                    )
                             except Exception as e:
                                 logger.error(
                                     f"Batch processing error (retry): {str(e)[:100]}"
                                 )
 
-                    progress.finish()
+                    # Log retry completion
+                    retry_time = time.time() - retry_start
+                    logger.info(
+                        f"Retry complete: {retry_completed:,}/{len(batches):,} batches in {_format_time(retry_time)}"
+                    )
                 finally:
                     # Restore logger levels
                     fiona_logger.setLevel(old_fiona_level)
@@ -2138,7 +2018,6 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
     water_flag_threshold: float = 0.5,
     sort_column: str = "plotId",
     geometry_audit_trail: bool = False,
-    status_file: str = None,
 ) -> pd.DataFrame:
     """
     Process GeoJSON concurrently with automatic formatting and validation.
@@ -2231,7 +2110,6 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
         max_retries=max_retries,
         add_metadata_server=add_metadata_server,
         logger=logger,
-        status_file=status_file,
     )
 
     # Step 2: Format the output
@@ -2347,7 +2225,6 @@ def whisp_formatted_stats_geojson_to_df_sequential(
     water_flag_threshold: float = 0.5,
     sort_column: str = "plotId",
     geometry_audit_trail: bool = False,
-    status_file: str = None,
 ) -> pd.DataFrame:
     """
     Process GeoJSON sequentially with automatic formatting and validation.
@@ -2552,7 +2429,6 @@ def whisp_formatted_stats_geojson_to_df_fast(
     water_flag_threshold: float = 0.5,
     sort_column: str = "plotId",
     geometry_audit_trail: bool = False,
-    status_file: str = None,
 ) -> pd.DataFrame:
     """
     Process GeoJSON to Whisp statistics with optimized fast processing.
@@ -2654,7 +2530,6 @@ def whisp_formatted_stats_geojson_to_df_fast(
             water_flag_threshold=water_flag_threshold,
             sort_column=sort_column,
             geometry_audit_trail=geometry_audit_trail,
-            status_file=status_file,
         )
     else:  # sequential
         logger.debug("Routing to sequential processing...")
@@ -2672,5 +2547,4 @@ def whisp_formatted_stats_geojson_to_df_fast(
             water_flag_threshold=water_flag_threshold,
             sort_column=sort_column,
             geometry_audit_trail=geometry_audit_trail,
-            status_file=status_file,
         )
