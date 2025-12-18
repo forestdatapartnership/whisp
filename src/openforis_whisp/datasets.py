@@ -61,8 +61,9 @@ def g_esa_worldcover_trees_prep():
 
 # EUFO_2020
 def g_jrc_gfc_2020_prep():
-    jrc_gfc2020_raw = ee.ImageCollection("JRC/GFC2020/V2")
-    return jrc_gfc2020_raw.mosaic().rename("EUFO_2020").selfMask()
+    # JRC GFC2020 V3 is a single Image with band 'Map'
+    jrc_gfc2020 = ee.Image("JRC/GFC2020/V3").select("Map")
+    return jrc_gfc2020.rename("EUFO_2020").selfMask()
 
 
 # GFC_TC_2020
