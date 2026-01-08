@@ -1,12 +1,14 @@
 import pandas as pd
 
 from .pd_schemas import data_lookup_type
+from .logger import StdoutLogger
 
 
 from openforis_whisp.parameters.config_runtime import (
     geometry_area_column,
     DEFAULT_GEE_DATASETS_LOOKUP_TABLE_PATH,
-    stats_unit_type_column,  # Add this import
+    DEFAULT_CONTEXT_LOOKUP_TABLE_PATH,
+    stats_unit_type_column,
 )
 
 from openforis_whisp.reformat import filter_lookup_by_country_codes
@@ -15,6 +17,8 @@ from openforis_whisp.reformat import filter_lookup_by_country_codes
 lookup_gee_datasets_df: data_lookup_type = pd.read_csv(
     DEFAULT_GEE_DATASETS_LOOKUP_TABLE_PATH
 )
+
+logger = StdoutLogger(__name__)
 
 
 # requires lookup_gee_datasets_df
@@ -113,9 +117,10 @@ def whisp_risk(
     explicit_unit_type: str = None,
     national_codes: list[str] = None,  # List of ISO2 country codes to filter by
     custom_bands_info: dict = None,  # New parameter for custom band risk info
+    drop_unused_columns: bool = False,  # Remove columns not used in risk calculations
 ) -> data_lookup_type:
     """
-    Adds the EUDR (European Union Deforestation Risk) column to the DataFrame based on indicator values.
+    Adds the risk column to the DataFrame based on indicator values.
 
     Args:
         df (DataFrame): Input DataFrame.
@@ -145,6 +150,9 @@ def whisp_risk(
                 }
             }
             If None, custom bands won't be included in risk calculations.
+        drop_unused_columns (bool, optional): If True, removes dataset columns not used in risk calculations,
+            keeping only context/metadata columns, datasets used in indicators, indicator columns,
+            and final risk columns. Defaults to False (backward compatible).
 
     Returns:
         data_lookup_type: DataFrame with added risk columns.
@@ -278,7 +286,8 @@ def whisp_risk(
         unit_type,  # Pass the unit type
     )
 
-    df_w_indicators_and_risk_pcrop = add_eudr_risk_pcrop_col(
+    # these "add_" functions modify the 'df_w_indicators' dataframe in place
+    add_risk_pcrop_col(
         df=df_w_indicators,
         ind_1_name=ind_1_name,
         ind_2_name=ind_2_name,
@@ -286,14 +295,14 @@ def whisp_risk(
         ind_4_name=ind_4_name,
     )
 
-    df_w_indicators_and_risk_acrop = add_eudr_risk_acrop_col(
+    add_risk_acrop_col(
         df=df_w_indicators,
         ind_1_name=ind_1_name,
         ind_2_name=ind_2_name,
         ind_4_name=ind_4_name,
     )
 
-    df_w_indicators_and_risk_timber = add_eudr_risk_timber_col(
+    add_risk_timber_col(
         df=df_w_indicators,
         ind_2_name=ind_2_name,
         ind_5_name=ind_5_name,
@@ -305,10 +314,14 @@ def whisp_risk(
         ind_11_name=ind_11_name,
     )
 
-    return df_w_indicators_and_risk_timber
+    # Filter to risk-relevant columns if requested (after all columns added)
+    if drop_unused_columns:
+        df_w_indicators = filter_to_risk_columns(df_w_indicators, input_cols, names)
+
+    return df_w_indicators
 
 
-def add_eudr_risk_pcrop_col(
+def add_risk_pcrop_col(
     df: data_lookup_type,
     ind_1_name: str,
     ind_2_name: str,
@@ -316,7 +329,7 @@ def add_eudr_risk_pcrop_col(
     ind_4_name: str,
 ) -> data_lookup_type:
     """
-    Adds the EUDR (European Union Deforestation Risk) column to the DataFrame based on indicator values.
+    Adds the risk column to the DataFrame based on indicator values.
 
     Args:
         df (DataFrame): Input DataFrame.
@@ -326,35 +339,35 @@ def add_eudr_risk_pcrop_col(
         ind_4_name (str, optional): Name of fourth indicator column. Defaults to "Ind_04_disturbance_after_2020".
 
     Returns:
-        DataFrame: DataFrame with added 'EUDR_risk' column.
+        DataFrame: DataFrame with added 'risk' column.
     """
 
     for index, row in df.iterrows():
-        # If any of the first three indicators suggest low risk, set EUDR_risk to "low"
+        # If any of the first three indicators suggest low risk, set risk to "low"
         if (
             row[ind_1_name] == "no"
             or row[ind_2_name] == "yes"
             or row[ind_3_name] == "yes"
         ):
             df.at[index, "risk_pcrop"] = "low"
-        # If none of the first three indicators suggest low risk and Indicator 4 suggests no risk, set EUDR_risk to "more_info_needed"
+        # If none of the first three indicators suggest low risk and Indicator 4 suggests no risk, set risk to "more_info_needed"
         elif row[ind_4_name] == "no":
             df.at[index, "risk_pcrop"] = "more_info_needed"
-        # If none of the above conditions are met, set EUDR_risk to "high"
+        # If none of the above conditions are met, set risk to "high"
         else:
             df.at[index, "risk_pcrop"] = "high"
 
     return df
 
 
-def add_eudr_risk_acrop_col(
+def add_risk_acrop_col(
     df: data_lookup_type,
     ind_1_name: str,
     ind_2_name: str,
     ind_4_name: str,
 ) -> data_lookup_type:
     """
-    Adds the EUDR (European Union Deforestation Risk) column to the DataFrame based on indicator values.
+    Adds the risk column to the DataFrame based on indicator values.
 
     Args:
         df (DataFrame): Input DataFrame.
@@ -363,25 +376,25 @@ def add_eudr_risk_acrop_col(
         ind_4_name (str, optional): Name of fourth indicator column. Defaults to "Ind_04_disturbance_after_2020".
 
     Returns:
-        DataFrame: DataFrame with added 'EUDR_risk' column.
+        DataFrame: DataFrame with added 'risk' column.
     """
 
     # soy risk
     for index, row in df.iterrows():
-        # If there is no tree cover in 2020, set EUDR_risk_soy to "low"
+        # If there is no tree cover in 2020, set risk_soy to "low"
         if row[ind_1_name] == "no" or row[ind_2_name] == "yes":
             df.at[index, "risk_acrop"] = "low"
-        # If there is tree cover in 2020 and distrubances post 2020, set EUDR_risk_soy to "high"
+        # If there is tree cover in 2020 and distrubances post 2020, set risk_soy to "high"
         elif row[ind_1_name] == "yes" and row[ind_4_name] == "yes":
             df.at[index, "risk_acrop"] = "high"
-        # If tree cover and no disturbances post 2020, set EUDR_risk to "more_info_needed"
+        # If tree cover and no disturbances post 2020, set risk to "more_info_needed"
         else:
             df.at[index, "risk_acrop"] = "more_info_needed"
 
     return df
 
 
-def add_eudr_risk_timber_col(
+def add_risk_timber_col(
     df: data_lookup_type,
     ind_2_name: str,
     ind_5_name: str,
@@ -393,7 +406,7 @@ def add_eudr_risk_timber_col(
     ind_11_name: str,
 ) -> data_lookup_type:
     """
-    Adds the EUDR (European Union Deforestation Risk) column to the DataFrame based on indicator values.
+    Adds the risk column to the DataFrame based on indicator values.
 
     Args:
         df (DataFrame): Input DataFrame.
@@ -407,42 +420,42 @@ def add_eudr_risk_timber_col(
         ind_11_name (str, optional): Name of eleventh indicator column. Defaults to "Ind_11_logging_concession_before_2020".
 
     Returns:
-        DataFrame: DataFrame with added 'EUDR_risk' column.
+        DataFrame: DataFrame with added risk column.
     """
 
     for index, row in df.iterrows():
         # If there is a commodity in 2020 (ind_2_name)
-        # OR if there is planted-plantation in 2020 (ind_7_name) AND no agriculture in 2023 (ind_10_name), set EUDR_risk_timber to "low"
+        # OR if there is planted-plantation in 2020 (ind_7_name) AND no agriculture in 2023 (ind_10_name), set risk_timber to "low"
         if row[ind_2_name] == "yes" or (
             row[ind_7_name] == "yes" and row[ind_10_name] == "no"
         ):
             df.at[index, "risk_timber"] = "low"
-        # If there is a natural forest primary (ind_5_name) or naturally regenerating (ind_6_name) or planted forest (ind_7_name) in 2020 AND agricultural after 2020 (ind_10_name), set EUDR_timber to high
+        # If there is a natural forest primary (ind_5_name) or naturally regenerating (ind_6_name) or planted forest (ind_7_name) in 2020 AND agricultural after 2020 (ind_10_name), set risk_timber to high
         elif (
             row[ind_5_name] == "yes"
             or row[ind_6_name] == "yes"
             or row[ind_7_name] == "yes"
         ) and row[ind_10_name] == "yes":
             df.at[index, "risk_timber"] = "high"
-        # If there is a natural forest primary (ind_5_name) or naturally regenerating (ind_6_name) AND planted after 2020 (ind_8_name), set EUDR_risk to "high"
+        # If there is a natural forest primary (ind_5_name) or naturally regenerating (ind_6_name) AND planted after 2020 (ind_8_name), set risk to "high"
         elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes") and row[
             ind_8_name
         ] == "yes":
             df.at[index, "risk_timber"] = "high"
         # No data yet on OWL conversion
-        # If primary or naturally regenerating or planted forest in 2020 and OWL in 2023, set EUDR_risk to high
+        # If primary or naturally regenerating or planted forest in 2020 and OWL in 2023, set risk to high
         # elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes" or row[ind_7_name] == "yes") and row[ind_10_name] == "yes":
-        #    df.at[index, 'EUDR_risk_timber'] = "high"
+        #    df.at[index, 'risk_timber'] = "high"
 
-        # If there is a natural primary forest (ind_5_name) OR naturally regenerating in 2020 (ind_6_name) AND an information on management practice any time (ind_11_name) OR tree cover or regrowth post 2020 (ind_9_name), set EUDR_risk_timber to "low"
+        # If there is a natural primary forest (ind_5_name) OR naturally regenerating in 2020 (ind_6_name) AND an information on management practice any time (ind_11_name) OR tree cover or regrowth post 2020 (ind_9_name), set risk_timber to "low"
         elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes") and (
             row[ind_9_name] == "yes" or row[ind_11_name] == "yes"
         ):
             df.at[index, "risk_timber"] = "low"
-        # If primary (ind_5_name) OR naturally regenerating in 2020 (ind_6_name) and no other info, set EUDR_risk to "more_info_needed"
+        # If primary (ind_5_name) OR naturally regenerating in 2020 (ind_6_name) and no other info, set risk to "more_info_needed"
         elif row[ind_5_name] == "yes" or row[ind_6_name] == "yes":
             df.at[index, "risk_timber"] = "more_info_needed"
-        # If none of the above conditions are met, set EUDR_risk to "low"
+        # If none of the above conditions are met, set risk to "low"
         else:
             df.at[index, "risk_timber"] = "low"
 
@@ -788,6 +801,77 @@ def clamp(
 def check_range(value: float) -> None:
     if not (0 <= value <= 100):
         raise ValueError("Value must be between 0 and 100.")
+
+
+def get_context_metadata_columns() -> list[str]:
+    """
+    Get list of context/metadata column names from lookup CSV.
+
+    Returns
+    -------
+    list[str]
+        List of column names marked as context_and_metadata
+    """
+    lookup_df = pd.read_csv(DEFAULT_CONTEXT_LOOKUP_TABLE_PATH)
+    return list(lookup_df["name"])
+
+
+def filter_to_risk_columns(
+    df: pd.DataFrame, input_cols: list[list[str]], names: list[str]
+) -> pd.DataFrame:
+    """
+    Filter DataFrame to only columns relevant for risk calculations.
+
+    Keeps:
+    - Context/metadata columns (plotId, Area, Country, etc.)
+    - Dataset columns used in risk indicators
+    - Indicator columns (Ind_01_treecover, etc.)
+    - Risk columns (risk_pcrop, risk_acrop, risk_timber, risk_livestock)
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with all columns
+    input_cols : list[list[str]]
+        List of lists containing dataset column names used in each indicator
+    names : list[str]
+        Names of indicator columns
+
+    Returns
+    -------
+    pd.DataFrame
+        Filtered DataFrame with only risk-relevant columns
+    """
+    # Get context/metadata columns
+    context_cols = get_context_metadata_columns()
+
+    # Flatten input_cols to get dataset columns used in risk
+    dataset_cols = []
+    for col_list in input_cols:
+        dataset_cols.extend(col_list)
+
+    # Risk output columns (present in df if function called at end)
+    risk_cols = ["risk_pcrop", "risk_acrop", "risk_timber", "risk_livestock"]
+
+    # Post-processing metadata columns (added after validation, not in schema CSV)
+    metadata_cols = ["whisp_processing_metadata", "geo_original"]
+
+    # Build set of all columns to keep (for fast lookup)
+    cols_to_keep_set = set(
+        context_cols + dataset_cols + names + risk_cols + metadata_cols
+    )
+
+    # Preserve original DataFrame column order, filter to only columns we want to keep
+    cols_to_keep = [col for col in df.columns if col in cols_to_keep_set]
+
+    # Log dropped columns at debug level
+    dropped_cols = [col for col in df.columns if col not in cols_to_keep_set]
+    if dropped_cols:
+        logger.debug(
+            f"Dropped {len(dropped_cols)} columns: {', '.join(sorted(dropped_cols))}"
+        )
+
+    return df[cols_to_keep]
 
 
 def add_custom_bands_info_to_lookup(
