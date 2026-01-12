@@ -33,6 +33,7 @@ import subprocess
 from contextlib import redirect_stdout, contextmanager
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple, Union
+from importlib.metadata import version as get_version
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import tempfile
 
@@ -924,8 +925,65 @@ def clean_geodataframe(
 
 
 # ============================================================================
-# BATCH RETRY HELPER
+# AUDIT TRAIL HELPER
 # ============================================================================
+
+
+def _add_geometry_audit_trail(
+    df_validated: pd.DataFrame,
+    input_geojson_filepath: str,
+    gdf_original_geoms: gpd.GeoDataFrame = None,
+    logger: logging.Logger = None,
+) -> pd.DataFrame:
+    """
+    Add original input geometries as geo_original column for audit trail.
+
+    Parameters
+    ----------
+    df_validated : pd.DataFrame
+        Validated DataFrame to add audit trail to
+    input_geojson_filepath : str
+        Path to original GeoJSON file
+    gdf_original_geoms : gpd.GeoDataFrame, optional
+        Pre-loaded original geometries (to avoid reloading)
+    logger : logging.Logger, optional
+        Logger for output
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with geo_original column added
+    """
+    import json
+    from shapely.geometry import mapping
+
+    logger = logger or logging.getLogger("whisp")
+
+    try:
+        # Load original geometries if not provided
+        if gdf_original_geoms is None:
+            logger.warning("Original geometries not pre-loaded, loading now...")
+            gdf_original_geoms = _load_and_prepare_geojson(input_geojson_filepath)
+
+        # Create DataFrame with plotId and geo_original
+        df_original_geom = pd.DataFrame(
+            {
+                "plotId": df_validated["plotId"].values[: len(gdf_original_geoms)],
+                "geo_original": gdf_original_geoms["geometry"].apply(
+                    lambda g: json.dumps(mapping(g)) if g is not None else None
+                ),
+            }
+        )
+
+        # Merge original geometries back
+        df_result = df_validated.merge(df_original_geom, on="plotId", how="left")
+        logger.info("Audit trail added: geo_original column")
+        return df_result
+
+    except Exception as e:
+        logger.warning(f"Error adding audit trail: {e}")
+        # Return original DataFrame if audit trail fails
+        return df_validated
 
 
 # ============================================================================
@@ -2154,50 +2212,21 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
         custom_bands=custom_bands,
     )
 
-    # Step 2c: Add audit trail columns (AFTER validation to preserve columns)
+    # Step 2c: Add audit trail column (AFTER validation to preserve columns)
     if geometry_audit_trail:
-        logger.debug("Adding audit trail columns...")
-        try:
-            # Use pre-loaded original geometries (loaded at wrapper start to avoid reloading)
-            if gdf_original_geoms is None:
-                logger.warning("Original geometries not pre-loaded, loading now...")
-                gdf_original_geoms = _load_and_prepare_geojson(input_geojson_filepath)
-
-            # Use plotId from df_validated to maintain mapping
-            df_original_geom = pd.DataFrame(
-                {
-                    "plotId": df_validated["plotId"].values[: len(gdf_original_geoms)],
-                    "geo_original": gdf_original_geoms["geometry"].apply(
-                        lambda g: json.dumps(mapping(g)) if g is not None else None
-                    ),
-                }
-            )
-
-            # Merge original geometries back
-            df_validated = df_validated.merge(df_original_geom, on="plotId", how="left")
-
-            # Store processing metadata
-            df_validated.attrs["processing_metadata"] = {
-                "whisp_version": "3.0.0a1",
-                "processing_date": datetime.now().isoformat(),
-                "processing_mode": "concurrent",
-                "ee_endpoint": "high_volume",
-                "validate_geometries": validate_geometries,
-                "datasets_used": national_codes or [],
-                "geometry_audit_trail": True,
-            }
-
-            logger.info(f"Audit trail added: geo_original column")
-
-        except Exception as e:
-            logger.warning(f"Error adding audit trail: {e}")
-            # Continue without audit trail if something fails
+        logger.debug("Adding geo_original column for audit trail...")
+        df_validated = _add_geometry_audit_trail(
+            df_validated=df_validated,
+            input_geojson_filepath=input_geojson_filepath,
+            gdf_original_geoms=gdf_original_geoms,
+            logger=logger,
+        )
 
     # Add processing metadata column using pd.concat to avoid fragmentation warning
     metadata_dict = {
-        "whisp_version": "3.0.0a1",
+        "whisp_version": get_version("openforis-whisp"),
         "processing_timestamp_utc": datetime.now(timezone.utc).strftime(
-            "%Y-%m-%d %H:%M:%S UTC"
+            "%Y-%m-%d %H:%M:%S%z"
         ),
     }
     metadata_series = pd.Series(
@@ -2349,49 +2378,21 @@ def whisp_formatted_stats_geojson_to_df_sequential(
         custom_bands=custom_bands,
     )
 
-    # Step 2c: Add audit trail columns (AFTER validation to preserve columns)
+    # Step 2c: Add audit trail column (AFTER validation to preserve columns)
     if geometry_audit_trail:
-        logger.debug("Adding audit trail columns...")
-        try:
-            # Use pre-loaded original geometries (loaded at wrapper start to avoid reloading)
-            if gdf_original_geoms is None:
-                logger.warning("Original geometries not pre-loaded, loading now...")
-                gdf_original_geoms = _load_and_prepare_geojson(input_geojson_filepath)
-
-            # Use plotId from df_validated to maintain mapping
-            df_original_geom = pd.DataFrame(
-                {
-                    "plotId": df_validated["plotId"].values[: len(gdf_original_geoms)],
-                    "geo_original": gdf_original_geoms["geometry"].apply(
-                        lambda g: json.dumps(mapping(g)) if g is not None else None
-                    ),
-                }
-            )
-
-            # Merge original geometries back
-            df_validated = df_validated.merge(df_original_geom, on="plotId", how="left")
-
-            # Store processing metadata
-            df_validated.attrs["processing_metadata"] = {
-                "whisp_version": "3.0.0a1",
-                "processing_date": datetime.now().isoformat(),
-                "processing_mode": "sequential",
-                "ee_endpoint": "standard",
-                "datasets_used": national_codes or [],
-                "geometry_audit_trail": True,
-            }
-
-            logger.info(f"Audit trail added: geo_original column")
-
-        except Exception as e:
-            logger.warning(f"Error adding audit trail: {e}")
-            # Continue without audit trail if something fails
+        logger.debug("Adding geo_original column for audit trail...")
+        df_validated = _add_geometry_audit_trail(
+            df_validated=df_validated,
+            input_geojson_filepath=input_geojson_filepath,
+            gdf_original_geoms=gdf_original_geoms,
+            logger=logger,
+        )
 
     # Add processing metadata column using pd.concat to avoid fragmentation warning
     metadata_dict = {
-        "whisp_version": "3.0.0a1",
+        "whisp_version": get_version("openforis-whisp"),
         "processing_timestamp_utc": datetime.now(timezone.utc).strftime(
-            "%Y-%m-%d %H:%M:%S UTC"
+            "%Y-%m-%d %H:%M:%S%z"
         ),
     }
     metadata_series = pd.Series(

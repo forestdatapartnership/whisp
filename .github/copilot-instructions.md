@@ -1,5 +1,9 @@
 # Whisp Copilot Instructions
 
+**Note:**
+This file is intended for both AI assistants (such as GitHub Copilot) and human contributors.
+It defines project-specific coding standards, architectural guidelines, and best practices to ensure consistency and quality in all code contributions.
+
 ## Project Overview
 Whisp ("What is in that plot?") is a Python package for forest monitoring and deforestation risk assessment using Google Earth Engine (GEE). It implements the "Convergence of Evidence" approach by analyzing multiple satellite datasets to assess plots for compliance with deforestation-related regulations like EUDR.
 
@@ -85,8 +89,8 @@ Output values: `"High"`, `"Low"`, `"More info needed"`
 **CRITICAL - Maintain existing code patterns**:
 - **Keep it simple**: Avoid unnecessary complexity or "clever" solutions
 - **Match existing style**: Don't introduce decorators, classes, or patterns not already used in the codebase
-- **Functional over OOP**: Whisp uses simple functions, not class hierarchies - maintain this approach
-- **No AI fingerprints**: Code should be indistinguishable from existing codebase in style and complexity
+- **Functional over OOP**: Whisp uses simple functions, not class hierarchies - maintain this approach (until a future refactor)
+- **Limit AI fingerprints**: Code should be indistinguishable from existing codebase in style and complexity
 
 **Examples of what NOT to do**:
 - ❌ Adding decorators when rest of codebase uses plain functions
@@ -153,24 +157,41 @@ pre-commit install  # Set up hooks
 ## Key Gotchas
 
 ### Column Name Dependencies
-Many column names are used as identifiers in multiple places:
-- `Area` (geometry area) - **DO NOT CHANGE** - specifically named to align with external EUDR-related systems (EU TRACES platform). Hardcoded in [`datasets.py`](src/openforis_whisp/datasets.py) line 23 to allow standalone usage
-- `ProducerCountry` (ISO2) - default aligns with EU TRACES platform
-- Dataset output columns in [`lookup_context_and_metadata.csv`](src/openforis_whisp/parameters/lookup_context_and_metadata.csv) must match risk assessment expectations
+Many column names are hardcoded in various parts of the codebase and external systems. Changing them can break functionality.
+Some critical columns:
+Indicator (e.g., `ind_1_treecover_2020`) and risk columns (e.g., `risk_pcrop`) are both hardcoded in [src/openforis_whisp/risk.py](src/openforis_whisp/risk.py).
 
-**When adding columns**: Update both CSV lookups AND validation schemas in [`pd_schemas.py`](src/openforis_whisp/pd_schemas.py)
+Further standard column names are defined in [src/openforis_whisp/parameters/lookup_context_and_metadata.csv](src/openforis_whisp/parameters/lookup_context_and_metadata.csv). Two key columns are specifically named to help ensure compatibility with external systems (such as the EU TRACES platform for EUDR):
+- `Area` (geometry area in hectares), defined in [src/openforis_whisp/datasets.py](src/openforis_whisp/datasets.py#L23)
+- `ProducerCountry` (ISO2 country code), defined in [src/openforis_whisp/advanced_stats.py](src/openforis_whisp/advanced_stats.py)
+
+
+**When adding datasets/columns:**
+
+- For schema validation (drives output structure prior to risk assessment) the following files must be updated:
+  - [src/openforis_whisp/parameters/lookup_gee_datasets.csv](src/openforis_whisp/parameters/lookup_gee_datasets.csv)
+  - [src/openforis_whisp/parameters/lookup_context_and_metadata.csv](src/openforis_whisp/parameters/lookup_context_and_metadata.csv)
+  - [src/openforis_whisp/pd_schemas.py](src/openforis_whisp/pd_schemas.py) (validation logic uses the above lookups)
+
+- For documentation (ensures users and downstream systems are aware of new columns):
+  - [layers_description.md](layers_description.md) (dataset and column descriptions)
+  - whisp_columns.xlsx (output column documentation for external systems)
+In future, updating these may be automated to reduce manual updates to multiple similar files.
 
 ### Legacy vs. Modern Functions
-[`stats.py`](src/openforis_whisp/stats.py) contains:
-- **Modern**: `whisp_formatted_stats_geojson_to_df()` - auto-detects national datasets, uses optimized caching
-- **Legacy**: `whisp_formatted_stats_geojson_to_df_legacy()` - kept for backward compatibility, planned for future replacement
+[stats.py](src/openforis_whisp/stats.py):
+
+- **Modern**: `whisp_formatted_stats_geojson_to_df()` — uses faster processing from [advanced_stats.py](src/openforis_whisp/advanced_stats.py) when "mode" is "sequential" or "concurrent".
+  If "mode" is "legacy", it calls the old function below.
+- **Legacy**: `whisp_formatted_stats_geojson_to_df_legacy()` — kept for backward compatibility, but will be removed in the future.
 
 Always use modern functions for new code. Legacy function works correctly but lacks newer optimizations.
 
 ### GeoJSON Geometry Handling
 - Input: GeoJSON features with Polygon/MultiPolygon geometries
 - Internal: Stored as string in `geometry_column` (default `"geo"`) during processing
-- Conversion: [`data_conversion.py`](src/openforis_whisp/data_conversion.py) handles EE ↔ GeoJSON ↔ DataFrame transformations
+- Conversion: [`data_conversion.py`](src/openforis_whisp/data_conversion.py) handles GeoJSON ↔ EE ↔  DataFrame transformations
+- Tracking geometry changes from conversions: as the conversion process to EE can change the geometries, the optional 'geometry_audit_trail' parameter in `whisp_formatted_stats_geojson_to_df()`, allows the user to retain the original geometry column  (prior to conversion to EE) in the output for comparison.
 
 ## Documentation References
 - [Full dataset list](layers_description.md): Detailed provenance for all 50+ datasets
@@ -179,7 +200,7 @@ Always use modern functions for new code. Legacy function works correctly but la
 - [API documentation](https://whisp.openforis.org/documentation/api-guide): For Whisp App integration
 
 ## Performance Considerations
-- **Batch processing**: Process features in batches via `reduceRegions()` rather than individually
+- **Batch processing**: Process features in conccurently in multiple batches via `reduceRegions()` and using the GEE high volume endpoint. This is implemented in [`advanced_stats.py::whisp_ee_stats_fc_to_df_concurrent()`](src/openforis_whisp/advanced_stats.py)
 - **Asset caching**: Water mask and admin boundaries cached at module level in [`stats.py`](src/openforis_whisp/stats.py)
-- **Filtering**: Country-based filtering in [`reformat.py::filter_lookup_by_country_codes()`](src/openforis_whisp/reformat.py) reduces datasets processed per request
+- **Filtering**: Country-based filtering in [`reformat.py::filter_lookup_by_country_codes()`](src/openforis_whisp/reformat.py) reduces the additional national datasets processed per request. Aim to automate this in future to be driven by the input GeoJSON plot locations.
 - **Avoid temporal filters in loops**: Use module constants like `CURRENT_YEAR` instead of `datetime.now()` calls
