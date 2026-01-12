@@ -25,6 +25,7 @@
   - [Add data layers](#whisp_add_data)
   - [Contribute to the code](#whisp_contribute)
   - [Code of conduct](#whisp_conduct)
+  - [Feedback](#whisp_feedback)
 
   <br>
 
@@ -128,20 +129,18 @@ The **relevant risk assessment column depends on the commodity** in question:
 
 
   ## Run Whisp python package from a notebook <a name="whisp_notebooks"></a>
-
+  
   For most users we suggest using the Whisp App to process their plot data. But for some, using the python package directly will fit their workflow.
 
   An example of the package functionality can be seen in this [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/Colab_whisp_geojson_to_csv.ipynb)
 
-  For an example notebook adapted for running locally (or in Sepal), see: [whisp_geojson_to_csv.ipynb](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/whisp_geojson_to_csv.ipynb) or if datasets are very large (e.g., >100,000 features), see [whisp_ee_asset_to_drive.ipynb](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/whisp_ee_asset_to_drive.ipynb)
+  For running locally (or in Sepal), see: [whisp_geojson_to_csv.ipynb](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/whisp_geojson_to_csv.ipynb) or if datasets are very large (e.g., >100,000 features), see [whisp_ee_asset_to_drive.ipynb](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/whisp_ee_asset_to_drive.ipynb)
 
   ### Requirements for running the package
 
   - A Google Earth Engine (GEE) account.
   - A registered cloud GEE project.
   - Some experience in Python or a similar language.
-
-  More info on Whisp can be found in [here](https://openknowledge.fao.org/items/e9284dc7-4b19-4f9c-b3e1-e6c142585865)
 
 
   ### Python package installation
@@ -156,7 +155,6 @@ The **relevant risk assessment column depends on the commodity** in question:
   pip install --pre openforis-whisp
   ```
 
-  If running the package locally we recommend a [virtual environment](https://docs.python.org/3/library/venv.html) to keep your main python installation clean. For users running the package in Sepal see [here](https://docs.sepal.io/en/latest/cli/python.html#virtual-environment).
 
   The package relies upon the google earth engine api being setup correctly using a registered cloud project.
 
@@ -203,104 +201,44 @@ Before submitting a request, consider the following:
 ---
 
 
-
 ### Adding your own data directly
 
-
-To add your own data you will need some coding experience as well as familiarity with Google Earth Engine.
-
-The python notebooks allow the user to add custom data layers. You can edit the Prepare layers section to do this in the [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/Colab_whisp_geojson_to_csv.ipynb)
-
-If you need longer term solutions, you can clone the GitHub repository and make changes to the relevant files directly by following the instructions below.
-
-Firstly install the package in editable mode.
-
-```bash
-
-git  clone  https://github.com/forestdatapartnership/whisp.git
-
-cd  whisp/
-
-pip  install  -e  .[dev]
-
-```
-As with the regular pip installation, we recommend a separate [virtual environment](https://docs.python.org/3/library/venv.html) for running in editable mode. For Sepal users see [here](https://docs.sepal.io/en/latest/cli/python.html#virtual-environment).
-
-Once in editable mode you are running the Whisp package locally based on a cloned version of the code.
-
-
-There are two main files to edit to add your own data:
-
--  `src/openforis_whisp/datasets.py`
-
--  `src/openforis_whisp/parameters/lookup_gee_datasets.csv`
-
-
-
-The `datasets.py` file is a Python script that defines functions which return GEE images composed of one or more bands.
-
-
-
-#### To add your own dataset:
-
-1. Add code to `datasets.py` in the form of a function that returns a **single-band binary image** for your dataset. See notes at the top of the file and example functions for formatting.
-
-2. Edit the `lookup_gee_datasets.csv` and add a row for your dataset.
-
-
-
-**NB:** You need to know what the dataset represents and define how it will be used in the different risk decision trees (if at all).
-
-For example, if it is a dataset for tree cover in 2000, then add `'treecover'` under the `Theme` column.
-
-
-
-####  Example function in `datasets.py`:
-
-
-
-```python
-
-def  my_custom_dataset_prep():
-
-image = ee.Image("MY/GEE/DATASET")
-
-binary = image.gt(10) # Example threshold
-
-return binary.rename("My_custom_dataset")
-
-```
-
----
-
+The python notebooks allow the user to add custom data layers. You can edit the Prepare layers section to do this in the [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/Colab_whisp_geojson_to_csv.ipynb) 
+To add your own data directly you will need some coding experience as well as familiarity with Google Earth Engine.
 
 
 ## Contributing <a name="whisp_contribute"></a>
 
 Contributions are welcome!  
 - Fork the repo, make changes, and open a pull request.
-- See [.github/copilot-instructions.md](.github/copilot-instructions.md) for project-specific coding standards.
+- For adding new datasets to the codebase and for project-specific coding standards see [.github/copilot-instructions.md](.github/copilot-instructions.md)
+
+## Code of Conduct <a name="whisp_conduct"></a>
+
+**Purpose**
+We are dedicated to maintaining a safe and respectful environment for all users. Harassment or abusive behavior will not be tolerated. <br>
+
+**Scope**
+This Code applies to all interactions on the repository and on the app.
+
+**Expectations** <br>
+*- Respect others:* Treat all contributors and users with courtesy and kindness. <br>
+*- Constructive communication:* Engage respectfully, even in disagreements. <br>
+*- Protect privacy:* Do not share personal information without consent.
+
+**Prohibited Conduct** <br>
+*- Harassment:* Unwanted or abusive communication, stalking, threats, or bullying.<br>
+*- Discrimination:* Any form of hate speech or exclusion based on race, gender, orientation, or other identities.<br>
+*- Inappropriate Content:* Posting offensive, harmful, or explicit material.
+
+**Reporting** <br>
+Users can report violations directly to us by emailing the address listed in the "Contact Us" section of the website:
+https://openforis.org/solutions/whisp/
 
 
-  ## Code of Conduct <a name="whisp_conduct"></a>
+## Feedback <a name="whisp_feedback"></a>
+- For issues or feature requests [open a GitHub issue](https://github.com/forestdatapartnership/whisp/issues).
+- For general questions, feedback or support, email [open-foris@fao.org](mailto:open-foris@fao.org).
 
-  **Purpose**
-  We are dedicated to maintaining a safe and respectful environment for all users. Harassment or abusive behavior will not be tolerated. <br>
-
-  **Scope**
-  This Code applies to all interactions on the repository and on the app.
-
-  **Expectations** <br>
-  *- Respect others:* Treat all contributors and users with courtesy and kindness. <br>
-  *- Constructive communication:* Engage respectfully, even in disagreements. <br>
-  *- Protect privacy:* Do not share personal information without consent.
-
-  **Prohibited Conduct** <br>
-  *- Harassment:* Unwanted or abusive communication, stalking, threats, or bullying.<br>
-  *- Discrimination:* Any form of hate speech or exclusion based on race, gender, orientation, or other identities.<br>
-  *- Inappropriate Content:* Posting offensive, harmful, or explicit material.
-
-  **Reporting**
-  Users can report violations directly to us by emailing the address listed in the "Contact Us" section of the website:
-  https://openforis.org/solutions/whisp/
+We welcome all feedback and contributions!
 
