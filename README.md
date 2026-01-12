@@ -36,7 +36,7 @@
 
   2. [Whisp in Earthmap](https://whisp.earthmap.org/?aoi=WHISP&boundary=plot1&layers=%7B%22CocoaETH%22%3A%7B%22opacity%22%3A1%7D%2C%22JRCForestMask%22%3A%7B%22opacity%22%3A1%7D%2C%22planet_rgb%22%3A%7B%22opacity%22%3A1%2C%22date%22%3A%222020-12%22%7D%7D&map=%7B%22center%22%3A%7B%22lat%22%3A7%2C%22lng%22%3A4%7D%2C%22zoom%22%3A3%2C%22mapType%22%3A%22satellite%22%7D&statisticsOpen=true) supports the visualization of geometries on actual maps with the possibility to toggle different relevant map products around tree cover, commodities and deforestation. It is practical for demonstration purposes and spot checks of single geometries but not recommended for larger datasets.
 
-  3. Datasets of any size, especially when holding more than 3,000 geometries, can be analyzed with Whisp through the [python package on pip](https://pypi.org/project/openforis-whisp/). See example [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/Colab_whisp_geojson_to_csv.ipynb) for implementation with a geojson input. For the detailed procedure please go to the section [Whisp notebooks](#whisp_notebooks).
+  3. Datasets of any size, especially when holding more than 3,000 geometries, can be analyzed with Whisp through the [python package on pip](https://pypi.org/project/openforis-whisp/). See example [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/Colab_whisp_geojson_to_csv.ipynb) for implementation with a geojson input. For further notebooks processing options see [Whisp notebooks](#whisp_notebooks).
 
 
   ## Whisp datasets <a name="whisp_datasets"></a>
@@ -131,9 +131,9 @@ The **relevant risk assessment column depends on the commodity** in question:
 
   For most users we suggest using the Whisp App to process their plot data. But for some, using the python package directly will fit their workflow.
 
-  A simple example of the package functionality can be seen in this [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/Colab_whisp_geojson_to_csv.ipynb)
+  An example of the package functionality can be seen in this [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/Colab_whisp_geojson_to_csv.ipynb)
 
-  For an example notebook adapted for running locally (or in Sepal), see: [whisp_geojson_to_csv.ipynb](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/whisp_geojson_to_csv.ipynb) or if datasets are very large, see [whisp_geojson_to_drive.ipynb](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/whisp_geojson_to_drive.ipynb)
+  For an example notebook adapted for running locally (or in Sepal), see: [whisp_geojson_to_csv.ipynb](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/whisp_geojson_to_csv.ipynb) or if datasets are very large (e.g., >100,000 features), see [whisp_ee_asset_to_drive.ipynb](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/whisp_ee_asset_to_drive.ipynb)
 
   ### Requirements for running the package
 
@@ -207,13 +207,13 @@ Before submitting a request, consider the following:
 ### Adding your own data directly
 
 
-To add your own data you will need some coding experience as well as familiarity with GitHub and Google Earth Engine.
+To add your own data you will need some coding experience as well as familiarity with Google Earth Engine.
 
-This approach is for those who want to run a bespoke analysis combining their own data with those already in Whisp.
+The python notebooks allow the user to add custom data layers. You can edit the Prepare layers section to do this in the [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/Colab_whisp_geojson_to_csv.ipynb)
 
-Firstly follow the steps below to install the package in editable mode.
+If you need longer term solutions, you can clone the GitHub repository and make changes to the relevant files directly by following the instructions below.
 
-As with the regular pip installation, we recommend a separate [virtual environment](https://docs.python.org/3/library/venv.html) for running in editable mode. For Sepal users see [here](https://docs.sepal.io/en/latest/cli/python.html#virtual-environment).
+Firstly install the package in editable mode.
 
 ```bash
 
@@ -224,11 +224,12 @@ cd  whisp/
 pip  install  -e  .[dev]
 
 ```
+As with the regular pip installation, we recommend a separate [virtual environment](https://docs.python.org/3/library/venv.html) for running in editable mode. For Sepal users see [here](https://docs.sepal.io/en/latest/cli/python.html#virtual-environment).
+
 Once in editable mode you are running the Whisp package locally based on a cloned version of the code.
 
 
-
-There are two files to edit to add your own data:
+There are two main files to edit to add your own data:
 
 -  `src/openforis_whisp/datasets.py`
 
@@ -270,40 +271,15 @@ return binary.rename("My_custom_dataset")
 
 ```
 
-
-
----
-
-
-We are working on ways to make this process smoother. However, in the meantime do contact us through the [issues page on GitHub](https://github.com/forestdatapartnership/whisp/issues), or via the Open Foris email, if this functionality is useful to you or you need help.
-
-
-
 ---
 
 
 
-## Contributing to the Whisp code base <a name="whisp_contribute"></a>
+## Contributing <a name="whisp_contribute"></a>
 
-Contributions to the Whisp code in GitHub are welcome. These could be additional functionality, datasets or just cleaner code! Contributions can be made by forking the repository, making and pushing the required changes, then making a pull request to the Whisp repository. After briefly reviewing the request, we can make a branch for which to make a new pull request to. After final checks, we can then incorporate the code into the main branch. If in doubt, get in contact first or log as an issue [here](https://github.com/forestdatapartnership/whisp/issues/).
-
-
-Install the package in editable mode (see Adding your own data directly above):
-
-Then add additional dependencies required for testing and running pre-commit hooks:
-
-
-```bash
-
-pre-commit  install
-
-```
-
-
-You should be able to run the Pytest suite by simply running the `pytest` command from the repo's root folder.
-
-
-Please read the [contributing guidelines](contributing_guidelines.md) for good practice recommendations
+Contributions are welcome!  
+- Fork the repo, make changes, and open a pull request.
+- See [.github/copilot-instructions.md](.github/copilot-instructions.md) for project-specific coding standards.
 
 
   ## Code of Conduct <a name="whisp_conduct"></a>
@@ -327,3 +303,4 @@ Please read the [contributing guidelines](contributing_guidelines.md) for good p
   **Reporting**
   Users can report violations directly to us by emailing the address listed in the "Contact Us" section of the website:
   https://openforis.org/solutions/whisp/
+
