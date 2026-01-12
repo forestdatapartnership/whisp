@@ -374,14 +374,12 @@ def g_esri_2020_2023_crop_prep():
 
 # RADD_year_2019 to RADD_year_< current year >
 def g_radd_year_prep():
-    from datetime import datetime
-
     radd = ee.ImageCollection("projects/radar-wur/raddalert/v1")
     radd_date = (
         radd.filterMetadata("layer", "contains", "alert").select("Date").mosaic()
     )
     start_year = 19
-    current_year = datetime.now().year % 100
+    current_year = CURRENT_YEAR_2DIGIT
 
     def make_band(year, img_stack):
         start = year * 1000
