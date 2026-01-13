@@ -131,10 +131,10 @@ pytest  # Runs basic tests for Whisp stats)
 2. **Add row to [`lookup_gee_datasets.csv`](src/openforis_whisp/parameters/lookup_gee_datasets.csv)**:
    - Set `corresponding_variable` to function name
    - Set `theme` (treecover/commodities/disturbance_before/disturbance_after)
-   - Set `use_for_risk=1` if dataset should feed into risk calculations
+   - Set `use_for_risk=1` or ('use_for_risk_timber' = 1) if dataset should feed into main risk calculations
    - Set `ISO2_code` if national dataset
-3. **Update risk logic in [`risk.py`](src/openforis_whisp/risk.py)** if new dataset should affect risk indicators
-4. No code changes needed for dataset to appear in output - CSV drives everything!
+3. No code changes needed for dataset to appear in output - CSV drives everything!
+4. Update documentation files as needed (see Documentation References below)
 
 ### Code Quality Tools
 ```bash
