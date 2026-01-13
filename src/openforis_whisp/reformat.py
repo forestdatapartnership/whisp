@@ -859,12 +859,14 @@ def format_stats_dataframe(
     )
     df.rename(columns={area_col: area_col_stripped}, inplace=True)
 
-    # 10) reorder by plotId column if present
-    df = (
-        df.sort_values(sort_column).reset_index(drop=True)
-        if sort_column in df.columns
-        else df
-    )
+    # 10) reorder by plotId column numerically if present (column is string but contains int values)
+    if sort_column in df.columns:
+        df["_sort_key"] = pd.to_numeric(df[sort_column], errors="coerce")
+        df = (
+            df.sort_values(by="_sort_key")
+            .drop(columns=["_sort_key"])
+            .reset_index(drop=True)
+        )
 
     # 11) Defragment final DataFrame and return
     return df.copy()

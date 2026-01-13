@@ -1785,8 +1785,7 @@ def whisp_stats_geojson_to_df_concurrent(
             logger.warning(f"{plot_id_column} column missing, regenerating...")
             formatted.insert(0, plot_id_column, range(1, len(formatted) + 1))
 
-        # Sort by plot_id to ensure consistent output order
-        formatted = formatted.sort_values(by=plot_id_column).reset_index(drop=True)
+        # Note: Sorting is handled by format_stats_dataframe in the formatted wrapper functions
 
         logger.info(f"Processing complete: {len(formatted):,} features")
         return formatted
@@ -2039,10 +2038,11 @@ def whisp_stats_geojson_to_df_sequential(
         convert_water_flag=True,
     )
 
-    # Ensure plot_id exists and sort by it
+    # Ensure plot_id exists
     if plot_id_column not in formatted.columns:
         formatted.insert(0, plot_id_column, range(1, len(formatted) + 1))
-    formatted = formatted.sort_values(by=plot_id_column).reset_index(drop=True)
+
+    # Note: Sorting is handled by format_stats_dataframe in the formatted wrapper functions
 
     logger.info(f"Processing complete: {len(formatted):,} features")
 

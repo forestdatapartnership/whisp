@@ -24,6 +24,7 @@ classifiers = [
 "Documentation" = "https://github.com/forestdatapartnership/whisp#readme"
 "Development Branch" = "https://github.com/forestdatapartnership/whisp/tree/main"
 "Issues" = "https://github.com/forestdatapartnership/whisp/issues"
+"Changelog" = "https://github.com/forestdatapartnership/whisp/releases"
 
 [tool.poetry.dependencies]
 python = ">=3.10"
