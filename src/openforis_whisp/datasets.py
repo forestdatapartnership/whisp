@@ -582,27 +582,42 @@ def g_radd_before_2020_prep():
     ).selfMask()
 
 
-# # DIST_after_2020
-# # alerts only for after 2020 currently so need to use date
-# def glad_dist_after_2020_prep():
+# DIST_after_2020
 
-#     # Load the vegetation disturbance collections
-#     VEGDISTSTATUS = ee.ImageCollection(
-#         "projects/glad/HLSDIST/current/VEG-DIST-STATUS"
-#     ).mosaic()
+# DIST alerts are for all veg types so masked by EUFO forest 2020
+# NB alerts only for 2023 onwards
+# for conistency using "...after_2020..." terminology.
+def g_glad_dist_after_2020_prep():
 
-#     # Key for high-confidence alerts (values 3, 6, 7, 8)
-#     high_conf_values = [3, 6, 7, 8]
+    # no need to filter by date as all dates are later than 2023
 
-#     # Create high-confidence mask
-#     dist_high_conf = VEGDISTSTATUS.remap(
-#         high_conf_values, [1] * len(high_conf_values), 0
-#     )
+    # Load the vegetation disturbance collections
+    VEGDISTSTATUS = ee.ImageCollection(
+        "projects/glad/HLSDIST/current/VEG-DIST-STATUS"
+    ).mosaic()
 
-#     return dist_high_conf.updateMask(jrc_gfc_2020_prep()).rename(
-#         "DIST_after_2020"
-#     )  # Mask alerts to forest and rename band
+    # Key for high-confidence alerts (values 3, 6, 7, 8)
+    high_conf_values = [3, 6, 7, 8]
 
+    # Create high-confidence mask
+    dist_high_conf = VEGDISTSTATUS.remap(
+        high_conf_values, [1] * len(high_conf_values), 0
+    )
+
+    return dist_high_conf.updateMask(g_jrc_gfc_2020_prep()).rename(
+        "DIST_after_2020"
+    )  # Mask alerts to forest and rename band
+
+
+# DIST_alert_2024 to DIST_alert_< current year >
+# Notes:
+# 1) so far only available for 2024 onwards in GEE
+# TO DO - see if gee asset for pre 2020-2024 is available from GLAD team, else download from nasa and put in Whisp assets
+# 2) masked alerts (as dist alerts are for all vegetation) to JRC EUFO 2020 layer, as close to EUDR definition
+# TO DO - ask opinions on if others (such as treecover data from GLAD team) should be used instead
+
+
+#### disturbances combined (split into before and after 2020)
 
 # TMF_deg_before_2020
 def g_tmf_deg_before_2020_prep():
