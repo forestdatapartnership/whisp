@@ -154,7 +154,7 @@ TMF_def_after_2020,1470,,disturbance_after,NA,1,1,0,float32,1,0,g_tmf_def_after_
 GFC_loss_after_2020,1480,,disturbance_after,NA,1,1,0,float32,1,0,g_glad_gfc_loss_after_2020_prep
 MODIS_fire_after_2020,1490,,disturbance_after,NA,1,1,0,float32,1,0,g_modis_fire_after_2020_prep
 RADD_after_2020,1500,,disturbance_after,NA,1,1,0,float32,1,0,g_radd_after_2020_prep
-DIST_after_2020,1600,,disturbance_after,NA,1,1,1,float32,1,0,g_glad_dist_after_2020_prep
+DIST_after_2020,1600,,disturbance_after,NA,1,1,0,float32,1,0,g_glad_dist_after_2020_prep
 GFT_primary,1700,,NA,primary,0,1,0,float32,1,0,g_gft_primary_prep
 IFL_2020,1710,,NA,primary,0,1,0,float32,1,0,g_ifl_2020_prep
 European_Primary_Forest,1720,,NA,primary,0,1,0,float32,1,0,g_epfd_prep
