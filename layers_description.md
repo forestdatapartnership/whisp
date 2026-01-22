@@ -92,6 +92,9 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr><td rowspan="3">RADD_after_2020</td><td rowspan="3">Binary mask of aggregate confirmed (i.e., class 3) alerts from 2021 onward.</td><td rowspan="2">Reiche, J., Mullissa, A., Slagter, B., Gou, Y., Tsendbazar, N.-E., Odongo-Braun, C., Vollrath, A., Weisse, M. J., Stolle, F., Pickens, A., Donchyts, G., Clinton, N., Gorelick, N., & Herold, M. (2021). <i>Forest disturbance alerts for the Congo Basin using Sentinel-1.</i> Environmental Research Letters, 16(2), 024005. https://doi.org/10.1088/1748-9326/abd0a8</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection('projects/radar-wur/raddalert/v1')</td></tr>
+    <tr><td rowspan="3">DIST_after_2020</td><td rowspan="3">Binary mask of high-confidence vegetation disturbance alerts (classes 3, 6, 7, 8) filtered by forest habitat (JRC GFC2020). Data only available from 2023 onwards.</td><td rowspan="2">Pickens, A.H., Hansen, M.C., Song, Z. et al. Rapid monitoring of global land change. Nat Commun 16, 8948 (2025). https://doi.org/10.1038/s41467-025-64014-9</td></tr>
+    <tr></tr>
+    <tr><td>ee.ImageCollection('projects/glad/HLSDIST/current/VEG-DIST-STATUS')<br>Ancillary: ee.Image("JRC/GFC2020/V3")</td></tr>
     <tr><td rowspan="3">MODIS_fire_after_2020</td><td rowspan="3">Binary mask of aggregate burnt areas from 2021 onward.</td><td rowspan="2">Giglio, L., Justice, C., Boschetti, L., & Roy, D. (2021). <i>MODIS/Terra+Aqua Burned Area Monthly L3 Global 500m SIN Grid V061</i> [Dataset]. NASA EOSDIS Land Processes Distributed Active Archive Center. https://doi.org/10.5067/MODIS/MCD64A1.061</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection("MODIS/061/MCD64A1")</td></tr>
