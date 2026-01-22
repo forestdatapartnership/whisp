@@ -95,6 +95,9 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr><td rowspan="3">DIST_after_2020</td><td rowspan="3">Binary mask of high-confidence vegetation disturbance alerts (classes 3, 6, 7, 8) filtered by forest habitat (JRC GFC2020). Data only available from 2023 onwards.</td><td rowspan="2">Pickens, A.H., Hansen, M.C., Song, Z. et al. Rapid monitoring of global land change. Nat Commun 16, 8948 (2025). https://doi.org/10.1038/s41467-025-64014-9</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection('projects/glad/HLSDIST/current/VEG-DIST-STATUS')<br>Ancillary: ee.Image("JRC/GFC2020/V3")</td></tr>
+    <tr><td rowspan="3">GLAD-L_after_2020</td><td rowspan="3">Binary mask of aggregate confirmed GLAD Landsat forest alerts (confidence >= 2) from 2021 onwards. Combines yearly data from 2021-2023 and 2025-2026. Note: 2024 data is not available currently in Google Earth Engine.</td><td rowspan="2">Hansen, M.C., Krylov, A., Tyukavina, A., Potapov, P.V., Turubanova, S., Zutta, B., Ifo, S., Margono, B., Stolle, F., & Moore, R. (2016). <i>Humid tropical forest disturbance alerts using Landsat data.</i> Environmental Research Letters, 11(3), 034008. https://doi.org/10.1088/1748-9326/11/3/034008</td></tr>
+    <tr></tr>
+    <tr><td>ee.ImageCollection('projects/glad/alert/2021final')<br>ee.ImageCollection('projects/glad/alert/2022final')<br>ee.ImageCollection('projects/glad/alert/2023final')<br>ee.ImageCollection('projects/glad/alert/UpdResult')</td></tr>
     <tr><td rowspan="3">MODIS_fire_after_2020</td><td rowspan="3">Binary mask of aggregate burnt areas from 2021 onward.</td><td rowspan="2">Giglio, L., Justice, C., Boschetti, L., & Roy, D. (2021). <i>MODIS/Terra+Aqua Burned Area Monthly L3 Global 500m SIN Grid V061</i> [Dataset]. NASA EOSDIS Land Processes Distributed Active Archive Center. https://doi.org/10.5067/MODIS/MCD64A1.061</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection("MODIS/061/MCD64A1")</td></tr>
