@@ -1302,6 +1302,9 @@ def whisp_stats_geojson_to_df_concurrent(
     # Track if we had errors that suggest bad bands
     batch_errors = []
 
+    # Fail-fast flag for band errors - shared across threads
+    band_error_detected = threading.Event()
+
     # Suppress fiona logging during batch processing (threads create new loggers)
     fiona_logger = logging.getLogger("fiona")
     pyogrio_logger = logging.getLogger("pyogrio._io")
@@ -1309,6 +1312,15 @@ def whisp_stats_geojson_to_df_concurrent(
     old_pyogrio_level = pyogrio_logger.level
     fiona_logger.setLevel(logging.CRITICAL)
     pyogrio_logger.setLevel(logging.CRITICAL)
+
+    # Keywords that indicate missing asset/band errors
+    BAND_ERROR_KEYWORDS = [
+        "image.load",
+        "asset",
+        "not found",
+        "does not exist",
+        "imagecollection.load",
+    ]
 
     try:
         # Don't suppress stdout here - we want progress messages to show in Colab
@@ -1323,6 +1335,13 @@ def whisp_stats_geojson_to_df_concurrent(
             batch_futures = {future: i for future, i in futures.items()}
 
             for future in as_completed(futures):
+                # Check if we should abort due to band error
+                if band_error_detected.is_set():
+                    # Cancel remaining futures and skip processing
+                    for f in futures:
+                        f.cancel()
+                    break
+
                 batch_idx = batch_futures[future]
                 try:
                     batch_idx, df_server, df_client = future.result()
@@ -1398,8 +1417,22 @@ def whisp_stats_geojson_to_df_concurrent(
                         )
 
                 except Exception as e:
-                    # Batch failed - fail fast with clear guidance
+                    # Batch failed - check if it's a band error for fail-fast
                     error_msg = str(e)
+                    error_msg_lower = error_msg.lower()
+
+                    # Check if this is a band/asset error - trigger fail-fast
+                    is_this_band_error = any(
+                        keyword in error_msg_lower for keyword in BAND_ERROR_KEYWORDS
+                    )
+
+                    if is_this_band_error and not band_error_detected.is_set():
+                        band_error_detected.set()
+                        logger.warning(
+                            f"Band/asset error detected in batch {batch_idx}. "
+                            f"Cancelling remaining batches for retry with validation..."
+                        )
+
                     logger.error(f"Batch {batch_idx} failed: {error_msg[:100]}")
                     logger.debug(f"Full error: {error_msg}")
 
@@ -1419,14 +1452,136 @@ def whisp_stats_geojson_to_df_concurrent(
     # Log completion
     total_time = time.time() - start_time
     time_str = _format_time(total_time)
-    logger.info(
-        f"Processing complete: {completed_batches:,}/{len(batches):,} batches in {time_str}"
-    )
+    if band_error_detected.is_set():
+        logger.info(
+            f"Processing stopped early due to band error after {completed_batches:,}/{len(batches):,} batches in {time_str}"
+        )
+    else:
+        logger.info(
+            f"Processing complete: {completed_batches:,}/{len(batches):,} batches in {time_str}"
+        )
 
-    # If we have batch errors after retry attempts, fail the entire process
+    # If band error was detected, retry immediately with validation (fail-fast path)
+    if band_error_detected.is_set():
+        logger.warning("Retrying all batches with validate_bands=True...")
+        try:
+            with redirect_stdout(io.StringIO()):
+                whisp_image = combine_datasets(
+                    national_codes=national_codes, validate_bands=True
+                )
+            logger.info("Image recreated with validation. Reprocessing all batches...")
+
+            # Clear state for full retry
+            results = []
+            batch_errors = []
+            completed_batches = 0
+            shown_milestones = set()
+            start_time = time.time()
+
+            # Suppress fiona logging during retry
+            fiona_logger.setLevel(logging.CRITICAL)
+            pyogrio_logger.setLevel(logging.CRITICAL)
+
+            try:
+                with ThreadPoolExecutor(max_workers=pool_workers) as executor:
+                    futures = {
+                        executor.submit(process_batch, i, batch): i
+                        for i, batch in enumerate(batches)
+                    }
+
+                    for future in as_completed(futures):
+                        batch_idx = futures[future]
+                        try:
+                            batch_idx, df_server, df_client = future.result()
+                            if plot_id_column not in df_server.columns:
+                                df_server[plot_id_column] = [
+                                    str(i) for i in range(1, len(df_server) + 1)
+                                ]
+                            else:
+                                df_server[plot_id_column] = df_server[
+                                    plot_id_column
+                                ].astype(str)
+                            if plot_id_column in df_client.columns:
+                                df_client[plot_id_column] = df_client[
+                                    plot_id_column
+                                ].astype(str)
+
+                            # Drop external_id from server if present
+                            df_server_clean = df_server.copy()
+                            if "external_id" in df_server_clean.columns:
+                                df_server_clean = df_server_clean.drop(
+                                    columns=["external_id"]
+                                )
+
+                            # Keep essential columns from client
+                            keep_external_columns = [plot_id_column]
+                            if (
+                                external_id_column
+                                and "external_id" in df_client.columns
+                            ):
+                                keep_external_columns.append("external_id")
+                            if "geometry" in df_client.columns:
+                                keep_external_columns.append("geometry")
+                            if geometry_type_column in df_client.columns:
+                                keep_external_columns.append(geometry_type_column)
+                            centroid_cols = [
+                                c
+                                for c in df_client.columns
+                                if c.startswith("Centroid_")
+                            ]
+                            keep_external_columns.extend(centroid_cols)
+
+                            df_client_clean = df_client[
+                                [
+                                    c
+                                    for c in keep_external_columns
+                                    if c in df_client.columns
+                                ]
+                            ]
+
+                            merged = df_server_clean.merge(
+                                df_client_clean,
+                                on=plot_id_column,
+                                how="left",
+                                suffixes=("_ee", "_client"),
+                            )
+                            results.append(merged)
+
+                            with progress_lock:
+                                completed_batches += 1
+                                _log_progress(
+                                    completed_batches,
+                                    len(batches),
+                                    milestones,
+                                    shown_milestones,
+                                    start_time,
+                                    logger,
+                                )
+
+                        except Exception as e:
+                            error_msg = str(e)
+                            logger.error(
+                                f"Retry batch {batch_idx} failed: {error_msg[:100]}"
+                            )
+                            original_batch = batch_map[batch_idx]
+                            batch_errors.append((batch_idx, original_batch, error_msg))
+            finally:
+                fiona_logger.setLevel(old_fiona_level)
+                pyogrio_logger.setLevel(old_pyogrio_level)
+
+            # Log retry completion
+            retry_time = time.time() - start_time
+            logger.info(
+                f"Retry complete: {completed_batches:,}/{len(batches):,} batches in {_format_time(retry_time)}"
+            )
+
+        except Exception as retry_error:
+            logger.error(f"Failed to recreate image with validation: {retry_error}")
+            # Fall through to error handling below
+
+    # If we have batch errors (either from initial run or retry), raise RuntimeError
     if batch_errors:
         total_failed_rows = sum(len(batch) for _, batch, _ in batch_errors)
-        failed_batch_indices = [str(idx) for idx, _, _ in batch_errors]
 
         # Format detailed error information for debugging
         error_details_list = []
@@ -1475,94 +1630,10 @@ def whisp_stats_geojson_to_df_concurrent(
             f"Please reduce batch_size and try again."
         )
 
-    # Check if we should retry with validation due to band errors (legacy band error handling)
+    # Check we have results
     if not results:
-        # All batches failed - likely a bad band issue
-        is_band_error = any(
-            keyword in str(batch_errors)
-            for keyword in ["Image.load", "asset", "not found", "does not exist"]
-        )
-
-        if is_band_error:
-            logger.warning(
-                "Detected potential bad band error. Retrying with validate_bands=True..."
-            )
-            try:
-                with redirect_stdout(io.StringIO()):
-                    whisp_image = combine_datasets(
-                        national_codes=national_codes, validate_bands=True
-                    )
-                logger.info(
-                    "Image recreated with validation. Retrying batch processing..."
-                )
-
-                # Retry batch processing with validated image
-                results = []
-                retry_completed = 0
-                retry_shown = set()
-                retry_start = time.time()
-
-                # Suppress fiona logging during batch processing (threads create new loggers)
-                fiona_logger = logging.getLogger("fiona")
-                pyogrio_logger = logging.getLogger("pyogrio._io")
-                old_fiona_level = fiona_logger.level
-                old_pyogrio_level = pyogrio_logger.level
-                fiona_logger.setLevel(logging.CRITICAL)
-                pyogrio_logger.setLevel(logging.CRITICAL)
-
-                try:
-                    with ThreadPoolExecutor(max_workers=pool_workers) as executor:
-                        futures = {
-                            executor.submit(process_batch, i, batch): i
-                            for i, batch in enumerate(batches)
-                        }
-
-                        for future in as_completed(futures):
-                            try:
-                                batch_idx, df_server, df_client = future.result()
-                                if plot_id_column not in df_server.columns:
-                                    # Use 1-indexed range to match client-side assignment
-                                    df_server[plot_id_column] = range(
-                                        1, len(df_server) + 1
-                                    )
-                                merged = df_server.merge(
-                                    df_client,
-                                    on=plot_id_column,
-                                    how="left",
-                                    suffixes=("", "_client"),
-                                )
-                                results.append(merged)
-
-                                # Update retry progress
-                                with progress_lock:
-                                    retry_completed += 1
-                                    _log_progress(
-                                        retry_completed,
-                                        len(batches),
-                                        milestones,
-                                        retry_shown,
-                                        retry_start,
-                                        logger,
-                                    )
-                            except Exception as e:
-                                logger.error(
-                                    f"Batch processing error (retry): {str(e)[:100]}"
-                                )
-
-                    # Log retry completion
-                    retry_time = time.time() - retry_start
-                    logger.info(
-                        f"Retry complete: {retry_completed:,}/{len(batches):,} batches in {_format_time(retry_time)}"
-                    )
-                finally:
-                    # Restore logger levels
-                    fiona_logger.setLevel(old_fiona_level)
-                    pyogrio_logger.setLevel(old_pyogrio_level)
-            except Exception as validation_e:
-                logger.error(
-                    f"Failed to recover with validation: {str(validation_e)[:100]}"
-                )
-                return pd.DataFrame()
+        logger.error("No results obtained from batch processing")
+        return pd.DataFrame()
 
     if results:
         # Filter out empty DataFrames and all-NA columns to avoid FutureWarning in pd.concat
