@@ -373,7 +373,19 @@ def g_esri_2020_2023_crop_prep():
 #### disturbances by year
 
 # RADD_year_2019 to RADD_year_< current year >
+# Coverage: Primary humid tropical forest areas of South America, sub-Saharan Africa,
+#           and insular Southeast Asia at 10m spatial resolution.
+#           Available from January 2019 to present for Africa,
+#           and from January 2020 to present for South America and Southeast Asia.
 def g_radd_year_prep():
+    """
+    RADD alerts per year as multiband image.
+    Each band is binary (1 = alert detected).
+    Coverage: Primary humid tropical forest areas of South America, sub-Saharan Africa,
+              and insular Southeast Asia at 10m spatial resolution.
+              Available from January 2019 to present for Africa,
+              and from January 2020 to present for South America and Southeast Asia.
+    """
     radd = ee.ImageCollection("projects/radar-wur/raddalert/v1")
     radd_date = (
         radd.filterMetadata("layer", "contains", "alert").select("Date").mosaic()
@@ -609,85 +621,10 @@ def g_glad_dist_after_2020_prep():
     )  # Mask alerts to forest and rename band
 
 
-# DIST_alert_2024 to DIST_alert_< current year >
-# Notes:
-# 1) so far only available for 2024 onwards in GEE
-# TO DO - see if gee asset for pre 2020-2024 is available from GLAD team, else download from nasa and put in Whisp assets
-# 2) masked alerts (as dist alerts are for all vegetation) to JRC EUFO 2020 layer, as close to EUDR definition
-# TO DO - ask opinions on if others (such as treecover data from GLAD team) should be used instead
-
-
-# DIST per year - multiband image with one band per year
-# def g_glad_dist_year_prep():
-#     """
-#     GLAD DIST alerts per year as multiband image.
-#     Each band is binary (1 = high-confidence disturbance alert).
-#     Uses VEG-DIST-DATE to filter by year, VEG-DIST-STATUS for confidence.
-#     Masked to EUFO 2020 forest.
-#     Note: Only available from 2024 onwards.
-#     """
-#     # Load the vegetation disturbance collections
-#     VEGDISTSTATUS = ee.ImageCollection(
-#         "projects/glad/HLSDIST/current/VEG-DIST-STATUS"
-#     ).mosaic()
-#     VEGDISTDATE = ee.ImageCollection(
-#         "projects/glad/HLSDIST/current/VEG-DIST-DATE"
-#     ).mosaic()
-
-#     # High-confidence alerts (values 3, 6, 7, 8)
-#     high_conf_values = [3, 6, 7, 8]
-#     dist_high_conf = VEGDISTSTATUS.remap(
-#         high_conf_values, [1] * len(high_conf_values), 0
-#     )
-
-#     # Get forest mask
-#     forest_mask = g_jrc_gfc_2020_prep()
-
-#     # VEG-DIST-DATE encoding: days since 2018-01-01
-#     # 2024-01-01 = day 2192 (6 years * 365 + 1 leap day in 2020)
-#     # 2025-01-01 = day 2557 (2192 + 365)
-#     # 2026-01-01 = day 2922 (2557 + 365)
-#     day_2024_start = 2192
-#     day_2025_start = 2557
-#     day_2026_start = 2922
-
-#     # Create year masks
-#     is_2024 = VEGDISTDATE.gte(day_2024_start).And(VEGDISTDATE.lt(day_2025_start))
-#     is_2025 = VEGDISTDATE.gte(day_2025_start).And(VEGDISTDATE.lt(day_2026_start))
-
-#     # Build multiband image
-#     img_stack = (
-#         dist_high_conf.updateMask(is_2024)
-#         .updateMask(forest_mask)
-#         .rename("DIST_year_2024")
-#         .selfMask()
-#         .addBands(
-#             dist_high_conf.updateMask(is_2025)
-#             .updateMask(forest_mask)
-#             .rename("DIST_year_2025")
-#             .selfMask()
-#         )
-#     )
-
-#     return img_stack
-
-
-# def g_glad_dist_2024_prep():
-#     """GLAD DIST alerts for 2024 (high-confidence, forest-masked)."""
-#     return g_glad_dist_year_prep().select("DIST_year_2024")
-
-
-# def g_glad_dist_2025_prep():
-#     """GLAD DIST alerts for 2025 (high-confidence, forest-masked)."""
-#     return g_glad_dist_year_prep().select("DIST_year_2025")
-
-
 # # DIST_alert_2024 to DIST_alert_< current year >
 # # Notes:
 # # 1) so far only available for 2024 onwards in GEE
-# # TO DO - see if gee asset for pre 2020-2024 is available from GLAD team, else download from nasa and put in Whisp assets
 # # 2) masked alerts (as dist alerts are for all vegetation) to JRC EUFO 2020 layer, as close to EUDR definition
-# # TO DO - ask opinions on if others (such as treecover data from GLAD team) should be used instead
 
 
 def g_glad_dist_year_prep():
@@ -759,6 +696,9 @@ def g_glad_dist_year_prep():
 
 
 # GLAD-L (GLAD Landsat) Alerts
+# Coverage: Entire tropics (30°N to 30°S) from January 1, 2018 to present,
+#           and from 2015 to present for select countries in the Amazon, Congo Basin,
+#           and insular Southeast Asia.
 # Uses confidence bands per year where values >= 2 are confirmed alerts
 # Asset paths per year:
 #   2021: projects/glad/alert/2021final (conf21)
@@ -812,51 +752,142 @@ def g_glad_l_after_2020_prep():
     return combined_alerts.rename("GLAD-L_after_2020").selfMask()
 
 
+# GLAD-L_before_2020 (combined alerts from 2017 to 2020)
+def g_glad_l_before_2020_prep():
+    """
+    GLAD Landsat alerts before 2020 (combined from 2017-2020 inclusive).
+    Uses confidence bands with threshold >= 2 for confirmed alerts.
+    Note: 2015 and 2016 assets are not available in GEE.
+    Coverage: Tropics (30°N to 30°S).
+    """
+    # Load yearly assets and combine
+    glad_combined = (
+        ee.ImageCollection("projects/glad/alert/2017final")
+        .mosaic()
+        .select("conf17")
+        .addBands(
+            ee.ImageCollection("projects/glad/alert/2018final")
+            .mosaic()
+            .select("conf18")
+        )
+        .addBands(
+            ee.ImageCollection("projects/glad/alert/2019final")
+            .mosaic()
+            .select("conf19")
+        )
+        .addBands(
+            ee.ImageCollection("projects/glad/alert/2020final")
+            .mosaic()
+            .select("conf20")
+        )
+    )
+
+    # Combine alerts from all available years (confidence >= 2)
+    combined_alerts = (
+        glad_combined.select("conf17")
+        .gte(2)
+        .Or(glad_combined.select("conf18").gte(2))
+        .Or(glad_combined.select("conf19").gte(2))
+        .Or(glad_combined.select("conf20").gte(2))
+    )
+
+    return combined_alerts.rename("GLAD-L_before_2020").selfMask()
+
+
 # GLAD-L timeseries - multiband image with one band per year
 def g_glad_l_year_prep():
     """
     GLAD Landsat alerts per year as multiband image.
     Each band is binary (1 = alert with confidence >= 2).
+    Coverage: Entire tropics (30°N to 30°S) from January 1, 2018 to present,
+              and from 2017 to present for select countries in the Amazon,
+              Congo Basin, and insular Southeast Asia.
+    Note: 2015 and 2016 assets are not available in GEE.
     Note: 2024 data is not available.
+    Includes years from 2017 onwards.
     """
     # Build multiband image with all available years
+    # Years 2017-2023 use YYYYfinal assets, 2025+ use UpdResult
+    # Note: 2015final and 2016final assets do not exist in GEE
     img_stack = (
-        ee.ImageCollection("projects/glad/alert/2021final")
+        # 2017
+        ee.ImageCollection("projects/glad/alert/2017final")
         .mosaic()
-        .select("conf21")
+        .select("conf17")
         .gte(2)
-        .rename("GLAD-L_2021")
+        .rename("GLAD-L_year_2017")
         .selfMask()
+        # 2018
+        .addBands(
+            ee.ImageCollection("projects/glad/alert/2018final")
+            .mosaic()
+            .select("conf18")
+            .gte(2)
+            .rename("GLAD-L_year_2018")
+            .selfMask()
+        )
+        # 2019
+        .addBands(
+            ee.ImageCollection("projects/glad/alert/2019final")
+            .mosaic()
+            .select("conf19")
+            .gte(2)
+            .rename("GLAD-L_year_2019")
+            .selfMask()
+        )
+        # 2020
+        .addBands(
+            ee.ImageCollection("projects/glad/alert/2020final")
+            .mosaic()
+            .select("conf20")
+            .gte(2)
+            .rename("GLAD-L_year_2020")
+            .selfMask()
+        )
+        # 2021
+        .addBands(
+            ee.ImageCollection("projects/glad/alert/2021final")
+            .mosaic()
+            .select("conf21")
+            .gte(2)
+            .rename("GLAD-L_year_2021")
+            .selfMask()
+        )
+        # 2022
         .addBands(
             ee.ImageCollection("projects/glad/alert/2022final")
             .mosaic()
             .select("conf22")
             .gte(2)
-            .rename("GLAD-L_2022")
+            .rename("GLAD-L_year_2022")
             .selfMask()
         )
+        # 2023
         .addBands(
             ee.ImageCollection("projects/glad/alert/2023final")
             .mosaic()
             .select("conf23")
             .gte(2)
-            .rename("GLAD-L_2023")
+            .rename("GLAD-L_year_2023")
             .selfMask()
         )
+        # 2024 NOT AVAILABLE
+        # 2025
         .addBands(
             ee.ImageCollection("projects/glad/alert/UpdResult")
             .mosaic()
             .select("conf25")
             .gte(2)
-            .rename("GLAD-L_2025")
+            .rename("GLAD-L_year_2025")
             .selfMask()
         )
+        # 2026
         .addBands(
             ee.ImageCollection("projects/glad/alert/UpdResult")
             .mosaic()
             .select("conf26")
             .gte(2)
-            .rename("GLAD-L_2026")
+            .rename("GLAD-L_year_2026")
             .selfMask()
         )
     )
@@ -864,33 +895,108 @@ def g_glad_l_year_prep():
     return img_stack
 
 
-# Individual year functions (for backwards compatibility if needed)
-def g_glad_l_2021_prep():
-    """GLAD Landsat alerts for 2021 (confidence >= 2)."""
-    return g_glad_l_year_prep().select("GLAD-L_2021")
+# GLAD-S2 (GLAD Sentinel-2) Alerts
+# GLAD-S2_after_2020 (combined alerts from 2021 to current year)
+def g_glad_s2_after_2020_prep():
+    """
+    GLAD Sentinel-2 alerts after 2020 (filtered and combined from 2021 onwards - original data starts 2019).
+    Uses alert band with threshold >= 2 for confirmed alerts.
+    Coverage: Primary humid tropical forest within Amazon basin region.
+    https://glad.umd.edu/dataset/glad-forest-alerts
+    """
+    col = "projects/glad/S2alert"
+    s2alert = ee.Image(col + "/alert")
+    alert_date = ee.Image(col + "/alertDate")
+
+    # Date encoding: days since 2019-01-01
+    # 2020-12-31 = 730 days (end of 2020)
+    days_end_2020 = 730
+
+    # Filter alerts after 2020 with confidence >= 2
+    #   - alert: confidence band (0-4, where 4 is highest confidence)
+    alerts_after_2020 = s2alert.gte(2).And(alert_date.gt(days_end_2020))
+
+    return alerts_after_2020.rename("GLAD-S2_after_2020").selfMask()
 
 
-def g_glad_l_2022_prep():
-    """GLAD Landsat alerts for 2022 (confidence >= 2)."""
-    return g_glad_l_year_prep().select("GLAD-L_2022")
+# GLAD-S2_before_2020 (combined alerts from 2019 to 2020)
+def g_glad_s2_before_2020_prep():
+    """
+    GLAD Sentinel-2 alerts before 2020 (from 2019-01-01 to 2020-12-31 inclusive).
+    Uses alert band with threshold >= 2 for confirmed alerts.
+    Coverage: Primary humid tropical forest within Amazon basin region.
+    Note: Data starts from 2019.
+    """
+    col = "projects/glad/S2alert"
+    s2alert = ee.Image(col + "/alert")
+    alert_date = ee.Image(col + "/alertDate")
+
+    # Date encoding: days since 2019-01-01
+    # 2019-01-01 = 0, 2020-12-31 = 730 days
+    days_end_2020 = 730
+
+    # Filter alerts up to end of 2020 with confidence >= 2
+    alerts_before_2020 = s2alert.gte(2).And(alert_date.lte(days_end_2020))
+
+    return alerts_before_2020.rename("GLAD-S2_before_2020").selfMask()
 
 
-def g_glad_l_2023_prep():
-    """GLAD Landsat alerts for 2023 (confidence >= 2)."""
-    return g_glad_l_year_prep().select("GLAD-L_2023")
+# GLAD-S2 timeseries - multiband image with one band per year
+def g_glad_s2_year_prep():
+    """
+    GLAD Sentinel-2 alerts per year as multiband image.
+    Each band is binary (1 = alert with confidence >= 2).
+    Coverage: Primary humid tropical forest areas of South America
+              from January 2019 to present.
+    Date encoding: days since 2019-01-01.
+    Includes years from 2019 onwards.
+    """
+    col = "projects/glad/S2alert"
+    s2alert = ee.Image(col + "/alert")
+    alert_date = ee.Image(col + "/alertDate")
 
+    # Confidence threshold for confirmed alerts
+    confirmed = s2alert.gte(2)
 
-# 2024 NOT AVAILABLE - no asset exists for this year
+    # Date encoding: days since 2019-01-01
+    # Year boundaries (days since 2019-01-01):
+    # 2019-01-01 = 0, 2020-01-01 = 365, 2021-01-01 = 731, 2022-01-01 = 1096
+    # 2023-01-01 = 1461, 2024-01-01 = 1827, 2025-01-01 = 2192, 2026-01-01 = 2557
+    ref_date = ee.Date("2019-01-01")
 
+    # Build multiband image with available years (data starts 2019)
+    start_year = 2019
+    end_year = CURRENT_YEAR
 
-def g_glad_l_2025_prep():
-    """GLAD Landsat alerts for 2025 (confidence >= 2)."""
-    return g_glad_l_year_prep().select("GLAD-L_2025")
+    # Create first band (2019)
+    first_year = ee.Number(start_year)
+    first_start_days = ee.Date.fromYMD(first_year, 1, 1).difference(ref_date, "day")
+    first_end_days = ee.Date.fromYMD(first_year.add(1), 1, 1).difference(
+        ref_date, "day"
+    )
+    first_year_mask = alert_date.gte(first_start_days).And(
+        alert_date.lt(first_end_days)
+    )
+    first_band_name = ee.String("GLAD-S2_year_").cat(first_year.format("%d"))
+    first_band = (
+        confirmed.updateMask(first_year_mask).rename(first_band_name).selfMask()
+    )
 
+    # Server-side iteration to add remaining years
+    years = ee.List.sequence(start_year + 1, end_year)
 
-def g_glad_l_2026_prep():
-    """GLAD Landsat alerts for 2026 (confidence >= 2)."""
-    return g_glad_l_year_prep().select("GLAD-L_2026")
+    def add_year_band(year, img_stack):
+        year_num = ee.Number(year)
+        start_days = ee.Date.fromYMD(year_num, 1, 1).difference(ref_date, "day")
+        end_days = ee.Date.fromYMD(year_num.add(1), 1, 1).difference(ref_date, "day")
+        year_mask = alert_date.gte(start_days).And(alert_date.lt(end_days))
+        band_name = ee.String("GLAD-S2_year_").cat(year_num.format("%d"))
+        year_band = confirmed.updateMask(year_mask).rename(band_name).selfMask()
+        return ee.Image(img_stack).addBands(year_band)
+
+    img_stack = ee.Image(years.iterate(add_year_band, first_band))
+
+    return img_stack
 
 
 #### disturbances combined (split into before and after 2020)
