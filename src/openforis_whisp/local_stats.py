@@ -46,6 +46,7 @@ from openforis_whisp.reformat import (
 from openforis_whisp.advanced_stats import (
     extract_centroid_and_geomtype_client,
     join_admin_codes,
+    validate_ee_endpoint,
 )
 from openforis_whisp.stats import (
     reformat_geometry_type,
@@ -772,7 +773,15 @@ def download_geotiffs_for_feature_collection(
 # ============================================================================
 
 
-def extend_bbox(minx, miny, maxx, maxy, extension_distance=None, extension_range=None):
+def extend_bbox(
+    minx,
+    miny,
+    maxx,
+    maxy,
+    extension_distance=None,
+    extension_range=None,
+    return_extension=False,
+):
     """
     Extends a bounding box by a fixed distance or a random distance within a range.
 
@@ -780,11 +789,15 @@ def extend_bbox(minx, miny, maxx, maxy, extension_distance=None, extension_range
         minx, miny, maxx, maxy: The original bounding box coordinates
         extension_distance: Fixed distance to extend in all directions
         extension_range: List [min_dist, max_dist] for random extension
+        return_extension: If True, also return the actual extension distance used
 
     Returns:
         Tuple of (minx, miny, maxx, maxy) for the extended bounding box
+        If return_extension=True: Tuple of (minx, miny, maxx, maxy, actual_extension)
     """
     if extension_distance is None and extension_range is None:
+        if return_extension:
+            return minx, miny, maxx, maxy, 0
         return minx, miny, maxx, maxy
 
     # Determine the extension distance
@@ -800,6 +813,8 @@ def extend_bbox(minx, miny, maxx, maxy, extension_distance=None, extension_range
     extended_maxx = maxx + dist
     extended_maxy = maxy + dist
 
+    if return_extension:
+        return extended_minx, extended_miny, extended_maxx, extended_maxy, dist
     return extended_minx, extended_miny, extended_maxx, extended_maxy
 
 
@@ -854,7 +869,7 @@ def ee_featurecollection_to_gdf(fc):
     return gdf
 
 
-def generate_random_box_geometries(gdf, max_distance, proportion=0.5):
+def generate_random_box_geometries(gdf, max_distance, proportion=0.5, bbox_info=None):
     """
     Generates random geometries near the original features in a GeoDataFrame.
     Each random geometry is placed within the specified distance of a randomly selected
@@ -864,6 +879,8 @@ def generate_random_box_geometries(gdf, max_distance, proportion=0.5):
         gdf: GeoDataFrame with the original features
         max_distance: Maximum distance from original features
         proportion: Proportion of extra geometries to create (relative to original count)
+        bbox_info: Optional list of dicts with extended bbox dimensions. Each dict should have:
+                   'width', 'height', 'center_x', 'center_y'. If None, uses original geometry bounds.
 
     Returns:
         List of Earth Engine features with random geometries
@@ -873,24 +890,26 @@ def generate_random_box_geometries(gdf, max_distance, proportion=0.5):
 
     random_features = []
 
-    # Get the dimensions and centroids from original features
-    feature_info = []
-
-    for idx, row in gdf.iterrows():
-        minx, miny, maxx, maxy = row.geometry.bounds
-        width = maxx - minx
-        height = maxy - miny
-        centroid_x = (minx + maxx) / 2
-        centroid_y = (miny + maxy) / 2
-        feature_info.append(
-            {
-                "width": width,
-                "height": height,
-                "center_x": centroid_x,
-                "center_y": centroid_y,
-                "bounds": (minx, miny, maxx, maxy),
-            }
-        )
+    # Use provided bbox_info if available, otherwise compute from original geometries
+    if bbox_info is not None:
+        feature_info = bbox_info
+    else:
+        # Get the dimensions and centroids from original features
+        feature_info = []
+        for idx, row in gdf.iterrows():
+            minx, miny, maxx, maxy = row.geometry.bounds
+            width = maxx - minx
+            height = maxy - miny
+            centroid_x = (minx + maxx) / 2
+            centroid_y = (miny + maxy) / 2
+            feature_info.append(
+                {
+                    "width": width,
+                    "height": height,
+                    "center_x": centroid_x,
+                    "center_y": centroid_y,
+                }
+            )
 
     # Calculate number of random features to create
     num_random_features = max(1, int(len(gdf) * proportion))
@@ -907,11 +926,11 @@ def generate_random_box_geometries(gdf, max_distance, proportion=0.5):
         orig_x = selected_feature["center_x"]
         orig_y = selected_feature["center_y"]
 
-        # Add some variation to dimensions (± 20%)
-        width_variation = random.uniform(1, 5)
-        height_variation = random.uniform(1, 5)
-        width *= width_variation
-        height *= height_variation
+        # Add small variation to dimensions (±20%) while preserving aspect ratio
+        # Using same scale factor for both dimensions keeps the shape proportions
+        scale_variation = random.uniform(0.8, 1.2)
+        width *= scale_variation
+        height *= scale_variation
 
         # Generate a random position within max_distance of the selected feature
         angle = random.uniform(0, 2 * math.pi)
@@ -1007,32 +1026,53 @@ def convert_geojson_to_ee_bbox_obscured(
     # Create a new list with bounding boxes
     bbox_features = []
 
-    # Validate shift_proportion to be between 0 and 1
-    shift_proportion = max(0, min(1, shift_proportion))
+    # Collect extended bbox info for decoy generation
+    extended_bbox_info = []
+
+    # Validate shift_proportion to be between 0 and 0.95
+    # Capping at 0.95 ensures there's always a small buffer between the polygon and bbox edge
+    if shift_proportion < 0 or shift_proportion > 0.95:
+        raise ValueError(
+            f"shift_proportion must be between 0 and 0.95, got {shift_proportion}. "
+            "Values > 0.95 could shift the bbox too close to the edge, risking the original feature "
+            "falling outside the downloaded area."
+        )
 
     for idx, row in gdf.iterrows():
         try:
             # Get the bounds of the geometry (minx, miny, maxx, maxy)
             minx, miny, maxx, maxy = row.geometry.bounds
 
+            # Track actual extension applied (for safe shifting)
+            actual_extension = 0
+
             # Apply bounding box extension if requested
             if extension_distance is not None or extension_range is not None:
-                minx, miny, maxx, maxy = extend_bbox(
+                minx, miny, maxx, maxy, actual_extension = extend_bbox(
                     minx,
                     miny,
                     maxx,
                     maxy,
                     extension_distance=extension_distance,
                     extension_range=extension_range,
+                    return_extension=True,
                 )
 
+            # Collect extended bbox dimensions BEFORE shifting (for decoy generation)
+            # Decoys should match the extended bbox size, not the shifted position
+            extended_bbox_info.append(
+                {
+                    "width": maxx - minx,
+                    "height": maxy - miny,
+                    "center_x": (minx + maxx) / 2,
+                    "center_y": (miny + maxy) / 2,
+                }
+            )
+
             # Apply random shift if requested
+            # IMPORTANT: Limit shift to the actual extension applied, so original feature stays inside bbox
             if shift_geometries:
-                max_shift = 0
-                if extension_distance is not None:
-                    max_shift = extension_distance * shift_proportion
-                elif extension_range is not None:
-                    max_shift = extension_range[1] * shift_proportion
+                max_shift = actual_extension * shift_proportion
 
                 if max_shift > 0:
                     minx, miny, maxx, maxy = shift_bbox(
@@ -1071,7 +1111,7 @@ def convert_geojson_to_ee_bbox_obscured(
     # Add random decoy features if requested
     if add_random_features:
         random_features = generate_random_box_geometries(
-            gdf, max_distance, random_proportion
+            gdf, max_distance, random_proportion, bbox_info=extended_bbox_info
         )
 
         if random_features:
@@ -1492,6 +1532,9 @@ def whisp_stats_local(
 
     if max_extract_workers is None:
         max_extract_workers = max(1, os.cpu_count() - 1)
+
+    # Validate EE endpoint - local mode requires high-volume endpoint
+    validate_ee_endpoint("high-volume", raise_error=True)
 
     # Ensure output directory exists
     output_path = Path(output_dir)

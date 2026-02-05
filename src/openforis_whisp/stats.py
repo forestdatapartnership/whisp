@@ -165,6 +165,8 @@ def whisp_formatted_stats_geojson_to_df(
     batch_size: int = 10,
     max_concurrent: int = 20,
     geometry_audit_trail: bool = False,
+    # Local mode only
+    output_dir: str = None,
 ) -> pd.DataFrame:
     """
     Main entry point for converting GeoJSON to Whisp statistics.
@@ -201,6 +203,10 @@ def whisp_formatted_stats_geojson_to_df(
         Processing mode, by default "concurrent":
         - "concurrent": Uses high-volume endpoint with concurrent batching (recommended for large files)
         - "sequential": Uses standard endpoint for sequential processing (more stable)
+        - "local": Privacy-preserving mode that downloads data and processes locally with exactextract.
+            Downloads GeoTIFFs to a temp directory, adds 5% decoy features for privacy,
+            runs zonal stats locally with exactextract, then cleans up. Requires high-volume endpoint.
+            For advanced options (custom decoy %, bbox extension, etc.) use whisp_stats_local() directly.
         - "legacy": Uses original implementation (basic stats extraction only, no formatting)
     batch_size : int, optional
         Features per batch for concurrent/sequential modes, by default 10.
@@ -218,6 +224,9 @@ def whisp_formatted_stats_geojson_to_df(
 
         Processing metadata stored in df.attrs['processing_metadata'].
         These columns enable full transparency for geometry modifications during processing.
+    output_dir : str, optional
+        Directory for downloaded GeoTIFFs (local mode only). If not provided,
+        uses a system temp directory which is automatically cleaned up.
 
     Returns
     -------
@@ -308,9 +317,33 @@ def whisp_formatted_stats_geojson_to_df(
             max_concurrent=max_concurrent,
             geometry_audit_trail=geometry_audit_trail,
         )
+    elif mode == "local":
+        # Import local_stats module
+        from openforis_whisp.local_stats import whisp_stats_local
+        import tempfile
+
+        # Use temp directory if not specified
+        if output_dir is None:
+            output_dir = tempfile.mkdtemp(prefix="whisp_local_")
+
+        # Use defaults for privacy options - for advanced control use whisp_stats_local directly
+        return whisp_stats_local(
+            input_geojson_filepath=input_geojson_filepath,
+            output_dir=output_dir,
+            image=whisp_image,
+            national_codes=national_codes,
+            unit_type=unit_type,
+            external_id_column=external_id_column,
+            custom_bands=custom_bands,
+            geometry_audit_trail=geometry_audit_trail,
+            cleanup_files=True,  # Always cleanup when using temp dir
+            # Privacy defaults: add 5% decoy features
+            add_random_features=True,
+            random_proportion=0.05,
+        )
     else:
         raise ValueError(
-            f"Invalid mode '{mode}'. Must be 'concurrent', 'sequential', or 'legacy'."
+            f"Invalid mode '{mode}'. Must be 'concurrent', 'sequential', 'local', or 'legacy'."
         )
 
 
