@@ -106,3 +106,20 @@ from openforis_whisp.data_checks import (
     suggest_processing_mode,
     validate_geojson_constraints,  # Backward compatibility alias
 )
+
+from openforis_whisp.local_stats import (
+    download_geotiff_for_feature,
+    download_geotiffs_for_feature_collection,
+    convert_geojson_to_ee_bbox_obscured,
+    convert_geojson_to_ee_bbox,
+    create_vrt_from_folder,
+    exact_extract_in_chunks_parallel,
+    extend_bbox,
+    shift_bbox,
+    generate_random_box_geometries,
+    generate_random_polygon,
+    create_geojson,
+    reformat_geojson_properties,
+    delete_all_files_in_folder,
+    delete_folder,
+)
