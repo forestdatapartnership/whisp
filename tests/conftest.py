@@ -20,9 +20,16 @@ logger = StdoutLogger(__name__)
 logging.getLogger("faker").setLevel(logging.INFO)
 logging.getLogger("urllib3").setLevel(logging.INFO)
 
+import ee
+
 
 @pytest.fixture(scope="session", autouse=True)
 def _setup_and_teardown_ee_session() -> None:
+    # Reset in case EE was initialized with different endpoint (e.g. high-volume)
+    try:
+        ee.Reset()
+    except Exception:
+        pass
     init_ee()
     yield
     clear_ee_credentials()

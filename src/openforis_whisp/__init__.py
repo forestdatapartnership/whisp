@@ -122,4 +122,7 @@ from openforis_whisp.local_stats import (
     reformat_geojson_properties,
     delete_all_files_in_folder,
     delete_folder,
+    whisp_stats_local,
+    get_band_names_from_raster,
+    rename_exactextract_columns,
 )
