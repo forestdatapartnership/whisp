@@ -1,9 +1,0 @@
-mode,features,config,time_seconds,rows,cols
-concurrent,3,"batch=10, max_concurrent=20",3.632559299468994,3,206
-concurrent,3,"batch=15, max_concurrent=30",3.0726232528686523,3,206
-local,3,"dl_workers=15, ext_workers=4, chunk=10",18.949864625930786,3,206
-local,3,"dl_workers=30, ext_workers=8, chunk=25",21.3168785572052,3,206
-concurrent,10,"batch=10, max_concurrent=20",2.5932841300964355,10,206
-concurrent,10,"batch=15, max_concurrent=30",3.2344260215759277,10,206
-local,10,"dl_workers=15, ext_workers=4, chunk=10",28.769271850585938,10,206
-local,10,"dl_workers=30, ext_workers=8, chunk=25",28.320048570632935,10,206
