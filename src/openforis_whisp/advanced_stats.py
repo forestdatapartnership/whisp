@@ -29,61 +29,16 @@ import warnings
 import json
 import io
 import os
-import subprocess
-from contextlib import redirect_stdout, contextmanager
+from contextlib import redirect_stdout
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple, Union
 from importlib.metadata import version as get_version
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import tempfile
 
-# Configure the "whisp" logger with auto-flush handler for Colab visibility
-_whisp_logger = logging.getLogger("whisp")
-if not _whisp_logger.handlers:
-    _handler = logging.StreamHandler(sys.stdout)
-    _handler.setLevel(logging.DEBUG)
-    _handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
-    # Override emit to force flush after each message for Colab
-    _original_emit = _handler.emit
+from openforis_whisp.logger import get_whisp_logger
 
-    def _emit_with_flush(record):
-        _original_emit(record)
-        sys.stdout.flush()
-
-    _handler.emit = _emit_with_flush
-    _whisp_logger.addHandler(_handler)
-    _whisp_logger.setLevel(logging.INFO)
-    _whisp_logger.propagate = False  # Don't propagate to root to avoid duplicates
-
-# ============================================================================
-# STDOUT/STDERR SUPPRESSION CONTEXT MANAGER (for C-level output)
-# ============================================================================
-
-
-@contextmanager
-def suppress_c_level_output():
-    """Suppress C-level stdout/stderr writes from libraries like Fiona."""
-    if sys.platform == "win32":
-        # Windows doesn't support dup2() reliably for STDOUT/STDERR
-        # Fall back to Python-level suppression
-        with redirect_stdout(io.StringIO()):
-            yield
-    else:
-        # Unix-like systems: use file descriptor redirection
-        saved_stdout = os.dup(1)
-        saved_stderr = os.dup(2)
-        try:
-            devnull = os.open(os.devnull, os.O_WRONLY)
-            os.dup2(devnull, 1)
-            os.dup2(devnull, 2)
-            yield
-        finally:
-            os.dup2(saved_stdout, 1)
-            os.dup2(saved_stderr, 2)
-            os.close(devnull)
-            os.close(saved_stdout)
-            os.close(saved_stderr)
-
+# Get the shared whisp logger (configured with auto-flush for Colab)
+_whisp_logger = get_whisp_logger()
 
 # Suppress verbose warnings globally for this module
 # Note: FutureWarnings are kept (they signal important API changes)
@@ -298,127 +253,6 @@ def _normalize_keep_external_columns(
     else:
         # Use provided list (handle None case)
         return keep_external_columns or []
-
-
-def _add_admin_context(
-    df: pd.DataFrame, admin_code_col: str = "admin_code_median", debug: bool = False
-) -> pd.DataFrame:
-    """
-    Join admin codes to get Country, ProducerCountry, and Admin_Level_1 information.
-
-    Uses GAUL 2024 Level 1 administrative lookup to map admin codes to country and
-    administrative region names.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        DataFrame with admin_code_median column from reduceRegions
-    admin_code_col : str
-        Name of the admin code column (default: "admin_code_median")
-    debug : bool
-        If True, print detailed debugging information (default: False)
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame with added Country, ProducerCountry, Admin_Level_1 columns
-    """
-    logger = logging.getLogger("whisp")
-
-    # Return early if admin code column doesn't exist
-    if admin_code_col not in df.columns:
-        logger.debug(f"Admin code column '{admin_code_col}' not found in dataframe")
-        if debug:
-            print(f"DEBUG: Admin code column '{admin_code_col}' not found")
-            print(f"DEBUG: Available columns: {df.columns.tolist()}")
-        return df
-
-    try:
-        from openforis_whisp.parameters.lookup_gaul1_admin import lookup_dict
-
-        if debug:
-            print(f"DEBUG: Found admin_code_col '{admin_code_col}'")
-            print(f"DEBUG: Sample values: {df[admin_code_col].head()}")
-            print(f"DEBUG: Value types: {df[admin_code_col].dtype}")
-            print(f"DEBUG: Null count: {df[admin_code_col].isna().sum()}")
-
-        # Create lookup dataframe
-        lookup_data = []
-        for gaul_code, info in lookup_dict.items():
-            lookup_data.append(
-                {
-                    "gaul1_code": gaul_code,
-                    "gaul1_name": info.get("gaul1_name"),
-                    "iso3_code": info.get("iso3_code"),
-                    "iso2_code": info.get("iso2_code"),
-                }
-            )
-
-        lookup_df = pd.DataFrame(lookup_data)
-
-        if debug:
-            print(f"DEBUG: Lookup dictionary has {len(lookup_df)} entries")
-            print(f"DEBUG: Sample lookup codes: {lookup_df['gaul1_code'].head()}")
-
-        # Prepare data for join
-        df = df.copy()
-        df["admin_code_for_join"] = df[admin_code_col].fillna(-9999).astype("int32")
-        lookup_df["gaul1_code"] = lookup_df["gaul1_code"].astype("int32")
-
-        if debug:
-            print(
-                f"DEBUG: Codes to join (first 10): {df['admin_code_for_join'].unique()[:10]}"
-            )
-
-        # Perform join
-        df_joined = df.merge(
-            lookup_df, left_on="admin_code_for_join", right_on="gaul1_code", how="left"
-        )
-
-        if debug:
-            matched = df_joined["iso3_code"].notna().sum()
-            print(f"DEBUG: Merge result - {matched}/{len(df_joined)} rows matched")
-            print(f"DEBUG: Sample matched rows:")
-            print(
-                df_joined[
-                    ["admin_code_for_join", "iso3_code", "iso2_code", "gaul1_name"]
-                ].head()
-            )
-
-        # Rename columns to match output schema
-        df_joined = df_joined.rename(
-            columns={
-                "iso3_code": iso3_country_column,  # 'Country'
-                "iso2_code": iso2_country_column,  # 'ProducerCountry'
-                "gaul1_name": admin_1_column,  # 'Admin_Level_1'
-            }
-        )
-
-        # Drop temporary columns
-        df_joined = df_joined.drop(
-            columns=["admin_code_for_join", "gaul1_code"], errors="ignore"
-        )
-
-        logger.debug(
-            f"Admin context added: {iso3_country_column}, {iso2_country_column}, {admin_1_column}"
-        )
-        return df_joined
-
-    except ImportError:
-        logger.warning(
-            "Could not import GAUL lookup dictionary - admin context not added"
-        )
-        if debug:
-            print("DEBUG: ImportError - could not load lookup dictionary")
-        return df
-    except Exception as e:
-        logger.warning(f"Error adding admin context: {e}")
-        if debug:
-            print(f"DEBUG: Exception in _add_admin_context: {e}")
-            import traceback
-
-            traceback.print_exc()
-        return df
 
 
 def join_admin_codes(
@@ -657,16 +491,16 @@ def validate_ee_endpoint(endpoint_type: str = "high-volume", raise_error: bool =
     if not check_ee_endpoint(endpoint_type):
         if endpoint_type == "high-volume":
             msg = (
-                "# Concurrent mode requires the HIGH-VOLUME endpoint. To change endpoint run:\n"
+                "Concurrent/local mode requires the HIGH-VOLUME endpoint. To change endpoint run:\n"
                 "ee.Reset()\n"
-                "ee.Initialize(project=gee_project_name, opt_url='https://earthengine-highvolume.googleapis.com')\n"
+                "ee.Initialize(project=gee_project_name, opt_url='https://earthengine-highvolume.googleapis.com')  # or ee.Initialize(opt_url='https://earthengine-highvolume.googleapis.com')\n"
                 "# where gee_project_name is your GEE project (necessary in Colab)"
             )
         else:  # standard endpoint
             msg = (
-                "Sequential mode requires the STANDARD endpoint. To change endpoint run:\n"
+                "Sequential/legacy mode requires the STANDARD endpoint. To change endpoint run:\n"
                 "ee.Reset()\n"
-                "ee.Initialize(project=gee_project_name)\n"
+                "ee.Initialize(project=gee_project_name)  # or ee.Initialize()\n"
                 "# where gee_project_name is your GEE project (necessary in Colab)"
             )
 

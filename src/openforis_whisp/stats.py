@@ -139,6 +139,12 @@ def whisp_formatted_stats_geojson_to_df_legacy(
         df_stats : pd.DataFrame
             The DataFrame containing the Whisp stats for the input ROI.
     """
+    # Import here to avoid circular import with advanced_stats
+    from openforis_whisp.advanced_stats import validate_ee_endpoint
+
+    # Validate endpoint - legacy mode uses standard endpoint (same as sequential)
+    validate_ee_endpoint("standard", raise_error=True)
+
     # Convert GeoJSON to Earth Engine FeatureCollection
     # Note: Geometry validation/cleaning should be done before calling this function
     feature_collection = convert_geojson_to_ee(str(input_geojson_filepath))

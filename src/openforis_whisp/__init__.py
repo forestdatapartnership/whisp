@@ -87,6 +87,7 @@ from openforis_whisp.data_conversion import (
     convert_df_to_geojson,
     convert_csv_to_geojson,
     convert_ee_to_geojson,
+    normalize_geojson_to_gdf,
 )
 
 from openforis_whisp.risk import whisp_risk, detect_unit_type
@@ -117,8 +118,6 @@ from openforis_whisp.local_stats import (
     extend_bbox,
     shift_bbox,
     generate_random_box_geometries,
-    generate_random_polygon,
-    create_geojson,
     reformat_geojson_properties,
     delete_all_files_in_folder,
     delete_folder,
