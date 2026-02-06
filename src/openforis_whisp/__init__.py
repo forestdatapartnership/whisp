@@ -87,6 +87,7 @@ from openforis_whisp.data_conversion import (
     convert_df_to_geojson,
     convert_csv_to_geojson,
     convert_ee_to_geojson,
+    normalize_geojson_to_gdf,
 )
 
 from openforis_whisp.risk import whisp_risk, detect_unit_type
@@ -105,4 +106,22 @@ from openforis_whisp.data_checks import (
     screen_geojson,  # Backward compatibility alias
     suggest_processing_mode,
     validate_geojson_constraints,  # Backward compatibility alias
+)
+
+from openforis_whisp.local_stats import (
+    download_geotiff_for_feature,
+    download_geotiffs_for_feature_collection,
+    convert_geojson_to_ee_bbox_obscured,
+    convert_geojson_to_ee_bbox,
+    create_vrt_from_folder,
+    exact_extract_in_chunks_parallel,
+    extend_bbox,
+    shift_bbox,
+    generate_random_box_geometries,
+    reformat_geojson_properties,
+    delete_all_files_in_folder,
+    delete_folder,
+    whisp_stats_local,
+    get_band_names_from_raster,
+    rename_exactextract_columns,
 )
