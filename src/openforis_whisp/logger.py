@@ -5,6 +5,42 @@ BASE_MSG_FORMAT = (
     "[%(filename)s | %(funcName)s() | l.%(lineno)s] %(levelname)s: %(message)s"
 )
 
+# Simple format for whisp logger (matches existing behavior)
+WHISP_MSG_FORMAT = "%(levelname)s: %(message)s"
+
+
+def get_whisp_logger() -> logging.Logger:
+    """
+    Get the shared 'whisp' logger, configuring it on first access.
+
+    Returns a logger named 'whisp' with:
+    - StreamHandler to stdout with auto-flush (for Colab/notebook visibility)
+    - Level set to INFO
+    - propagate=False to avoid duplicate messages
+
+    This is the recommended way to get the whisp logger in any module.
+    """
+    logger = logging.getLogger("whisp")
+    if not logger.handlers:
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(logging.DEBUG)
+        handler.setFormatter(logging.Formatter(WHISP_MSG_FORMAT))
+
+        # Override emit to force flush after each message for Colab
+        original_emit = handler.emit
+
+        def emit_with_flush(record):
+            original_emit(record)
+            sys.stdout.flush()
+
+        handler.emit = emit_with_flush
+
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+        logger.propagate = False
+
+    return logger
+
 
 class StdoutLogger:
     def __init__(self, name: str, msg_format: str = BASE_MSG_FORMAT) -> None:
