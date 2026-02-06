@@ -181,8 +181,11 @@ In future, updating these may be automated to reduce manual updates to multiple 
 ### Legacy vs. Modern Functions
 [stats.py](src/openforis_whisp/stats.py):
 
-- **Modern**: `whisp_formatted_stats_geojson_to_df()` — uses faster processing from [advanced_stats.py](src/openforis_whisp/advanced_stats.py) when "mode" is "sequential" or "concurrent".
-  If "mode" is "legacy", it calls the old function below.
+- **Modern**: `whisp_formatted_stats_geojson_to_df()` — main entry point that routes to appropriate mode:
+  - `mode="concurrent"`: Uses [advanced_stats.py](src/openforis_whisp/advanced_stats.py) with high-volume EE endpoint for parallel processing
+  - `mode="sequential"`: Uses [advanced_stats.py](src/openforis_whisp/advanced_stats.py) with standard EE endpoint for single-threaded processing
+  - `mode="local"`: Uses [local_stats.py](src/openforis_whisp/local_stats.py) for privacy-preserving local processing (downloads GeoTIFFs, uses exactextract)
+  - `mode="legacy"`: Calls the original implementation for backward compatibility
 - **Legacy**: `whisp_formatted_stats_geojson_to_df_legacy()` — kept for backward compatibility, but will be removed in the future.
 
 Always use modern functions for new code. Legacy function works correctly but lacks newer optimizations.
@@ -200,7 +203,8 @@ Always use modern functions for new code. Legacy function works correctly but la
 - [API documentation](https://whisp.openforis.org/documentation/api-guide): For Whisp App integration
 
 ## Performance Considerations
-- **Batch processing**: Process features in conccurently in multiple batches via `reduceRegions()` and using the GEE high volume endpoint. This is implemented in [`advanced_stats.py::whisp_ee_stats_fc_to_df_concurrent()`](src/openforis_whisp/advanced_stats.py)
+- **Batch processing**: Process features concurrently in multiple batches via `reduceRegions()` using the GEE high-volume endpoint. Implemented in [`advanced_stats.py::whisp_ee_stats_fc_to_df_concurrent()`](src/openforis_whisp/advanced_stats.py)
+- **Local processing**: Privacy-preserving mode downloads GeoTIFFs and uses exactextract for local zonal statistics. Implemented in [`local_stats.py::whisp_stats_local()`](src/openforis_whisp/local_stats.py). Obscures exact plot locations by using shifted/extended bounding boxes.
 - **Asset caching**: Water mask and admin boundaries cached at module level in [`stats.py`](src/openforis_whisp/stats.py)
 - **Filtering**: Country-based filtering in [`reformat.py::filter_lookup_by_country_codes()`](src/openforis_whisp/reformat.py) reduces the additional national datasets processed per request. Aim to automate this in future to be driven by the input GeoJSON plot locations.
 - **Avoid temporal filters in loops**: Use module constants like `CURRENT_YEAR` instead of `datetime.now()` calls

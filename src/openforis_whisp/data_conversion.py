@@ -11,6 +11,8 @@ import os
 import geopandas as gpd
 import ee
 
+from openforis_whisp.parameters.config_runtime import plot_id_column
+
 
 # ============================================================================
 # HELPER FUNCTIONS FOR UNIFIED PROCESSING PATHWAY
@@ -64,6 +66,84 @@ def _ensure_wgs84_crs(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         return gdf
     elif gdf.crs != "EPSG:4326":
         return gdf.to_crs("EPSG:4326")
+    return gdf
+
+
+def normalize_geojson_to_gdf(
+    geojson_input: Union[str, Path, dict, gpd.GeoDataFrame],
+    id_column: str = None,
+    enforce_wgs84: bool = True,
+    add_id: bool = True,
+) -> gpd.GeoDataFrame:
+    """
+    Normalize any GeoJSON input to a validated GeoDataFrame with consistent IDs.
+
+    This is the shared preprocessing step for all GeoJSON-to-EE conversion pathways.
+    It handles input type normalization, validation, CRS conversion, and ID assignment.
+
+    Args:
+        geojson_input (Union[str, Path, dict, gpd.GeoDataFrame]):
+            - File path (str or Path) to GeoJSON file
+            - GeoJSON dictionary object
+            - GeoPandas GeoDataFrame
+        id_column (str, optional): Name of the ID column to add. If None, uses
+            plot_id_column from config (default: 'plotId').
+        enforce_wgs84 (bool): Whether to enforce WGS 84 projection (EPSG:4326).
+            Defaults to True.
+        add_id (bool): Whether to add sequential ID column if not present.
+            Defaults to True.
+
+    Returns:
+        gpd.GeoDataFrame: Validated GeoDataFrame with:
+            - WGS 84 CRS (if enforce_wgs84=True)
+            - Sanitized data types for JSON serialization
+            - Sequential ID column (if add_id=True and not already present)
+
+    Raises:
+        ValueError: If input type is unsupported or GeoJSON is empty.
+    """
+    # Use plot_id_column from config if not specified
+    if id_column is None:
+        id_column = plot_id_column
+
+    # UNIFIED INPUT NORMALIZATION: Convert all inputs to GeoDataFrame
+    if isinstance(geojson_input, gpd.GeoDataFrame):
+        gdf = geojson_input.copy()
+        input_source = "GeoDataFrame"
+    elif isinstance(geojson_input, dict):
+        # Convert dict to GeoDataFrame for unified processing
+        features = geojson_input.get("features", [])
+        if not features:
+            raise ValueError("GeoJSON contains no features")
+        gdf = gpd.GeoDataFrame.from_features(features)
+        input_source = "dict"
+    elif isinstance(geojson_input, (str, Path)):
+        # Load file and convert to GeoDataFrame
+        file_path = os.path.abspath(geojson_input)
+        gdf = gpd.read_file(file_path)
+        input_source = f"file ({file_path})"
+    else:
+        raise ValueError(
+            f"Input must be a file path (str or Path), GeoJSON dict, or GeoDataFrame. "
+            f"Got {type(geojson_input).__name__}"
+        )
+
+    # Check if GeoDataFrame is empty
+    if len(gdf) == 0:
+        raise ValueError("GeoJSON contains no features")
+
+    # UNIFIED DATA SANITIZATION PATHWAY
+    # Handle problematic data types before JSON conversion
+    gdf = _sanitize_geodataframe(gdf)
+
+    # UNIFIED CRS HANDLING
+    if enforce_wgs84:
+        gdf = _ensure_wgs84_crs(gdf)
+
+    # ADD SEQUENTIAL ID if requested and not present
+    if add_id and id_column not in gdf.columns:
+        gdf[id_column] = range(1, len(gdf) + 1)
+
     return gdf
 
 
@@ -171,32 +251,20 @@ def convert_geojson_to_ee(
         ValueError: If input type is unsupported or GeoJSON validation fails.
         ee.EEException: If GeoJSON cannot be converted even after retries.
     """
-    # UNIFIED INPUT NORMALIZATION: Convert all inputs to GeoDataFrame first
+    # Use shared normalization helper for consistent preprocessing
+    # Note: add_id=False here because the main stats pathway uses server-side
+    # EE ID assignment via add_id_to_feature_collection() for plotId
+    gdf = normalize_geojson_to_gdf(
+        geojson_input, enforce_wgs84=enforce_wgs84, add_id=False
+    )
+
+    # Determine input source for error messages
     if isinstance(geojson_input, gpd.GeoDataFrame):
-        gdf = geojson_input.copy()
         input_source = "GeoDataFrame"
     elif isinstance(geojson_input, dict):
-        # Convert dict to GeoDataFrame for unified processing
-        gdf = gpd.GeoDataFrame.from_features(geojson_input.get("features", []))
         input_source = "dict"
-    elif isinstance(geojson_input, (str, Path)):
-        # Load file and convert to GeoDataFrame
-        file_path = os.path.abspath(geojson_input)
-        gdf = gpd.read_file(file_path)
-        input_source = f"file ({file_path})"
     else:
-        raise ValueError(
-            f"Input must be a file path (str or Path), GeoJSON dict, or GeoDataFrame. "
-            f"Got {type(geojson_input).__name__}"
-        )
-
-    # UNIFIED DATA SANITIZATION PATHWAY
-    # Handle problematic data types before JSON conversion
-    gdf = _sanitize_geodataframe(gdf)
-
-    # UNIFIED CRS HANDLING
-    if enforce_wgs84:
-        gdf = _ensure_wgs84_crs(gdf)
+        input_source = f"file ({os.path.abspath(geojson_input)})"
 
     # UNIFIED GEOJSON CONVERSION
     geojson_data = json.loads(gdf.to_json())

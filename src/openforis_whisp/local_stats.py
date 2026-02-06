@@ -12,7 +12,6 @@ Key functions:
 - convert_geojson_to_ee_bbox_obscured: Create obscured bounding boxes with decoys
 - create_vrt_from_folder: Create virtual raster mosaic from downloaded TIFFs
 - exact_extract_in_chunks_parallel: Parallel local zonal statistics
-- create_geojson: Generate random test polygons
 - reformat_geojson_properties: Add IDs to GeoJSON features
 """
 
@@ -52,6 +51,7 @@ from openforis_whisp.stats import (
     reformat_geometry_type,
     set_point_geometry_area_to_zero,
 )
+from openforis_whisp.data_conversion import normalize_geojson_to_gdf
 from openforis_whisp.parameters.lookup_gaul1_admin import (
     lookup_dict as gaul_lookup_dict,
 )
@@ -60,19 +60,13 @@ from openforis_whisp.parameters.config_runtime import (
     geometry_column,
     geometry_area_column,
 )
+from openforis_whisp.logger import get_whisp_logger
 import sys
 import warnings
 
 
-# Set up module logger (consistent with advanced_stats.py)
-_whisp_logger = logging.getLogger("whisp")
-if not _whisp_logger.handlers:
-    _handler = logging.StreamHandler(sys.stdout)
-    _handler.setLevel(logging.DEBUG)
-    _handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
-    _whisp_logger.addHandler(_handler)
-    _whisp_logger.setLevel(logging.INFO)
-    _whisp_logger.propagate = False
+# Get the shared whisp logger (configured with auto-flush for Colab)
+_whisp_logger = get_whisp_logger()
 
 
 def _suppress_gdal_warnings():
@@ -388,7 +382,7 @@ def download_geotiff_for_feature(
     output_dir,
     scale=10,
     max_retries=3,
-    retry_delay=5,
+    retry_delay=2,
     num_bands=None,
 ):
     """
@@ -410,20 +404,20 @@ def download_geotiff_for_feature(
     Returns:
         output_path: Path to the downloaded GeoTIFF file (or list of paths if tiled)
     """
-    # Get the feature ID
+    # Get the feature ID (using plot_id_column from config for consistency)
     try:
-        internal_id = ee_feature.get("internal_id").getInfo()
-        _whisp_logger.debug(f"Downloading GeoTIFF for feature {internal_id}")
+        feature_id = ee_feature.get(plot_id_column).getInfo()
+        _whisp_logger.debug(f"Downloading GeoTIFF for feature {feature_id}")
     except Exception as e:
-        _whisp_logger.error(f"Error getting internal_id from feature: {str(e)}")
-        internal_id = f"unknown_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        _whisp_logger.error(f"Error getting {plot_id_column} from feature: {str(e)}")
+        feature_id = f"unknown_{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
     # Ensure output directory exists
     output_dir = Path(output_dir)
     output_dir.mkdir(exist_ok=True, parents=True)
 
     # Create a unique filename
-    filename = f"feature_{internal_id}.tif"
+    filename = f"feature_{feature_id}.tif"
     output_path = output_dir / filename
 
     # If file already exists, don't re-download
@@ -450,7 +444,7 @@ def download_geotiff_for_feature(
             scale=scale,
             max_retries=max_retries,
             retry_delay=retry_delay,
-            internal_id=internal_id,
+            feature_id=feature_id,
         )
 
         if result is not None:
@@ -458,12 +452,12 @@ def download_geotiff_for_feature(
 
         # If it failed unexpectedly, fall through to tiling
         _whisp_logger.debug(
-            f"Direct download failed for feature {internal_id}, trying tiling..."
+            f"Direct download failed for feature {feature_id}, trying tiling..."
         )
 
     # Tiling needed (either upfront or as fallback)
     _whisp_logger.debug(
-        f"Feature {internal_id} requires tiling (~{estimated_tiles} tiles estimated)"
+        f"Feature {feature_id} requires tiling (~{estimated_tiles} tiles estimated)"
     )
 
     # Get bbox geometry as GeoJSON and extract center latitude
@@ -483,12 +477,12 @@ def download_geotiff_for_feature(
 
     # Split into tiles
     tiles = split_bbox_into_tiles(bbox_geojson, (max_lon_deg, max_lat_deg))
-    _whisp_logger.debug(f"Split into {len(tiles)} tiles for feature {internal_id}")
+    _whisp_logger.debug(f"Split into {len(tiles)} tiles for feature {feature_id}")
 
     # Download each tile
     tile_paths = []
     for tile_idx, tile_coords in enumerate(tiles):
-        tile_filename = f"feature_{internal_id}_tile_{tile_idx}.tif"
+        tile_filename = f"feature_{feature_id}_tile_{tile_idx}.tif"
         tile_path = output_dir / tile_filename
 
         if tile_path.exists():
@@ -505,18 +499,18 @@ def download_geotiff_for_feature(
             scale=scale,
             max_retries=max_retries,
             retry_delay=retry_delay,
-            internal_id=f"{internal_id}_tile_{tile_idx}",
+            feature_id=f"{feature_id}_tile_{tile_idx}",
         )
 
         if result is not None:
             tile_paths.append(result)
         else:
             _whisp_logger.warning(
-                f"Failed to download tile {tile_idx} for feature {internal_id}"
+                f"Failed to download tile {tile_idx} for feature {feature_id}"
             )
 
     if not tile_paths:
-        _whisp_logger.error(f"Failed to download any tiles for feature {internal_id}")
+        _whisp_logger.error(f"Failed to download any tiles for feature {feature_id}")
         return None
 
     # Return list of tile paths (VRT will mosaic them)
@@ -524,7 +518,7 @@ def download_geotiff_for_feature(
 
 
 def _download_single_tile(
-    image, geometry, output_path, scale, max_retries, retry_delay, internal_id
+    image, geometry, output_path, scale, max_retries, retry_delay, feature_id
 ):
     """
     Download a single tile/region. Returns output_path on success, None on failure.
@@ -539,7 +533,7 @@ def _download_single_tile(
             clipped_image = image.clip(geometry)
 
             # Generate the download URL
-            _whisp_logger.debug(f"Generating download URL for {internal_id}")
+            _whisp_logger.debug(f"Generating download URL for {feature_id}")
             start_time = time.time()
             download_url = clipped_image.getDownloadURL(
                 {
@@ -594,24 +588,22 @@ def _download_single_tile(
                 or "must be less than" in error_msg.lower()
             ):
                 _whisp_logger.debug(
-                    f"Size limit exceeded for {internal_id}: {error_msg[:100]}"
+                    f"Size limit exceeded for {feature_id}: {error_msg[:100]}"
                 )
                 return None  # Signal to caller to try tiling
 
-            _whisp_logger.error(
-                f"EE error downloading {internal_id}: {error_msg[:100]}"
-            )
+            _whisp_logger.error(f"EE error downloading {feature_id}: {error_msg[:100]}")
             retries += 1
             if retries < max_retries:
                 time.sleep(retry_delay)
 
         except Exception as e:
-            _whisp_logger.error(f"Error downloading {internal_id}: {str(e)[:100]}")
+            _whisp_logger.error(f"Error downloading {feature_id}: {str(e)[:100]}")
             retries += 1
             if retries < max_retries:
                 time.sleep(retry_delay)
 
-    _whisp_logger.error(f"Maximum retries reached for {internal_id}")
+    _whisp_logger.error(f"Maximum retries reached for {feature_id}")
     return None
 
 
@@ -623,7 +615,7 @@ def download_geotiffs_for_feature_collection(
     max_features=None,
     max_workers=None,
     max_retries=3,
-    retry_delay=5,
+    retry_delay=2,
     num_bands=None,
 ):
     """
@@ -693,6 +685,8 @@ def download_geotiffs_for_feature_collection(
     results = []
     start_time = time.time()
     completed = 0
+    successful_features = 0
+    failed_indexes = []  # Track which feature indexes failed
 
     # Progress milestones (log at 10%, 20%, ..., 100%)
     milestones = set(range(10, 101, 10))
@@ -720,6 +714,9 @@ def download_geotiffs_for_feature_collection(
                             results.extend(path)
                         else:
                             results.append(path)
+                        successful_features += 1
+                    else:
+                        failed_indexes.append(index + 1)  # 1-based for user display
                     completed += 1
 
                     # Log progress at milestones
@@ -736,6 +733,7 @@ def download_geotiffs_for_feature_collection(
 
                 except Exception as e:
                     completed += 1
+                    failed_indexes.append(index + 1)  # 1-based for user display
                     _whisp_logger.error(
                         f"Exception occurred while processing feature {index+1}: {str(e)}"
                     )
@@ -750,6 +748,9 @@ def download_geotiffs_for_feature_collection(
                     results.extend(path)
                 else:
                     results.append(path)
+                successful_features += 1
+            else:
+                failed_indexes.append(i + 1)  # 1-based for user display
             completed += 1
 
             # Log progress at milestones
@@ -765,6 +766,23 @@ def download_geotiffs_for_feature_collection(
     # Final progress report - use completed count (features) not results length (may include tiles)
     if 100 not in shown_milestones:
         _log_progress(completed, collection_size, start_time, "downloads")
+
+    # Report failures - important so users don't mistake missing data for "no risk"
+    if failed_indexes:
+        failed_indexes.sort()
+        if len(failed_indexes) <= 10:
+            failed_list = ", ".join(str(idx) for idx in failed_indexes)
+        else:
+            failed_list = (
+                ", ".join(str(idx) for idx in failed_indexes[:10])
+                + f", ... (+{len(failed_indexes) - 10} more)"
+            )
+        _whisp_logger.error(
+            f"Download incomplete: {len(failed_indexes)}/{collection_size} features failed to download. "
+            f"Failed feature numbers: {failed_list}. "
+            f"Results may be missing data - do not assume empty results mean no risk."
+        )
+
     return results
 
 
@@ -860,15 +878,6 @@ def shift_bbox(minx, miny, maxx, maxy, max_shift_distance, pixel_length=0.0001):
 # ============================================================================
 
 
-def ee_featurecollection_to_gdf(fc):
-    """
-    Convert an Earth Engine FeatureCollection to a GeoPandas GeoDataFrame.
-    """
-    geojson = fc.getInfo()
-    gdf = gpd.GeoDataFrame.from_features(geojson["features"])
-    return gdf
-
-
 def generate_random_box_geometries(gdf, max_distance, proportion=0.5, bbox_info=None):
     """
     Generates random geometries near the original features in a GeoDataFrame.
@@ -949,10 +958,10 @@ def generate_random_box_geometries(gdf, max_distance, proportion=0.5, bbox_info=
         # Create Earth Engine Rectangle geometry
         ee_geometry = ee.Geometry.Rectangle([r_minx, r_miny, r_maxx, r_maxy])
 
-        # Create random properties
+        # Create random properties (using plot_id_column for consistency)
         properties = {
             "random_feature": True,
-            "internal_id": f"random_{i + 1000}",
+            plot_id_column: f"random_{i + 1000}",
             "obscured": True,
             "near_feature_id": random_feature_idx + 1,
         }
@@ -1002,26 +1011,14 @@ def convert_geojson_to_ee_bbox_obscured(
     """
     logger = _whisp_logger
 
-    # Read the GeoJSON file using geopandas
-    if isinstance(geojson_filepath, (str, Path)):
-        file_path = os.path.abspath(geojson_filepath)
-        if verbose:
-            _whisp_logger.debug(f"Reading GeoJSON file from: {file_path}")
+    # Use shared normalization helper for consistent preprocessing
+    # This handles: file reading, CRS enforcement, validation, ID assignment
+    gdf = normalize_geojson_to_gdf(
+        geojson_filepath, id_column=plot_id_column, enforce_wgs84=True, add_id=True
+    )
 
-        try:
-            gdf = gpd.read_file(file_path)
-        except Exception as e:
-            raise ValueError(f"Error reading GeoJSON file: {str(e)}")
-    else:
-        raise ValueError("Input must be a file path (str or Path)")
-
-    # Check if GeoDataFrame is empty
-    if len(gdf) == 0:
-        raise ValueError("GeoJSON contains no features")
-
-    # Add internal_id if not present
-    if "internal_id" not in gdf.columns:
-        gdf["internal_id"] = range(1, len(gdf) + 1)
+    if verbose:
+        _whisp_logger.debug(f"Loaded {len(gdf)} features from GeoJSON")
 
     # Create a new list with bounding boxes
     bbox_features = []
@@ -1446,7 +1443,6 @@ def whisp_stats_local(
     chunk_size=25,
     ops=None,
     cleanup_files=True,
-    id_column="internal_id",
     include_context_bands=True,
     national_codes=None,
     unit_type="ha",
@@ -1493,7 +1489,6 @@ def whisp_stats_local(
             concurrent mode's combined reducer). The sum is used for area statistics,
             while median is used for admin_code lookup.
         cleanup_files: Whether to delete GeoTIFFs/VRT after processing
-        id_column: Column name for feature IDs in output
         include_context_bands: Whether to include context bands (admin_code, water_flag)
             in the image (default: True)
         national_codes: List of ISO2 country codes to include national datasets
@@ -1726,214 +1721,10 @@ def whisp_stats_local(
     return stats_df
 
 
-# ============================================================================
-# Test Data Generation Functions
-# ============================================================================
-
-
-def generate_random_polygon(
-    min_lon, min_lat, max_lon, max_lat, min_area_ha=1, max_area_ha=10, vertex_count=20
-):
-    """
-    Generate a random polygon within bounds with approximate area in the specified range.
-    Uses a robust approach that works well with high vertex counts.
-
-    Args:
-        min_lon, min_lat, max_lon, max_lat: Boundary coordinates
-        min_area_ha: Minimum area in hectares
-        max_area_ha: Maximum area in hectares
-        vertex_count: Number of vertices for the polygon
-
-    Returns:
-        Tuple of (polygon, actual_area_ha)
-    """
-    poly = None
-    actual_area_ha = 0
-
-    def approximate_area_ha(polygon, center_lat):
-        """Approximate area in hectares (much faster than geodesic)."""
-        area_sq_degrees = polygon.area
-        lat_factor = 111320  # meters per degree latitude
-        lon_factor = 111320 * math.cos(math.radians(center_lat))
-        return area_sq_degrees * lat_factor * lon_factor / 10000
-
-    target_area_ha = random.uniform(min_area_ha, max_area_ha)
-    center_lon = random.uniform(min_lon, max_lon)
-    center_lat = random.uniform(min_lat, max_lat)
-
-    # Initial size estimate (in degrees)
-    initial_radius = math.sqrt(target_area_ha / (math.pi * 100)) * 0.01
-
-    # Cap vertex count for stability
-    effective_vertex_count = min(vertex_count, 100)
-
-    # Primary approach: Create polygon using convex hull approach
-    for attempt in range(5):
-        try:
-            thetas = np.linspace(0, 2 * math.pi, effective_vertex_count, endpoint=False)
-            angle_randomness = min(0.2, 2.0 / effective_vertex_count)
-            thetas += np.random.uniform(
-                -angle_randomness, angle_randomness, size=effective_vertex_count
-            )
-
-            distance_factor = min(0.3, 3.0 / effective_vertex_count) + 0.7
-            distances = initial_radius * np.random.uniform(
-                1.0 - distance_factor / 2,
-                1.0 + distance_factor / 2,
-                size=effective_vertex_count,
-            )
-
-            xs = center_lon + distances * np.cos(thetas)
-            ys = center_lat + distances * np.sin(thetas)
-
-            xs = np.clip(xs, min_lon, max_lon)
-            ys = np.clip(ys, min_lat, max_lat)
-
-            vertices = list(zip(xs, ys))
-            if vertices[0] != vertices[-1]:
-                vertices.append(vertices[0])
-
-            poly = Polygon(vertices)
-
-            if not poly.is_valid:
-                poly = make_valid(poly)
-                if poly.geom_type != "Polygon":
-                    continue
-
-            actual_area_ha = approximate_area_ha(poly, center_lat)
-
-            if min_area_ha * 0.8 <= actual_area_ha <= max_area_ha * 1.2:
-                return poly, actual_area_ha
-
-            if actual_area_ha > 0:
-                scale_factor = math.sqrt(target_area_ha / actual_area_ha)
-                initial_radius *= scale_factor
-
-        except Exception as e:
-            print(f"Error in convex hull method (attempt {attempt+1}): {e}")
-
-    # Fallback: Star-like pattern
-    for attempt in range(5):
-        try:
-            star_vertex_count = min(15, vertex_count)
-            vertices = []
-
-            for i in range(star_vertex_count):
-                angle = 2 * math.pi * i / star_vertex_count
-                if i % 2 == 0:
-                    distance = initial_radius * random.uniform(0.7, 0.9)
-                else:
-                    distance = initial_radius * random.uniform(0.5, 0.6)
-                angle += random.uniform(-0.1, 0.1)
-
-                lon = center_lon + distance * math.cos(angle)
-                lat = center_lat + distance * math.sin(angle)
-                lon = min(max(lon, min_lon), max_lon)
-                lat = min(max(lat, min_lat), max_lat)
-                vertices.append((lon, lat))
-
-            vertices.append(vertices[0])
-            poly = Polygon(vertices)
-            if not poly.is_valid:
-                poly = make_valid(poly)
-                if poly.geom_type != "Polygon":
-                    continue
-
-            actual_area_ha = approximate_area_ha(poly, center_lat)
-            if actual_area_ha > 0:
-                return poly, actual_area_ha
-
-        except Exception as e:
-            print(f"Error in star pattern method (attempt {attempt+1}): {e}")
-
-    # Last resort - perturbed circle
-    try:
-        final_vertices = []
-        for i in range(8):
-            angle = 2 * math.pi * i / 8
-            distance = initial_radius * random.uniform(0.95, 1.05)
-            lon = center_lon + distance * math.cos(angle)
-            lat = center_lat + distance * math.sin(angle)
-            lon = min(max(lon, min_lon), max_lon)
-            lat = min(max(lat, min_lat), max_lat)
-            final_vertices.append((lon, lat))
-
-        final_vertices.append(final_vertices[0])
-        poly = Polygon(final_vertices)
-        if not poly.is_valid:
-            poly = make_valid(poly)
-        actual_area_ha = approximate_area_ha(poly, center_lat)
-
-    except Exception as e:
-        print(f"Error in final fallback method: {e}")
-        offset = initial_radius / 2
-        poly = Polygon(
-            [
-                (center_lon, center_lat + offset),
-                (center_lon + offset, center_lat - offset),
-                (center_lon - offset, center_lat - offset),
-                (center_lon, center_lat + offset),
-            ]
-        )
-        actual_area_ha = approximate_area_ha(poly, center_lat)
-
-    return poly, actual_area_ha
-
-
-def create_geojson(
-    bounds,
-    num_polygons=25,
-    min_area_ha=1,
-    max_area_ha=10,
-    min_number_vert=10,
-    max_number_vert=20,
-):
-    """
-    Create a GeoJSON FeatureCollection with random polygons within specified bounds.
-
-    Args:
-        bounds: List of [min_lon, min_lat, max_lon, max_lat]
-        num_polygons: Number of polygons to generate
-        min_area_ha: Minimum area in hectares
-        max_area_ha: Maximum area in hectares
-        min_number_vert: Minimum number of vertices per polygon
-        max_number_vert: Maximum number of vertices per polygon
-
-    Returns:
-        dict: GeoJSON FeatureCollection
-    """
-    min_lon, min_lat, max_lon, max_lat = bounds
-
-    features = []
-    for i in range(num_polygons):
-        vertices = random.randint(min_number_vert, max_number_vert)
-
-        polygon, actual_area = generate_random_polygon(
-            min_lon,
-            min_lat,
-            max_lon,
-            max_lat,
-            min_area_ha=min_area_ha,
-            max_area_ha=max_area_ha,
-            vertex_count=vertices,
-        )
-
-        properties = {"internal_id": i + 1}
-        feature = {
-            "type": "Feature",
-            "properties": properties,
-            "geometry": mapping(polygon),
-        }
-        features.append(feature)
-
-    geojson = {"type": "FeatureCollection", "features": features}
-    return geojson
-
-
 def reformat_geojson_properties(
     geojson_path,
     output_path=None,
-    id_field="internal_id",
+    id_field=None,  # Uses plot_id_column from config if None
     start_index=1,
     remove_properties=False,
     add_uuid=False,
@@ -1944,7 +1735,7 @@ def reformat_geojson_properties(
     Args:
         geojson_path: Path to input GeoJSON file
         output_path: Path to save the output GeoJSON (if None, overwrites input)
-        id_field: Name of the ID field to add
+        id_field: Name of the ID field to add (default: uses plot_id_column from config)
         start_index: Starting index for sequential IDs
         remove_properties: Whether to remove all existing properties (default: False)
         add_uuid: Whether to also add UUID field
@@ -1952,6 +1743,10 @@ def reformat_geojson_properties(
     Returns:
         None
     """
+    # Use plot_id_column from config if id_field not specified
+    if id_field is None:
+        id_field = plot_id_column
+
     gdf = gpd.read_file(geojson_path)
 
     if remove_properties:
@@ -1981,22 +1776,11 @@ def convert_geojson_to_ee_bbox(geojson_filepath) -> ee.FeatureCollection:
     Returns:
         ee.FeatureCollection: Earth Engine FeatureCollection of bounding boxes.
     """
-    if isinstance(geojson_filepath, (str, Path)):
-        file_path = os.path.abspath(geojson_filepath)
-        print(f"Reading GeoJSON file from: {file_path}")
-
-        try:
-            gdf = gpd.read_file(file_path)
-        except Exception as e:
-            raise ValueError(f"Error reading GeoJSON file: {str(e)}")
-    else:
-        raise ValueError("Input must be a file path (str or Path)")
-
-    if len(gdf) == 0:
-        raise ValueError("GeoJSON contains no features")
-
-    if "internal_id" not in gdf.columns:
-        gdf["internal_id"] = range(1, len(gdf) + 1)
+    # Use shared normalization helper for consistent preprocessing
+    gdf = normalize_geojson_to_gdf(
+        geojson_filepath, id_column=plot_id_column, enforce_wgs84=True, add_id=True
+    )
+    print(f"Loaded {len(gdf)} features from GeoJSON")
 
     bbox_features = []
     for idx, row in gdf.iterrows():
