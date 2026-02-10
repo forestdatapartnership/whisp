@@ -106,7 +106,7 @@ The **relevant risk assessment column depends on the commodity** in question:
   <tr>
     <td>Livestock</td>
     <td>Risk_Livestock</td>
-    <td>Livestock driven deforestation risk</td>
+    <td>Livestock driven deforestation risk (coming soon)</td>
   </tr>
   <tr>
     <td>Timber</td>
@@ -241,5 +241,6 @@ Users can report violations of this Code of Conduct confidentially by contacting
 - For general questions, feedback or support, email [open-foris@fao.org](mailto:open-foris@fao.org).
 
 We welcome all feedback and contributions!
+
 
 
