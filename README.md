@@ -106,7 +106,7 @@ The **relevant risk assessment column depends on the commodity** in question:
   <tr>
     <td>Livestock</td>
     <td>Risk_Livestock</td>
-    <td>Livestock driven deforestation risk</td>
+    <td>Livestock driven deforestation risk (coming soon)</td>
   </tr>
   <tr>
     <td>Timber</td>
@@ -146,7 +146,7 @@ The **relevant risk assessment column depends on the commodity** in question:
   ### Python package installation
 
   The Whisp package is available on pip
-  https://pypi.org/project/openforis-whisp/
+  https://pypi.org/project/openforis-whisp/ and changelog [here](https://github.com/forestdatapartnership/whisp/releases)
 
 
   It can be installed with one line of code:
@@ -241,5 +241,6 @@ Users can report violations of this Code of Conduct confidentially by contacting
 - For general questions, feedback or support, email [open-foris@fao.org](mailto:open-foris@fao.org).
 
 We welcome all feedback and contributions!
+
 
 
