@@ -115,7 +115,7 @@ def g_fdap_forest_prep():
 #########################primary forest
 # EUFO JRC Global forest type - primary
 def g_gft_primary_prep():
-    gft_raw = ee.ImageCollection("JRC/GFC2020_subtypes/V1").mosaic()
+    gft_raw = ee.Image("JRC/GFC2020_subtypes/V1")
     gft_primary = gft_raw.eq(10)
     return gft_primary.rename("GFT_primary").selfMask()
 
