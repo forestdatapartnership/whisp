@@ -131,7 +131,7 @@ The **relevant risk assessment column depends on the commodity** in question:
   However, under the same circumstances but with <u>no</u> disturbances reported after 2020-12-31 there is insufficient evidence and the **Whisp output will be "More info needed".** Such can be the case for, e.g., cocoa or coffee grown under the shade of treecover or agroforestry.
   
 *The Whisp algorithm for **Annual Crops** visualized:*
-![annual_decision_tree](https://github.com/user-attachments/assets/b9751cd1-8bbc-403b-9258-b06d1b8ff91a)
+![annual_decision_tree](https://github.com/user-attachments/assets/0148736f-d9a1-4511-a8f8-8b32287483cb)
 
 For annual crops, Whisp applies the same general framework based on tree cover, commodity, and disturbance datasets. However, disturbances before 2020-12-31 are not considered relevant, since annual crops are not typically established under significant canopy cover. 
 
@@ -145,7 +145,7 @@ If tree cover is present and no agricultural use is recorded by the end of 2020,
 
 
 *The Whisp algorithm for **Timber** visualized:*
-<img width="960" height="540" alt="whisp_decision_tree_20240909" src="https://github.com/user-attachments/assets/7dcf442e-ba15-4d97-a9f1-87c5a0ae0ede" />
+<img width="3508" height="2480" alt="CoE_Graphic_timber 7" src="https://github.com/user-attachments/assets/183a77b4-1a78-4460-b713-34561142ffae" />
 
 For timber, Whisp applies a different decision logic compared to perennial and annual crops. In addition to the **deforestation risk**, Whisp also evaluates **degradation risk**, defined as a change in forest structure. In addition, different decision rules applies depending on whether the forest at the end of 2020 is identified as a **planted/plantation forest** or a **natural forest** (primary or naturally regenerating). The analysis is based on datasets from categories 2 and 5–11.
 
@@ -359,6 +359,7 @@ Please read the [contributing guidelines](contributing_guidelines.md) for good p
   **Reporting**
   Users can report violations directly to us by emailing the address listed in the "Contact Us" section of the website:
   https://openforis.org/solutions/whisp/
+
 
 
 
