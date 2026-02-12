@@ -40,6 +40,9 @@ rsa = ">=4.2,<5.0.0"  # Updated version constraint
 ipykernel = ">=6.17.1,<7.0.0"  # Compatible with Colab
 shapely = "^2.0.2"
 geopandas = "^1.0.1"
+rio-vrt = ">=0.3.0"
+rasterio = ">=1.3.0"
+exactextract = ">=0.2.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=6.2.5,<7.0.0"
