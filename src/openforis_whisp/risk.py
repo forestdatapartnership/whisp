@@ -126,8 +126,8 @@ def whisp_risk(
         df (DataFrame): Input DataFrame.
         ind_1_pcent_threshold (int, optional): Percentage threshold for the first indicator. Defaults to 10.
         ind_2_pcent_threshold (int, optional): Percentage threshold for the second indicator. Defaults to 10.
-        ind_3_pcent_threshold (int, optional): Percentage threshold for the third indicator. Defaults to 0.
-        ind_4_pcent_threshold (int, optional): Percentage threshold for the fourth indicator. Defaults to 0.
+        ind_3_pcent_threshold (int, optional): Percentage threshold for the third indicator. Defaults to 10.
+        ind_4_pcent_threshold (int, optional): Percentage threshold for the fourth indicator. Defaults to 10.
         ind_1_input_columns (list, optional): List of input columns for the first indicator. Defaults to columns for the treecover theme.
         ind_2_input_columns (list, optional): List of input columns for the second indicator. Defaults to columns for the commodities theme.
         ind_3_input_columns (list, optional): List of input columns for the third indicator. Defaults to columns for disturbance before 2020.
