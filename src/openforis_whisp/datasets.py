@@ -31,6 +31,50 @@ geometry_area_column = "Area"
 CURRENT_YEAR = datetime.now().year
 CURRENT_YEAR_2DIGIT = CURRENT_YEAR % 100  # Last two digits for RADD datasets
 
+# Area scale factor for Int16 output dtype.
+# Pixel area in m² is multiplied by this factor before casting to Int16.
+# Int16 max = 32767, so max supported pixel area = 32767 / 10 ≈ 3276 m² (~57m resolution).
+# At 10m: ~98.6 m² × 10 = 986. At 30m: ~900 × 10 = 9000. Both fit Int16.
+AREA_SCALE_FACTOR_INT16 = 10
+
+# Frequently updated datasets (weekly/monthly) that should be fetched from
+# live GEE rather than from (potentially stale) COG snapshots.
+# Used by the hybrid mode: COG for static bands + live GEE for these dynamic bands.
+DYNAMIC_FUNCTIONS = {
+    "g_radd_after_2020_prep",
+    "g_glad_dist_after_2020_prep",
+    "g_glad_l_after_2020_prep",
+    "g_glad_s2_after_2020_prep",
+    "g_modis_fire_after_2020_prep",
+    "nbr_deter_amazon_after_2020_prep",
+}
+
+# Band names corresponding to DYNAMIC_FUNCTIONS (for COG band filtering).
+# These are the 'name' values from lookup_gee_datasets.csv.
+DYNAMIC_BAND_NAMES = [
+    "RADD_after_2020",
+    "DIST_after_2020",
+    "GLAD-L_after_2020",
+    "GLAD-S2_after_2020",
+    "MODIS_fire_after_2020",
+    "nBR_DETER_forestdegradation_Amazon_after_2020",
+]
+
+# Functions that produce per-year timeseries bands (~148 bands total).
+# These are excluded when exclude_yearly=True to reduce the image to ~49 bands.
+# Risk assessment only uses the combined before/after 2020 bands, not per-year.
+YEARLY_FUNCTIONS = {
+    "g_radd_year_prep",
+    "g_tmf_def_per_year_prep",
+    "g_tmf_deg_per_year_prep",
+    "g_glad_gfc_loss_per_year_prep",
+    "g_modis_fire_prep",
+    "g_esa_fire_prep",
+    "g_glad_dist_year_prep",
+    "g_glad_l_year_prep",
+    "g_glad_s2_year_prep",
+}
+
 import inspect
 
 import logging
@@ -1610,6 +1654,111 @@ def g_water_mask_prep():
     return water_mask_image.selfMask().rename(water_flag)
 
 
+# ============================================================================
+# GAUL COUNTRY MASKING HELPERS (for COG export)
+# ============================================================================
+
+
+def get_gaul_codes_for_iso2(iso2_codes):
+    """
+    Get all GAUL admin codes for given ISO2 country codes.
+
+    Parameters
+    ----------
+    iso2_codes : list
+        List of ISO2 country codes (e.g., ["CI", "BR", "GH"])
+
+    Returns
+    -------
+    list
+        List of integer GAUL admin codes matching the given ISO2 codes
+    """
+    from openforis_whisp.parameters.lookup_gaul1_admin import (
+        lookup_dict as gaul_lookup_dict,
+    )
+
+    if iso2_codes is None:
+        return []
+
+    # Normalize to uppercase for matching
+    iso2_codes_upper = [code.upper() for code in iso2_codes]
+
+    gaul_codes = []
+    for gaul_code, info in gaul_lookup_dict.items():
+        if info.get("iso2_code", "").upper() in iso2_codes_upper:
+            gaul_codes.append(gaul_code)
+
+    return gaul_codes
+
+
+def get_country_mask_from_gaul(iso2_codes):
+    """
+    Create a binary mask image for specified countries using GAUL admin codes.
+
+    Uses the GAUL raster and remaps matching admin codes to 1 (masked in).
+    This avoids memory issues with vector clipToCollection for large FeatureCollections.
+
+    Parameters
+    ----------
+    iso2_codes : list
+        List of ISO2 country codes to include in mask (e.g., ["CI", "BR"])
+
+    Returns
+    -------
+    ee.Image
+        Binary mask image where pixels in specified countries = 1, others = masked out
+    """
+    gaul_codes = get_gaul_codes_for_iso2(iso2_codes)
+
+    if not gaul_codes:
+        raise ValueError(f"No GAUL codes found for ISO2 codes: {iso2_codes}")
+
+    admin_image = g_gaul_admin_code()
+
+    # Create list of 1s matching the length of gaul_codes
+    ones_list = ee.List.repeat(1, len(gaul_codes))
+
+    # Remap: gaul_codes -> 1, everything else -> 0, then selfMask to remove 0s
+    country_mask = admin_image.remap(gaul_codes, ones_list, 0).selfMask()
+
+    return country_mask
+
+
+def get_country_geometry_from_gaul(iso2_codes):
+    """
+    Get the bounding geometry for specified countries using GAUL FeatureCollection.
+
+    Uses the GAUL 2024 L1 FeatureCollection for proper bounded geometry,
+    which is required for image export operations.
+
+    Parameters
+    ----------
+    iso2_codes : list
+        List of ISO2 country codes (e.g., ["CI", "BR"])
+
+    Returns
+    -------
+    ee.Geometry
+        Bounding geometry covering all specified countries
+    """
+    gaul_codes = get_gaul_codes_for_iso2(iso2_codes)
+
+    if not gaul_codes:
+        raise ValueError(f"No GAUL codes found for ISO2 codes: {iso2_codes}")
+
+    # Use GAUL FeatureCollection for bounded geometry
+    gaul_fc = ee.FeatureCollection(
+        "projects/sat-io/open-datasets/FAO/GAUL/GAUL_2024_L1"
+    )
+
+    # Filter to matching admin codes and get union geometry
+    filtered_fc = gaul_fc.filter(ee.Filter.inList("gaul1_code", gaul_codes))
+    geometry = filtered_fc.geometry()
+
+    return geometry
+    return geometry
+
+
 ###Combining datasets
 
 
@@ -1618,6 +1767,8 @@ def combine_datasets(
     validate_bands=False,
     include_context_bands=True,
     auto_recovery=False,
+    output_dtype="float32",
+    exclude_yearly=False,
 ):
     """
     Combines datasets into a single multiband image, with fallback if assets are missing.
@@ -1636,18 +1787,52 @@ def combine_datasets(
         If True (default), automatically enables validate_bands when an error is detected
         during initial assembly. This allows graceful recovery from missing/broken datasets.
 
+    exclude_yearly : bool, optional
+        If True, exclude per-year timeseries functions (~148 bands) from the image.
+        Reduces the image to ~49 bands. Risk assessment is unaffected since it only
+        uses the combined before/after 2020 bands, not per-year timeseries.
+        Default: False (include all bands).
+    output_dtype : str, optional
+        Output data type: 'float32' (default) or 'int16'.
+        - 'float32': Current behavior. All data bands are multiplied by pixelArea
+          so each pixel value = area in m². Downloaded as Float32 GeoTIFF.
+        - 'int16': Band 1 = pixelArea × AREA_SCALE_FACTOR_INT16 (Int16 scaled area).
+          Remaining data bands = binary 0/1 (Int16). Context bands = Int16.
+          No pixelArea multiplication on data bands. ~50% smaller downloads.
+          Use weighted_sum with band 1 as weights for extraction.
+          Only valid for scales ≤ ~57m (Int16 overflow above that).
+
     Returns
     -------
     ee.Image
         Combined multiband image with all datasets (and optionally context bands)
     """
     # Step 1: Combine all main dataset images
-    all_images = [ee.Image(1).rename(geometry_area_column)]
-    for func in list_functions(national_codes=national_codes):
-        try:
-            all_images.append(func())
-        except ee.EEException as e:
-            print(f"Error loading image: {e}")
+    if output_dtype == "int16":
+        # Int16 mode: area band scaled, data bands as binary 0/1
+        area_band = (
+            ee.Image.pixelArea()
+            .multiply(AREA_SCALE_FACTOR_INT16)
+            .toInt16()
+            .rename(geometry_area_column)
+        )
+        all_images = [area_band]
+        for func in list_functions(
+            national_codes=national_codes, exclude_yearly=exclude_yearly
+        ):
+            try:
+                all_images.append(func().gt(0).toInt16())
+            except ee.EEException as e:
+                print(f"Error loading image: {e}")
+    else:
+        all_images = [ee.Image(1).rename(geometry_area_column)]
+        for func in list_functions(
+            national_codes=national_codes, exclude_yearly=exclude_yearly
+        ):
+            try:
+                all_images.append(func())
+            except ee.EEException as e:
+                print(f"Error loading image: {e}")
 
     img_combined = ee.Image.cat(all_images)
 
@@ -1674,15 +1859,38 @@ def combine_datasets(
             img_combined.bandNames().getInfo()  # check all bands
         except ee.EEException as e:
             print("Using valid datasets filter due to error in validation")
-            valid_imgs = keep_valid_images(
-                [func() for func in list_functions(national_codes=national_codes)]
-            )
-            all_images_retry = [ee.Image(1).rename(geometry_area_column)]
+            if output_dtype == "int16":
+                valid_imgs = keep_valid_images(
+                    [
+                        func().gt(0).toInt16()
+                        for func in list_functions(
+                            national_codes=national_codes, exclude_yearly=exclude_yearly
+                        )
+                    ]
+                )
+                all_images_retry = [
+                    ee.Image.pixelArea()
+                    .multiply(AREA_SCALE_FACTOR_INT16)
+                    .toInt16()
+                    .rename(geometry_area_column)
+                ]
+            else:
+                valid_imgs = keep_valid_images(
+                    [
+                        func()
+                        for func in list_functions(
+                            national_codes=national_codes, exclude_yearly=exclude_yearly
+                        )
+                    ]
+                )
+                all_images_retry = [ee.Image(1).rename(geometry_area_column)]
             all_images_retry.extend(valid_imgs)
             img_combined = ee.Image.cat(all_images_retry)
 
-    # Step 4: Multiply main datasets by pixel area
-    img_combined = img_combined.multiply(ee.Image.pixelArea())
+    # Step 4: Multiply main datasets by pixel area (Float32 only)
+    # In Int16 mode, area info is in band 1 — data bands stay binary
+    if output_dtype != "int16":
+        img_combined = img_combined.multiply(ee.Image.pixelArea())
 
     # Step 5: Add context bands (admin_code only - water mask is now in prep functions)
     if include_context_bands:
@@ -1694,6 +1902,8 @@ def combine_datasets(
                 band_img = band_func()
                 if should_validate:
                     band_img.bandNames().getInfo()
+                if output_dtype == "int16":
+                    band_img = band_img.toInt16()
                 img_combined = img_combined.addBands(band_img)
             except ee.EEException as e:
                 print(f"Warning: Could not add {band_name} band: {e}")
@@ -1715,7 +1925,9 @@ def combine_datasets(
 #     return functions
 
 
-def list_functions(national_codes=None):
+def list_functions(
+    national_codes=None, exclude_yearly=False, only_dynamic=False, exclude_dynamic=False
+):
     """
     Returns a list of functions that end with "_prep" and either:
     - Start with "g_" (global/regional products, excluding context bands)
@@ -1726,6 +1938,13 @@ def list_functions(national_codes=None):
 
     Args:
         national_codes: List of ISO2 country codes (without the 'n' prefix)
+        exclude_yearly: If True, exclude per-year timeseries functions (YEARLY_FUNCTIONS).
+            This reduces the image from ~197 to ~49 bands. Risk assessment is unaffected
+            since it only uses the combined before/after 2020 bands.
+        only_dynamic: If True, return ONLY the dynamic functions (DYNAMIC_FUNCTIONS).
+            Used by hybrid mode to build the live GEE portion of the image.
+        exclude_dynamic: If True, exclude dynamic functions (DYNAMIC_FUNCTIONS).
+            Used by hybrid mode to identify which bands the COG covers.
     """
     # Use the module's globals to get all defined functions
     current_module = inspect.getmodule(inspect.currentframe())
@@ -1737,6 +1956,13 @@ def list_functions(national_codes=None):
     # Context band functions that are handled separately
     context_functions = {"g_gaul_admin_code", "g_water_mask_prep"}
 
+    # Functions to skip (context + optionally yearly timeseries + optionally dynamic)
+    skip_functions = set(context_functions)
+    if exclude_yearly:
+        skip_functions |= YEARLY_FUNCTIONS
+    if exclude_dynamic:
+        skip_functions |= DYNAMIC_FUNCTIONS
+
     # Create prefixes list with proper formatting ('n' + code + '_')
     allowed_prefixes = ["g_"] + [f"n{code.lower()}_" for code in national_codes]
 
@@ -1746,7 +1972,8 @@ def list_functions(national_codes=None):
         for name, func in inspect.getmembers(current_module, inspect.isfunction)
         if name.endswith("_prep")
         and any(name.startswith(prefix) for prefix in allowed_prefixes)
-        and name not in context_functions
+        and name not in skip_functions
+        and (not only_dynamic or name in DYNAMIC_FUNCTIONS)
     ]
 
     return functions
