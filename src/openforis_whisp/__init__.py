@@ -108,6 +108,15 @@ from openforis_whisp.data_checks import (
     validate_geojson_constraints,  # Backward compatibility alias
 )
 
+from openforis_whisp.asset_registry import (
+    fetch_feature,
+    fetch_collection_features,
+    fetch_features_by_ids,
+    fetch_to_dict,
+    fetch_and_save,
+    save_geojson,
+)
+
 from openforis_whisp.local_stats import (
     download_geotiff_for_feature,
     download_geotiffs_for_feature_collection,
