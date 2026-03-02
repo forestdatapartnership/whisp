@@ -44,6 +44,11 @@ except Exception as e:
     print("Error in default EE initialization:", e)
 
 from openforis_whisp.datasets import combine_datasets, combine_custom_bands
+from openforis_whisp.datasets import (
+    get_gaul_codes_for_iso2,
+    get_country_mask_from_gaul,
+    get_country_geometry_from_gaul,
+)
 
 from openforis_whisp.stats import (
     whisp_stats_ee_to_ee,
@@ -124,4 +129,20 @@ from openforis_whisp.local_stats import (
     whisp_stats_local,
     get_band_names_from_raster,
     rename_exactextract_columns,
+)
+
+from openforis_whisp.export_cog import (
+    export_whisp_image_to_cog,
+    get_risk_bands,
+    get_bands_by_theme,
+    get_all_band_names,
+    get_lookup_gee_datasets_df,
+    check_export_status,
+    list_active_exports,
+    list_cog_files_in_gcs,
+    create_vrt_from_gcs,
+    run_exactextract_on_cog,
+    pixel_area_m2,
+    pixel_area_ha,
+    convert_sum_to_hectares,
 )

@@ -1218,6 +1218,7 @@ def rename_exactextract_columns(df, band_names, ops=None):
 
     exactextract outputs columns like "band_1_sum", "band_2_sum", etc.
     This function renames them to "{band_name}_sum" format.
+    Also handles weighted columns ("band_1_weight_weighted_sum" -> "{band_name}_weight_weighted_sum").
 
     Args:
         df: DataFrame with exactextract output
@@ -1239,10 +1240,16 @@ def rename_exactextract_columns(df, band_names, ops=None):
     for i, band_name in enumerate(band_names):
         band_num = i + 1
         for op in ops:
+            # Standard column naming (e.g., band_1_sum)
             old_col = f"band_{band_num}_{op}"
             new_col = f"{band_name}_{op}"
             if old_col in df.columns:
                 rename_map[old_col] = new_col
+            # Weighted column naming (e.g., band_1_weight_weighted_sum)
+            old_col_w = f"band_{band_num}_weight_{op}"
+            new_col_w = f"{band_name}_weight_{op}"
+            if old_col_w in df.columns:
+                rename_map[old_col_w] = new_col_w
 
     if rename_map:
         _whisp_logger.debug(f"Renamed {len(rename_map)} columns to use band names")
@@ -1257,10 +1264,13 @@ def rename_exactextract_columns(df, band_names, ops=None):
     return df
 
 
-def _process_chunk_df(chunk_gdf, rasters, ops, chunk_idx, num_chunks):
+def _process_chunk_df(chunk_gdf, rasters, ops, chunk_idx, num_chunks, weights=None):
     """
     Process a single chunk of features for exact_extract.
     This is a helper function for parallel processing.
+
+    Args:
+        weights: Optional path to weights raster (used in Int16 mode for area weights)
     """
     from exactextract import exact_extract
 
@@ -1269,9 +1279,12 @@ def _process_chunk_df(chunk_gdf, rasters, ops, chunk_idx, num_chunks):
 
     chunk_start_time = time.time()
     try:
-        chunk_results = exact_extract(
+        kwargs = dict(
             progress=False, rast=rasters, vec=chunk_gdf, ops=ops, output="pandas"
         )
+        if weights is not None:
+            kwargs["weights"] = weights
+        chunk_results = exact_extract(**kwargs)
         gc.collect()
         return chunk_results
     except Exception as e:
@@ -1291,6 +1304,8 @@ def exact_extract_in_chunks_parallel(
     max_workers=4,
     band_names=None,
     verbose=True,
+    weights=None,
+    use_threads=False,
 ):
     """
     Process exactextract in parallel chunks of features.
@@ -1306,6 +1321,7 @@ def exact_extract_in_chunks_parallel(
         max_workers: Maximum number of parallel processes to use
         band_names: List of band names for column renaming (default: auto-detect from raster)
         verbose: If True, print progress messages (default: True)
+        weights: Optional path to weights raster (used in Int16 mode for area weights)
 
     Returns:
         pd.DataFrame: Combined results from all chunks
@@ -1358,9 +1374,19 @@ def exact_extract_in_chunks_parallel(
     completed = 0
 
     all_results = []
-    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+    # ThreadPoolExecutor avoids Windows spawn issues and works well for I/O-bound
+    # workloads (e.g., COG range requests via /vsicurl/). ProcessPoolExecutor is
+    # better for CPU-bound local extraction where GIL contention matters.
+    pool_cls = (
+        concurrent.futures.ThreadPoolExecutor
+        if use_threads
+        else concurrent.futures.ProcessPoolExecutor
+    )
+    with pool_cls(max_workers=max_workers) as executor:
         futures = [
-            executor.submit(_process_chunk_df, chunk, rasters, ops, i, num_chunks)
+            executor.submit(
+                _process_chunk_df, chunk, rasters, ops, i, num_chunks, weights
+            )
             for i, chunk in enumerate(chunks)
         ]
         for future in concurrent.futures.as_completed(futures):
@@ -1422,6 +1448,98 @@ def exact_extract_in_chunks_parallel(
 
 
 # ============================================================================
+# Int16 Area Band Extraction
+# ============================================================================
+
+
+def _extract_area_band_from_tifs(geotiff_paths, area_dir):
+    """
+    Extract band 1 (area) from each multiband Int16 TIF into separate 1-band TIFs.
+
+    In Int16 mode, band 1 contains the scaled pixel area (area_m2 × AREA_SCALE_FACTOR).
+    This function extracts it so it can be used as weights in exactextract weighted_sum.
+
+    Args:
+        geotiff_paths: List of paths to multiband GeoTIFF files
+        area_dir: Output directory for 1-band area TIFs
+
+    Returns:
+        list: Paths to the created 1-band area TIF files
+    """
+    import rasterio
+
+    os.makedirs(area_dir, exist_ok=True)
+    area_paths = []
+    for tif_path in geotiff_paths:
+        basename = os.path.splitext(os.path.basename(tif_path))[0]
+        area_path = os.path.join(area_dir, f"{basename}_area.tif")
+        with rasterio.open(tif_path) as src:
+            profile = src.profile.copy()
+            profile.update(count=1)
+            with rasterio.open(area_path, "w", **profile) as dst:
+                dst.write(src.read(1), 1)
+        area_paths.append(area_path)
+    return area_paths
+
+
+def _normalize_int16_stats(stats_df, band_names, area_scale_factor):
+    """
+    Normalize Int16 weighted_sum extraction results to match Float32 _sum convention.
+
+    After weighted_sum extraction with area weights:
+    - Data bands have columns like '{name}_weight_weighted_sum' = sum(binary × area_scaled)
+    - These need to be divided by area_scale_factor and renamed to '{name}_sum'
+    - Area band (band 1) uses the plain '_sum' column (sum of area_scaled values)
+    - Context bands use '_median' columns as-is
+
+    Args:
+        stats_df: DataFrame from exactextract with weighted_sum, sum, and median columns
+        band_names: List of band names in order (from EE image)
+        area_scale_factor: The factor used to scale pixel area (e.g., 10)
+
+    Returns:
+        pd.DataFrame: Normalized DataFrame with _sum and _median columns matching Float32 output
+    """
+    result_cols = {}
+
+    # Area band (index 0): use plain sum, divide by scale factor to get m²
+    area_name = band_names[0]
+    area_sum_col = f"{area_name}_sum"
+    if area_sum_col in stats_df.columns:
+        result_cols[area_sum_col] = stats_df[area_sum_col] / area_scale_factor
+
+    # Determine context band names (last 2 bands if include_context_bands)
+    # Convention: admin_code and In_waterbody are always the last 2 bands
+    context_names = set()
+    for name in band_names[-2:]:
+        if name in ("admin_code", "In_waterbody"):
+            context_names.add(name)
+
+    # Data bands: use weighted_sum, divide by scale factor, rename to _sum
+    for name in band_names[1:]:
+        if name in context_names:
+            continue
+        ws_col = f"{name}_weight_weighted_sum"
+        target_col = f"{name}_sum"
+        if ws_col in stats_df.columns:
+            result_cols[target_col] = stats_df[ws_col] / area_scale_factor
+
+    # Context bands: use median for admin_code, sum for In_waterbody
+    if "admin_code" in context_names:
+        med_col = "admin_code_median"
+        if med_col in stats_df.columns:
+            result_cols[med_col] = stats_df[med_col]
+    if "In_waterbody" in context_names:
+        sum_col = "In_waterbody_sum"
+        if sum_col in stats_df.columns:
+            result_cols[sum_col] = stats_df[sum_col]
+
+    # Build result DataFrame preserving original index
+    result_df = pd.DataFrame(result_cols, index=stats_df.index)
+    return result_df
+
+
+# ============================================================================
 # Main Workflow Functions
 # ============================================================================
 
@@ -1456,6 +1574,8 @@ def whisp_stats_local(
     sort_column="plotId",
     geometry_audit_trail=False,
     verbose=True,
+    output_dtype="float32",
+    exclude_yearly=False,
 ):
     """
     Privacy-preserving local statistics processing for Whisp.
@@ -1502,6 +1622,15 @@ def whisp_stats_local(
         sort_column: Column to sort output by (default: 'plotId', None to skip)
         geometry_audit_trail: If True, includes geo_original column with input geometry (default: False)
         verbose: If True, print progress messages (default: True). Set to False for quiet mode.
+        output_dtype: Output data type for the EE image: 'float32' (default) or 'int16'.
+            When 'int16': downloads are ~50% smaller (faster). Band 1 = scaled pixel area,
+            remaining data bands = binary 0/1, context bands = Int16.
+            Extraction uses weighted_sum with area band as weights.
+            Only valid for scale <= ~57m.
+        exclude_yearly: If True, exclude per-year timeseries datasets (~148 bands).
+            Reduces the image from ~197 to ~49 bands, significantly speeding up
+            EE computation, download, and extraction. Risk assessment is unaffected
+            since it only uses combined before/after 2020 bands. Default: False.
 
     Returns:
         pandas.DataFrame: Formatted zonal statistics matching concurrent mode output
@@ -1563,6 +1692,8 @@ def whisp_stats_local(
         image = combine_datasets(
             national_codes=national_codes,
             include_context_bands=include_context_bands,
+            output_dtype=output_dtype,
+            exclude_yearly=exclude_yearly,
         )
 
     # Get band names from the EE image (single getInfo call for both naming and tile size calculation)
@@ -1591,21 +1722,55 @@ def whisp_stats_local(
 
     # Step 4: Run parallel local zonal statistics
     _whisp_logger.debug("Running local zonal statistics...")
-    stats_df = exact_extract_in_chunks_parallel(
-        rasters=vrt_path,
-        vector_file=input_geojson_filepath,
-        chunk_size=chunk_size,
-        ops=ops,
-        max_workers=max_extract_workers,
-        band_names=band_names,  # Pass band names for column renaming
-        verbose=verbose,
-    )
+
+    if output_dtype == "int16":
+        from openforis_whisp.datasets import AREA_SCALE_FACTOR_INT16
+
+        # Int16 mode: extract area band for use as weights, then run weighted_sum
+        area_dir = os.path.join(output_dir, "_area_bands")
+        _whisp_logger.debug("Extracting area band from Int16 TIFs...")
+        area_paths = _extract_area_band_from_tifs(geotiff_paths, area_dir)
+        area_vrt_path = create_vrt_from_folder(area_dir, verbose=verbose)
+        _whisp_logger.debug(f"Area VRT created: {area_vrt_path}")
+
+        # Run extraction with area weights (weighted_sum for data, sum for area, median for context)
+        int16_ops = ["weighted_sum", "sum", "median"]
+        raw_stats_df = exact_extract_in_chunks_parallel(
+            rasters=vrt_path,
+            vector_file=input_geojson_filepath,
+            chunk_size=chunk_size,
+            ops=int16_ops,
+            max_workers=max_extract_workers,
+            band_names=band_names,
+            verbose=verbose,
+            weights=area_vrt_path,
+        )
+
+        # Normalize Int16 results to match Float32 _sum convention
+        stats_df = _normalize_int16_stats(
+            raw_stats_df, band_names, AREA_SCALE_FACTOR_INT16
+        )
+    else:
+        # Float32 mode: standard extraction (current behavior)
+        stats_df = exact_extract_in_chunks_parallel(
+            rasters=vrt_path,
+            vector_file=input_geojson_filepath,
+            chunk_size=chunk_size,
+            ops=ops,
+            max_workers=max_extract_workers,
+            band_names=band_names,
+            verbose=verbose,
+        )
 
     # Cleanup temporary files if requested
     if cleanup_files:
         _whisp_logger.debug("Cleaning up temporary files...")
         delete_all_files_in_folder(output_dir, "*.tif", verbose=verbose)
         delete_all_files_in_folder(output_dir, "*.vrt", verbose=verbose)
+        if output_dtype == "int16":
+            area_dir = os.path.join(output_dir, "_area_bands")
+            delete_all_files_in_folder(area_dir, "*.tif", verbose=verbose)
+            delete_all_files_in_folder(area_dir, "*.vrt", verbose=verbose)
 
     # ========================================================================
     # Post-processing to match concurrent mode output format

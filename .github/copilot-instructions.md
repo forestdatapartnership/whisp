@@ -182,11 +182,12 @@ In future, updating these may be automated to reduce manual updates to multiple 
 [stats.py](src/openforis_whisp/stats.py):
 
 - **Modern**: `whisp_formatted_stats_geojson_to_df()` — main entry point that routes to appropriate mode:
-  - `mode="concurrent"`: Uses [advanced_stats.py](src/openforis_whisp/advanced_stats.py) with high-volume EE endpoint for parallel processing
-  - `mode="sequential"`: Uses [advanced_stats.py](src/openforis_whisp/advanced_stats.py) with standard EE endpoint for single-threaded processing
-  - `mode="local"`: Uses [local_stats.py](src/openforis_whisp/local_stats.py) for privacy-preserving local processing (downloads GeoTIFFs, uses exactextract)
+  - `mode="concurrent"`: Uses [advanced_stats.py](src/openforis_whisp/advanced_stats.py) with high-volume EE endpoint for parallel processing. use this for best performance when processing large batches of features (e.g., 100+). Can handle GeoJSON over 10mb as it processes small batches in parallel (assuming each batch is under 10mb), but typically higher overhead for small batches due to parallelization setup.
+  - `mode="sequential"`: Uses [advanced_stats.py](src/openforis_whisp/advanced_stats.py) with standard EE endpoint for single-threaded processing. use this for small batches (e.g., <100 features) as it has lower overhead than concurrent mode. Limited to 10mb GeoJSON size due to GEE limitations.
+  - `mode="local"`: Uses [local_stats.py](src/openforis_whisp/local_stats.py) for privacy-preserving local processing. Raster layers are downloaded as GeoTIFFs for an extended bounding box around each plot and statistics are extracted locally (via exactextract). Use this mode to avoid sending plot geometries to Google Earth Engine (the other modes cache data from queries temporarily - a few days at most - which for some is still a prohibitive security concern). Due to the raster download step, it is slower and recommended for small jobs (≈ < 1,000 features).
+
   - `mode="legacy"`: Calls the original implementation for backward compatibility
-- **Legacy**: `whisp_formatted_stats_geojson_to_df_legacy()` — kept for backward compatibility, but will be removed in the future.
+- **Legacy**: `whisp_formatted_stats_geojson_to_df_legacy()` — kept for backward compatibility, but will be removed in the future. Some functions in the codebase still rely up the underlying legacy code(such as `whisp_stats_geojson_to_drive()` and whisp_stats_ee_to_drive), but will be updated in future to use modern functional equivalents.
 
 Always use modern functions for new code. Legacy function works correctly but lacks newer optimizations.
 
