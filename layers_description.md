@@ -21,7 +21,7 @@ To view the layers in action, go to [https://whisp.earthmap.org/](https://whisp.
     <tr><td>ee.ImageCollection (‘UMD/GLAD/PRIMARY_HUMID_TROPICAL_FORESTS/v1’)<br>Ancillary: ee.Image("UMD/hansen/global_forest_change_2024_v1_12")</td></tr>
     <tr><td rowspan="3">TMF_undist</td><td rowspan="3">Mosaic for Dec 2020, representing undisturbed cover (class 1) .</td><td rowspan="2">Vancutsem, C., Achard, F., Pekel, J.-F., Vieilledent, G., Carboni, S., Simonetti, D., Gallego, J., Aragão, L. E. O. C., & Nasi, R. (2021). <i>Long-term (1990–2019) monitoring of forest cover changes in the humid tropics.</i> Science Advances, 7(10). https://doi.org/10.1126/sciadv.abe1603</td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection(‘projects/JRC/TMF/v1_2024/AnnualChanges’)</td></tr>
+    <tr><td>ee.ImageCollection(‘projects/JRC/TMF/v1_2025/AnnualChanges’)</td></tr>
     <tr><td rowspan="3">GFC_TC_2020</td><td rowspan="3">Areas of tree cover over 10 percent in 2020 (loss pixels removed).</td><td rowspan="2">Hansen, M. C., Potapov, P. V., Moore, R., Hancher, M., Turubanova, S. A., Tyukavina, A., Thau, D., Stehman, S. V., Goetz, S. J., Loveland, T. R., Kommareddy, A., Egorov, A., Chini, L., Justice, C. O., & Townshend, J. R. G. (2013). <i>High-Resolution Global Maps of 21st-Century Forest Cover Change.</i> Science, 342(6160), 850–853. https://doi.org/10.1126/science.1244693. Data available online from: https://glad.earthengine.app/view/global-forest-change.</td></tr>
     <tr></tr>
     <tr><td>ee.Image("UMD/hansen/global_forest_change_2024_v1_12")
@@ -35,7 +35,7 @@ To view the layers in action, go to [https://whisp.earthmap.org/](https://whisp.
     <tr><td colspan="3"><b>Commodity datasets:</b></td></tr>
     <tr><td rowspan="3">TMF_plant</td><td rowspan="3">Classes representing any type of plantation from transition map (classes 81-85). Deforestation data after 2020 removed so remaining areas represent plantations at end of 2020.</td><td rowspan="2">Vancutsem, C., Achard, F., Pekel, J.-F., Vieilledent, G., Carboni, S., Simonetti, D., Gallego, J., Aragão, L. E. O. C., & Nasi, R. (2021). <i>Long-term (1990–2019) monitoring of forest cover changes in the humid tropics.</i> Science Advances, 7(10). https://doi.org/10.1126/sciadv.abe1603</td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection('projects/JRC/TMF/v1_2024/TransitionMap_Subtypes')<br>ee.ImageCollection('projects/JRC/TMF/v1_2024/DeforestationYear')</td></tr>
+    <tr><td>ee.ImageCollection('projects/JRC/TMF/v1_2025/TransitionMap_Subtypes')<br>ee.ImageCollection('projects/JRC/TMF/v1_2025/DeforestationYear')</td></tr>
     <tr><td rowspan="3">Oil_palm_Descals</td><td rowspan="3">Classes from the “classification band” representing oil palm plantations (i.e., 0 & 1).</td><td rowspan="2">Descals, A., Wich, S., Meijaard, E., Gaveau, D. L. A., Peedell, S., & Szantoi, Z. (2021). <i>High-resolution global map of smallholder and industrial closed-canopy oil palm plantations.</i> Earth System Science Data, 13(3), 1211–1231. https://doi.org/10.5194/essd-13-1211-2021</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection(‘BIOPAMA/GlobalOilPalm/v1’)</td></tr>
@@ -69,7 +69,7 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr><td colspan="3"><b>Datasets of disturbances before 2020-12-31:</b></td></tr>
     <tr><td rowspan="3">TMF_deg_before_2020 <br> TMF_def_before_2020</td><td rowspan="3">Binary masks of aggregate degradation & deforestation between 2000 and 2020.</td><td rowspan="2">Vancutsem, C., Achard, F., Pekel, J.-F., Vieilledent, G., Carboni, S., Simonetti, D., Gallego, J., Aragão, L. E. O. C., & Nasi, R. (2021). <i>Long-term (1990–2019) monitoring of forest cover changes in the humid tropics.</i> Science Advances, 7(10). https://doi.org/10.1126/sciadv.abe1603</td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection('projects/JRC/TMF/v1_2024/DegradationYear')<br>ee.ImageCollection('projects/JRC/TMF/v1_2024/DeforestationYear')</td></tr>
+    <tr><td>ee.ImageCollection('projects/JRC/TMF/v1_2025/DegradationYear')<br>ee.ImageCollection('projects/JRC/TMF/v1_2025/DeforestationYear')</td></tr>
     <tr><td rowspan="3">GFC_loss_before_2020</td><td rowspan="3">Binary mask of aggregate tree cover losses between 2000 and 2020.</td><td rowspan="2">Hansen, M. C., Potapov, P. V., Moore, R., Hancher, M., , S. A., Tyukavina, A., Thau, D., Stehman, S. V., Goetz, S. J., Loveland, T. R., Kommareddy, A., Egorov, A., Chini, L., Justice, C. O., & Townshend, J. R. G. (2013). <i>High-Resolution Global Maps of 21st-Century Forest Cover Change.</i> Science, 342(6160), 850–853. https://doi.org/10.1126/science.1244693. Data available online from: https://glad.earthengine.app/view/global-forest-change.</td></tr>
     <tr></tr>
     <tr><td>ee.Image("UMD/hansen/global_forest_change_2024_v1_12")</td></tr>
@@ -85,7 +85,7 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
   <tr><td colspan="3"><b>Datasets of disturbances after 2020-12-31:</b></td></tr>
     <tr><td rowspan="3">TMF_deg_after_2020 <br> TMF_def_after_2020</td><td rowspan="3">Binary masks of aggregate degradation & deforestation from 2021 onward.</td><td rowspan="2">Vancutsem, C., Achard, F., Pekel, J.-F., Vieilledent, G., Carboni, S., Simonetti, D., Gallego, J., Aragão, L. E. O. C., & Nasi, R. (2021). <i>Long-term (1990–2019) monitoring of forest cover changes in the humid tropics.</i> Science Advances, 7(10). https://doi.org/10.1126/sciadv.abe1603</td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection('projects/JRC/TMF/v1_2024/DegradationYear')<br>ee.ImageCollection('projects/JRC/TMF/v1_2024/DeforestationYear')</td></tr>
+    <tr><td>ee.ImageCollection('projects/JRC/TMF/v1_2025/DegradationYear')<br>ee.ImageCollection('projects/JRC/TMF/v1_2025/DeforestationYear')</td></tr>
     <tr><td rowspan="3">GFC_loss_after_2020</td><td rowspan="3">Binary mask of aggregate tree cover losses from 2021 onward.</td><td rowspan="2">Hansen, M. C., Potapov, P. V., Moore, R., Hancher, M., , S. A., Tyukavina, A., Thau, D., Stehman, S. V., Goetz, S. J., Loveland, T. R., Kommareddy, A., Egorov, A., Chini, L., Justice, C. O., & Townshend, J. R. G. (2013). <i>High-Resolution Global Maps of 21st-Century Forest Cover Change.</i> Science, 342(6160), 850–853. https://doi.org/10.1126/science.1244693. Data available online from: https://glad.earthengine.app/view/global-forest-change.</td></tr>
     <tr></tr>
     <tr><td>ee.Image("UMD/hansen/global_forest_change_2024_v1_12")</td></tr>
@@ -111,9 +111,9 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection("MODIS/061/MCD64A1")</td></tr>
     <tr><td colspan="3"><b>Primary forests:</b></td></tr>
-    <tr><td rowspan="3">GFT_primary</td><td rowspan="3"> Primary forest class (10) from the Global Forest Types map V0 (forest extent of GFC2020 V1).</td><td rowspan="2">	European Commission: Joint Research Centre, BOURGOIN, C., VERHEGGHEN, A., CARBONI, S., DEGREVE, L., AMEZTOY ARAMENDI, I., CECCHERINI, G., COLDITZ, R. and ACHARD, F., Global Forest Maps for the Year 2020 to Support the EU Regulation on Deforestation-free Supply Chains, Publications Office of the European Union, Luxembourg, 2025, https://data.europa.eu/doi/10.2760/1975879, JRC141702. </td></tr>
+    <tr><td rowspan="3">GFT_primary</td><td rowspan="3"> Primary forest class (10) from the Global Forest Types map V1 (forest extent of GFC2020 V3).</td><td rowspan="2">	European Commission: Joint Research Centre, BOURGOIN, C., VERHEGGHEN, A., CARBONI, S., DEGREVE, L., AMEZTOY ARAMENDI, I., CECCHERINI, G., COLDITZ, R. and ACHARD, F., Global Forest Maps for the Year 2020 to Support the EU Regulation on Deforestation-free Supply Chains, Publications Office of the European Union, Luxembourg, 2025, https://data.europa.eu/doi/10.2760/1975879, JRC141702. </td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection(“JRC/GFC2020_subtypes/V0”)</td></tr>
+    <tr><td>ee.Image("JRC/GFC2020_subtypes/V1")</td></tr>
     <tr><td rowspan="3">IFL_2020</td><td rowspan="3"> Intact Forest Landscape binary map (1 is IFL).</td><td rowspan="2">Potapov, P., Hansen, M.C., Laestadius, L., Turubanova, S., Yaroshenko, A., Thies, C., Smith, W., Zhuravleva, I., Komarova, A., Minnemeyer, S., others, 2017. The last frontiers of wilderness: Tracking loss of intact forest landscapes from 2000 to 2013. Science Advances 3, e1600821. </td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection(“users/potapovpeter/IFL_2020”)</td></tr>
@@ -121,20 +121,20 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr></tr>
     <tr><td>ee.FeatureCollection(“HU_BERLIN/EPFD/V2/polygons”)</td></tr>
     <tr><td colspan="3"><b>Naturally regenerating forests:</b></td></tr>
-    <tr><td rowspan="3">GFT_naturally_regenerating</td><td rowspan="3"> Naturally regenerating forest class (1) from the Global Forest Types map V0 (forest extent of GFC2020 V1).</td><td rowspan="2">	European Commission: Joint Research Centre, BOURGOIN, C., VERHEGGHEN, A., CARBONI, S., DEGREVE, L., AMEZTOY ARAMENDI, I., CECCHERINI, G., COLDITZ, R. and ACHARD, F., Global Forest Maps for the Year 2020 to Support the EU Regulation on Deforestation-free Supply Chains, Publications Office of the European Union, Luxembourg, 2025, https://data.europa.eu/doi/10.2760/1975879, JRC141702. </td></tr>
+    <tr><td rowspan="3">GFT_naturally_regenerating</td><td rowspan="3"> Naturally regenerating forest class (1) from the Global Forest Types map V1 (forest extent of GFC2020 V3).</td><td rowspan="2">	European Commission: Joint Research Centre, BOURGOIN, C., VERHEGGHEN, A., CARBONI, S., DEGREVE, L., AMEZTOY ARAMENDI, I., CECCHERINI, G., COLDITZ, R. and ACHARD, F., Global Forest Maps for the Year 2020 to Support the EU Regulation on Deforestation-free Supply Chains, Publications Office of the European Union, Luxembourg, 2025, https://data.europa.eu/doi/10.2760/1975879, JRC141702. </td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection(“JRC/GFC2020_subtypes/V0”)</td></tr>
+    <tr><td>ee.Image("JRC/GFC2020_subtypes/V1")</td></tr>
     <tr><td colspan="3"><b>Planted/plantation forests:</b></td></tr>
-    <tr><td rowspan="3">GFT_planted_plantation</td><td rowspan="3"> Planted and plantation forests class (20) from the Global Forest Types map V0 (forest extent of GFC2020 V1).</td><td rowspan="2">	European Commission: Joint Research Centre, BOURGOIN, C., VERHEGGHEN, A., CARBONI, S., DEGREVE, L., AMEZTOY ARAMENDI, I., CECCHERINI, G., COLDITZ, R. and ACHARD, F., Global Forest Maps for the Year 2020 to Support the EU Regulation on Deforestation-free Supply Chains, Publications Office of the European Union, Luxembourg, 2025, https://data.europa.eu/doi/10.2760/1975879, JRC141702. </td></tr>
+    <tr><td rowspan="3">GFT_planted_plantation</td><td rowspan="3"> Planted and plantation forests class (20) from the Global Forest Types map V1 (forest extent of GFC2020 V3).</td><td rowspan="2">	European Commission: Joint Research Centre, BOURGOIN, C., VERHEGGHEN, A., CARBONI, S., DEGREVE, L., AMEZTOY ARAMENDI, I., CECCHERINI, G., COLDITZ, R. and ACHARD, F., Global Forest Maps for the Year 2020 to Support the EU Regulation on Deforestation-free Supply Chains, Publications Office of the European Union, Luxembourg, 2025, https://data.europa.eu/doi/10.2760/1975879, JRC141702. </td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection(“JRC/GFC2020_subtypes/V0”)</td></tr>
+    <tr><td>ee.Image("JRC/GFC2020_subtypes/V1")</td></tr>
     <tr><td rowspan="3">IIASA_planted_plantation</td><td rowspan="3"> Planted or plantation forests classes (31,32) of the IIASA Global Forest Management map.</td><td rowspan="2">	Lesiv, M., Schepaschenko, D., Buchhorn, M., See, L., Dürauer, M., Georgieva, I., Jung, M., Hofhansl, F., Schulze, K., Bilous, A., Blyshchyk, V., Mukhortova, L., Brenes, C.L.M., Krivobokov, L., Ntie, S., Tsogt, K., Pietsch, S.A., Tikhonova, E., Kim, M., Di Fulvio, F., Su, Y.-F., Zadorozhniuk, R., Sirbu, F.S., Panging, K., Bilous, S., Kovalevskii, S.B., Kraxner, F., Rabia, A.H., Vasylyshyn, R., Ahmed, R., Diachuk, P., Kovalevskyi, S.S., Bungnamei, K., Bordoloi, K., Churilov, A., Vasylyshyn, O., Sahariah, D., Tertyshnyi, A.P., Saikia, A., Malek, Ž., Singha, K., Feshchenko, R., Prestele, R., Akhtar, I. ul H., Sharma, K., Domashovets, G., Spawn-Lee, S.A., Blyshchyk, O., Slyva, O., Ilkiv, M., Melnyk, O., Sliusarchuk, V., Karpuk, A., Terentiev, A., Bilous, V., Blyshchyk, K., Bilous, M., Bogovyk, N., Blyshchyk, I., Bartalev, S., Yatskov, M., Smets, B., Visconti, P., Mccallum, I., Obersteiner, M., Fritz, S., 2022. Global forest management data for 2015 at a 100 m resolution. Sci Data 9, 199. https://doi.org/10.1038/s41597-022-01332-3 </td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection(“projects/sat-io/open-datasets/GFM/FML_v3-2”)</td></tr>
     <tr><td colspan="3"><b>Tree cover post 2020:</b></td></tr>
     <tr><td rowspan="3">TMF_regrowth_2023</td><td rowspan="3"> Binary map of Regrowth class (4) for the TMF Annual change year 2023 </td><td rowspan="2">Vancutsem, C., Achard, F., Pekel, J.-F., Vieilledent, G., Carboni, S., Simonetti, D., Gallego, J., Aragão, L. E. O. C., & Nasi, R. (2021). Long-term (1990–2019) monitoring of forest cover changes in the humid tropics. Science Advances, 7(10). https://doi.org/10.1126/sciadv.abe1603 </td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection(“projects/JRC/TMF/v1_2024/AnnualChanges”)</td></tr>
+    <tr><td>ee.ImageCollection(“projects/JRC/TMF/v1_2025/AnnualChanges”)</td></tr>
     <tr><td rowspan="3">ESRI_2023_TC</td><td rowspan="3"> Tree cover class (2) of the 2023 ESRI LC map </td><td rowspan="2">Karra, Kontgis, et al. “Global land use/land cover with Sentinel-2 and deep learning.”IGARSS 2021-2021 IEEE International Geoscience and Remote Sensing Symposium. IEEE, 2021. </td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection(“"projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS”)</td></tr>
