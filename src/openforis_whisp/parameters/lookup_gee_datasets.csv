@@ -3,7 +3,7 @@ EUFO_2020,10,,treecover,naturally_reg_2020,1,1,0,float32,1,0,g_jrc_gfc_2020_prep
 GLAD_Primary,20,,treecover,primary,1,1,0,float32,1,0,g_glad_pht_prep
 TMF_undist,30,,treecover,primary,1,1,0,float32,1,0,g_jrc_tmf_undisturbed_prep
 GFC_TC_2020,40,,treecover,naturally_reg_2020,0,0,0,float32,1,0,g_glad_gfc_10pc_prep
-Forest_FDaP,50,,treecover,naturally_reg_2020,1,1,0,float32,1,0,g_glad_gfc_10pc_prep
+Forest_FDaP,50,,treecover,naturally_reg_2020,0,0,0,float32,1,0,g_glad_gfc_10pc_prep
 ESA_TC_2020,60,,treecover,naturally_reg_2020,0,0,0,float32,1,0,g_esa_worldcover_trees_prep
 TMF_plant,70,,commodities,NA,1,1,0,float32,1,0,g_jrc_tmf_plantation_prep
 Oil_palm_Descals,80,,commodities,NA,1,1,0,float32,1,0,g_creaf_descals_palm_prep

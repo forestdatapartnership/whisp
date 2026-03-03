@@ -95,7 +95,7 @@ def g_glad_pht_prep():
 # TMF_undist (undistrubed forest in 2020)
 def g_jrc_tmf_undisturbed_prep():
     TMF_undist_2020 = (
-        ee.ImageCollection("projects/JRC/TMF/v1_2024/AnnualChanges")
+        ee.ImageCollection("projects/JRC/TMF/v1_2025/AnnualChanges")
         .select("Dec2020")
         .mosaic()
         .eq(1)
@@ -135,7 +135,7 @@ def g_epfd_prep():
 
 # EUFO JRC Global forest type - naturally regenerating planted/plantation forests
 def g_gft_nat_reg_prep():
-    gft_raw = ee.ImageCollection("JRC/GFC2020_subtypes/V0").mosaic()
+    gft_raw = ee.Image("JRC/GFC2020_subtypes/V1")
     gft_nat_reg = gft_raw.eq(1)
     return gft_nat_reg.rename("GFT_naturally_regenerating").selfMask()
 
@@ -144,7 +144,7 @@ def g_gft_nat_reg_prep():
 
 # EUFO JRC Global forest type - planted/plantation forests
 def g_gft_plantation_prep():
-    gft_raw = ee.ImageCollection("JRC/GFC2020_subtypes/V0").mosaic()
+    gft_raw = ee.Image("JRC/GFC2020_subtypes/V1")
     gft_plantation = gft_raw.eq(20)
     return gft_plantation.rename("GFT_planted_plantation").selfMask()
 
@@ -158,7 +158,7 @@ def g_iiasa_planted_prep():
 #########################TMF regrowth in 2023
 def g_tmf_regrowth_prep():
     # Load the TMF Degradation annual product
-    TMF_AC = ee.ImageCollection("projects/JRC/TMF/v1_2024/AnnualChanges").mosaic()
+    TMF_AC = ee.ImageCollection("projects/JRC/TMF/v1_2025/AnnualChanges").mosaic()
     TMF_AC_2023 = TMF_AC.select("Dec2023")
     Regrowth_TMF = TMF_AC_2023.eq(4)
     return Regrowth_TMF.rename("TMF_regrowth_2023").selfMask()
@@ -169,10 +169,10 @@ def g_tmf_regrowth_prep():
 # TMF_plant (plantations in 2020)
 def g_jrc_tmf_plantation_prep():
     transition = ee.ImageCollection(
-        "projects/JRC/TMF/v1_2024/TransitionMap_Subtypes"
+        "projects/JRC/TMF/v1_2025/TransitionMap_Subtypes"
     ).mosaic()
     deforestation_year = ee.ImageCollection(
-        "projects/JRC/TMF/v1_2024/DeforestationYear"
+        "projects/JRC/TMF/v1_2025/DeforestationYear"
     ).mosaic()
     plantation = (transition.gte(81)).And(transition.lte(86))
     plantation_2020 = plantation.where(
@@ -439,7 +439,7 @@ def g_radd_year_prep():
 # TMF_def_2000 to TMF_def_2023
 def g_tmf_def_per_year_prep():
     # Load the TMF Deforestation annual product
-    tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2024/DeforestationYear").mosaic()
+    tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2025/DeforestationYear").mosaic()
     img_stack = None
     # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
     for i in range(0, 24 + 1):
@@ -456,7 +456,7 @@ def g_tmf_def_per_year_prep():
 # TMF_deg_2000 to TMF_deg_2023
 def g_tmf_deg_per_year_prep():
     # Load the TMF Degradation annual product
-    tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2024/DegradationYear").mosaic()
+    tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2025/DegradationYear").mosaic()
     img_stack = None
     # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
     for i in range(0, 24 + 1):
@@ -1003,7 +1003,7 @@ def g_glad_s2_year_prep():
 
 # TMF_deg_before_2020
 def g_tmf_deg_before_2020_prep():
-    tmf_deg = ee.ImageCollection("projects/JRC/TMF/v1_2024/DegradationYear").mosaic()
+    tmf_deg = ee.ImageCollection("projects/JRC/TMF/v1_2025/DegradationYear").mosaic()
     return (
         (tmf_deg.lte(2020))
         .And(tmf_deg.gte(2000))
@@ -1014,13 +1014,13 @@ def g_tmf_deg_before_2020_prep():
 
 # TMF_deg_after_2020
 def g_tmf_deg_after_2020_prep():
-    tmf_deg = ee.ImageCollection("projects/JRC/TMF/v1_2024/DegradationYear").mosaic()
+    tmf_deg = ee.ImageCollection("projects/JRC/TMF/v1_2025/DegradationYear").mosaic()
     return tmf_deg.gt(2020).rename("TMF_deg_after_2020").selfMask()
 
 
 # tmf_def_before_2020
 def g_tmf_def_before_2020_prep():
-    tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2024/DeforestationYear").mosaic()
+    tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2025/DeforestationYear").mosaic()
     return (
         (tmf_def.lte(2020))
         .And(tmf_def.gte(2000))
@@ -1031,7 +1031,7 @@ def g_tmf_def_before_2020_prep():
 
 # tmf_def_after_2020
 def g_tmf_def_after_2020_prep():
-    tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2024/DeforestationYear").mosaic()
+    tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2025/DeforestationYear").mosaic()
     return tmf_def.gt(2020).rename("TMF_def_after_2020").selfMask()
 
 
