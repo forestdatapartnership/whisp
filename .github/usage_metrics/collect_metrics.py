@@ -7,11 +7,33 @@ from pathlib import Path
 
 PACKAGE = "openforis-whisp"
 OWNER, REPO = "forestdatapartnership", "whisp"
+MONTH_NAMES = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+]
+
+
+def month_label(ym):
+    """'2026-02' -> 'Feb 2026 (2026-02)'"""
+    y, m = ym.split("-")
+    return f"{MONTH_NAMES[int(m) - 1]} {y} ({ym})"
+
+
 DIR = Path(__file__).resolve().parent
 METRICS_CSV = DIR / "usage_metrics.csv"
 TRAFFIC_CSV = DIR / "github_traffic.csv"
 COUNTRY_CSV = DIR / "country_downloads.csv"
-REPORT_MD = DIR / "USAGE_STATS.md"
+REPORT_MD = DIR.parent / "USAGE_STATS.md"
 
 
 def get(url):
@@ -83,11 +105,24 @@ def collect():
 
 
 def collect_countries():
-    """Query BigQuery for country-level downloads (last 30 days). Skips if no credentials."""
+    """Query BigQuery for country-level downloads (last 30 days). Skips if no credentials or already fresh."""
     sa_key = os.environ.get("GCP_SA_KEY")
     if not sa_key:
         print("  SKIP: country query (no GCP_SA_KEY)", file=sys.stderr)
         return
+
+    # Skip if we already have data for the current month (avoids burning BigQuery quota)
+    current_month = datetime.now(timezone.utc).strftime("%Y-%m")
+    if COUNTRY_CSV.exists():
+        with open(COUNTRY_CSV, encoding="utf-8") as f:
+            existing_months = {r["month"] for r in csv.DictReader(f)}
+        if current_month in existing_months:
+            print(
+                f"  SKIP: country data already exists for {current_month}",
+                file=sys.stderr,
+            )
+            return
+
     try:
         from google.cloud import bigquery
         from google.oauth2 import service_account
@@ -197,17 +232,98 @@ def generate_report():
                 country_by_month[r["month"]]["total"] += int(r["downloads"])
                 country_totals[r["country_code"]] += int(r["downloads"])
 
+    # Version history from PyPI
+    version_by_month = {}
+    try:
+        req = urllib.request.Request(
+            f"https://pypi.org/pypi/{PACKAGE}/json",
+            headers={"User-Agent": "whisp-metrics/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            pypi = json.loads(resp.read())
+        all_versions = []
+        for v, files in pypi["releases"].items():
+            if files:
+                all_versions.append((v, files[0]["upload_time"][:10]))
+        all_versions.sort(key=lambda x: x[1])
+        # Map each month to the latest version released that month
+        for v, d in all_versions:
+            month = d[:7]
+            version_by_month[month] = v
+    except Exception as e:
+        print(f"  WARN: could not fetch version history: {e}", file=sys.stderr)
+
     all_months = sorted(
-        set(by_month) | set(clones_monthly) | set(country_by_month), reverse=True
+        set(by_month)
+        | set(clones_monthly)
+        | set(country_by_month)
+        | set(version_by_month),
+        reverse=True,
     )
+
+    # GitHub stars (snapshot)
+    stars = None
+    d = get(f"https://api.github.com/repos/{OWNER}/{REPO}")
+    if d:
+        stars = d.get("stargazers_count")
+
+    # --- Headline stats (latest month with actual data) ---
+    latest_month = None
+    headline_installs = headline_clones = None
+    headline_linux = headline_countries = None
+    for month in all_months:
+        m = by_month.get(month, {})
+        win = int(m.get("Windows") or 0)
+        mac = int(m.get("Darwin") or 0)
+        linux = int(m.get("Linux") or 0)
+        if win or mac or month in clones_monthly:
+            latest_month = month
+            if win or mac:
+                headline_installs = win + mac
+            if month in clones_monthly:
+                headline_clones = clones_monthly[month]
+            if linux:
+                headline_linux = linux
+            cm = country_by_month.get(month)
+            if cm:
+                headline_countries = len(cm["countries"])
+            break
 
     lines = [
         "# Whisp Usage Stats",
         "",
-        "> Auto-updated weekly by [GitHub Actions](../workflows/collect_usage_metrics.yml).",
+        "> Auto-updated weekly by [GitHub Actions](workflows/collect_usage_metrics.yml).",
         "",
-        "| Month | Active Use (Win + Mac) | Colab/Linux | Other | Countries | GitHub Clones (unique) |",
-        "|-------|------------------------|-------------|-------|-----------|------------------------|",
+    ]
+
+    # Headline box
+    if latest_month:
+        lines.append(f"#### {month_label(latest_month)}")
+        lines.append("")
+        local_parts = []
+        if headline_installs is not None:
+            local_parts.append(f"Desktop installs: **{headline_installs}**")
+        if headline_clones is not None:
+            local_parts.append(f"GitHub clones: **{headline_clones}**")
+        else:
+            local_parts.append("GitHub clones: **—**")
+        lines.append("**Local use** — " + " · ".join(local_parts))
+        lines.append("")
+        wider_parts = []
+        if headline_linux is not None:
+            wider_parts.append(f"Colab/Linux: **{headline_linux}**")
+        if headline_countries is not None:
+            wider_parts.append(f"Countries: **{headline_countries}**")
+        if wider_parts:
+            lines.append("**Wider use** — " + " · ".join(wider_parts))
+            lines.append("")
+
+    # --- Monthly table ---
+    lines += [
+        "### Monthly Breakdown",
+        "",
+        "| Month | PyPI: Desktop (Win+Mac) | PyPI: Colab/Linux | PyPI: Other/Unknown | PyPI: Countries | GitHub: Clones | GitHub: Stars | Release |",
+        "|-------|------------------------:|------------------:|--------------------:|----------------:|---------------:|--------------:|---------|",
     ]
     for month in all_months:
         m = by_month.get(month, {})
@@ -221,19 +337,52 @@ def generate_report():
         cm = country_by_month.get(month)
         countries = str(len(cm["countries"])) if cm else "\u2014"
         clones = str(clones_monthly[month]) if month in clones_monthly else "\u2014"
+        version = version_by_month.get(month, "")
+        stars_str = str(stars) if (stars is not None and month == all_months[0]) else ""
         lines.append(
-            f"| {month} | {active} | {colab} | {other_str} | {countries} | {clones} |"
+            f"| {month} | {active} | {colab} | {other_str} | {countries} | {clones} | {stars_str} | {version} |"
         )
 
-    # Top countries section
+    # Top countries — latest month with data + all time
     if country_totals:
+        # Find latest month with country data
+        latest_country_month = None
+        for month in all_months:
+            if month in country_by_month:
+                latest_country_month = month
+                break
+
+        if latest_country_month:
+            # Read per-country data for that month
+            month_country_totals = defaultdict(int)
+            if COUNTRY_CSV.exists():
+                with open(COUNTRY_CSV, encoding="utf-8") as f:
+                    for r in csv.DictReader(f):
+                        if r["month"] == latest_country_month:
+                            month_country_totals[r["country_code"]] += int(
+                                r["downloads"]
+                            )
+            if month_country_totals:
+                top_month = sorted(month_country_totals.items(), key=lambda x: -x[1])[
+                    :10
+                ]
+                lines += [
+                    "",
+                    f"### Top Countries — {month_label(latest_country_month)}",
+                    "",
+                    "| Country | Downloads |",
+                    "|---------|----------:|",
+                ]
+                for cc, dl in top_month:
+                    lines.append(f"| {cc} | {dl:,} |")
+
         top = sorted(country_totals.items(), key=lambda x: -x[1])[:15]
         lines += [
             "",
-            "### Downloads by Country (all time)",
+            "### Top Countries — All Time",
             "",
             "| Country | Downloads |",
-            "|---------|----------|",
+            "|---------|----------:|",
         ]
         for cc, dl in top:
             lines.append(f"| {cc} | {dl:,} |")
@@ -241,11 +390,16 @@ def generate_report():
     lines += [
         "",
         "---",
-        "**Active Use** = pip installs on Windows + macOS (people using the package locally on their machines). "
-        "**Colab/Linux** = Linux pip installs (mostly Colab notebooks re-installing each session). "
-        "**Other** = downloads where OS is unknown (mirrors, bots, dependency resolvers). "
-        "**Countries** = unique countries downloading (via BigQuery, excl. mirrors). "
-        "**Clones** = unique users pulling the repo.",
+        "",
+        "**PyPI columns** = pip install downloads from [pypistats.org](https://pypistats.org). "
+        "Desktop = Windows + macOS installs. "
+        "Colab/Linux = Linux installs (mostly Colab/SEPAL notebooks). "
+        "Other/Unknown = OS not reported (mirrors, bots, dependency resolvers). "
+        "Countries = unique countries downloading (via BigQuery, excl. mirrors).",
+        "",
+        "**GitHub columns** = data from GitHub Traffic API (14-day rolling window). "
+        "Clones = unique users who cloned the repo. "
+        "Stars = current total (snapshot, shown on latest month only).",
         "",
     ]
 
