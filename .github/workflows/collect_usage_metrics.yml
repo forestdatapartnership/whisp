@@ -1,0 +1,39 @@
+name: Collect usage metrics
+
+# Runs weekly on Monday at 06:00 UTC — captures the 14-day GitHub traffic
+# window with overlap so no daily data is lost between runs.
+on:
+  schedule:
+    - cron: "0 6 * * 1"  # Every Monday at 06:00 UTC
+  workflow_dispatch:        # Allow manual trigger from GitHub UI
+
+permissions:
+  contents: write           # Needed to commit CSV updates
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install BigQuery client
+        run: pip install google-cloud-bigquery
+
+      - name: Collect metrics
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: python .github/scripts/collect_metrics.py
+
+      - name: Commit updated files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/scripts/usage_metrics.csv .github/scripts/github_traffic.csv .github/scripts/country_downloads.csv .github/scripts/USAGE_STATS.md
+          # Only commit if there are changes
+          git diff --cached --quiet || git commit -m "chore: weekly usage metrics snapshot [skip ci]"
+          git push
