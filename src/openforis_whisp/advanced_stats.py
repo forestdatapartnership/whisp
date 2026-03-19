@@ -462,7 +462,16 @@ def check_ee_endpoint(endpoint_type: str = "high-volume") -> bool:
     bool
         True if using expected endpoint, False otherwise
     """
-    api_url = str(ee.data._cloud_api_base_url)
+    try:
+        api_url = str(ee.data._cloud_api_base_url)
+    except AttributeError:
+        # EE 1.7+ removed _cloud_api_base_url; try alternative approaches
+        try:
+            api_url = str(ee.data._api_base_url)
+        except AttributeError:
+            # Cannot determine endpoint; assume correct and let EE handle errors
+            logging.debug("Cannot determine EE endpoint URL; skipping endpoint check.")
+            return True
 
     if endpoint_type == "high-volume":
         return "highvolume" in api_url.lower()
