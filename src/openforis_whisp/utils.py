@@ -85,7 +85,12 @@ def init_ee() -> None:
     """Initialize earth engine according to the environment"""
 
     # only do the initialization if the credential are missing
-    if not ee.data._credentials:
+    try:
+        credentials_missing = not ee.data._credentials
+    except AttributeError:
+        # EE 1.7+ removed _credentials
+        credentials_missing = True
+    if credentials_missing:
 
         # if in test env use the private key
         if "EE_PRIVATE_KEY" in os.environ:
