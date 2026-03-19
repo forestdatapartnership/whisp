@@ -92,9 +92,11 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr><td rowspan="3">RADD_after_2020</td><td rowspan="3">Binary mask of aggregate confirmed (i.e., class 3) alerts from 2021 onward.</td><td rowspan="2">Reiche, J., Mullissa, A., Slagter, B., Gou, Y., Tsendbazar, N.-E., Odongo-Braun, C., Vollrath, A., Weisse, M. J., Stolle, F., Pickens, A., Donchyts, G., Clinton, N., Gorelick, N., & Herold, M. (2021). <i>Forest disturbance alerts for the Congo Basin using Sentinel-1.</i> Environmental Research Letters, 16(2), 024005. https://doi.org/10.1088/1748-9326/abd0a8</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection('projects/radar-wur/raddalert/v1')</td></tr>
+    <!-- DIST datasets temporarily disabled
     <tr><td rowspan="3">DIST_after_2020</td><td rowspan="3">Binary mask of high-confidence vegetation disturbance alerts (classes 3, 6, 7, 8) filtered by forest habitat (JRC GFC2020). Data only available from 2023 onwards.</td><td rowspan="2">Pickens, A.H., Hansen, M.C., Song, Z. et al. Rapid monitoring of global land change. Nat Commun 16, 8948 (2025). https://doi.org/10.1038/s41467-025-64014-9</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection('projects/glad/HLSDIST/current/VEG-DIST-STATUS')<br>Ancillary: ee.Image("JRC/GFC2020/V3")</td></tr>
+    -->
     <tr><td rowspan="3">GLAD-L_before_2020</td><td rowspan="3">Binary mask of aggregate confirmed GLAD Landsat forest alerts (confidence >= 2) from 2017 to 2020 inclusive. Note: although some areas have data for 2015 and 2016 the assets do not exist in GEE. Coverage: Tropics (30°N to 30°S).</td><td rowspan="2">Hansen, M.C., Krylov, A., Tyukavina, A., Potapov, P.V., Turubanova, S., Zutta, B., Ifo, S., Margono, B., Stolle, F., & Moore, R. (2016). <i>Humid tropical forest disturbance alerts using Landsat data.</i> Environmental Research Letters, 11(3), 034008. https://doi.org/10.1088/1748-9326/11/3/034008</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection('projects/glad/alert/2017final')<br>ee.ImageCollection('projects/glad/alert/2018final')<br>ee.ImageCollection('projects/glad/alert/2019final')<br>ee.ImageCollection('projects/glad/alert/2020final')</td></tr>

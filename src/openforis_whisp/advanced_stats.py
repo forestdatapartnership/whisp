@@ -1071,21 +1071,32 @@ def whisp_stats_geojson_to_df_concurrent(
     # Create image if not provided
     if whisp_image is None:
         logger.debug("Creating Whisp image...")
-        # Suppress print statements from combine_datasets
-        with redirect_stdout(io.StringIO()):
+        # Capture print statements from combine_datasets and re-emit via logger
+        captured = io.StringIO()
+        with redirect_stdout(captured):
             try:
-                # First try without validation
+                # First try with auto_recovery (validates only if error detected)
                 whisp_image = combine_datasets(
-                    national_codes=national_codes, validate_bands=False
+                    national_codes=national_codes, auto_recovery=True
                 )
             except Exception as e:
                 logger.warning(
                     f"First attempt failed: {str(e)[:100]}. Retrying with validate_bands=True..."
                 )
-                # Retry with validation to catch and fix bad bands
+                # Retry with full validation to catch and fix bad bands
                 whisp_image = combine_datasets(
                     national_codes=national_codes, validate_bands=True
                 )
+        for line in captured.getvalue().strip().splitlines():
+            if (
+                "invalid" in line.lower()
+                or "error" in line.lower()
+                or "warning" in line.lower()
+                or "recovery" in line.lower()
+            ):
+                logger.warning(line)
+            elif line:
+                logger.debug(line)
 
     # Create reducer
     reducer = ee.Reducer.sum().combine(ee.Reducer.median(), sharedInputs=True)
@@ -1821,21 +1832,32 @@ def whisp_stats_geojson_to_df_sequential(
     # Create image if not provided
     if whisp_image is None:
         logger.debug("Creating Whisp image...")
-        # Suppress print statements from combine_datasets
-        with redirect_stdout(io.StringIO()):
+        # Capture print statements from combine_datasets and re-emit via logger
+        captured = io.StringIO()
+        with redirect_stdout(captured):
             try:
-                # First try without validation
+                # First try with auto_recovery (validates only if error detected)
                 whisp_image = combine_datasets(
-                    national_codes=national_codes, validate_bands=False
+                    national_codes=national_codes, auto_recovery=True
                 )
             except Exception as e:
                 logger.warning(
                     f"First attempt failed: {str(e)[:100]}. Retrying with validate_bands=True..."
                 )
-                # Retry with validation to catch and fix bad bands
+                # Retry with full validation to catch and fix bad bands
                 whisp_image = combine_datasets(
                     national_codes=national_codes, validate_bands=True
                 )
+        for line in captured.getvalue().strip().splitlines():
+            if (
+                "invalid" in line.lower()
+                or "error" in line.lower()
+                or "warning" in line.lower()
+                or "recovery" in line.lower()
+            ):
+                logger.warning(line)
+            elif line:
+                logger.debug(line)
 
     # Drop external_id before sending to EE to enable caching
     # (external_id is preserved separately in gdf for client-side merging)
