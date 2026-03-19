@@ -2,13 +2,25 @@ import ee
 from google.oauth2 import service_account
 
 
+def _is_ee_initialized():
+    """Check if Earth Engine is initialized, compatible with both EE 1.6.x and 1.7.x."""
+    try:
+        return ee.data._initialized
+    except AttributeError:
+        # EE 1.7+ removed _initialized; check if credentials are set instead
+        try:
+            return ee.data.get_persistent_credentials() is not None
+        except Exception:
+            return False
+
+
 def initialize_ee(credentials_path=None, use_high_vol_endpoint=False):
     """Initializes Google Earth Engine using the provided path or defaults to normal if no path is given.
     Args:
     use_high_vol_endpoint: True/False to use high-volume endpoint via opt_url parameter (defaults to False).
     """
     try:
-        if not ee.data._initialized:
+        if not _is_ee_initialized():
             print(credentials_path)
             if credentials_path:
                 credentials = service_account.Credentials.from_service_account_file(
@@ -37,7 +49,7 @@ def initialize_ee(credentials_path=None, use_high_vol_endpoint=False):
 
 # Default to normal initialize if nobody calls whisp.initialize_ee.
 try:
-    if not ee.data._initialized:
+    if not _is_ee_initialized():
         ee.Initialize()
         print("EE auto-initialized with default credentials.")
 except Exception as e:
