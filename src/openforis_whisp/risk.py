@@ -124,22 +124,44 @@ def whisp_risk(
 
     Args:
         df (DataFrame): Input DataFrame.
-        ind_1_pcent_threshold (int, optional): Percentage threshold for the first indicator. Defaults to 10.
-        ind_2_pcent_threshold (int, optional): Percentage threshold for the second indicator. Defaults to 10.
-        ind_3_pcent_threshold (int, optional): Percentage threshold for the third indicator. Defaults to 10.
-        ind_4_pcent_threshold (int, optional): Percentage threshold for the fourth indicator. Defaults to 10.
-        ind_1_input_columns (list, optional): List of input columns for the first indicator. Defaults to columns for the treecover theme.
-        ind_2_input_columns (list, optional): List of input columns for the second indicator. Defaults to columns for the commodities theme.
-        ind_3_input_columns (list, optional): List of input columns for the third indicator. Defaults to columns for disturbance before 2020.
-        ind_4_input_columns (list, optional): List of input columns for the fourth indicator. Defaults to columns for disturbance after 2020.
-        ind_1_name (str, optional): Name of the first indicator column. Defaults to "Indicator_1_treecover".
-        ind_2_name (str, optional): Name of the second indicator column. Defaults to "Indicator_2_commodities".
-        ind_3_name (str, optional): Name of the third indicator column. Defaults to "Indicator_3_disturbance_before_2020".
-        ind_4_name (str, optional): Name of the fourth indicator column. Defaults to "Indicator_4_disturbance_after_2020".
+        ind_1_pcent_threshold (float, optional): Percentage threshold for indicator 1 (treecover). Defaults to 10.
+        ind_2_pcent_threshold (float, optional): Percentage threshold for indicator 2 (commodities). Defaults to 10.
+        ind_3_pcent_threshold (float, optional): Percentage threshold for indicator 3 (disturbance before 2020). Defaults to 10.
+        ind_4_pcent_threshold (float, optional): Percentage threshold for indicator 4 (disturbance after 2020). Defaults to 10.
+        ind_5_pcent_threshold (float, optional): Percentage threshold for indicator 5 (primary forest 2020). Defaults to 10.
+        ind_6_pcent_threshold (float, optional): Percentage threshold for indicator 6 (naturally regenerating forest 2020). Defaults to 10.
+        ind_7_pcent_threshold (float, optional): Percentage threshold for indicator 7 (planted plantations 2020). Defaults to 10.
+        ind_8_pcent_threshold (float, optional): Percentage threshold for indicator 8 (planted plantations after 2020). Defaults to 10.
+        ind_9_pcent_threshold (float, optional): Percentage threshold for indicator 9 (treecover after 2020). Defaults to 10.
+        ind_10_pcent_threshold (float, optional): Percentage threshold for indicator 10 (agriculture after 2020). Defaults to 10.
+        ind_11_pcent_threshold (float, optional): Percentage threshold for indicator 11 (logging concession before 2020). Defaults to 10.
+        ind_1_input_columns (pd.Series, optional): Input columns for indicator 1. Defaults to columns for the treecover theme.
+        ind_2_input_columns (pd.Series, optional): Input columns for indicator 2. Defaults to columns for the commodities theme.
+        ind_3_input_columns (pd.Series, optional): Input columns for indicator 3. Defaults to columns for disturbance before 2020.
+        ind_4_input_columns (pd.Series, optional): Input columns for indicator 4. Defaults to columns for disturbance after 2020.
+        ind_5_input_columns (pd.Series, optional): Input columns for indicator 5. Defaults to columns for primary forest 2020.
+        ind_6_input_columns (pd.Series, optional): Input columns for indicator 6. Defaults to columns for naturally regenerating forest 2020.
+        ind_7_input_columns (pd.Series, optional): Input columns for indicator 7. Defaults to columns for planted plantations 2020.
+        ind_8_input_columns (pd.Series, optional): Input columns for indicator 8. Defaults to columns for planted plantations after 2020.
+        ind_9_input_columns (pd.Series, optional): Input columns for indicator 9. Defaults to columns for treecover after 2020.
+        ind_10_input_columns (pd.Series, optional): Input columns for indicator 10. Defaults to columns for agriculture after 2020.
+        ind_11_input_columns (pd.Series, optional): Input columns for indicator 11. Defaults to columns for logging concession before 2020.
+        ind_1_name (str, optional): Name of indicator 1 column. Defaults to "Ind_01_treecover".
+        ind_2_name (str, optional): Name of indicator 2 column. Defaults to "Ind_02_commodities".
+        ind_3_name (str, optional): Name of indicator 3 column. Defaults to "Ind_03_disturbance_before_2020".
+        ind_4_name (str, optional): Name of indicator 4 column. Defaults to "Ind_04_disturbance_after_2020".
+        ind_5_name (str, optional): Name of indicator 5 column. Defaults to "Ind_05_primary_2020".
+        ind_6_name (str, optional): Name of indicator 6 column. Defaults to "Ind_06_nat_reg_forest_2020".
+        ind_7_name (str, optional): Name of indicator 7 column. Defaults to "Ind_07_planted_plantations_2020".
+        ind_8_name (str, optional): Name of indicator 8 column. Defaults to "Ind_08_planted_plantations_after_2020".
+        ind_9_name (str, optional): Name of indicator 9 column. Defaults to "Ind_09_treecover_after_2020".
+        ind_10_name (str, optional): Name of indicator 10 column. Defaults to "Ind_10_agri_after_2020".
+        ind_11_name (str, optional): Name of indicator 11 column. Defaults to "Ind_11_logging_concession_before_2020".
         low_name (str, optional): Value shown in table if less than or equal to the threshold. Defaults to "no".
         high_name (str, optional): Value shown in table if more than the threshold. Defaults to "yes".
         explicit_unit_type (str, optional): Override the autodetected unit type ('ha' or 'percent').
                                       If not provided, will detect from dataframe 'unit' column.
+        national_codes (list[str], optional): List of ISO2 country codes to filter national datasets by. Defaults to None.
         custom_bands_info (dict, optional): Custom band risk information. Dict format:
             {
                 'band_name': {
