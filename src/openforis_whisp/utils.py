@@ -439,7 +439,10 @@ def generate_random_features(
     max_parts : int, optional
         Maximum polygon parts per multipolygon (default: 4)
     save_path : str or Path, optional
-        Directory path where to save the GeoJSON file. If None, file is not saved (default: None)
+        Where to save the GeoJSON file. Accepts either:
+        - A file path ending in ``.geojson``, used directly as the output file
+        - A directory, where output is written to ``<dir>/<feature_type>s_<num_features>_features.geojson``
+        If None, file is not saved (default: None)
     return_path : bool, optional
         If True, return the file path instead of the GeoJSON dict. Only used if save_path is provided (default: False)
 
@@ -745,9 +748,15 @@ def generate_random_features(
         import json
 
         save_path = Path(save_path)
-        save_path.mkdir(parents=True, exist_ok=True)
 
-        output_file = save_path / f"{feature_type}s_{num_features}_features.geojson"
+        # If save_path looks like a file (has .geojson suffix), use it directly.
+        # Otherwise treat it as a directory and write a generated filename inside.
+        if save_path.suffix.lower() == ".geojson":
+            output_file = save_path
+            output_file.parent.mkdir(parents=True, exist_ok=True)
+        else:
+            save_path.mkdir(parents=True, exist_ok=True)
+            output_file = save_path / f"{feature_type}s_{num_features}_features.geojson"
 
         with open(output_file, "w") as f:
             json.dump(geojson, f, indent=2)
