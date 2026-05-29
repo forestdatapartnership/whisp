@@ -447,7 +447,7 @@ def add_risk_timber_col(
 
     for index, row in df.iterrows():
         # If there is a commodity in 2020 (ind_2_name)
-        # OR if there is planted-plantation in 2020 (ind_7_name) AND no agriculture in 2023 (ind_10_name), set risk_timber to "low"
+        # OR if there is planted-plantation in 2020 (ind_7_name) AND no agriculture in 2024 (ind_10_name), set risk_timber to "low"
         if row[ind_2_name] == "yes" or (
             row[ind_7_name] == "yes" and row[ind_10_name] == "no"
         ):
@@ -465,7 +465,7 @@ def add_risk_timber_col(
         ] == "yes":
             df.at[index, "risk_timber"] = "high"
         # No data yet on OWL conversion
-        # If primary or naturally regenerating or planted forest in 2020 and OWL in 2023, set risk to high
+        # If primary or naturally regenerating or planted forest in 2020 and OWL in 2024, set risk to high
         # elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes" or row[ind_7_name] == "yes") and row[ind_10_name] == "yes":
         #    df.at[index, 'risk_timber'] = "high"
 
