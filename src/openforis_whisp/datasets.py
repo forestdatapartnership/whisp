@@ -307,12 +307,12 @@ def g_fdap_coffee_2020_prep():
 
 
 def g_fdap_coffee_2024_prep():
-    # Load the coffee model for 2020
+    # Load the coffee model
     collection = ee.ImageCollection(
         "projects/forestdatapartnership/assets/coffee/model_2025b"
     )
 
-    # Filter the collection for the year 2023 and create a binary mask
+    # Filter the collection for the year 2024 and create a binary mask
     coffee_2024 = (
         collection.filterDate("2024-01-01", "2024-12-31")
         .mosaic()
@@ -340,7 +340,7 @@ def g_soy_song_2020_prep():
 
 
 ##############
-# ESRI 2023
+# ESRI 2024
 
 # ESRI 2024 - Tree Cover
 def g_esri_2024_tc_prep():
@@ -436,12 +436,12 @@ def g_radd_year_prep():
     return ee.Image(img_stack)
 
 
-# TMF_def_2000 to TMF_def_2023
+# TMF_def_2000 to TMF_def_2024
 def g_tmf_def_per_year_prep():
     # Load the TMF Deforestation annual product
     tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2025/DeforestationYear").mosaic()
     img_stack = None
-    # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
+    # One band of TMF deforestation per year from 2000 to 2024
     for i in range(0, 24 + 1):
         year_num = ee.Number(2000 + i)
         band_name = ee.String("TMF_def_").cat(year_num.format("%d"))
@@ -453,12 +453,12 @@ def g_tmf_def_per_year_prep():
     return img_stack
 
 
-# TMF_deg_2000 to TMF_deg_2023
+# TMF_deg_2000 to TMF_deg_2024
 def g_tmf_deg_per_year_prep():
     # Load the TMF Degradation annual product
     tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2025/DegradationYear").mosaic()
     img_stack = None
-    # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
+    # One band of TMF degradation per year from 2000 to 2024
     for i in range(0, 24 + 1):
         year_num = ee.Number(2000 + i)
         band_name = ee.String("TMF_deg_").cat(year_num.format("%d"))
@@ -1035,7 +1035,7 @@ def g_tmf_def_after_2020_prep():
     return tmf_def.gt(2020).rename("TMF_def_after_2020").selfMask()
 
 
-# GFC_loss_before_2020 (loss within 10 percent cover; includes 2020; correct for version 11)
+# GFC_loss_before_2020 (loss within 10 percent cover; includes 2020; correct for version 13)
 def g_glad_gfc_loss_before_2020_prep():
     # Load the Global Forest Change dataset
     gfc = ee.Image("UMD/hansen/global_forest_change_2025_v1_13")
@@ -1045,7 +1045,7 @@ def g_glad_gfc_loss_before_2020_prep():
     return gfc_loss.rename("GFC_loss_before_2020").selfMask()
 
 
-# GFC_loss_after_2020 (loss within 10 percent cover; correct for version 11)
+# GFC_loss_after_2020 (loss within 10 percent cover; correct for version 13)
 def g_glad_gfc_loss_after_2020_prep():
     # Load the Global Forest Change dataset
     gfc = ee.Image("UMD/hansen/global_forest_change_2025_v1_13")
