@@ -186,10 +186,10 @@ GFT_planted_plantation,1840,,NA,planted_plantation_2020,0,1,0,float32,1,0,g_gft_
 IIASA_planted_plantation,1850,,NA,planted_plantation_2020,0,1,0,float32,1,0,g_iiasa_planted_prep
 TMF_regrowth_2023,1860,,NA,treecover_after_2020,0,1,0,float32,1,0,g_tmf_regrowth_prep
 ESRI_2023_TC,1870,,NA,treecover_after_2020,0,1,0,float32,1,0,g_esri_2023_tc_prep
-Oil_palm_2023_FDaP,1880,,NA,agri_after_2020,0,1,0,float32,1,0,g_fdap_palm_2023_prep
-Rubber_2023_FDaP,1890,,NA,agri_after_2020,0,1,0,float32,1,0,g_fdap_rubber_2023_prep
-Coffee_FDaP_2023,1900,,NA,agri_after_2020,0,1,0,float32,1,0,g_fdap_coffee_2023_prep
-Cocoa_2023_FDaP,1910,,NA,agri_after_2020,0,1,0,float32,1,0,g_fdap_cocoa_2023_prep
+Oil_palm_2024_FDaP,1880,,NA,agri_after_2020,0,1,0,float32,1,0,g_fdap_palm_2024_prep
+Rubber_2024_FDaP,1890,,NA,agri_after_2020,0,1,0,float32,1,0,g_fdap_rubber_2024_prep
+Coffee_FDaP_2024,1900,,NA,agri_after_2020,0,1,0,float32,1,0,g_fdap_coffee_2024_prep
+Cocoa_2024_FDaP,1910,,NA,agri_after_2020,0,1,0,float32,1,0,g_fdap_cocoa_2024_prep
 ESRI_crop_gain_2020_2023,1920,,NA,agri_after_2020,0,1,0,float32,1,0,g_esri_2020_2023_crop_prep
 GFW_logging_before_2020,1930,,NA,logging_concession,0,1,0,float32,1,0,g_logging_concessions_prep
 nCO_ideam_forest_2020,1940,CO,treecover,NA,1,1,0,float32,1,0,nco_ideam_forest_2020_prep
