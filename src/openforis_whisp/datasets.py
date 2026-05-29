@@ -155,13 +155,13 @@ def g_iiasa_planted_prep():
     return iiasa_PL.rename("IIASA_planted_plantation").selfMask()
 
 
-#########################TMF regrowth in 2023
+#########################TMF regrowth in 2024
 def g_tmf_regrowth_prep():
     # Load the TMF Degradation annual product
     TMF_AC = ee.ImageCollection("projects/JRC/TMF/v1_2025/AnnualChanges").mosaic()
-    TMF_AC_2023 = TMF_AC.select("Dec2023")
-    Regrowth_TMF = TMF_AC_2023.eq(4)
-    return Regrowth_TMF.rename("TMF_regrowth_2023").selfMask()
+    TMF_AC_2024 = TMF_AC.select("Dec2024")
+    Regrowth_TMF = TMF_AC_2024.eq(4)
+    return Regrowth_TMF.rename("TMF_regrowth_2024").selfMask()
 
 
 ############tree crops
@@ -342,32 +342,32 @@ def g_soy_song_2020_prep():
 ##############
 # ESRI 2023
 
-# ESRI 2023 - Tree Cover
-def g_esri_2023_tc_prep():
+# ESRI 2024 - Tree Cover
+def g_esri_2024_tc_prep():
     esri_lulc10_raw = ee.ImageCollection(
         "projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS"
     )
     esri_lulc10_TC = (
-        esri_lulc10_raw.filterDate("2023-01-01", "2023-12-31").mosaic().eq(2)
+        esri_lulc10_raw.filterDate("2024-01-01", "2024-12-31").mosaic().eq(2)
     )
-    return esri_lulc10_TC.rename("ESRI_2023_TC").selfMask()
+    return esri_lulc10_TC.rename("ESRI_2024_TC").selfMask()
 
 
-# ESRI 2023 - Crop
-def g_esri_2020_2023_crop_prep():
+# ESRI 2024 - Crop
+def g_esri_2020_2024_crop_prep():
     esri_lulc10_raw = ee.ImageCollection(
         "projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS"
     )
     esri_lulc10_crop_2020 = (
         esri_lulc10_raw.filterDate("2020-01-01", "2020-12-31").mosaic().eq(5)
     )
-    esri_lulc10_crop_2023 = (
-        esri_lulc10_raw.filterDate("2023-01-01", "2023-12-31").mosaic().eq(5)
+    esri_lulc10_crop_2024 = (
+        esri_lulc10_raw.filterDate("2024-01-01", "2024-12-31").mosaic().eq(5)
     )
 
-    newCrop = esri_lulc10_crop_2023.And(esri_lulc10_crop_2020.Not())
+    newCrop = esri_lulc10_crop_2024.And(esri_lulc10_crop_2020.Not())
 
-    return newCrop.rename("ESRI_crop_gain_2020_2023").selfMask()
+    return newCrop.rename("ESRI_crop_gain_2020_2024").selfMask()
 
 
 #### disturbances by year

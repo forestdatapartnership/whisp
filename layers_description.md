@@ -134,14 +134,14 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection(“projects/sat-io/open-datasets/GFM/FML_v3-2”)</td></tr>
     <tr><td colspan="3"><b>Tree cover post 2020:</b></td></tr>
-    <tr><td rowspan="3">TMF_regrowth_2023</td><td rowspan="3"> Binary map of Regrowth class (4) for the TMF Annual change year 2023 </td><td rowspan="2">Vancutsem, C., Achard, F., Pekel, J.-F., Vieilledent, G., Carboni, S., Simonetti, D., Gallego, J., Aragão, L. E. O. C., & Nasi, R. (2021). Long-term (1990–2019) monitoring of forest cover changes in the humid tropics. Science Advances, 7(10). https://doi.org/10.1126/sciadv.abe1603 </td></tr>
+    <tr><td rowspan="3">TMF_regrowth_2024</td><td rowspan="3"> Binary map of Regrowth class (4) for the TMF Annual change year 2024 </td><td rowspan="2">Vancutsem, C., Achard, F., Pekel, J.-F., Vieilledent, G., Carboni, S., Simonetti, D., Gallego, J., Aragão, L. E. O. C., & Nasi, R. (2021). Long-term (1990–2019) monitoring of forest cover changes in the humid tropics. Science Advances, 7(10). https://doi.org/10.1126/sciadv.abe1603 </td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection(“projects/JRC/TMF/v1_2025/AnnualChanges”)</td></tr>
-    <tr><td rowspan="3">ESRI_2023_TC</td><td rowspan="3"> Tree cover class (2) of the 2023 ESRI LC map </td><td rowspan="2">Karra, Kontgis, et al. “Global land use/land cover with Sentinel-2 and deep learning.”IGARSS 2021-2021 IEEE International Geoscience and Remote Sensing Symposium. IEEE, 2021. </td></tr>
+    <tr><td rowspan="3">ESRI_2024_TC</td><td rowspan="3"> Tree cover class (2) of the 2024 ESRI LC map </td><td rowspan="2">Karra, Kontgis, et al. “Global land use/land cover with Sentinel-2 and deep learning.”IGARSS 2021-2021 IEEE International Geoscience and Remote Sensing Symposium. IEEE, 2021. </td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection(“"projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS”)</td></tr>
     <tr><td colspan="3"><b>Agricultural land post 2020:</b></td></tr>
-    <tr><td rowspan="3">ESRI_crop_gain_2023</td><td rowspan="3"> Crop gain in 2023 compared to year 2020 of the ESRI LC map (class 5) </td><td rowspan="2">Karra, Kontgis, et al. “Global land use/land cover with Sentinel-2 and deep learning.”IGARSS 2021-2021 IEEE International Geoscience and Remote Sensing Symposium. IEEE, 2021. </td></tr>
+    <tr><td rowspan="3">ESRI_crop_gain_2024</td><td rowspan="3"> Crop gain in 2024 compared to year 2020 of the ESRI LC map (class 5) </td><td rowspan="2">Karra, Kontgis, et al. “Global land use/land cover with Sentinel-2 and deep learning.”IGARSS 2021-2021 IEEE International Geoscience and Remote Sensing Symposium. IEEE, 2021. </td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection(“"projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS”)</td></tr>
     <tr><td rowspan="3">Oil_palm_2024_FDaP</td><td rowspan="3"> Palm probability model. Filtered collection to 2024 data. Threshold set for Whisp based on the intersection of recall and precision in charts for accuracy.</td><td rowspan="2">FDaP (2025). Forest Data Partnership https://developers.google.com/earth-engine/datasets/publisher/forestdatapartnership </td></tr>
