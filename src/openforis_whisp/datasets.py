@@ -436,13 +436,13 @@ def g_radd_year_prep():
     return ee.Image(img_stack)
 
 
-# TMF_def_2000 to TMF_def_2024
+# TMF_def_2000 to TMF_def_2025
 def g_tmf_def_per_year_prep():
     # Load the TMF Deforestation annual product
     tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2025/DeforestationYear").mosaic()
     img_stack = None
-    # One band of TMF deforestation per year from 2000 to 2024
-    for i in range(0, 24 + 1):
+    # One band of TMF deforestation per year from 2000 to 2025
+    for i in range(0, 25 + 1):
         year_num = ee.Number(2000 + i)
         band_name = ee.String("TMF_def_").cat(year_num.format("%d"))
         tmf_def_year = tmf_def.eq(year_num).rename(band_name).selfMask()
@@ -453,13 +453,13 @@ def g_tmf_def_per_year_prep():
     return img_stack
 
 
-# TMF_deg_2000 to TMF_deg_2024
+# TMF_deg_2000 to TMF_deg_2025
 def g_tmf_deg_per_year_prep():
     # Load the TMF Degradation annual product
     tmf_def = ee.ImageCollection("projects/JRC/TMF/v1_2025/DegradationYear").mosaic()
     img_stack = None
-    # One band of TMF degradation per year from 2000 to 2024
-    for i in range(0, 24 + 1):
+    # One band of TMF degradation per year from 2000 to 2025
+    for i in range(0, 25 + 1):
         year_num = ee.Number(2000 + i)
         band_name = ee.String("TMF_deg_").cat(year_num.format("%d"))
         tmf_def_year = tmf_def.eq(year_num).rename(band_name).selfMask()
