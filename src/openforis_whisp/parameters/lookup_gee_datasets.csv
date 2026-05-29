@@ -88,6 +88,7 @@ GFC_loss_year_2021,860,,disturbance_after,NA,0,0,0,float32,1,0,g_glad_gfc_loss_p
 GFC_loss_year_2022,870,,disturbance_after,NA,0,0,0,float32,1,0,g_glad_gfc_loss_per_year_prep
 GFC_loss_year_2023,880,,disturbance_after,NA,0,0,0,float32,1,0,g_glad_gfc_loss_per_year_prep
 GFC_loss_year_2024,890,,disturbance_after,NA,0,0,0,float32,1,0,g_glad_gfc_loss_per_year_prep
+GFC_loss_year_2025,895,,disturbance_after,NA,0,0,0,float32,1,0,g_glad_gfc_loss_per_year_prep
 RADD_year_2019,900,,disturbance_before,NA,0,0,0,float32,1,0,g_radd_year_prep
 RADD_year_2020,910,,disturbance_before,NA,0,0,0,float32,1,0,g_radd_year_prep
 RADD_year_2021,920,,disturbance_after,NA,0,0,0,float32,1,0,g_radd_year_prep

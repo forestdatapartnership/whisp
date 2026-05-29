@@ -18,13 +18,13 @@ To view the layers in action, go to [https://whisp.earthmap.org/](https://whisp.
     <tr><td>ee.Image(“JRC/GFC2020/V3”)</td></tr>
     <tr><td rowspan="3">GLAD_Primary</td><td rowspan="3">Binary input layer representing primary forest in 2001. Loss pixels 2001-2020 removed with ancillary dataset.</td><td rowspan="2">Turubanova, S., Potapov, P. V., Tyukavina, A., & Hansen, M. C. (2018). <i>Ongoing primary forest loss in Brazil, Democratic Republic of the Congo, and Indonesia.</i> Environmental Research Letters, 13(7), 074028. https://doi.org/10.1088/1748-9326/aacd1c</td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection (‘UMD/GLAD/PRIMARY_HUMID_TROPICAL_FORESTS/v1’)<br>Ancillary: ee.Image("UMD/hansen/global_forest_change_2024_v1_12")</td></tr>
+    <tr><td>ee.ImageCollection (‘UMD/GLAD/PRIMARY_HUMID_TROPICAL_FORESTS/v1’)<br>Ancillary: ee.Image("UMD/hansen/global_forest_change_2025_v1_13")</td></tr>
     <tr><td rowspan="3">TMF_undist</td><td rowspan="3">Mosaic for Dec 2020, representing undisturbed cover (class 1) .</td><td rowspan="2">Vancutsem, C., Achard, F., Pekel, J.-F., Vieilledent, G., Carboni, S., Simonetti, D., Gallego, J., Aragão, L. E. O. C., & Nasi, R. (2021). <i>Long-term (1990–2019) monitoring of forest cover changes in the humid tropics.</i> Science Advances, 7(10). https://doi.org/10.1126/sciadv.abe1603</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection(‘projects/JRC/TMF/v1_2025/AnnualChanges’)</td></tr>
     <tr><td rowspan="3">GFC_TC_2020</td><td rowspan="3">Areas of tree cover over 10 percent in 2020 (loss pixels removed).</td><td rowspan="2">Hansen, M. C., Potapov, P. V., Moore, R., Hancher, M., Turubanova, S. A., Tyukavina, A., Thau, D., Stehman, S. V., Goetz, S. J., Loveland, T. R., Kommareddy, A., Egorov, A., Chini, L., Justice, C. O., & Townshend, J. R. G. (2013). <i>High-Resolution Global Maps of 21st-Century Forest Cover Change.</i> Science, 342(6160), 850–853. https://doi.org/10.1126/science.1244693. Data available online from: https://glad.earthengine.app/view/global-forest-change.</td></tr>
     <tr></tr>
-    <tr><td>ee.Image("UMD/hansen/global_forest_change_2024_v1_12")
+    <tr><td>ee.Image("UMD/hansen/global_forest_change_2025_v1_13")
 </td></tr>
     <tr><td rowspan="3">ESA_TC_2020</td><td rowspan="3">Tree and mangrove classes (i.e., 10 and 95) for 2020.</td><td rowspan="2">Zanaga, D., Van De Kerchove, R., De Keersmaecker, W., Souverijns, N., Brockmann, C., Quast, R., Wevers, J., Grosu, A., Paccini, A., Vergnaud, S., Cartus, O., Santoro, M., Fritz, S., Georgieva, I., Lesiv, M., Carter, S., Herold, M., Li, L., Tsendbazar, N.-E., Ramoino, F., Arino, O. (2021). <i>ESA WorldCover 10 m 2020 v100</i> (v100) [Dataset]. Zenodo. https://doi.org/10.5281/ZENODO.5571936</td></tr>
     <tr></tr>
@@ -72,7 +72,7 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr><td>ee.ImageCollection('projects/JRC/TMF/v1_2025/DegradationYear')<br>ee.ImageCollection('projects/JRC/TMF/v1_2025/DeforestationYear')</td></tr>
     <tr><td rowspan="3">GFC_loss_before_2020</td><td rowspan="3">Binary mask of aggregate tree cover losses between 2000 and 2020.</td><td rowspan="2">Hansen, M. C., Potapov, P. V., Moore, R., Hancher, M., , S. A., Tyukavina, A., Thau, D., Stehman, S. V., Goetz, S. J., Loveland, T. R., Kommareddy, A., Egorov, A., Chini, L., Justice, C. O., & Townshend, J. R. G. (2013). <i>High-Resolution Global Maps of 21st-Century Forest Cover Change.</i> Science, 342(6160), 850–853. https://doi.org/10.1126/science.1244693. Data available online from: https://glad.earthengine.app/view/global-forest-change.</td></tr>
     <tr></tr>
-    <tr><td>ee.Image("UMD/hansen/global_forest_change_2024_v1_12")</td></tr>
+    <tr><td>ee.Image("UMD/hansen/global_forest_change_2025_v1_13")</td></tr>
     <tr><td rowspan="3">RADD_before_2020</td><td rowspan="3">Binary mask of aggregate confirmed (i.e., class 3) alerts in 2019 & 2020.</td><td rowspan="2">Reiche, J., Mullissa, A., Slagter, B., Gou, Y., Tsendbazar, N.-E., Odongo-Braun, C., Vollrath, A., Weisse, M. J., Stolle, F., Pickens, A., Donchyts, G., Clinton, N., Gorelick, N., & Herold, M. (2021). <i>Forest disturbance alerts for the Congo Basin using Sentinel-1.</i> Environmental Research Letters, 16(2), 024005. https://doi.org/10.1088/1748-9326/abd0a8</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection('projects/radar-wur/raddalert/v1')</td></tr>
@@ -88,7 +88,7 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr><td>ee.ImageCollection('projects/JRC/TMF/v1_2025/DegradationYear')<br>ee.ImageCollection('projects/JRC/TMF/v1_2025/DeforestationYear')</td></tr>
     <tr><td rowspan="3">GFC_loss_after_2020</td><td rowspan="3">Binary mask of aggregate tree cover losses from 2021 onward.</td><td rowspan="2">Hansen, M. C., Potapov, P. V., Moore, R., Hancher, M., , S. A., Tyukavina, A., Thau, D., Stehman, S. V., Goetz, S. J., Loveland, T. R., Kommareddy, A., Egorov, A., Chini, L., Justice, C. O., & Townshend, J. R. G. (2013). <i>High-Resolution Global Maps of 21st-Century Forest Cover Change.</i> Science, 342(6160), 850–853. https://doi.org/10.1126/science.1244693. Data available online from: https://glad.earthengine.app/view/global-forest-change.</td></tr>
     <tr></tr>
-    <tr><td>ee.Image("UMD/hansen/global_forest_change_2024_v1_12")</td></tr>
+    <tr><td>ee.Image("UMD/hansen/global_forest_change_2025_v1_13")</td></tr>
     <tr><td rowspan="3">RADD_after_2020</td><td rowspan="3">Binary mask of aggregate confirmed (i.e., class 3) alerts from 2021 onward.</td><td rowspan="2">Reiche, J., Mullissa, A., Slagter, B., Gou, Y., Tsendbazar, N.-E., Odongo-Braun, C., Vollrath, A., Weisse, M. J., Stolle, F., Pickens, A., Donchyts, G., Clinton, N., Gorelick, N., & Herold, M. (2021). <i>Forest disturbance alerts for the Congo Basin using Sentinel-1.</i> Environmental Research Letters, 16(2), 024005. https://doi.org/10.1088/1748-9326/abd0a8</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection('projects/radar-wur/raddalert/v1')</td></tr>

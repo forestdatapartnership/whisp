@@ -68,7 +68,7 @@ def g_jrc_gfc_2020_prep():
 
 # GFC_TC_2020
 def g_glad_gfc_10pc_prep():
-    gfc = ee.Image("UMD/hansen/global_forest_change_2024_v1_12")
+    gfc = ee.Image("UMD/hansen/global_forest_change_2025_v1_13")
     gfc_treecover2000 = gfc.select(["treecover2000"])
     gfc_loss2001_2020 = gfc.select(["lossyear"]).lte(20)
     gfc_treecover2020 = gfc_treecover2000.where(gfc_loss2001_2020.eq(1), 0)
@@ -83,7 +83,7 @@ def g_glad_pht_prep():
     primary_ht_forests2001 = (
         primary_ht_forests2001_raw.select("Primary_HT_forests").mosaic().selfMask()
     )
-    gfc = ee.Image("UMD/hansen/global_forest_change_2024_v1_12")
+    gfc = ee.Image("UMD/hansen/global_forest_change_2025_v1_13")
     gfc_loss2001_2020 = gfc.select(["lossyear"]).lte(20)
     return (
         primary_ht_forests2001.where(gfc_loss2001_2020.eq(1), 0)
@@ -470,13 +470,13 @@ def g_tmf_deg_per_year_prep():
     return img_stack
 
 
-# GFC_loss_year_2001 to GFC_loss_year_2023 (correct for version 11)
+# GFC_loss_year_2001 to GFC_loss_year_2025 (correct for version 13)
 def g_glad_gfc_loss_per_year_prep():
     # Load the Global Forest Change dataset
-    gfc = ee.Image("UMD/hansen/global_forest_change_2024_v1_12")
+    gfc = ee.Image("UMD/hansen/global_forest_change_2025_v1_13")
     img_stack = None
-    # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2022
-    for i in range(1, 24 + 1):
+    # Generate an image based on GFC with one band of forest tree loss per year from 2001 to 2025
+    for i in range(1, 25 + 1):
         year_num = ee.Number(2000 + i)
         band_name = ee.String("GFC_loss_year_").cat(year_num.format("%d"))
         gfc_loss_year = (
@@ -1038,7 +1038,7 @@ def g_tmf_def_after_2020_prep():
 # GFC_loss_before_2020 (loss within 10 percent cover; includes 2020; correct for version 11)
 def g_glad_gfc_loss_before_2020_prep():
     # Load the Global Forest Change dataset
-    gfc = ee.Image("UMD/hansen/global_forest_change_2024_v1_12")
+    gfc = ee.Image("UMD/hansen/global_forest_change_2025_v1_13")
     gfc_loss = (
         gfc.select(["lossyear"]).lte(20).And(gfc.select(["treecover2000"]).gt(10))
     )
@@ -1048,7 +1048,7 @@ def g_glad_gfc_loss_before_2020_prep():
 # GFC_loss_after_2020 (loss within 10 percent cover; correct for version 11)
 def g_glad_gfc_loss_after_2020_prep():
     # Load the Global Forest Change dataset
-    gfc = ee.Image("UMD/hansen/global_forest_change_2024_v1_12")
+    gfc = ee.Image("UMD/hansen/global_forest_change_2025_v1_13")
     gfc_loss = gfc.select(["lossyear"]).gt(20).And(gfc.select(["treecover2000"]).gt(10))
     return gfc_loss.rename("GFC_loss_after_2020").selfMask()
 
