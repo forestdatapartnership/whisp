@@ -41,13 +41,13 @@ To view the layers in action, go to [https://whisp.earthmap.org/](https://whisp.
     <tr><td>ee.ImageCollection(‘BIOPAMA/GlobalOilPalm/v1’)</td></tr>
     <tr><td rowspan="3">Oil_palm_FDaP</td><td rowspan="3">Palm probability model. Filtered collection to 2020 data. Threshold set for Whisp based on the intersection of recall and precision in charts for accuracy.</td><td rowspan="2">FDaP (2025). Forest Data Partnership https://developers.google.com/earth-engine/datasets/publisher/forestdatapartnership</td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/palm/model_2025a")</td></tr>
+    <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/palm/model_2025b")</td></tr>
     <tr><td rowspan="3">Coffee_FDaP</td><td rowspan="3">Coffee probability model. Filtered collection to 2020 data. Threshold set for Whisp based on the intersection of recall and precision in charts for accuracy.</td><td rowspan="2">FDaP (2025). Forest Data Partnership https://developers.google.com/earth-engine/datasets/publisher/forestdatapartnership</td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/coffee/model_2025a")</td></tr>
+    <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/coffee/model_2025b")</td></tr>
     <tr><td rowspan="3">Cocoa_FDaP</td><td rowspan="3">Cocoa probability model. Filtered collection to 2020 data. Threshold set for Whisp based on the intersection of recall and precision in charts for accuracy.</td><td rowspan="2">FDaP (2025). Forest Data Partnership https://developers.google.com/earth-engine/datasets/publisher/forestdatapartnership</td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/cocoa/model_2025a")</td></tr>
+    <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/cocoa/model_2025b")</td></tr>
     <tr><td rowspan="3">Cocoa_ETH</td><td rowspan="3">Binary product where 1 represents cocoa. Product derived from a cocoa probability map where the recommended threshold of >65%, had already been applied.</td><td rowspan="2">Kalischek, N., Lang, N., Renier, C., Daudt, R. C., Addoah, T., Thompson, W., Blaser-Hart, W. J., Garrett, R., Schindler, K., & Wegner, J. D. (2022). <i>Satellite-based high-resolution maps of cocoa planted area for Côte d’Ivoire and Ghana</i> ( 5). arXiv. https://doi.org/10.48550/ARXIV.2206.06119</td></tr>
     <tr></tr>
     <tr><td>ee.Image(‘projects/ee-nk-cocoa/assets/cocoa_map_threshold_065’)</td></tr>
@@ -60,7 +60,7 @@ Centre d'Information Géographique et du Numérique / Bureau National d'Études 
     <tr><td>ee.Image("users/wangyxtina/MapRubberPaper/rRubber10m202122_perc1585DifESAdist5pxPF")</td>
     <tr><td rowspan="3">Rubber_FDaP</td><td rowspan="3">Rubber probability model. Filtered collection to 2020 data. Threshold set for Whisp based on the intersection of recall and precision in charts for accuracy.</td><td rowspan="2">FDaP (2025). Forest Data Partnership https://developers.google.com/earth-engine/datasets/publisher/forestdatapartnership</td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/rubber/model_2025a")</td></tr>
+    <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/rubber/model_2025b")</td></tr>
     <tr><td colspan="3"><b>Annual crops:</b></td></tr>
     <tr><td rowspan="3">Soy_Song_2020</td><td rowspan="3">Soya expansion in South America 2000-2023, binary map for 2020 where 1 is soya.</td><td rowspan="2">Song, X.-P., Hansen, M.C., Potapov, P., Adusei, B., Pickering, J., Adami, M., Lima, A., Zalles, V., Stehman, S.V., Di Bella, C.M., Cecilia, C.M., Copati, E.J., Fernandes, L.B., Hernandez-Serna, A., Jantz,  S.M., Pickens, A.H., Turubanova, S., Tyukavina A. (2021). Massive soybean expansion in South America since 2000 and implications for conservation. Nature Sustainability, 4, 784–792
 https://doi.org/10.1038/s41893-021-00729-z</td></tr>
@@ -144,18 +144,18 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr><td rowspan="3">ESRI_crop_gain_2023</td><td rowspan="3"> Crop gain in 2023 compared to year 2020 of the ESRI LC map (class 5) </td><td rowspan="2">Karra, Kontgis, et al. “Global land use/land cover with Sentinel-2 and deep learning.”IGARSS 2021-2021 IEEE International Geoscience and Remote Sensing Symposium. IEEE, 2021. </td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection(“"projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS”)</td></tr>
-    <tr><td rowspan="3">Oil_palm_2023_FDaP</td><td rowspan="3"> Palm probability model. Filtered collection to 2023 data. Threshold set for Whisp based on the intersection of recall and precision in charts for accuracy.</td><td rowspan="2">FDaP (2025). Forest Data Partnership https://developers.google.com/earth-engine/datasets/publisher/forestdatapartnership </td></tr>
+    <tr><td rowspan="3">Oil_palm_2024_FDaP</td><td rowspan="3"> Palm probability model. Filtered collection to 2024 data. Threshold set for Whisp based on the intersection of recall and precision in charts for accuracy.</td><td rowspan="2">FDaP (2025). Forest Data Partnership https://developers.google.com/earth-engine/datasets/publisher/forestdatapartnership </td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/palm/model_2025a")</td></tr>
-    <tr><td rowspan="3">Rubber_2023_FDaP</td><td rowspan="3"> Cocoa probability model. Filtered collection to 2023 data. Threshold set for Whisp based on the intersection of recall and precision in charts for accuracy. </td><td rowspan="2">FDaP (2025). Forest Data Partnership https://developers.google.com/earth-engine/datasets/publisher/forestdatapartnership </td></tr>
+    <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/palm/model_2025b")</td></tr>
+    <tr><td rowspan="3">Rubber_2024_FDaP</td><td rowspan="3"> Cocoa probability model. Filtered collection to 2024 data. Threshold set for Whisp based on the intersection of recall and precision in charts for accuracy. </td><td rowspan="2">FDaP (2025). Forest Data Partnership https://developers.google.com/earth-engine/datasets/publisher/forestdatapartnership </td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/rubber/model_2025a")</td></tr>
-    <tr><td rowspan="3">Coffee_FDaP_2023</td><td rowspan="3">Coffee probability model. Filtered collection to 2023 data. Threshold set for Whisp based on the intersection of recall and precision in charts for accuracy.</td><td rowspan="2">FDaP (2025). Forest Data Partnership https://developers.google.com/earth-engine/datasets/publisher/forestdatapartnership</td></tr>
+    <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/rubber/model_2025b")</td></tr>
+    <tr><td rowspan="3">Coffee_FDaP_2024</td><td rowspan="3">Coffee probability model. Filtered collection to 2024 data. Threshold set for Whisp based on the intersection of recall and precision in charts for accuracy.</td><td rowspan="2">FDaP (2025). Forest Data Partnership https://developers.google.com/earth-engine/datasets/publisher/forestdatapartnership</td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/coffee/model_2025a")</td></tr>
-    <tr><td rowspan="3">Cocoa_2023_FDaP</td><td rowspan="3"> Rubber probability model. Filtered collection to 2023 data. Threshold set for Whisp based on the intersection of recall and precision in charts for accuracy. </td><td rowspan="2">FDaP (2025). Forest Data Partnership https://developers.google.com/earth-engine/datasets/publisher/forestdatapartnership </td></tr>
+    <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/coffee/model_2025b")</td></tr>
+    <tr><td rowspan="3">Cocoa_2024_FDaP</td><td rowspan="3"> Rubber probability model. Filtered collection to 2024 data. Threshold set for Whisp based on the intersection of recall and precision in charts for accuracy. </td><td rowspan="2">FDaP (2025). Forest Data Partnership https://developers.google.com/earth-engine/datasets/publisher/forestdatapartnership</td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/cocoa/model_2025a")</td></tr>
+    <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/cocoa/model_2025b")</td></tr>
     <tr><td colspan="3"><b>logging concessions:</b></td></tr>
     <tr><td rowspan="3">GFW_logging</td><td rowspan="3"> Logging concessions from GFW (polygon data) </td><td rowspan="2">http://data.globalforestwatch.org/datasets?q=logging </td></tr>
     <tr></tr>
