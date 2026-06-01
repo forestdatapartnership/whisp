@@ -58,7 +58,7 @@ include-package-data = true
 where = ["src"]
 
 [tool.setuptools.package-data]
-"whisp.parameters" = ["lookup_gee_datasets.csv", "lookup_context_and_metadata.csv"]
+"whisp.parameters" = ["lookup_datasets.csv"]
 
 [tool.pytest.ini_options]
 log_cli = true

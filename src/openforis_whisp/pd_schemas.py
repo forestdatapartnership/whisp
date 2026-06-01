@@ -15,7 +15,8 @@ class DataLookupSchema(pa.DataFrameModel):
     theme: Series[str] = pa.Field(nullable=True)
 
     # Define fields without checks
-    use_for_risk: Series[pa.Int | bool] = pa.Field(nullable=True)
+    use_for_risk_pcrop: Series[pa.Int | bool] = pa.Field(nullable=True)
+    use_for_risk_acrop: Series[pa.Int | bool] = pa.Field(nullable=True)
     exclude_from_output: Series[pa.Int | bool] = pa.Field(nullable=False)
 
     # Define col_type without checks
@@ -45,9 +46,13 @@ data_lookup_type = DataFrame[DataLookupSchema]
 #     order: Series[int] = pa.Field(nullable=False)
 #     theme: Series[str] = pa.Field(nullable=True)
 
-#     # Restrict use_for_risk to 0 or 1, either as int or bool
-#     use_for_risk: Series[pa.Int | bool] = pa.Field(
-#         checks=pa.Check.isin([0, 1]),  # Using 'checks' keyword argument
+#     # Restrict use_for_risk_pcrop/acrop to 0 or 1
+#     use_for_risk_pcrop: Series[pa.Int | bool] = pa.Field(
+#         checks=pa.Check.isin([0, 1]),
+#         nullable=True
+#     )
+#     use_for_risk_acrop: Series[pa.Int | bool] = pa.Field(
+#         checks=pa.Check.isin([0, 1]),
 #         nullable=True
 #     )
 

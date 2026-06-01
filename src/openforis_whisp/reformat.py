@@ -16,8 +16,7 @@ from openforis_whisp.pd_schemas import data_lookup_type
 
 
 from openforis_whisp.parameters.config_runtime import (
-    DEFAULT_GEE_DATASETS_LOOKUP_TABLE_PATH,
-    DEFAULT_CONTEXT_LOOKUP_TABLE_PATH,
+    DEFAULT_LOOKUP_TABLE_PATH,
 )
 
 logger = StdoutLogger(__name__)
@@ -57,10 +56,7 @@ def load_schema_if_any_file_changed(file_paths=None, national_codes=None):
     """Load schema if files changed OR if national_codes changed"""
 
     if file_paths is None:
-        file_paths = [
-            DEFAULT_GEE_DATASETS_LOOKUP_TABLE_PATH,
-            DEFAULT_CONTEXT_LOOKUP_TABLE_PATH,
-        ]
+        file_paths = [DEFAULT_LOOKUP_TABLE_PATH]
 
     # Include national_codes in cache key (including None case)
     cache_key_parts = []
