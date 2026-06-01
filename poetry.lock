@@ -584,14 +584,14 @@ files = [
 
 [[package]]
 name = "earthengine-api"
-version = "1.5.4"
+version = "1.7.28"
 description = "Earth Engine Python API"
 optional = false
-python-versions = ">=3.9"
+python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "earthengine_api-1.5.4-py3-none-any.whl", hash = "sha256:9dd4980edaa71614e72ee669d4a4372554cbaf0ff87eb0fd4909503e7a4d45b8"},
-    {file = "earthengine_api-1.5.4.tar.gz", hash = "sha256:ec1f7c390bd9b44e89e380b393e8a990bebcad3e2f01d172aa423f5b520cfa5a"},
+    {file = "earthengine_api-1.7.28-py3-none-any.whl", hash = "sha256:7e5e5eaf1f86c413d16713c8f31aaf8066fed2de0234b0ab4750b07e49555843"},
+    {file = "earthengine_api-1.7.28.tar.gz", hash = "sha256:e4faee261bf49997aa596319a291e99223b2d47a39db2e0c9b90484c5d67caf5"},
 ]
 
 [package.dependencies]
@@ -3348,4 +3348,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10"
-content-hash = "108561d630f8a3dd3ac7cc22205f100e682422924e925352ef1a2a71e6c2ee86"
+content-hash = "49e3300567758138df92c044ef45ff8bdc8ff14b1f9546f48068fc3efd68a854"
