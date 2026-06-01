@@ -1,7 +1,7 @@
 from pathlib import Path
 
 # output column names
-# The names need to align with whisp/parameters/lookup_context_and_metadata.csv
+# The names need to align with whisp/parameters/lookup_datasets.csv
 geometry_area_column = "Area"  # Note: datasets.py defines this explicitly as "Area", to allow it to be a standalone script. iso2 country code. Default of "Area" aligns with the EU Traces online reporting platform.
 
 stats_unit_type_column = "Unit"  # name of unit type column in the stats tabl
@@ -33,12 +33,5 @@ stats_area_columns_formatting = "%.3f"
 
 stats_percent_columns_formatting = "%.1f"
 
-# lookup path - for dataset info
-DEFAULT_GEE_DATASETS_LOOKUP_TABLE_PATH = (
-    Path(__file__).parent / "lookup_gee_datasets.csv"
-)
-
-# lookup path - for dataset info
-DEFAULT_CONTEXT_LOOKUP_TABLE_PATH = (
-    Path(__file__).parent / "lookup_context_and_metadata.csv"
-)
+# lookup path - for dataset info (GEE datasets, context columns, and metadata)
+DEFAULT_LOOKUP_TABLE_PATH = Path(__file__).parent / "lookup_datasets.csv"

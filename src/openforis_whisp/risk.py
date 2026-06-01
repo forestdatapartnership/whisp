@@ -6,17 +6,14 @@ from .logger import StdoutLogger
 
 from openforis_whisp.parameters.config_runtime import (
     geometry_area_column,
-    DEFAULT_GEE_DATASETS_LOOKUP_TABLE_PATH,
-    DEFAULT_CONTEXT_LOOKUP_TABLE_PATH,
+    DEFAULT_LOOKUP_TABLE_PATH,
     stats_unit_type_column,
 )
 
 from openforis_whisp.reformat import filter_lookup_by_country_codes
 
 # could embed this in each function below that uses lookup_gee_datasets_df.
-lookup_gee_datasets_df: data_lookup_type = pd.read_csv(
-    DEFAULT_GEE_DATASETS_LOOKUP_TABLE_PATH
-)
+lookup_gee_datasets_df: data_lookup_type = pd.read_csv(DEFAULT_LOOKUP_TABLE_PATH)
 
 logger = StdoutLogger(__name__)
 
@@ -167,7 +164,8 @@ def whisp_risk(
                 'band_name': {
                     'theme': 'treecover',  # or 'commodities', 'disturbance_before', 'disturbance_after'
                     'theme_timber': 'primary',  # or 'naturally_reg_2020', 'planted_plantation_2020', etc.
-                    'use_for_risk': 1,  # 0 or 1
+                    'use_for_risk_pcrop': 1,  # 0 or 1 - include in perennial crop risk
+                    'use_for_risk_acrop': 1,  # 0 or 1 - include in annual crop risk
                     'use_for_risk_timber': 1,  # 0 or 1
                 }
             }
@@ -204,9 +202,19 @@ def whisp_risk(
     if ind_1_input_columns is None:
         ind_1_input_columns = get_cols_ind_01_treecover(filtered_lookup_gee_datasets_df)
     if ind_2_input_columns is None:
-        ind_2_input_columns = get_cols_ind_02_commodities(
-            filtered_lookup_gee_datasets_df
+        # Union of pcrop + acrop commodity datasets so Ind_02_commodities remains the
+        # combined signal (same behaviour as the old use_for_risk column). The per-decision-tree
+        # split is documented in the LUT and the getter accepts risk_col for future use.
+        _pcrop_cols = get_cols_ind_02_commodities(
+            filtered_lookup_gee_datasets_df, risk_col="use_for_risk_pcrop"
         )
+        _acrop_cols = get_cols_ind_02_commodities(
+            filtered_lookup_gee_datasets_df, risk_col="use_for_risk_acrop"
+        )
+        _seen: set = set()
+        ind_2_input_columns = [
+            c for c in _pcrop_cols + _acrop_cols if not (_seen.add(c) or c in _seen)
+        ]
     if ind_3_input_columns is None:
         ind_3_input_columns = get_cols_ind_03_dist_before_2020(
             filtered_lookup_gee_datasets_df
@@ -566,12 +574,13 @@ def add_indicator_column(
     return df
 
 
-def get_cols_ind_01_treecover(lookup_gee_datasets_df):
+def get_cols_ind_01_treecover(lookup_gee_datasets_df, risk_col="use_for_risk_pcrop"):
     """
     Generate a list of dataset names for the treecover theme, excluding those marked for exclusion.
 
     Args:
     lookup_gee_datasets_df (pd.DataFrame): DataFrame containing dataset information.
+    risk_col (str): Column to filter on for risk inclusion. Use 'use_for_risk_pcrop' or 'use_for_risk_acrop'.
 
     Returns:
     list: List of dataset names set to be used in the risk calculations for the treecover theme, excluding those marked for exclusion.
@@ -581,18 +590,19 @@ def get_cols_ind_01_treecover(lookup_gee_datasets_df):
     ]
     return list(
         lookup_gee_datasets_df["name"][
-            (lookup_gee_datasets_df["use_for_risk"] == 1)
+            (lookup_gee_datasets_df[risk_col] == 1)
             & (lookup_gee_datasets_df["theme"] == "treecover")
         ]
     )
 
 
-def get_cols_ind_02_commodities(lookup_gee_datasets_df):
+def get_cols_ind_02_commodities(lookup_gee_datasets_df, risk_col="use_for_risk_pcrop"):
     """
     Generate a list of dataset names for the commodities theme, excluding those marked for exclusion.
 
     Args:
     lookup_gee_datasets_df (pd.DataFrame): DataFrame containing dataset information.
+    risk_col (str): Column to filter on for risk inclusion. Use 'use_for_risk_pcrop' or 'use_for_risk_acrop'.
 
     Returns:
     list: List of dataset names set to be used in the risk calculations for the commodities theme, excluding those marked for exclusion.
@@ -602,18 +612,21 @@ def get_cols_ind_02_commodities(lookup_gee_datasets_df):
     ]
     return list(
         lookup_gee_datasets_df["name"][
-            (lookup_gee_datasets_df["use_for_risk"] == 1)
+            (lookup_gee_datasets_df[risk_col] == 1)
             & (lookup_gee_datasets_df["theme"] == "commodities")
         ]
     )
 
 
-def get_cols_ind_03_dist_before_2020(lookup_gee_datasets_df):
+def get_cols_ind_03_dist_before_2020(
+    lookup_gee_datasets_df, risk_col="use_for_risk_pcrop"
+):
     """
     Generate a list of dataset names for the disturbance before 2020 theme, excluding those marked for exclusion.
 
     Args:
     lookup_gee_datasets_df (pd.DataFrame): DataFrame containing dataset information.
+    risk_col (str): Column to filter on for risk inclusion. Use 'use_for_risk_pcrop' or 'use_for_risk_acrop'.
 
     Returns:
     list: List of dataset names set to be used in the risk calculations for the disturbance before 2020 theme, excluding those marked for exclusion.
@@ -623,18 +636,21 @@ def get_cols_ind_03_dist_before_2020(lookup_gee_datasets_df):
     ]
     return list(
         lookup_gee_datasets_df["name"][
-            (lookup_gee_datasets_df["use_for_risk"] == 1)
+            (lookup_gee_datasets_df[risk_col] == 1)
             & (lookup_gee_datasets_df["theme"] == "disturbance_before")
         ]
     )
 
 
-def get_cols_ind_04_dist_after_2020(lookup_gee_datasets_df):
+def get_cols_ind_04_dist_after_2020(
+    lookup_gee_datasets_df, risk_col="use_for_risk_pcrop"
+):
     """
     Generate a list of dataset names for the disturbance after 2020 theme, excluding those marked for exclusion.
 
     Args:
     lookup_gee_datasets_df (pd.DataFrame): DataFrame containing dataset information.
+    risk_col (str): Column to filter on for risk inclusion. Use 'use_for_risk_pcrop' or 'use_for_risk_acrop'.
 
     Returns:
     list: List of dataset names set to be used in the risk calculations  for the disturbance after 2020 theme, excluding those marked for exclusion.
@@ -644,7 +660,7 @@ def get_cols_ind_04_dist_after_2020(lookup_gee_datasets_df):
     ]
     return list(
         lookup_gee_datasets_df["name"][
-            (lookup_gee_datasets_df["use_for_risk"] == 1)
+            (lookup_gee_datasets_df[risk_col] == 1)
             & (lookup_gee_datasets_df["theme"] == "disturbance_after")
         ]
     )
@@ -831,15 +847,18 @@ def check_range(value: float) -> None:
 
 def get_context_metadata_columns() -> list[str]:
     """
-    Get list of context/metadata column names from lookup CSV.
+    Get list of context/metadata column names from lookup table.
 
     Returns
     -------
     list[str]
         List of column names marked as context_and_metadata
     """
-    lookup_df = pd.read_csv(DEFAULT_CONTEXT_LOOKUP_TABLE_PATH)
-    return list(lookup_df["name"])
+    return list(
+        lookup_gee_datasets_df["name"][
+            lookup_gee_datasets_df["theme"] == "context_and_metadata"
+        ]
+    )
 
 
 def filter_to_risk_columns(
@@ -933,8 +952,11 @@ def add_custom_bands_info_to_lookup(
                 "theme_timber": band_info.get(
                     "theme_timber", pd.NA
                 ),  # default to empty if not provided
-                "use_for_risk": band_info.get(
-                    "use_for_risk", 0
+                "use_for_risk_pcrop": band_info.get(
+                    "use_for_risk_pcrop", 0
+                ),  # default to 0 if not provided
+                "use_for_risk_acrop": band_info.get(
+                    "use_for_risk_acrop", 0
                 ),  # default to 0 if not provided
                 "use_for_risk_timber": band_info.get(
                     "use_for_risk_timber", 0

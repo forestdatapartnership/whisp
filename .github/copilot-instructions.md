@@ -32,10 +32,10 @@ Whisp ("What is in that plot?") is a Python package for forest monitoring and de
 5. **Risk Assessment**: [`risk.py::whisp_risk()`](src/openforis_whisp/risk.py) applies decision tree logic to generate risk columns
 
 ### Configuration-Driven Design
-- [`lookup_gee_datasets.csv`](src/openforis_whisp/parameters/lookup_gee_datasets.csv) defines ALL datasets used in Whisp:
+- [`lookup_datasets.csv`](src/openforis_whisp/parameters/lookup_datasets.csv) defines ALL datasets, context columns, and metadata used in Whisp:
   - `corresponding_variable` column documents which function provides each dataset (for comprehension only, not used in code)
-  - Controls which datasets feed into risk calculations (`use_for_risk`, `use_for_risk_timber`)
-  - Defines themes: `treecover`, `commodities`, `disturbance_before`, `disturbance_after`
+  - Controls which datasets feed into risk calculations: `use_for_risk_pcrop` (perennial crops), `use_for_risk_acrop` (annual crops), `use_for_risk_timber` (timber)
+  - Defines themes: `treecover`, `commodities`, `disturbance_before`, `disturbance_after`, `context_and_metadata`
   - National datasets use ISO2 codes in `ISO2_code` column; global datasets leave blank
 - [`config_runtime.py`](src/openforis_whisp/parameters/config_runtime.py) defines output column names and formatting rules
 - Schema validation via [`pd_schemas.py`](src/openforis_whisp/pd_schemas.py) using Pandera
@@ -128,10 +128,11 @@ pytest  # Runs basic tests for Whisp stats)
 
 ### Adding New Datasets
 1. **Add function to [`datasets.py`](src/openforis_whisp/datasets.py)**: Follow naming convention (`g_*_prep` or `nXX_*_prep`)
-2. **Add row to [`lookup_gee_datasets.csv`](src/openforis_whisp/parameters/lookup_gee_datasets.csv)**:
+2. **Add row to [`lookup_datasets.csv`](src/openforis_whisp/parameters/lookup_datasets.csv)**:
    - Set `corresponding_variable` to function name
    - Set `theme` (treecover/commodities/disturbance_before/disturbance_after)
-   - Set `use_for_risk=1` or ('use_for_risk_timber' = 1) if dataset should feed into main risk calculations
+   - Set `use_for_risk_pcrop=1` and/or `use_for_risk_acrop=1` if dataset should feed into crop risk calculations (perennial or annual)
+   - Set `use_for_risk_timber=1` if dataset should feed into timber risk calculations
    - Set `ISO2_code` if national dataset
 3. No code changes needed for dataset to appear in output - CSV drives everything!
 4. Update documentation files as needed (see Documentation References below)
@@ -161,7 +162,7 @@ Many column names are hardcoded in various parts of the codebase and external sy
 Some critical columns:
 Indicator (e.g., `ind_1_treecover_2020`) and risk columns (e.g., `risk_pcrop`) are both hardcoded in [src/openforis_whisp/risk.py](src/openforis_whisp/risk.py).
 
-Further standard column names are defined in [src/openforis_whisp/parameters/lookup_context_and_metadata.csv](src/openforis_whisp/parameters/lookup_context_and_metadata.csv). Two key columns are specifically named to help ensure compatibility with external systems (such as the EU TRACES platform for EUDR):
+Further standard column names are defined in [src/openforis_whisp/parameters/lookup_datasets.csv](src/openforis_whisp/parameters/lookup_datasets.csv) (rows where `theme == context_and_metadata`). Two key columns are specifically named to help ensure compatibility with external systems (such as the EU TRACES platform for EUDR):
 - `Area` (geometry area in hectares), defined in [src/openforis_whisp/datasets.py](src/openforis_whisp/datasets.py#L23)
 - `ProducerCountry` (ISO2 country code), defined in [src/openforis_whisp/advanced_stats.py](src/openforis_whisp/advanced_stats.py)
 
@@ -169,9 +170,8 @@ Further standard column names are defined in [src/openforis_whisp/parameters/loo
 **When adding datasets/columns:**
 
 - For schema validation (drives output structure prior to risk assessment) the following files must be updated:
-  - [src/openforis_whisp/parameters/lookup_gee_datasets.csv](src/openforis_whisp/parameters/lookup_gee_datasets.csv)
-  - [src/openforis_whisp/parameters/lookup_context_and_metadata.csv](src/openforis_whisp/parameters/lookup_context_and_metadata.csv)
-  - [src/openforis_whisp/pd_schemas.py](src/openforis_whisp/pd_schemas.py) (validation logic uses the above lookups)
+  - [src/openforis_whisp/parameters/lookup_datasets.csv](src/openforis_whisp/parameters/lookup_datasets.csv)
+  - [src/openforis_whisp/pd_schemas.py](src/openforis_whisp/pd_schemas.py) (validation logic uses the above lookup)
 
 - For documentation (ensures users and downstream systems are aware of new columns):
   - [layers_description.md](layers_description.md) (dataset and column descriptions)
