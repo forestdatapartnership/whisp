@@ -723,6 +723,10 @@ def get_cols_ind_08_planted_after_2020(lookup_gee_datasets_df):
     Returns:
     list: List of dataset names set to be used in the risk calculations for the degradation - planted and plantation forests post 2020, excluding those marked for exclusion.
     """
+    # NOTE: no dataset currently feeds Ind_08, so this returns [] and the indicator does
+    # not fire (see #195). FDaP palm/rubber change signal is hard to trust; TMF
+    # forest->plantation (TransitionMap_Subtypes 81-86) seems limited in scope globally.
+    # Needs more investigation before wiring a source in.
     lookup_gee_datasets_df = lookup_gee_datasets_df[
         lookup_gee_datasets_df["exclude_from_output"] != 1
     ]
