@@ -1279,46 +1279,15 @@ def nbr_mapbiomasc9_silv20_prep():
 
 ################ ### NBR Disturbances before 2020:########################################
 
-# [Official NFMS dataset] INPE PRODES data up to 2023
-# Subsetting criteria: DN = [0, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60];
-
-# the resulting dataset shows deforestation and conversion of OWL and OL up to 2020 (mostly August 2020), including residues (omission errors corrections)
+# [Official NFMS dataset] INPE PRODES deforestation up to Dec 2020, corrected for EUDR cutoff date.
+# Replaces prodes_brasil_2023 remap for the before-2020 layer.
+# New asset uses Dec 31 2020 as cutoff (PRODES normally uses Aug 1); DN classes: 11, 21, 31, 41, 51, 61.
 def nbr_prodes_before_2020_prep():
-    prodes = ee.Image("projects/ee-whisp/assets/NBR/prodes_brasil_2023")
-    prodes_before_20_dn = [
-        0,
-        2,
-        4,
-        6,
-        7,
-        8,
-        9,
-        10,
-        11,
-        12,
-        13,
-        14,
-        15,
-        16,
-        17,
-        18,
-        19,
-        20,
-        50,
-        51,
-        52,
-        53,
-        54,
-        55,
-        56,
-        57,
-        58,
-        59,
-        60,
-    ]
+    prodes = ee.Image("projects/ee-whisp/assets/NBR/nbr_inpe_prodes_dec2020")
+    prodes_before_20_dn = [11, 21, 31, 41, 51, 61]
     prodes_before_20_mask = prodes.remap(
         prodes_before_20_dn, [1] * len(prodes_before_20_dn)
-    )  # .eq(1)
+    )
     return prodes_before_20_mask.rename(
         "nBR_PRODES_deforestation_Brazil_before_2020"
     ).selfMask()
