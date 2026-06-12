@@ -7,7 +7,7 @@ It defines project-specific coding standards, architectural guidelines, and best
 ## Project Overview
 Whisp ("What is in that plot?") is a Python package for forest monitoring and deforestation risk assessment using Google Earth Engine (GEE). It implements the "Convergence of Evidence" approach by analyzing multiple satellite datasets to assess plots for compliance with deforestation-related regulations like EUDR.
 
-**Key capabilities**: Process GeoJSON geometries through GEE to extract zonal statistics from 50+ datasets covering tree cover, commodity plantations, and forest disturbances (before/after 2020), then apply risk algorithms for different commodities (coffee, cocoa, rubber, palm oil, soy, livestock, timber).
+**Key capabilities**: Process GeoJSON geometries through GEE to extract zonal statistics from 50+ datasets covering tree cover, commodity plantations, and forest disturbances (before/after 2020), then apply risk algorithms for different commodities (coffee, cocoa, rubber, palm oil, soy, cattle, timber).
 
 ### Deployment Ecosystem
 **CRITICAL**: This package powers multiple production systems. Breaking changes impact:
@@ -72,7 +72,7 @@ Whisp supports both **hectares** and **percent** units:
 [`risk.py::whisp_risk()`](src/openforis_whisp/risk.py) implements commodity-specific decision trees:
 - **Perennial crops** (coffee, cocoa, rubber, palm): Uses `Risk_PCrop` output
 - **Annual crops** (soy): Uses `Risk_ACrop`
-- **Livestock**: Uses `Risk_Livestock` (NB still not integrated in Whisp main as of Jan 2026)
+- **Cattle**: Uses `risk_cattle` (acrop-equivalent pathway; commodity indicator is Ind_12 pasture datasets)
 - **Timber**: Uses `Risk_Timber` (includes additional categories like primary forests, logging concessions)
 
 Decision tree checks in order:
