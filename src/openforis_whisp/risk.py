@@ -90,6 +90,7 @@ def whisp_risk(
     ind_9_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_10_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_11_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
+    ind_12_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_1_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_2_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_3_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
@@ -101,6 +102,7 @@ def whisp_risk(
     ind_9_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_10_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_11_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
+    ind_12_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_1_name: str = "Ind_01_treecover",
     ind_2_name: str = "Ind_02_commodities",
     ind_3_name: str = "Ind_03_disturbance_before_2020",
@@ -112,6 +114,7 @@ def whisp_risk(
     ind_9_name: str = "Ind_09_treecover_after_2020",
     ind_10_name: str = "Ind_10_agri_after_2020",
     ind_11_name: str = "Ind_11_logging_concession_before_2020",
+    ind_12_name: str = "Ind_12_pasture_2020",
     low_name: str = "no",
     high_name: str = "yes",
     explicit_unit_type: str = None,
@@ -157,6 +160,9 @@ def whisp_risk(
         ind_9_name (str, optional): Name of indicator 9 column. Defaults to "Ind_09_treecover_after_2020".
         ind_10_name (str, optional): Name of indicator 10 column. Defaults to "Ind_10_agri_after_2020".
         ind_11_name (str, optional): Name of indicator 11 column. Defaults to "Ind_11_logging_concession_before_2020".
+        ind_12_pcent_threshold (float, optional): Percentage threshold for indicator 12 (pasture at 2020). Defaults to 10.
+        ind_12_input_columns (pd.Series, optional): Input columns for indicator 12. Defaults to pasture datasets with use_for_risk_cattle=1.
+        ind_12_name (str, optional): Name of indicator 12 column. Defaults to "Ind_12_pasture_2020".
         low_name (str, optional): Value shown in table if less than or equal to the threshold. Defaults to "no".
         high_name (str, optional): Value shown in table if more than the threshold. Defaults to "yes".
         explicit_unit_type (str, optional): Override the autodetected unit type ('ha' or 'percent').
@@ -243,6 +249,10 @@ def whisp_risk(
         ind_11_input_columns = get_cols_ind_11_logging_before_2020(
             filtered_lookup_gee_datasets_df
         )
+    if ind_12_input_columns is None:
+        ind_12_input_columns = get_cols_ind_12_pasture_2020(
+            filtered_lookup_gee_datasets_df
+        )
 
     # Check range of values
     check_range(ind_1_pcent_threshold)
@@ -256,6 +266,7 @@ def whisp_risk(
     check_range(ind_9_pcent_threshold)
     check_range(ind_10_pcent_threshold)
     check_range(ind_11_pcent_threshold)
+    check_range(ind_12_pcent_threshold)
 
     input_cols = [
         ind_1_input_columns,
@@ -269,6 +280,7 @@ def whisp_risk(
         ind_9_input_columns,
         ind_10_input_columns,
         ind_11_input_columns,
+        ind_12_input_columns,
     ]
     thresholds = [
         ind_1_pcent_threshold,
@@ -282,6 +294,7 @@ def whisp_risk(
         ind_9_pcent_threshold,
         ind_10_pcent_threshold,
         ind_11_pcent_threshold,
+        ind_12_pcent_threshold,
     ]
     names = [
         ind_1_name,
@@ -295,6 +308,7 @@ def whisp_risk(
         ind_9_name,
         ind_10_name,
         ind_11_name,
+        ind_12_name,
     ]
     [check_range(threshold) for threshold in thresholds]
 
@@ -318,6 +332,13 @@ def whisp_risk(
     )
 
     add_risk_acrop_col(
+        df=df_w_indicators,
+        ind_1_name=ind_1_name,
+        ind_2_name=ind_2_name,
+        ind_4_name=ind_4_name,
+    )
+
+    add_risk_cattle_col(
         df=df_w_indicators,
         ind_1_name=ind_1_name,
         ind_2_name=ind_2_name,
@@ -412,6 +433,40 @@ def add_risk_acrop_col(
         # If tree cover and no disturbances post 2020, set risk to "more_info_needed"
         else:
             df.at[index, "risk_acrop"] = "more_info_needed"
+
+    return df
+
+
+def add_risk_cattle_col(
+    df: data_lookup_type,
+    ind_1_name: str,
+    ind_2_name: str,
+    ind_4_name: str,
+) -> data_lookup_type:
+    """
+    Adds the cattle risk column to the DataFrame based on indicator values.
+
+    Placeholder: uses the same decision tree as acrop (Ind_01, Ind_02, Ind_04).
+    Ind_12_pasture_2020 exists as an indicator column but is not yet wired into
+    this decision tree. Will be updated once pasture data and silvopastoral
+    nuances are properly reviewed.
+
+    Args:
+        df (DataFrame): Input DataFrame.
+        ind_1_name (str): Name of treecover indicator column.
+        ind_2_name (str): Name of commodities indicator column.
+        ind_4_name (str): Name of disturbance after 2020 indicator column.
+
+    Returns:
+        DataFrame: DataFrame with added 'risk_cattle' column.
+    """
+    for index, row in df.iterrows():
+        if row[ind_1_name] == "no" or row[ind_2_name] == "yes":
+            df.at[index, "risk_cattle"] = "low"
+        elif row[ind_1_name] == "yes" and row[ind_4_name] == "yes":
+            df.at[index, "risk_cattle"] = "high"
+        else:
+            df.at[index, "risk_cattle"] = "more_info_needed"
 
     return df
 
@@ -800,6 +855,29 @@ def get_cols_ind_11_logging_before_2020(lookup_gee_datasets_df):
     )
 
 
+def get_cols_ind_12_pasture_2020(lookup_gee_datasets_df):
+    """
+    Generate a list of dataset names for pasture at 2020 (cattle commodity indicator),
+    excluding those marked for exclusion.
+
+    Args:
+    lookup_gee_datasets_df (pd.DataFrame): DataFrame containing dataset information.
+
+    Returns:
+    list: List of dataset names set to be used in the cattle risk calculation for the
+    commodities theme, excluding those marked for exclusion.
+    """
+    lookup_gee_datasets_df = lookup_gee_datasets_df[
+        lookup_gee_datasets_df["exclude_from_output"] != 1
+    ]
+    return list(
+        lookup_gee_datasets_df["name"][
+            (lookup_gee_datasets_df["use_for_risk_cattle"] == 1)
+            & (lookup_gee_datasets_df["theme"] == "commodities")
+        ]
+    )
+
+
 def clamp(
     value: float | pd.Series, min_val: float, max_val: float
 ) -> float | pd.Series:
@@ -848,7 +926,7 @@ def filter_to_risk_columns(
     - Context/metadata columns (plotId, Area, Country, etc.)
     - Dataset columns used in risk indicators
     - Indicator columns (Ind_01_treecover, etc.)
-    - Risk columns (risk_pcrop, risk_acrop, risk_timber, risk_livestock)
+    - Risk columns (risk_pcrop, risk_acrop, risk_cattle, risk_timber)
 
     Parameters
     ----------
@@ -873,7 +951,7 @@ def filter_to_risk_columns(
         dataset_cols.extend(col_list)
 
     # Risk output columns (present in df if function called at end)
-    risk_cols = ["risk_pcrop", "risk_acrop", "risk_timber", "risk_livestock"]
+    risk_cols = ["risk_pcrop", "risk_acrop", "risk_cattle", "risk_timber"]
 
     # Post-processing metadata columns (added after validation, not in schema CSV)
     metadata_cols = ["whisp_processing_metadata", "geo_original"]
@@ -934,6 +1012,9 @@ def add_custom_bands_info_to_lookup(
                 ),  # default to 0 if not provided
                 "use_for_risk_timber": band_info.get(
                     "use_for_risk_timber", 0
+                ),  # default to 0 if not provided
+                "use_for_risk_cattle": band_info.get(
+                    "use_for_risk_cattle", 0
                 ),  # default to 0 if not provided
                 "exclude_from_output": 0,  # 0 here is so we don't exclude custom bands
                 "ISO2_code": pd.NA,  # Global, i.e., empty string, by default
