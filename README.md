@@ -48,14 +48,14 @@
   3) Disturbances **before 2020** (i.e., degradation or deforestation until 2020-12-31);
   4) Disturbances **after 2020** (i.e., degradation or deforestation from 2021-01-01 onward).
 
-Additional categories are specific for the timber commodity, considering a harvesting date in 2024:
+Additional categories are specific for the timber commodity, considering a harvesting date in 2025:
 
   5) Primary forests in 2020;
   6) Naturally regenerating forests in 2020;
   7) Planted and plantation forests in 2020;
-  8) Planted and plantation forests in 2024;
-  9) Treecover in 2024;
-  10) Commodities or croplands in 2024.
+  8) Planted and plantation forests in 2025;
+  9) Treecover in 2025;
+  10) Commodities or croplands in 2025.
   11) Logging concessions;
 
   There are multiple datasets for each category. Find the full current [list of datasets used in Whisp here](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md).
@@ -69,14 +69,14 @@ Whisp checks the plots provided by the user by running zonal statistics on them 
   3) Were there disturbances until 2020-12-31?
   4) Were there disturbances after 2020-12-31 / starting 2021-01-01?
 
-And specifically for the timber commodity, considering a harvesting date in 2024:
+And specifically for the timber commodity, considering a harvesting date in 2025:
 
   5) Were there primary forests in 2020?
   6) Were there naturally regenerating forests in 2020?
   7) Were there planted and plantation forests in 2020?
-  8) Were there planted and plantation forests in 2024?
-  9) Was there treecover in 2024?
-  10) Were there commodity plantations or other agricultural uses in 2024?
+  8) Were there planted and plantation forests in 2025?
+  9) Was there treecover in 2025?
+  10) Were there commodity plantations or other agricultural uses in 2025?
   11) Is it part of a logging concession?
 
   The Whisp algorithm outputs multiple statistical columns with disaggregated data from the input datasets, followed by aggregated indicator columns, and the final risk assessment columns.

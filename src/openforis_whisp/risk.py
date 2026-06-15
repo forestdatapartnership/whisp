@@ -491,56 +491,69 @@ def add_risk_timber_col(
     ind_11_name: str,
 ) -> data_lookup_type:
     """
-    Adds the risk column to the DataFrame based on indicator values.
+    Adds the risk_timber column to the DataFrame based on the WHISP timber decision tree.
+
+    Decision tree (in priority order):
+    1. Agriculture 2020 (Ind_02) OR stable plantation (Ind_07=yes, Ind_10=no) -> LOW
+       Agriculture 2020 = outside EUDR scope regardless of post-2020 state (EUDR Art.2).
+       Stable plantation = planted forest remaining planted forest = compliant.
+    2. Any forest 2020 (Ind_05/06/07) AND agriculture after 2020 (Ind_10) -> HIGH (deforestation)
+    3. Primary/nat-regen 2020 (Ind_05/06) AND plantation after 2020 (Ind_08) -> HIGH (degradation)
+       Ind_08 wired to TMF plantation after 2020 (tropical-moist coverage only; see datasets.py).
+    4. Primary/nat-regen 2020 (Ind_05/06) AND OWL after 2020 -> HIGH (degradation)
+       OWL currently indistinguishable from agriculture in available maps (collapsed into Ind_10).
+       Wire up when a dataset separating OWL from agriculture exists. EUDR Art.2: primary/nat-regen -> OWL = degradation.
+    5. Primary/nat-regen 2020 (Ind_05/06) AND (treecover after 2020 (Ind_09) OR logging concession (Ind_11)) -> LOW
+       Management evidence or continuing treecover = compliant production forest.
+    6. Primary/nat-regen 2020 (Ind_05/06), no post-2020 signal -> MORE INFO NEEDED
+    7. No forest indicators fire -> LOW (non-forest in 2020, outside EUDR scope)
 
     Args:
-        df (DataFrame): Input DataFrame.
-        ind_2_name (str, optional): Name of second indicator column. Defaults to "Ind_02_commodities".
-        ind_5_name (str, optional): Name of fifth indicator column. Defaults to "Ind_05_primary_2020".
-        ind_6_name (str, optional): Name of sixth indicator column. Defaults to "Ind_06_nat_reg_forest_2020".
-        ind_7_name (str, optional): Name of seventh indicator column. Defaults to "Ind_07_planted_plantations_2020".
-        ind_8_name (str, optional): Name of eighth indicator column. Defaults to "Ind_08_planted_plantations_after_2020".
-        ind_9_name (str, optional): Name of ninth indicator column. Defaults to "Ind_09_treecover_after_2020".
-        ind_10_name (str, optional): Name of tenth indicator column. Defaults to "Ind_10_agri_after_2020".
-        ind_11_name (str, optional): Name of eleventh indicator column. Defaults to "Ind_11_logging_concession_before_2020".
+        df: Input DataFrame.
+        ind_2_name: Ind_02_commodities (agriculture/commodity in 2020).
+        ind_5_name: Ind_05_primary_2020.
+        ind_6_name: Ind_06_nat_reg_forest_2020.
+        ind_7_name: Ind_07_planted_plantations_2020.
+        ind_8_name: Ind_08_planted_plantations_after_2020 (placeholder, no data yet).
+        ind_9_name: Ind_09_treecover_after_2020.
+        ind_10_name: Ind_10_agri_after_2020.
+        ind_11_name: Ind_11_logging_concession_before_2020.
 
     Returns:
-        DataFrame: DataFrame with added risk column.
+        DataFrame with risk_timber column added.
     """
 
     for index, row in df.iterrows():
-        # If there is a commodity in 2020 (ind_2_name)
-        # OR if there is planted-plantation in 2020 (ind_7_name) AND no agriculture in 2024 (ind_10_name), set risk_timber to "low"
+        # Rule 1: agriculture/commodity in 2020 (outside EUDR scope) OR stable plantation -> LOW
         if row[ind_2_name] == "yes" or (
             row[ind_7_name] == "yes" and row[ind_10_name] == "no"
         ):
             df.at[index, "risk_timber"] = "low"
-        # If there is a natural forest primary (ind_5_name) or naturally regenerating (ind_6_name) or planted forest (ind_7_name) in 2020 AND agricultural after 2020 (ind_10_name), set risk_timber to high
+        # Rule 2: any forest 2020 -> agriculture after 2020 = deforestation -> HIGH
         elif (
             row[ind_5_name] == "yes"
             or row[ind_6_name] == "yes"
             or row[ind_7_name] == "yes"
         ) and row[ind_10_name] == "yes":
             df.at[index, "risk_timber"] = "high"
-        # If there is a natural forest primary (ind_5_name) or naturally regenerating (ind_6_name) AND planted after 2020 (ind_8_name), set risk to "high"
+        # Rule 3: primary/nat-regen 2020 -> plantation after 2020 = degradation -> HIGH
+        # Ind_08 wired to TMF plantation after 2020 (tropical-moist coverage only)
         elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes") and row[
             ind_8_name
         ] == "yes":
             df.at[index, "risk_timber"] = "high"
-        # No data yet on OWL conversion
-        # If primary or naturally regenerating or planted forest in 2020 and OWL in 2024, set risk to high
-        # elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes" or row[ind_7_name] == "yes") and row[ind_10_name] == "yes":
-        #    df.at[index, 'risk_timber'] = "high"
-
-        # If there is a natural primary forest (ind_5_name) OR naturally regenerating in 2020 (ind_6_name) AND an information on management practice any time (ind_11_name) OR tree cover or regrowth post 2020 (ind_9_name), set risk_timber to "low"
+        # Rule 4 (placeholder): primary/nat-regen/planted 2020 -> OWL after 2020 = degradation -> HIGH
+        # OWL currently indistinguishable from agriculture in available maps (collapsed into Ind_10).
+        # Wire up when a dataset that separates OWL from agriculture becomes available.
+        # Rule 5: primary/nat-regen 2020 + management evidence or continuing treecover -> LOW
         elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes") and (
             row[ind_9_name] == "yes" or row[ind_11_name] == "yes"
         ):
             df.at[index, "risk_timber"] = "low"
-        # If primary (ind_5_name) OR naturally regenerating in 2020 (ind_6_name) and no other info, set risk to "more_info_needed"
+        # Rule 6: primary/nat-regen 2020, no post-2020 signal -> MORE INFO NEEDED
         elif row[ind_5_name] == "yes" or row[ind_6_name] == "yes":
             df.at[index, "risk_timber"] = "more_info_needed"
-        # If none of the above conditions are met, set risk to "low"
+        # Rule 7: no forest in 2020 detected -> LOW (outside EUDR scope)
         else:
             df.at[index, "risk_timber"] = "low"
 

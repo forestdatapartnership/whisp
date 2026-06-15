@@ -159,9 +159,9 @@ def g_iiasa_planted_prep():
 def g_tmf_regrowth_prep():
     # Load the TMF Degradation annual product
     TMF_AC = ee.ImageCollection("projects/JRC/TMF/v1_2025/AnnualChanges").mosaic()
-    TMF_AC_2024 = TMF_AC.select("Dec2024")
-    Regrowth_TMF = TMF_AC_2024.eq(4)
-    return Regrowth_TMF.rename("TMF_regrowth_2024").selfMask()
+    TMF_AC_2025 = TMF_AC.select("Dec2025")
+    Regrowth_TMF = TMF_AC_2025.eq(4)
+    return Regrowth_TMF.rename("TMF_regrowth_2025").selfMask()
 
 
 ############tree crops
@@ -179,6 +179,18 @@ def g_jrc_tmf_plantation_prep():
         deforestation_year.gte(2021), 0
     )  # update from https://github.com/forestdatapartnership/whisp/issues/42
     return plantation_2020.rename("TMF_plant").selfMask()
+
+
+def g_jrc_tmf_plantation_after_2020_prep():
+    transition = ee.ImageCollection(
+        "projects/JRC/TMF/v1_2025/TransitionMap_Subtypes"
+    ).mosaic()
+    deforestation_year = ee.ImageCollection(
+        "projects/JRC/TMF/v1_2025/DeforestationYear"
+    ).mosaic()
+    plantation = (transition.gte(81)).And(transition.lte(86))
+    plantation_after_2020 = plantation.And(deforestation_year.gte(2021))
+    return plantation_after_2020.rename("TMF_plantation_after_2020").selfMask()
 
 
 # # Oil_palm_Descals
@@ -213,6 +225,12 @@ def g_eth_kalischek_cocoa_prep():
 # fdap datasets
 
 # Thresholds and model info here https://github.com/google/forest-data-partnership/tree/main/models/model_2025b
+
+# NOTE: the FDaP "after 2020" commodity layers (palm/cocoa/rubber/coffee) are at 2024, not 2025.
+# Other after-2020 timber indicators were moved to 2025 (TMF, ESRI). FDaP only goes to 2024.
+# These FDaP 2024 layers are NOT currently used in any risk decision (use_for_risk=0,
+# use_for_risk_timber=0 in the LUT); they are computed for output/reference only. Mixing a 2024
+# FDaP layer into a 2025 risk decision would be inconsistent, so revisit when FDaP releases 2025.
 
 # Oil Palm FDaP
 def g_fdap_palm_prep():
@@ -340,34 +358,34 @@ def g_soy_song_2020_prep():
 
 
 ##############
-# ESRI 2024
+# ESRI 2025
 
-# ESRI 2024 - Tree Cover
-def g_esri_2024_tc_prep():
+# ESRI 2025 - Tree Cover
+def g_esri_2025_tc_prep():
     esri_lulc10_raw = ee.ImageCollection(
         "projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS"
     )
     esri_lulc10_TC = (
-        esri_lulc10_raw.filterDate("2024-01-01", "2024-12-31").mosaic().eq(2)
+        esri_lulc10_raw.filterDate("2025-01-01", "2025-12-31").mosaic().eq(2)
     )
-    return esri_lulc10_TC.rename("ESRI_2024_TC").selfMask()
+    return esri_lulc10_TC.rename("ESRI_2025_TC").selfMask()
 
 
-# ESRI 2024 - Crop
-def g_esri_2020_2024_crop_prep():
+# ESRI 2025 - Crop
+def g_esri_2020_2025_crop_prep():
     esri_lulc10_raw = ee.ImageCollection(
         "projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS"
     )
     esri_lulc10_crop_2020 = (
         esri_lulc10_raw.filterDate("2020-01-01", "2020-12-31").mosaic().eq(5)
     )
-    esri_lulc10_crop_2024 = (
-        esri_lulc10_raw.filterDate("2024-01-01", "2024-12-31").mosaic().eq(5)
+    esri_lulc10_crop_2025 = (
+        esri_lulc10_raw.filterDate("2025-01-01", "2025-12-31").mosaic().eq(5)
     )
 
-    newCrop = esri_lulc10_crop_2024.And(esri_lulc10_crop_2020.Not())
+    newCrop = esri_lulc10_crop_2025.And(esri_lulc10_crop_2020.Not())
 
-    return newCrop.rename("ESRI_crop_gain_2020_2024").selfMask()
+    return newCrop.rename("ESRI_crop_gain_2020_2025").selfMask()
 
 
 #### disturbances by year

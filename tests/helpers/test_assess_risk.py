@@ -18,6 +18,13 @@ EXPECTED_INDICATOR_COLS = [
     "Ind_02_commodities",
     "Ind_03_disturbance_before_2020",
     "Ind_04_disturbance_after_2020",
+    "Ind_05_primary_2020",
+    "Ind_06_nat_reg_forest_2020",
+    "Ind_07_planted_plantations_2020",
+    "Ind_08_planted_plantations_after_2020",
+    "Ind_09_treecover_after_2020",
+    "Ind_10_agri_after_2020",
+    "Ind_11_logging_concession_before_2020",
     "Ind_12_pasture_2020",
 ]
 
@@ -35,4 +42,9 @@ def test_whisp_stats_geojson_to_df() -> None:
         ), f"unexpected values in {col}"
     for col in EXPECTED_INDICATOR_COLS:
         assert col in df_stats_with_risk.columns, f"missing indicator column: {col}"
-    print(df_stats_with_risk)
+    ind_cols = [c for c in df_stats_with_risk.columns if c.startswith("Ind_")]
+    print(df_stats_with_risk[["risk_timber"] + ind_cols].to_string())
+    print(
+        "\nrisk_timber distribution:\n",
+        df_stats_with_risk["risk_timber"].value_counts(),
+    )
