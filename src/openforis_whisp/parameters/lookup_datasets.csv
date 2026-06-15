@@ -202,7 +202,6 @@ GFT_planted_plantation,1840,,NA,planted_plantation_2020,0,0,1,0,float32,1,0,g_gf
 IIASA_planted_plantation,1850,,NA,planted_plantation_2020,0,0,1,0,float32,1,0,g_iiasa_planted_prep,0
 TMF_regrowth_2025,1860,,NA,treecover_after_2020,0,0,1,0,float32,1,0,g_tmf_regrowth_prep,0
 ESRI_2025_TC,1870,,NA,treecover_after_2020,0,0,1,0,float32,1,0,g_esri_2025_tc_prep,0
-TMF_plantation_after_2020,1875,,NA,planted_plantation_after_2020,0,0,1,0,float32,1,0,g_jrc_tmf_plantation_after_2020_prep,0
 Oil_palm_2024_FDaP,1880,,NA,agri_after_2020,0,0,0,0,float32,1,0,g_fdap_palm_2024_prep,0
 Rubber_2024_FDaP,1890,,NA,agri_after_2020,0,0,0,0,float32,1,0,g_fdap_rubber_2024_prep,0
 Coffee_FDaP_2024,1900,,NA,agri_after_2020,0,0,0,0,float32,1,0,g_fdap_coffee_2024_prep,0

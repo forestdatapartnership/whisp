@@ -181,18 +181,6 @@ def g_jrc_tmf_plantation_prep():
     return plantation_2020.rename("TMF_plant").selfMask()
 
 
-def g_jrc_tmf_plantation_after_2020_prep():
-    transition = ee.ImageCollection(
-        "projects/JRC/TMF/v1_2025/TransitionMap_Subtypes"
-    ).mosaic()
-    deforestation_year = ee.ImageCollection(
-        "projects/JRC/TMF/v1_2025/DeforestationYear"
-    ).mosaic()
-    plantation = (transition.gte(81)).And(transition.lte(86))
-    plantation_after_2020 = plantation.And(deforestation_year.gte(2021))
-    return plantation_after_2020.rename("TMF_plantation_after_2020").selfMask()
-
-
 # # Oil_palm_Descals
 # NB updated to Descals et al 2024 paper (as opposed to Descals et al 2021 paper)
 def g_creaf_descals_palm_prep():

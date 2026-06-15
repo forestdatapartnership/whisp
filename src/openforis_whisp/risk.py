@@ -499,7 +499,9 @@ def add_risk_timber_col(
        Stable plantation = planted forest remaining planted forest = compliant.
     2. Any forest 2020 (Ind_05/06/07) AND agriculture after 2020 (Ind_10) -> HIGH (deforestation)
     3. Primary/nat-regen 2020 (Ind_05/06) AND plantation after 2020 (Ind_08) -> HIGH (degradation)
-       Ind_08 wired to TMF plantation after 2020 (tropical-moist coverage only; see datasets.py).
+       Ind_08 has no valid dataset yet: TMF plantation classes are commodity crops (oil palm/rubber),
+       not timber plantation forest, so they are not used here. Rule stays dormant until a wood-
+       plantation-after-2020 layer exists (see temp_dev_notes/timber_decision_tree_versions.md).
     4. Primary/nat-regen 2020 (Ind_05/06) AND OWL after 2020 -> HIGH (degradation)
        OWL currently indistinguishable from agriculture in available maps (collapsed into Ind_10).
        Wire up when a dataset separating OWL from agriculture exists. EUDR Art.2: primary/nat-regen -> OWL = degradation.
@@ -537,7 +539,7 @@ def add_risk_timber_col(
         ) and row[ind_10_name] == "yes":
             df.at[index, "risk_timber"] = "high"
         # Rule 3: primary/nat-regen 2020 -> plantation after 2020 = degradation -> HIGH
-        # Ind_08 wired to TMF plantation after 2020 (tropical-moist coverage only)
+        # Ind_08 has no valid dataset (TMF plantation = commodity crops, not timber); rule dormant
         elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes") and row[
             ind_8_name
         ] == "yes":
