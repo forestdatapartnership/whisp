@@ -142,6 +142,7 @@ def g_gft_nat_reg_prep():
 
 #########################planted and plantation forests
 
+
 # EUFO JRC Global forest type - planted/plantation forests
 def g_gft_plantation_prep():
     gft_raw = ee.Image("JRC/GFC2020_subtypes/V1")
@@ -149,10 +150,60 @@ def g_gft_plantation_prep():
     return gft_plantation.rename("GFT_planted_plantation").selfMask()
 
 
-def g_iiasa_planted_prep():
+# IIASA Global Forest Management (FML v3-2, 2015, 100 m): 31 = planted forest, 32 = short-rotation
+# timber plantation. Split into the two slots (was merged as eq(31).Or(eq(32))).
+def g_iiasa_planted_2020_prep():
     iiasa = ee.Image("projects/sat-io/open-datasets/GFM/FML_v3-2")
-    iiasa_PL = iiasa.eq(31).Or(iiasa.eq(32))
-    return iiasa_PL.rename("IIASA_planted_plantation").selfMask()
+    return iiasa.eq(31).rename("IIASA_planted_2020").selfMask()
+
+
+def g_iiasa_plantation_2020_prep():
+    iiasa = ee.Image("projects/sat-io/open-datasets/GFM/FML_v3-2")
+    return iiasa.eq(32).rename("IIASA_plantation_2020").selfMask()
+
+
+# ForTy (Google Nature Trace + IIASA) forest typology 2020.
+# See https://eartharxiv.org/repository/view/13130. Argmax over the class means with "other" computed
+# as 250 - sum of the five class bands, giving one categorical band, values 1-6:
+# 1=Primary, 2=NaturallyRegenerating, 3=Planted, 4=Plantation, 5=TreeCrops/Agroforestry, 6=Other.
+# Recipe follows the ForTy GEE app. PlantedForest is the weakest class (F1 58.2%), so the
+# planted-vs-plantation split is real but uncertain.
+def _forty_2020():
+    c = ee.ImageCollection(
+        "projects/nature-trace/assets/forest_typology/forest_typology_2020_v1_0_collection"
+    )
+    other = c.mosaic().reduce(ee.Reducer.sum()).multiply(-1).add(250)
+    return c.mean().addBands(other).toArray().arrayArgmax().arrayGet([0]).add(1)
+
+
+def g_forty_planted_2020_prep():
+    return _forty_2020().eq(3).rename("ForTy_planted_2020").selfMask()
+
+
+def g_forty_plantation_2020_prep():
+    return _forty_2020().eq(4).rename("ForTy_plantation_2020").selfMask()
+
+
+def g_forty_other_land_2020_prep():
+    return _forty_2020().eq(6).rename("ForTy_other_land_2020").selfMask()
+
+
+# PLACEHOLDER (coded out): planted/plantation AFTER 2020 via the forthcoming ForTy post-2020 release
+# (feeds Ind_08a / Ind_08b). Same argmax recipe as _forty_2020() but on the post-2020 asset. Kept
+# commented so it is NOT auto-discovered: until released, Ind_08a/08b have no dataset and stay "no" for
+# every plot. When the asset lands, uncomment, point it at the asset, and add the planted_after_2020 /
+# plantation_after_2020 LUT rows.
+#
+# def _forty_after_2020():
+#     c = ee.ImageCollection("<post-2020 ForTy asset - TBD on release>")
+#     other = c.mosaic().reduce(ee.Reducer.sum()).multiply(-1).add(250)
+#     return c.mean().addBands(other).toArray().arrayArgmax().arrayGet([0]).add(1)
+#
+# def g_forty_planted_after_2020_prep():
+#     return _forty_after_2020().eq(3).rename("ForTy_planted_after_2020").selfMask()
+#
+# def g_forty_plantation_after_2020_prep():
+#     return _forty_after_2020().eq(4).rename("ForTy_plantation_after_2020").selfMask()
 
 
 #########################TMF regrowth in 2024
@@ -165,6 +216,7 @@ def g_tmf_regrowth_prep():
 
 
 ############tree crops
+
 
 # TMF_plant (plantations in 2020)
 def g_jrc_tmf_plantation_prep():
@@ -219,6 +271,7 @@ def g_eth_kalischek_cocoa_prep():
 # These FDaP 2024 layers are NOT currently used in any risk decision (use_for_risk=0,
 # use_for_risk_timber=0 in the LUT); they are computed for output/reference only. Mixing a 2024
 # FDaP layer into a 2025 risk decision would be inconsistent, so revisit when FDaP releases 2025.
+
 
 # Oil Palm FDaP
 def g_fdap_palm_prep():
@@ -348,6 +401,7 @@ def g_soy_song_2020_prep():
 ##############
 # ESRI 2025
 
+
 # ESRI 2025 - Tree Cover
 def g_esri_2025_tc_prep():
     esri_lulc10_raw = ee.ImageCollection(
@@ -377,6 +431,7 @@ def g_esri_2020_2025_crop_prep():
 
 
 #### disturbances by year
+
 
 # RADD_year_2019 to RADD_year_< current year >
 # Coverage: Primary humid tropical forest areas of South America, sub-Saharan Africa,
@@ -557,6 +612,7 @@ def g_esa_fire_prep():
 
 
 #### disturbances combined (split into before and after 2020)
+
 
 # RADD_after_2020
 def g_radd_after_2020_prep():
@@ -1007,6 +1063,7 @@ def g_glad_s2_year_prep():
 
 #### disturbances combined (split into before and after 2020)
 
+
 # TMF_deg_before_2020
 def g_tmf_deg_before_2020_prep():
     tmf_deg = ee.ImageCollection("projects/JRC/TMF/v1_2025/DegradationYear").mosaic()
@@ -1165,6 +1222,7 @@ def g_logging_concessions_before_2020_prep():
 # Subsetting criteria: primary forests (DN=1) and secondary forests (DN=2) // secondary forests are those recovering from deforestation
 # the resulting dataset shows primary and secondary forest cover in 2020 (mostly by August 2020)
 
+
 ##########################primary forests###############################################
 def nbr_terraclass_amz20_primary_prep():
     tcamz20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_amz_2020")
@@ -1177,6 +1235,7 @@ def nbr_terraclass_amz20_primary_prep():
 # the resulting datasets show primary forest cover in 2020 for the Pantanal, Caatinga, Atlantic Forest and Pampa biomes.
 # the resulting dataset shows primary and secondary forest cover in 2020 for the Cerrado biome (TerraClass 2020)
 # For the Amazon, best to use Terraclass 2020 directly, because the BFS used TerraClass 2014.
+
 
 # Pantanal
 def nbr_bfs_ptn_f20_prep():
@@ -1249,6 +1308,7 @@ def nbr_mapbiomasc9_f20_prep():
 
 # ### ########################NBR plantation forest in 2020:#######################################
 
+
 # [Official NFMS dataset] INPE/EMBRAPA TerraClass land use/cover in the Amazon biome, 2020
 # Subsetting criteria: silviculture (DN=9)
 # the resulting dataset shows monospecific commercial plantations, mostly eucalyptus and pinus.
@@ -1284,6 +1344,7 @@ def nbr_mapbiomasc9_silv20_prep():
 
 
 ################ ### NBR Disturbances before 2020:########################################
+
 
 # [Official NFMS dataset] INPE PRODES deforestation up to Dec 2020, corrected for EUDR cutoff date.
 # Replaces prodes_brasil_2023 remap for the before-2020 layer.
@@ -1421,6 +1482,7 @@ def nbr_mapbiomasc9_pc_prep():
 
 # ######################## NBR commodities - annual crops in 2020:##############################
 
+
 # %%
 # [Official NFMS dataset] INPE/EMBRAPA TerraClass land use/cover in the Amazon biome, 2020
 # [Official NFMS dataset] INPE/EMBRAPA TerraClass land use/cover in the Cerrado biome, 2020
@@ -1472,6 +1534,7 @@ def nbr_mapbiomasc9_ac_prep():
 # %%
 # [Official NFMS dataset] INPE/EMBRAPA TerraClass land use/cover in the Amazon biome, 2020
 # Subsetting criteria: BUSH/SHRUB PASTURE (DN=10) or HERBACEOUS PASTURE (DN=11)
+
 
 # the resulting dataset shows 2020 pasture area in the Amazon
 def nbr_terraclass_amz20_pasture_prep():

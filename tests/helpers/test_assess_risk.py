@@ -20,12 +20,15 @@ EXPECTED_INDICATOR_COLS = [
     "Ind_04_disturbance_after_2020",
     "Ind_05_primary_2020",
     "Ind_06_nat_reg_forest_2020",
-    "Ind_07_planted_plantations_2020",
-    "Ind_08_planted_plantations_after_2020",
+    "Ind_07a_planted_2020",
+    "Ind_07b_plantation_2020",
+    "Ind_08a_planted_after_2020",
+    "Ind_08b_plantation_after_2020",
     "Ind_09_treecover_after_2020",
     "Ind_10_agri_after_2020",
     "Ind_11_logging_concession_before_2020",
     "Ind_12_pasture_2020",
+    "Ind_13_other_land_2020",
 ]
 
 
@@ -43,7 +46,8 @@ def test_whisp_stats_geojson_to_df() -> None:
     for col in EXPECTED_INDICATOR_COLS:
         assert col in df_stats_with_risk.columns, f"missing indicator column: {col}"
     ind_cols = [c for c in df_stats_with_risk.columns if c.startswith("Ind_")]
-    print(df_stats_with_risk[["risk_timber"] + ind_cols].to_string())
+    extra_cols = [c for c in ["primary_2025"] if c in df_stats_with_risk.columns]
+    print(df_stats_with_risk[["risk_timber"] + ind_cols + extra_cols].to_string())
     print(
         "\nrisk_timber distribution:\n",
         df_stats_with_risk["risk_timber"].value_counts(),

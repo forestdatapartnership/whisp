@@ -198,8 +198,12 @@ GFT_primary,1800,,NA,primary,0,0,1,0,float32,1,0,g_gft_primary_prep,0
 IFL_2020,1810,,NA,primary,0,0,1,0,float32,1,0,g_ifl_2020_prep,0
 European_Primary_Forest,1820,,NA,primary,0,0,1,0,float32,1,0,g_epfd_prep,0
 GFT_naturally_regenerating,1830,,NA,naturally_reg_2020,0,0,1,0,float32,1,0,g_gft_nat_reg_prep,0
-GFT_planted_plantation,1840,,NA,planted_plantation_2020,0,0,1,0,float32,1,0,g_gft_plantation_prep,0
-IIASA_planted_plantation,1850,,NA,planted_plantation_2020,0,0,1,0,float32,1,0,g_iiasa_planted_prep,0
+GFT_planted_plantation,1840,,NA,planted_2020,0,0,1,0,float32,1,0,g_gft_plantation_prep,0
+IIASA_planted_2020,1850,,NA,planted_2020,0,0,1,0,float32,1,0,g_iiasa_planted_2020_prep,0
+IIASA_plantation_2020,1851,,NA,plantation_2020,0,0,1,0,float32,1,0,g_iiasa_plantation_2020_prep,0
+ForTy_planted_2020,1852,,NA,planted_2020,0,0,1,0,float32,1,0,g_forty_planted_2020_prep,0
+ForTy_plantation_2020,1853,,NA,plantation_2020,0,0,1,0,float32,1,0,g_forty_plantation_2020_prep,0
+ForTy_other_land_2020,1854,,NA,other_land_2020,0,0,1,0,float32,1,0,g_forty_other_land_2020_prep,0
 TMF_regrowth_2025,1860,,NA,treecover_after_2020,0,0,1,0,float32,1,0,g_tmf_regrowth_prep,0
 ESRI_2025_TC,1870,,NA,treecover_after_2020,0,0,1,0,float32,1,0,g_esri_2025_tc_prep,0
 Oil_palm_2024_FDaP,1880,,NA,agri_after_2020,0,0,0,0,float32,1,0,g_fdap_palm_2024_prep,0
@@ -218,9 +222,9 @@ nBR_BFS_primary_forest_AtlanticForest_2020,2000,BR,treecover,primary,1,1,1,0,flo
 nBR_BFS_primary_forest_Pampa_2020,2010,BR,treecover,primary,1,1,1,0,float32,1,0,nbr_bfs_pmp_f20_prep,1
 nBR_BFS_primary_and_secondary_forest_Cerrado_2020,2020,BR,treecover,naturally_reg_2020,1,1,1,0,float32,1,0,nbr_bfs_cer_f20_prep,1
 nBR_MapBiomas_col9_forest_Brazil_2020,2030,BR,treecover,naturally_reg_2020,1,1,1,0,float32,1,0,nbr_mapbiomasc9_f20_prep,1
-nBR_INPE_TCsilviculture_Amazon_2020,2040,BR,treecover,planted_plantation_2020,1,1,1,0,float32,1,0,nbr_terraclass_amz20_silv_prep,1
-nBR_INPE_TCsilviculture_Cerrado_2020,2050,BR,treecover,planted_plantation_2020,1,1,1,0,float32,1,0,nbr_terraclass_silv_cer20_prep,1
-nBR_MapBiomas_col9_silviculture_Brazil_2020,2060,BR,treecover,planted_plantation_2020,1,1,1,0,float32,1,0,nbr_mapbiomasc9_silv20_prep,1
+nBR_INPE_TCsilviculture_Amazon_2020,2040,BR,treecover,plantation_2020,1,1,1,0,float32,1,0,nbr_terraclass_amz20_silv_prep,1
+nBR_INPE_TCsilviculture_Cerrado_2020,2050,BR,treecover,plantation_2020,1,1,1,0,float32,1,0,nbr_terraclass_silv_cer20_prep,1
+nBR_MapBiomas_col9_silviculture_Brazil_2020,2060,BR,treecover,plantation_2020,1,1,1,0,float32,1,0,nbr_mapbiomasc9_silv20_prep,1
 nBR_PRODES_deforestation_Brazil_before_2020,2070,BR,disturbance_before,NA,1,1,1,0,float32,1,0,nbr_prodes_before_2020_prep,0
 nBR_DETER_forestdegradation_Amazon_before_2020,2080,BR,disturbance_before,NA,1,1,1,0,float32,1,0,nbr_deter_amazon_before_2020_prep,0
 nBR_PRODES_deforestation_Brazil_after_2020,2090,BR,disturbance_after,NA,1,1,1,0,float32,1,0,nbr_prodes_after_2020_prep,1

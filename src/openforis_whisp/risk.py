@@ -82,36 +82,45 @@ def whisp_risk(
     ind_4_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_5_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_6_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
-    ind_7_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
-    ind_8_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
+    ind_7a_pcent_threshold: float = 10,
+    ind_7b_pcent_threshold: float = 10,
+    ind_8a_pcent_threshold: float = 10,
+    ind_8b_pcent_threshold: float = 10,
     ind_9_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_10_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_11_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_12_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
+    ind_13_pcent_threshold: float = 10,
     ind_1_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_2_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_3_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_4_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_5_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_6_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
-    ind_7_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
-    ind_8_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
+    ind_7a_input_columns: pd.Series = None,
+    ind_7b_input_columns: pd.Series = None,
+    ind_8a_input_columns: pd.Series = None,
+    ind_8b_input_columns: pd.Series = None,
     ind_9_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_10_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_11_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_12_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
+    ind_13_input_columns: pd.Series = None,
     ind_1_name: str = "Ind_01_treecover",
     ind_2_name: str = "Ind_02_commodities",
     ind_3_name: str = "Ind_03_disturbance_before_2020",
     ind_4_name: str = "Ind_04_disturbance_after_2020",
     ind_5_name: str = "Ind_05_primary_2020",
     ind_6_name: str = "Ind_06_nat_reg_forest_2020",
-    ind_7_name: str = "Ind_07_planted_plantations_2020",
-    ind_8_name: str = "Ind_08_planted_plantations_after_2020",
+    ind_7a_name: str = "Ind_07a_planted_2020",
+    ind_7b_name: str = "Ind_07b_plantation_2020",
+    ind_8a_name: str = "Ind_08a_planted_after_2020",
+    ind_8b_name: str = "Ind_08b_plantation_after_2020",
     ind_9_name: str = "Ind_09_treecover_after_2020",
     ind_10_name: str = "Ind_10_agri_after_2020",
     ind_11_name: str = "Ind_11_logging_concession_before_2020",
     ind_12_name: str = "Ind_12_pasture_2020",
+    ind_13_name: str = "Ind_13_other_land_2020",
     low_name: str = "no",
     high_name: str = "yes",
     explicit_unit_type: str = None,
@@ -130,8 +139,10 @@ def whisp_risk(
         ind_4_pcent_threshold (float, optional): Percentage threshold for indicator 4 (disturbance after 2020). Defaults to 10.
         ind_5_pcent_threshold (float, optional): Percentage threshold for indicator 5 (primary forest 2020). Defaults to 10.
         ind_6_pcent_threshold (float, optional): Percentage threshold for indicator 6 (naturally regenerating forest 2020). Defaults to 10.
-        ind_7_pcent_threshold (float, optional): Percentage threshold for indicator 7 (planted plantations 2020). Defaults to 10.
-        ind_8_pcent_threshold (float, optional): Percentage threshold for indicator 8 (planted plantations after 2020). Defaults to 10.
+        ind_7a_pcent_threshold (float, optional): Percentage threshold for indicator 7a (planted forest 2020). Defaults to 10.
+        ind_7b_pcent_threshold (float, optional): Percentage threshold for indicator 7b (plantation forest 2020). Defaults to 10.
+        ind_8a_pcent_threshold (float, optional): Percentage threshold for indicator 8a (planted forest after 2020). Defaults to 10.
+        ind_8b_pcent_threshold (float, optional): Percentage threshold for indicator 8b (plantation forest after 2020). Defaults to 10.
         ind_9_pcent_threshold (float, optional): Percentage threshold for indicator 9 (treecover after 2020). Defaults to 10.
         ind_10_pcent_threshold (float, optional): Percentage threshold for indicator 10 (agriculture after 2020). Defaults to 10.
         ind_11_pcent_threshold (float, optional): Percentage threshold for indicator 11 (logging concession before 2020). Defaults to 10.
@@ -141,8 +152,10 @@ def whisp_risk(
         ind_4_input_columns (pd.Series, optional): Input columns for indicator 4. Defaults to columns for disturbance after 2020.
         ind_5_input_columns (pd.Series, optional): Input columns for indicator 5. Defaults to columns for primary forest 2020.
         ind_6_input_columns (pd.Series, optional): Input columns for indicator 6. Defaults to columns for naturally regenerating forest 2020.
-        ind_7_input_columns (pd.Series, optional): Input columns for indicator 7. Defaults to columns for planted plantations 2020.
-        ind_8_input_columns (pd.Series, optional): Input columns for indicator 8. Defaults to columns for planted plantations after 2020.
+        ind_7a_input_columns (pd.Series, optional): Input columns for indicator 7a. Defaults to columns for planted forest 2020.
+        ind_7b_input_columns (pd.Series, optional): Input columns for indicator 7b. Defaults to columns for plantation forest 2020.
+        ind_8a_input_columns (pd.Series, optional): Input columns for indicator 8a. Defaults to columns for planted forest after 2020.
+        ind_8b_input_columns (pd.Series, optional): Input columns for indicator 8b. Defaults to columns for plantation forest after 2020.
         ind_9_input_columns (pd.Series, optional): Input columns for indicator 9. Defaults to columns for treecover after 2020.
         ind_10_input_columns (pd.Series, optional): Input columns for indicator 10. Defaults to columns for agriculture after 2020.
         ind_11_input_columns (pd.Series, optional): Input columns for indicator 11. Defaults to columns for logging concession before 2020.
@@ -152,8 +165,11 @@ def whisp_risk(
         ind_4_name (str, optional): Name of indicator 4 column. Defaults to "Ind_04_disturbance_after_2020".
         ind_5_name (str, optional): Name of indicator 5 column. Defaults to "Ind_05_primary_2020".
         ind_6_name (str, optional): Name of indicator 6 column. Defaults to "Ind_06_nat_reg_forest_2020".
-        ind_7_name (str, optional): Name of indicator 7 column. Defaults to "Ind_07_planted_plantations_2020".
-        ind_8_name (str, optional): Name of indicator 8 column. Defaults to "Ind_08_planted_plantations_after_2020".
+        ind_7a_name (str, optional): Name of indicator 7a column. Defaults to "Ind_07a_planted_2020".
+        ind_7b_name (str, optional): Name of indicator 7b column. Defaults to "Ind_07b_plantation_2020".
+        ind_8a_name (str, optional): Name of indicator 8a column. Defaults to "Ind_08a_planted_after_2020".
+        ind_8b_name (str, optional): Name of indicator 8b column. Defaults to "Ind_08b_plantation_after_2020".
+        ind_13_name (str, optional): Name of indicator 13 column. Defaults to "Ind_13_other_land_2020".
         ind_9_name (str, optional): Name of indicator 9 column. Defaults to "Ind_09_treecover_after_2020".
         ind_10_name (str, optional): Name of indicator 10 column. Defaults to "Ind_10_agri_after_2020".
         ind_11_name (str, optional): Name of indicator 11 column. Defaults to "Ind_11_logging_concession_before_2020".
@@ -237,12 +253,20 @@ def whisp_risk(
         ind_6_input_columns = get_cols_ind_06_nat_reg_2020(
             filtered_lookup_gee_datasets_df
         )
-    if ind_7_input_columns is None:
-        ind_7_input_columns = get_cols_ind_07_planted_2020(
+    if ind_7a_input_columns is None:
+        ind_7a_input_columns = get_cols_ind_07a_planted_2020(
             filtered_lookup_gee_datasets_df
         )
-    if ind_8_input_columns is None:
-        ind_8_input_columns = get_cols_ind_08_planted_after_2020(
+    if ind_7b_input_columns is None:
+        ind_7b_input_columns = get_cols_ind_07b_plantation_2020(
+            filtered_lookup_gee_datasets_df
+        )
+    if ind_8a_input_columns is None:
+        ind_8a_input_columns = get_cols_ind_08a_planted_after_2020(
+            filtered_lookup_gee_datasets_df
+        )
+    if ind_8b_input_columns is None:
+        ind_8b_input_columns = get_cols_ind_08b_plantation_after_2020(
             filtered_lookup_gee_datasets_df
         )
     if ind_9_input_columns is None:
@@ -261,6 +285,10 @@ def whisp_risk(
         ind_12_input_columns = get_cols_ind_12_pasture_2020(
             filtered_lookup_gee_datasets_df
         )
+    if ind_13_input_columns is None:
+        ind_13_input_columns = get_cols_ind_13_other_land_2020(
+            filtered_lookup_gee_datasets_df
+        )
 
     # Check range of values
     check_range(ind_1_pcent_threshold)
@@ -269,12 +297,15 @@ def whisp_risk(
     check_range(ind_4_pcent_threshold)
     check_range(ind_5_pcent_threshold)
     check_range(ind_6_pcent_threshold)
-    check_range(ind_7_pcent_threshold)
-    check_range(ind_8_pcent_threshold)
+    check_range(ind_7a_pcent_threshold)
+    check_range(ind_7b_pcent_threshold)
+    check_range(ind_8a_pcent_threshold)
+    check_range(ind_8b_pcent_threshold)
     check_range(ind_9_pcent_threshold)
     check_range(ind_10_pcent_threshold)
     check_range(ind_11_pcent_threshold)
     check_range(ind_12_pcent_threshold)
+    check_range(ind_13_pcent_threshold)
 
     input_cols = [
         ind_1_input_columns,
@@ -283,12 +314,15 @@ def whisp_risk(
         ind_4_input_columns,
         ind_5_input_columns,
         ind_6_input_columns,
-        ind_7_input_columns,
-        ind_8_input_columns,
+        ind_7a_input_columns,
+        ind_7b_input_columns,
+        ind_8a_input_columns,
+        ind_8b_input_columns,
         ind_9_input_columns,
         ind_10_input_columns,
         ind_11_input_columns,
         ind_12_input_columns,
+        ind_13_input_columns,
     ]
     thresholds = [
         ind_1_pcent_threshold,
@@ -297,12 +331,15 @@ def whisp_risk(
         ind_4_pcent_threshold,
         ind_5_pcent_threshold,
         ind_6_pcent_threshold,
-        ind_7_pcent_threshold,
-        ind_8_pcent_threshold,
+        ind_7a_pcent_threshold,
+        ind_7b_pcent_threshold,
+        ind_8a_pcent_threshold,
+        ind_8b_pcent_threshold,
         ind_9_pcent_threshold,
         ind_10_pcent_threshold,
         ind_11_pcent_threshold,
         ind_12_pcent_threshold,
+        ind_13_pcent_threshold,
     ]
     names = [
         ind_1_name,
@@ -311,12 +348,15 @@ def whisp_risk(
         ind_4_name,
         ind_5_name,
         ind_6_name,
-        ind_7_name,
-        ind_8_name,
+        ind_7a_name,
+        ind_7b_name,
+        ind_8a_name,
+        ind_8b_name,
         ind_9_name,
         ind_10_name,
         ind_11_name,
         ind_12_name,
+        ind_13_name,
     ]
     [check_range(threshold) for threshold in thresholds]
 
@@ -329,6 +369,16 @@ def whisp_risk(
         high_name,
         unit_type,  # Pass the unit type
     )
+
+    # Derived indicator: primary forest that persisted = primary in 2020 with no post-2020 disturbance
+    # (primary_2025 = Ind_05==yes AND Ind_04==no). No dataset; inferred here. Used by the timber tree as
+    # a "still primary = compliant" signal (primary cannot expand, so this is a valid lower bound).
+    for index, row in df_w_indicators.iterrows():
+        df_w_indicators.at[index, "primary_2025"] = (
+            high_name
+            if (row[ind_5_name] == high_name and row[ind_4_name] == low_name)
+            else low_name
+        )
 
     # these "add_" functions modify the 'df_w_indicators' dataframe in place
     add_risk_pcrop_col(
@@ -356,13 +406,18 @@ def whisp_risk(
     add_risk_timber_col(
         df=df_w_indicators,
         ind_2_name=ind_2_name,
+        ind_4_name=ind_4_name,
         ind_5_name=ind_5_name,
         ind_6_name=ind_6_name,
-        ind_7_name=ind_7_name,
-        ind_8_name=ind_8_name,
+        ind_7a_name=ind_7a_name,
+        ind_7b_name=ind_7b_name,
+        ind_8a_name=ind_8a_name,
+        ind_8b_name=ind_8b_name,
         ind_9_name=ind_9_name,
         ind_10_name=ind_10_name,
         ind_11_name=ind_11_name,
+        ind_13_name=ind_13_name,
+        primary_2025_name="primary_2025",
     )
 
     # Filter to risk-relevant columns if requested (after all columns added)
@@ -482,80 +537,87 @@ def add_risk_cattle_col(
 def add_risk_timber_col(
     df: data_lookup_type,
     ind_2_name: str,
+    ind_4_name: str,
     ind_5_name: str,
     ind_6_name: str,
-    ind_7_name: str,
-    ind_8_name: str,
+    ind_7a_name: str,
+    ind_7b_name: str,
+    ind_8a_name: str,
+    ind_8b_name: str,
     ind_9_name: str,
     ind_10_name: str,
     ind_11_name: str,
+    ind_13_name: str,
+    primary_2025_name: str,
 ) -> data_lookup_type:
     """
-    Adds the risk_timber column to the DataFrame based on the WHISP timber decision tree.
+    Adds the risk_timber column based on the WHISP timber decision tree (the simplified
+    "diagram B" land-use-transition logic).
 
-    Decision tree (in priority order):
-    1. Agriculture 2020 (Ind_02) OR stable plantation (Ind_07=yes, Ind_10=no) -> LOW
-       Agriculture 2020 = outside EUDR scope regardless of post-2020 state (EUDR Art.2).
-       Stable plantation = planted forest remaining planted forest = compliant.
-    2. Any forest 2020 (Ind_05/06/07) AND agriculture after 2020 (Ind_10) -> HIGH (deforestation)
-    3. Primary/nat-regen 2020 (Ind_05/06) AND plantation after 2020 (Ind_08) -> HIGH (degradation)
-       Ind_08 has no valid dataset yet: TMF plantation classes are commodity crops (oil palm/rubber),
-       not timber plantation forest, so they are not used here. Rule stays dormant until a wood-
-       plantation-after-2020 layer exists (see temp_dev_notes/timber_decision_tree_versions.md).
-    4. Primary/nat-regen 2020 (Ind_05/06) AND OWL after 2020 -> HIGH (degradation)
-       OWL currently indistinguishable from agriculture in available maps (collapsed into Ind_10).
-       Wire up when a dataset separating OWL from agriculture exists. EUDR Art.2: primary/nat-regen -> OWL = degradation.
-    5. Primary/nat-regen 2020 (Ind_05/06) AND (treecover after 2020 (Ind_09) OR logging concession (Ind_11)) -> LOW
-       Management evidence or continuing treecover = compliant production forest.
-    6. Primary/nat-regen 2020 (Ind_05/06), no post-2020 signal -> MORE INFO NEEDED
-    7. No forest indicators fire -> LOW (non-forest in 2020, outside EUDR scope)
+    Planted (Ind_07a) is grouped with naturally regenerating (Ind_06) into a "regenerating-planted"
+    class, because the two are not reliably separable in the data; plantation (Ind_07b) is kept
+    separate as the operative degradation class. After-2020 splits (Ind_08a planted / Ind_08b
+    plantation) are dormant until a post-2020 split layer is wired.
 
-    Args:
-        df: Input DataFrame.
-        ind_2_name: Ind_02_commodities (agriculture/commodity in 2020).
-        ind_5_name: Ind_05_primary_2020.
-        ind_6_name: Ind_06_nat_reg_forest_2020.
-        ind_7_name: Ind_07_planted_plantations_2020.
-        ind_8_name: Ind_08_planted_plantations_after_2020 (placeholder, no data yet).
-        ind_9_name: Ind_09_treecover_after_2020.
-        ind_10_name: Ind_10_agri_after_2020.
-        ind_11_name: Ind_11_logging_concession_before_2020.
+    Rules (priority order):
+    1. Other land 2020 (Ind_13) -> LOW (outside EUDR scope).
+    2. Agriculture 2020 (Ind_02), or stable plantation (Ind_07b=yes, Ind_10=no) -> LOW.
+    3. Any forest 2020 AND agriculture after 2020 (Ind_10) -> HIGH (deforestation).
+    4. Primary/regen-planted 2020 AND planted/plantation after 2020 (Ind_08a/08b) -> HIGH (degradation;
+       dormant until after-2020 data exists).
+    5. Primary/regen-planted 2020 AND post-2020 disturbance (Ind_04) with no benign evidence -> HIGH
+       (conservative "ambiguous / possible degradation" catch).
+    6. Primary/regen-planted 2020 + benign evidence (still primary via primary_2025, or treecover Ind_09,
+       or logging concession Ind_11) -> LOW.
+    7. Primary/regen-planted 2020, no post-2020 signal -> MORE INFO NEEDED.
+    8. No forest in 2020 -> LOW (outside EUDR scope).
 
     Returns:
         DataFrame with risk_timber column added.
     """
 
     for index, row in df.iterrows():
-        # Rule 1: agriculture/commodity in 2020 (outside EUDR scope) OR stable plantation -> LOW
-        if row[ind_2_name] == "yes" or (
-            row[ind_7_name] == "yes" and row[ind_10_name] == "no"
-        ):
+        plantation_2020 = row[ind_7b_name] == "yes"
+        regen_planted = row[ind_6_name] == "yes" or row[ind_7a_name] == "yes"
+        natural_or_regen_planted = row[ind_5_name] == "yes" or regen_planted
+        any_forest_2020 = natural_or_regen_planted or plantation_2020
+        benign_evidence = (
+            row[primary_2025_name] == "yes"
+            or row[ind_9_name] == "yes"
+            or row[ind_11_name] == "yes"
+        )
+
+        # Node 1: other land in 2020 (and not forest) -> LOW (outside EUDR scope).
+        # Guarded by "not any_forest_2020": with coverage thresholds a plot can register both
+        # other-land and forest; without the guard, forest->agriculture deforestation would be
+        # masked to low by an other-land overlap. If there is forest, assess it (fall through).
+        if row[ind_13_name] == "yes" and not any_forest_2020:
             df.at[index, "risk_timber"] = "low"
-        # Rule 2: any forest 2020 -> agriculture after 2020 = deforestation -> HIGH
+        # Node 2: agriculture/commodity in 2020, or stable plantation -> LOW
+        elif row[ind_2_name] == "yes" or (plantation_2020 and row[ind_10_name] == "no"):
+            df.at[index, "risk_timber"] = "low"
+        # Node 3: any forest 2020 -> agriculture after 2020 = deforestation -> HIGH
+        elif any_forest_2020 and row[ind_10_name] == "yes":
+            df.at[index, "risk_timber"] = "high"
+        # Node 4: primary/regen-planted -> planted/plantation after 2020 = degradation -> HIGH (dormant)
+        elif natural_or_regen_planted and (
+            row[ind_8a_name] == "yes" or row[ind_8b_name] == "yes"
+        ):
+            df.at[index, "risk_timber"] = "high"
+        # Node 5: primary/regen-planted disturbed after 2020 with no benign explanation -> HIGH (conservative)
         elif (
-            row[ind_5_name] == "yes"
-            or row[ind_6_name] == "yes"
-            or row[ind_7_name] == "yes"
-        ) and row[ind_10_name] == "yes":
-            df.at[index, "risk_timber"] = "high"
-        # Rule 3: primary/nat-regen 2020 -> plantation after 2020 = degradation -> HIGH
-        # Ind_08 has no valid dataset (TMF plantation = commodity crops, not timber); rule dormant
-        elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes") and row[
-            ind_8_name
-        ] == "yes":
-            df.at[index, "risk_timber"] = "high"
-        # Rule 4 (placeholder): primary/nat-regen/planted 2020 -> OWL after 2020 = degradation -> HIGH
-        # OWL currently indistinguishable from agriculture in available maps (collapsed into Ind_10).
-        # Wire up when a dataset that separates OWL from agriculture becomes available.
-        # Rule 5: primary/nat-regen 2020 + management evidence or continuing treecover -> LOW
-        elif (row[ind_5_name] == "yes" or row[ind_6_name] == "yes") and (
-            row[ind_9_name] == "yes" or row[ind_11_name] == "yes"
+            natural_or_regen_planted
+            and row[ind_4_name] == "yes"
+            and not benign_evidence
         ):
+            df.at[index, "risk_timber"] = "high"
+        # Node 6: primary/regen-planted + benign evidence (still primary / treecover / logging) -> LOW
+        elif natural_or_regen_planted and benign_evidence:
             df.at[index, "risk_timber"] = "low"
-        # Rule 6: primary/nat-regen 2020, no post-2020 signal -> MORE INFO NEEDED
-        elif row[ind_5_name] == "yes" or row[ind_6_name] == "yes":
+        # Node 7: primary/regen-planted 2020, no post-2020 signal -> MORE INFO NEEDED
+        elif natural_or_regen_planted:
             df.at[index, "risk_timber"] = "more_info_needed"
-        # Rule 7: no forest in 2020 detected -> LOW (outside EUDR scope)
+        # Node 8: no forest in 2020 -> LOW (outside EUDR scope)
         else:
             df.at[index, "risk_timber"] = "low"
 
@@ -778,15 +840,10 @@ def get_cols_ind_06_nat_reg_2020(lookup_gee_datasets_df):
     )
 
 
-def get_cols_ind_07_planted_2020(lookup_gee_datasets_df):
+def get_cols_ind_07a_planted_2020(lookup_gee_datasets_df):
     """
-    Generate a list of dataset names for planted and plantation forests in 2020
-
-    Args:
-    lookup_gee_datasets_df (pd.DataFrame): DataFrame containing dataset information.
-
-    Returns:
-    list: List of dataset names set to be used in the risk calculations for the degradation - planted and plantation forests in 2020, excluding those marked for exclusion.
+    Dataset names for planted forest (non-plantation) in 2020 (theme_timber=planted_2020).
+    Split out from the old merged Ind_07; grouped with nat-regen (Ind_06) in the timber tree.
     """
     lookup_gee_datasets_df = lookup_gee_datasets_df[
         lookup_gee_datasets_df["exclude_from_output"] != 1
@@ -794,35 +851,56 @@ def get_cols_ind_07_planted_2020(lookup_gee_datasets_df):
     return list(
         lookup_gee_datasets_df["name"][
             (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
-            & (lookup_gee_datasets_df["theme_timber"] == "planted_plantation_2020")
+            & (lookup_gee_datasets_df["theme_timber"] == "planted_2020")
         ]
     )
 
 
-def get_cols_ind_08_planted_after_2020(lookup_gee_datasets_df):
+def get_cols_ind_07b_plantation_2020(lookup_gee_datasets_df):
     """
-    Generate a list of dataset names for planted and plantation forests post 2020
-
-    Args:
-    lookup_gee_datasets_df (pd.DataFrame): DataFrame containing dataset information.
-
-    Returns:
-    list: List of dataset names set to be used in the risk calculations for the degradation - planted and plantation forests post 2020, excluding those marked for exclusion.
+    Dataset names for plantation forest in 2020 (theme_timber=plantation_2020).
+    The operative plantation class in the timber tree (stable-plantation / degradation logic).
     """
-    # NOTE: no dataset currently feeds Ind_08, so this returns [] and the indicator does
-    # not fire (see #195). FDaP palm/rubber change signal is hard to trust; TMF
-    # forest->plantation (TransitionMap_Subtypes 81-86) seems limited in scope globally.
-    # Needs more investigation before wiring a source in.
     lookup_gee_datasets_df = lookup_gee_datasets_df[
         lookup_gee_datasets_df["exclude_from_output"] != 1
     ]
     return list(
         lookup_gee_datasets_df["name"][
             (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
-            & (
-                lookup_gee_datasets_df["theme_timber"]
-                == "planted_plantation_after_2020"
-            )
+            & (lookup_gee_datasets_df["theme_timber"] == "plantation_2020")
+        ]
+    )
+
+
+def get_cols_ind_08a_planted_after_2020(lookup_gee_datasets_df):
+    """
+    Dataset names for planted forest after 2020 (theme_timber=planted_after_2020).
+    Dormant (returns []) until a post-2020 split layer (e.g. ForTy post-2020) is added.
+    """
+    lookup_gee_datasets_df = lookup_gee_datasets_df[
+        lookup_gee_datasets_df["exclude_from_output"] != 1
+    ]
+    return list(
+        lookup_gee_datasets_df["name"][
+            (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
+            & (lookup_gee_datasets_df["theme_timber"] == "planted_after_2020")
+        ]
+    )
+
+
+def get_cols_ind_08b_plantation_after_2020(lookup_gee_datasets_df):
+    """
+    Dataset names for plantation forest after 2020 (theme_timber=plantation_after_2020).
+    The degradation "to" class (natural/regen-planted -> plantation). Dormant (returns [])
+    until a post-2020 split layer (ForTy post-2020 / MapBiomas C10) is added.
+    """
+    lookup_gee_datasets_df = lookup_gee_datasets_df[
+        lookup_gee_datasets_df["exclude_from_output"] != 1
+    ]
+    return list(
+        lookup_gee_datasets_df["name"][
+            (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
+            & (lookup_gee_datasets_df["theme_timber"] == "plantation_after_2020")
         ]
     )
 
@@ -913,6 +991,22 @@ def get_cols_ind_12_pasture_2020(lookup_gee_datasets_df):
     )
 
 
+def get_cols_ind_13_other_land_2020(lookup_gee_datasets_df):
+    """
+    Dataset names for other land in 2020 (theme_timber=other_land_2020; ForTy OtherLand class 6).
+    Feeds the diagram-B "other land 2020 -> low" branch.
+    """
+    lookup_gee_datasets_df = lookup_gee_datasets_df[
+        lookup_gee_datasets_df["exclude_from_output"] != 1
+    ]
+    return list(
+        lookup_gee_datasets_df["name"][
+            (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
+            & (lookup_gee_datasets_df["theme_timber"] == "other_land_2020")
+        ]
+    )
+
+
 def clamp(
     value: float | pd.Series, min_val: float, max_val: float
 ) -> float | pd.Series:
@@ -991,12 +1085,15 @@ def filter_to_risk_columns(
     # Risk output columns (present in df if function called at end)
     risk_cols = ["risk_pcrop", "risk_acrop", "risk_cattle", "risk_timber"]
 
+    # Derived indicator columns (computed in whisp_risk, not from a dataset getter)
+    derived_cols = ["primary_2025"]
+
     # Post-processing metadata columns (added after validation, not in schema CSV)
     metadata_cols = ["whisp_processing_metadata", "geo_original"]
 
     # Build set of all columns to keep (for fast lookup)
     cols_to_keep_set = set(
-        context_cols + dataset_cols + names + risk_cols + metadata_cols
+        context_cols + dataset_cols + names + risk_cols + derived_cols + metadata_cols
     )
 
     # Preserve original DataFrame column order, filter to only columns we want to keep
