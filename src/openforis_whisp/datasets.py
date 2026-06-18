@@ -176,6 +176,14 @@ def _forty_2020():
     return c.mean().addBands(other).toArray().arrayArgmax().arrayGet([0]).add(1)
 
 
+def g_forty_primary_2020_prep():
+    return _forty_2020().eq(1).rename("ForTy_primary_2020").selfMask()
+
+
+def g_forty_nat_reg_2020_prep():
+    return _forty_2020().eq(2).rename("ForTy_nat_reg_2020").selfMask()
+
+
 def g_forty_planted_2020_prep():
     return _forty_2020().eq(3).rename("ForTy_planted_2020").selfMask()
 

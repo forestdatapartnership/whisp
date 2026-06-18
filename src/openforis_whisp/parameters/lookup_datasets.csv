@@ -201,6 +201,8 @@ GFT_naturally_regenerating,1830,,NA,naturally_reg_2020,0,0,1,0,float32,1,0,g_gft
 GFT_planted_plantation,1840,,NA,planted_2020,0,0,0,0,float32,1,0,g_gft_plantation_prep
 IIASA_planted_2020,1850,,NA,planted_2020,0,0,1,0,float32,1,0,g_iiasa_planted_2020_prep
 IIASA_plantation_2020,1851,,NA,plantation_2020,0,0,1,0,float32,1,0,g_iiasa_plantation_2020_prep
+ForTy_primary_2020,1856,,NA,primary,0,0,1,0,float32,1,0,g_forty_primary_2020_prep
+ForTy_nat_reg_2020,1857,,NA,naturally_reg_2020,0,0,1,0,float32,1,0,g_forty_nat_reg_2020_prep
 ForTy_planted_2020,1852,,NA,planted_2020,0,0,1,0,float32,1,0,g_forty_planted_2020_prep
 ForTy_plantation_2020,1853,,NA,plantation_2020,0,0,1,0,float32,1,0,g_forty_plantation_2020_prep
 ESRI_other_land_2020,1855,,NA,other_land_2020,0,0,1,0,float32,1,0,g_esri_other_land_2020_prep
