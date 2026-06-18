@@ -524,9 +524,11 @@ def add_risk_timber_col(
     2. Any forest 2020 AND agriculture after 2020 (Ind_10) -> HIGH (deforestation).
     3. Primary 2020 -> still primary (primary_2025) or other land 2025 (Ind_13) -> LOW; plantation
        2025 (Ind_08b) -> HIGH (degradation); otherwise MORE INFO NEEDED.
-    4. Regenerating-planted 2020 -> plantation 2025 (Ind_08b) -> HIGH (degradation); stayed
-       regenerating-planted (Ind_09 / Ind_08a) -> LOW; otherwise MORE INFO NEEDED.
-    5. Plantation 2020 -> plantation 2025 (Ind_08b) confirms a stable plantation -> LOW; otherwise
+    4. Regenerating-planted 2020 -> plantation 2025 (Ind_08b) -> HIGH (degradation); matured to primary
+       (primary_2025), stayed regenerating-planted (Ind_09 / Ind_08a), or other land 2025 (Ind_13) -> LOW;
+       otherwise MORE INFO NEEDED. The primary_2025 "matured to primary" path defaults to no for want of a
+       primary-2025 data layer.
+    5. Plantation 2020 -> plantation 2025 (Ind_08b) or other land 2025 (Ind_13) -> LOW; otherwise
        MORE INFO NEEDED.
     6. No forest in 2020 -> LOW (outside EUDR scope; includes other land 2020).
 
@@ -575,13 +577,19 @@ def add_risk_timber_col(
         elif regen_planted_2020:
             if plantation_2025:
                 df.at[index, "risk_timber"] = "high"
-            elif regen_planted_2025:
+            elif primary_2025 or regen_planted_2025 or other_land_2025:
+                # primary_2025 here is the "regenerating forest matured to primary = compliant" case.
+                # Unlike the primary branch above (where the derived primary_2025 correctly flags a
+                # still-primary plot), this use is inert today: the derived primary_2025 is anchored to
+                # Ind_05 in 2020, so it can never be yes for a regen-2020 plot, and there is no separate
+                # primary-2025 layer. It defaults to no, wired to match diagram A, and activates once a
+                # genuine primary-2025 (forest-type 2025) layer feeds it.
                 df.at[index, "risk_timber"] = "low"
             else:
                 df.at[index, "risk_timber"] = "more_info_needed"
-        # Rule 5: plantation 2020. Needs plantation-2025 confirmation (Ind_08b, dormant) for LOW.
+        # Rule 5: plantation 2020. Plantation-2025 (Ind_08b, dormant) or other-land-2025 -> LOW.
         elif plantation_2020:
-            if plantation_2025:
+            if plantation_2025 or other_land_2025:
                 df.at[index, "risk_timber"] = "low"
             else:
                 df.at[index, "risk_timber"] = "more_info_needed"
