@@ -601,11 +601,11 @@ def add_risk_timber_col(
                 df.at[index, "risk_timber"] = "high"
             elif primary_2025 or other_land_2025:
                 # primary_2025 here is the "regenerating forest matured to primary = compliant" case.
-                # Unlike the primary branch above (where the derived primary_2025 correctly flags a
-                # still-primary plot), this use is inert today: the derived primary_2025 is anchored to
-                # Ind_05 in 2020, so it can never be yes for a regen-2020 plot, and there is no separate
-                # primary-2025 layer. It defaults to no, wired to match diagram A, and activates once a
-                # genuine primary-2025 (forest-type 2025) layer feeds it.
+                # It now fires via Ind_14, a real primary-2025 layer (IFL 2025 currently; the MapBiomas
+                # proxy is available but disabled, see #233), so a regen-2020 plot read as primary/intact
+                # in 2025 takes this LOW path wherever that layer has coverage. The derived component of
+                # primary_2025 (Ind_05 and not Ind_04) cannot fire here, since a regen plot is not primary
+                # in 2020, so this path is only as live as Ind_14's coverage (IFL is global but sparse).
                 df.at[index, "risk_timber"] = "low"
             elif regen_planted_2025 and treecover_2020:
                 # Stayed regenerating/planted. Gated on 2020 treecover (Ind_01, the JRC/GLAD-family
