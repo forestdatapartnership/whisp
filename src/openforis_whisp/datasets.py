@@ -502,6 +502,27 @@ def g_esri_other_land_2025_prep():
     return _esri_other_land(2025).rename("ESRI_other_land_2025").selfMask()
 
 
+# PLACEHOLDER (coded out): Copernicus LCFM LCM-10 "other land" to corroborate ESRI for Ind_12/Ind_13 so
+# the other-land indicators are not ESRI-only (#227). As of 2026 LCFM is published on the Copernicus Data
+# Space Ecosystem only, NOT on Earth Engine, so it cannot be wired yet. It is 10m, FAO LCCS legend
+# (WorldCover family), 2020 published with annual 2021-2026 maps rolling out, so it is a strong 2020
+# corroborator and a genuine after-2020 source once on GEE. The built/bare/snow/water class codes below
+# are the assumed WorldCover-family values and are UNVERIFIED (the LCFM Product User Manual is access
+# gated); see temp_dev_notes/other_land_use_options.md. When LCFM lands on GEE: confirm the asset id and
+# codes, uncomment, and add lookup rows with use_for_risk_timber=0 at first (do not activate until
+# validated against ESRI).
+#
+# def _lcfm_other_land(year):
+#     lcm = ee.Image("<LCFM LCM-10 asset - TBD on GEE>").select("<class band>")
+#     return lcm.eq(50).Or(lcm.eq(60)).Or(lcm.eq(70)).Or(lcm.eq(80))  # built+bare+snow+water (codes UNVERIFIED)
+#
+# def g_lcfm_other_land_2020_prep():
+#     return _lcfm_other_land(2020).rename("LCFM_other_land_2020").selfMask()
+#
+# def g_lcfm_other_land_after_2020_prep():
+#     return _lcfm_other_land(2025).rename("LCFM_other_land_2025").selfMask()
+
+
 #### disturbances by year
 
 
