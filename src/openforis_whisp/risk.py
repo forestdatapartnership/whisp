@@ -97,6 +97,7 @@ def whisp_risk(
     ind_11_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_12_pcent_threshold: float = 10,
     ind_13_pcent_threshold: float = 10,
+    ind_14_pcent_threshold: float = 10,
     ind_1_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_2_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_3_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
@@ -112,6 +113,7 @@ def whisp_risk(
     ind_11_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_12_input_columns: pd.Series = None,
     ind_13_input_columns: pd.Series = None,
+    ind_14_input_columns: pd.Series = None,
     ind_1_name: str = "Ind_01_treecover",
     ind_2_name: str = "Ind_02_commodities",
     ind_3_name: str = "Ind_03_disturbance_before_2020",
@@ -127,6 +129,7 @@ def whisp_risk(
     ind_11_name: str = "Ind_11_logging_concession_before_2020",
     ind_12_name: str = "Ind_12_other_land_2020",
     ind_13_name: str = "Ind_13_other_land_after_2020",
+    ind_14_name: str = "Ind_14_primary_2025",
     low_name: str = "no",
     high_name: str = "yes",
     explicit_unit_type: str = None,
@@ -290,6 +293,10 @@ def whisp_risk(
         ind_13_input_columns = get_cols_ind_13_other_land_after_2020(
             filtered_lookup_gee_datasets_df
         )
+    if ind_14_input_columns is None:
+        ind_14_input_columns = get_cols_ind_14_primary_2025(
+            filtered_lookup_gee_datasets_df
+        )
 
     # Check range of values
     check_range(ind_1_pcent_threshold)
@@ -307,6 +314,7 @@ def whisp_risk(
     check_range(ind_11_pcent_threshold)
     check_range(ind_12_pcent_threshold)
     check_range(ind_13_pcent_threshold)
+    check_range(ind_14_pcent_threshold)
 
     input_cols = [
         ind_1_input_columns,
@@ -324,6 +332,7 @@ def whisp_risk(
         ind_11_input_columns,
         ind_12_input_columns,
         ind_13_input_columns,
+        ind_14_input_columns,
     ]
     thresholds = [
         ind_1_pcent_threshold,
@@ -341,6 +350,7 @@ def whisp_risk(
         ind_11_pcent_threshold,
         ind_12_pcent_threshold,
         ind_13_pcent_threshold,
+        ind_14_pcent_threshold,
     ]
     names = [
         ind_1_name,
@@ -358,6 +368,7 @@ def whisp_risk(
         ind_11_name,
         ind_12_name,
         ind_13_name,
+        ind_14_name,
     ]
     [check_range(threshold) for threshold in thresholds]
 
@@ -371,13 +382,19 @@ def whisp_risk(
         unit_type,  # Pass the unit type
     )
 
-    # Derived indicator: primary forest that persisted = primary in 2020 with no post-2020 disturbance
-    # (primary_2025 = Ind_05==yes AND Ind_04==no). No dataset; inferred here. Used by the timber tree as
-    # a "still primary = compliant" signal (primary cannot expand, so this is a valid lower bound).
+    # Derived "still primary or observed primary in 2025" signal used by the timber tree. Two
+    # contributions, OR-ed: (1) primary in 2020 with no post-2020 disturbance (Ind_05 and not Ind_04),
+    # a "primary cannot expand" lower bound; (2) Ind_14, an observed primary-2025 layer (the MapBiomas
+    # Collection-10 primary proxy for now, Brazil only). The second lets a regenerating-2020 plot that
+    # reads as primary in 2025 take the matured-to-primary path. Ind_14 is interim and reversible: drop
+    # use_for_risk_timber on its lookup row and it returns to empty, leaving the derived-only behaviour.
     for index, row in df_w_indicators.iterrows():
         df_w_indicators.at[index, "primary_2025"] = (
             high_name
-            if (row[ind_5_name] == high_name and row[ind_4_name] == low_name)
+            if (
+                (row[ind_5_name] == high_name and row[ind_4_name] == low_name)
+                or row[ind_14_name] == high_name
+            )
             else low_name
         )
 
@@ -989,6 +1006,24 @@ def get_cols_ind_13_other_land_after_2020(lookup_gee_datasets_df):
         lookup_gee_datasets_df["name"][
             (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
             & (lookup_gee_datasets_df["theme_timber"] == "other_land_after_2020")
+        ]
+    )
+
+
+def get_cols_ind_14_primary_2025(lookup_gee_datasets_df):
+    """
+    Dataset names for an observed primary forest signal in 2025 (theme_timber=primary_2025). Interim
+    source: the MapBiomas Collection-10 primary proxy (native forest minus secondary, Brazil). OR-ed
+    into the derived primary_2025 so a regenerating-2020 plot read as primary in 2025 can take the
+    matured-to-primary path. Reversible by dropping use_for_risk_timber on the lookup row.
+    """
+    lookup_gee_datasets_df = lookup_gee_datasets_df[
+        lookup_gee_datasets_df["exclude_from_output"] != 1
+    ]
+    return list(
+        lookup_gee_datasets_df["name"][
+            (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
+            & (lookup_gee_datasets_df["theme_timber"] == "primary_2025")
         ]
     )
 
