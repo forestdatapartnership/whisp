@@ -163,33 +163,54 @@ def g_iiasa_plantation_2020_prep():
 
 
 # ForTy (Google Nature Trace + IIASA) forest typology 2020.
-# See https://eartharxiv.org/repository/view/13130. Argmax over the class means with "other" computed
-# as 250 - sum of the five class bands, giving one categorical band, values 1-6:
-# 1=Primary, 2=NaturallyRegenerating, 3=Planted, 4=Plantation, 5=TreeCrops/Agroforestry, 6=Other.
-# Recipe follows the ForTy GEE app. PlantedForest is the weakest class (F1 58.2%), so the
+# See https://eartharxiv.org/repository/view/13130. The product stores five class score bands (0-250),
+# band index 0=Primary, 1=NaturallyRegenerating, 2=Planted, 3=Plantation, 4=TreeCrops/Agroforestry,
+# with a residual "other" = 250 - sum. PlantedForest is the weakest class (F1 58.2%), so the
 # planted-vs-plantation split is real but uncertain.
-def _forty_2020():
-    c = ee.ImageCollection(
+#
+# Presence is taken where a class score is at least halfway between the min and max of the 0-250 range
+# (>= 125), instead of via argmax. Because the five classes plus "other" sum to ~250, at most one class
+# can clear 125 at a pixel, so the classes stay mutually exclusive while low-confidence pixels (which
+# argmax would still assign to a winner) are dropped. TEMPORARY MEASURE suggested by one of the ForTy
+# authors, pending further conversations.
+FORTY_PRESENCE_THRESHOLD = 125  # (0 + 250) / 2
+
+
+def _forty_2020_mean():
+    return ee.ImageCollection(
         "projects/nature-trace/assets/forest_typology/forest_typology_2020_v1_0_collection"
-    )
-    other = c.mosaic().reduce(ee.Reducer.sum()).multiply(-1).add(250)
-    return c.mean().addBands(other).toArray().arrayArgmax().arrayGet([0]).add(1)
+    ).mean()
+
+
+def _forty_class_present(idx):
+    # idx 0=Primary, 1=NaturallyRegenerating, 2=Planted, 3=Plantation, 4=TreeCrops/Agroforestry
+    return _forty_2020_mean().select([idx]).gte(FORTY_PRESENCE_THRESHOLD).selfMask()
 
 
 def g_forty_primary_2020_prep():
-    return _forty_2020().eq(1).rename("ForTy_primary_2020").selfMask()
+    return _forty_class_present(0).rename("ForTy_primary_2020")
 
 
 def g_forty_nat_reg_2020_prep():
-    return _forty_2020().eq(2).rename("ForTy_nat_reg_2020").selfMask()
+    return _forty_class_present(1).rename("ForTy_nat_reg_2020")
 
 
 def g_forty_planted_2020_prep():
-    return _forty_2020().eq(3).rename("ForTy_planted_2020").selfMask()
+    return _forty_class_present(2).rename("ForTy_planted_2020")
 
 
 def g_forty_plantation_2020_prep():
-    return _forty_2020().eq(4).rename("ForTy_plantation_2020").selfMask()
+    return _forty_class_present(3).rename("ForTy_plantation_2020")
+
+
+# DEMO PROXY: stands in for "plantation after 2020" (Ind_08b) using the 2020 plantation extent
+# (ForTy plantation, index 3) so the diagram-A plantation-2025 nodes fire in demos: stable plantation
+# -> LOW, and primary/regen -> plantation -> HIGH (degradation). It is NOT a real post-2020 layer and
+# cannot tell a pre-existing plantation from a genuine post-2020 conversion, so the degradation HIGHs it
+# produces are proxy artefacts. To revert Ind_08b to dormant (those nodes back to MORE INFO NEEDED),
+# set use_for_risk_timber=0 on its lookup row or remove the row.
+def g_forty_plantation_2025_demo_prep():
+    return _forty_class_present(3).rename("ForTy_plantation_2025_demo")
 
 
 # PLACEHOLDER (coded out): planted/plantation AFTER 2020 via the forthcoming ForTy post-2020 release

@@ -205,6 +205,7 @@ ForTy_primary_2020,1856,,NA,primary,0,0,1,0,float32,1,0,g_forty_primary_2020_pre
 ForTy_nat_reg_2020,1857,,NA,naturally_reg_2020,0,0,1,0,float32,1,0,g_forty_nat_reg_2020_prep
 ForTy_planted_2020,1852,,NA,planted_2020,0,0,1,0,float32,1,0,g_forty_planted_2020_prep
 ForTy_plantation_2020,1853,,NA,plantation_2020,0,0,1,0,float32,1,0,g_forty_plantation_2020_prep
+ForTy_plantation_2025_demo,1858,,NA,plantation_after_2020,0,0,1,0,float32,1,0,g_forty_plantation_2025_demo_prep
 ESRI_other_land_2020,1855,,NA,other_land_2020,0,0,1,0,float32,1,0,g_esri_other_land_2020_prep
 TMF_regrowth_2025,1860,,NA,treecover_after_2020,0,0,1,0,float32,1,0,g_tmf_regrowth_prep
 ESRI_2025_TC,1870,,NA,treecover_after_2020,0,0,1,0,float32,1,0,g_esri_2025_tc_prep
