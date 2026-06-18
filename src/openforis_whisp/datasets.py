@@ -1446,8 +1446,11 @@ def nbr_mapbiomasc10_silv24_prep():
 # This is a "stable mature native forest / no detected anthropogenic clearing-and-regrowth since the
 # 1985 baseline" proxy, NOT a true primary class. It cannot see pre-1985 disturbance. It is an
 # independent latest-year observation (not anchored to the 2020 primary layer), which is what a
-# "matured to primary" path would need. WIRING THIS INTO THE RISK TREE'S PRIMARY-2025 PATH IS A
-# SEPARATE risk.py CHANGE (maintainer): this prep + LUT row only make the data available.
+# "matured to primary" path would need. It was wired into Ind_14 (primary_2025) but is now DISABLED
+# (use_for_risk_timber=0) because it over-counts in savanna biomes: in a Cerrado test box ~76% of the
+# proxy was Savanna Formation (class 4), not forest. To re-enable, tick use_for_risk_timber, ideally
+# after restricting forest_24 to true-forest classes {3, 5, 6} (dropping 4 savanna and 49 wooded
+# sandbank). The preferred real-primary replacement (TerraClass 2024 upload) is tracked in #233.
 def nbr_mapbiomasc10_primary_proxy24_prep():
     mapbiomasc10_24 = ee.Image(
         "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
