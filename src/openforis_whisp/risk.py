@@ -399,6 +399,7 @@ def whisp_risk(
 
     add_risk_timber_col(
         df=df_w_indicators,
+        ind_1_name=ind_1_name,
         ind_2_name=ind_2_name,
         ind_5_name=ind_5_name,
         ind_6_name=ind_6_name,
@@ -494,6 +495,7 @@ def add_risk_acrop_col(
 
 def add_risk_timber_col(
     df: data_lookup_type,
+    ind_1_name: str,
     ind_2_name: str,
     ind_5_name: str,
     ind_6_name: str,
@@ -525,9 +527,10 @@ def add_risk_timber_col(
     3. Primary 2020 -> still primary (primary_2025) or other land 2025 (Ind_13) -> LOW; plantation
        2025 (Ind_08b) -> HIGH (degradation); otherwise MORE INFO NEEDED.
     4. Regenerating-planted 2020 -> plantation 2025 (Ind_08b) -> HIGH (degradation); matured to primary
-       (primary_2025), stayed regenerating-planted (Ind_09 / Ind_08a), or other land 2025 (Ind_13) -> LOW;
-       otherwise MORE INFO NEEDED. The primary_2025 "matured to primary" path defaults to no for want of a
-       primary-2025 data layer.
+       (primary_2025) or other land 2025 (Ind_13) -> LOW; stayed regenerating-planted (Ind_09 / Ind_08a)
+       AND treecover in 2020 (Ind_01) -> LOW; otherwise MORE INFO NEEDED. The primary_2025 "matured to
+       primary" path defaults to no for want of a primary-2025 data layer. The stayed-forest LOW is gated
+       on 2020 treecover so an ESRI-only 2025 signal cannot earn a LOW where the JRC baseline saw no forest.
     5. Plantation 2020 -> plantation 2025 (Ind_08b) or other land 2025 (Ind_13) -> LOW; otherwise
        MORE INFO NEEDED.
     6. No forest in 2020 -> LOW (outside EUDR scope; includes other land 2020).
@@ -553,6 +556,7 @@ def add_risk_timber_col(
         plantation_2020 = row[ind_7b_name] == "yes"
         any_forest_2020 = primary_2020 or regen_planted_2020 or plantation_2020
 
+        treecover_2020 = row[ind_1_name] == "yes"
         primary_2025 = row[primary_2025_name] == "yes"
         regen_planted_2025 = row[ind_9_name] == "yes" or row[ind_8a_name] == "yes"
         plantation_2025 = row[ind_8b_name] == "yes"
@@ -577,13 +581,20 @@ def add_risk_timber_col(
         elif regen_planted_2020:
             if plantation_2025:
                 df.at[index, "risk_timber"] = "high"
-            elif primary_2025 or regen_planted_2025 or other_land_2025:
+            elif primary_2025 or other_land_2025:
                 # primary_2025 here is the "regenerating forest matured to primary = compliant" case.
                 # Unlike the primary branch above (where the derived primary_2025 correctly flags a
                 # still-primary plot), this use is inert today: the derived primary_2025 is anchored to
                 # Ind_05 in 2020, so it can never be yes for a regen-2020 plot, and there is no separate
                 # primary-2025 layer. It defaults to no, wired to match diagram A, and activates once a
                 # genuine primary-2025 (forest-type 2025) layer feeds it.
+                df.at[index, "risk_timber"] = "low"
+            elif regen_planted_2025 and treecover_2020:
+                # Stayed regenerating/planted. Gated on 2020 treecover (Ind_01, the JRC/GLAD-family
+                # baseline) so an ESRI-only 2025 treecover signal cannot earn a LOW on a plot the strict
+                # 2020 baseline never saw as forest (the ESRI-vs-JRC mismatch and #229). ESRI is kept in
+                # the pool but cannot solo-drive this LOW. Interim gate until indicators move from
+                # any-source-over-threshold to multi-source agreement.
                 df.at[index, "risk_timber"] = "low"
             else:
                 df.at[index, "risk_timber"] = "more_info_needed"
