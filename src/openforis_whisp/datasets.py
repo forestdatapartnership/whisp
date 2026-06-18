@@ -203,6 +203,25 @@ def g_forty_plantation_2020_prep():
     return _forty_class_present(3).rename("ForTy_plantation_2020")
 
 
+# Present-but-unused output bands (no risk pathway ticked in the lookup): these surface ForTy
+# information in the output without affecting any risk score.
+def g_forty_tree_crops_2020_prep():
+    return _forty_class_present(4).rename("ForTy_tree_crops_2020")
+
+
+def g_forty_forest_2020_prep():
+    # Forest presence = any of the four forest classes (Primary, NaturallyRegenerating, Planted,
+    # Plantation) present, i.e. the max forest-class score >= the presence threshold.
+    return (
+        _forty_2020_mean()
+        .select([0, 1, 2, 3])
+        .reduce(ee.Reducer.max())
+        .gte(FORTY_PRESENCE_THRESHOLD)
+        .selfMask()
+        .rename("ForTy_forest_2020")
+    )
+
+
 # DEMO PROXY: stands in for "plantation after 2020" (Ind_08b) using the 2020 plantation extent
 # (ForTy plantation, index 3) so the diagram-A plantation-2025 nodes fire in demos: stable plantation
 # -> LOW, and primary/regen -> plantation -> HIGH (degradation). It is NOT a real post-2020 layer and
