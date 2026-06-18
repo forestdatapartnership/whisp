@@ -73,6 +73,12 @@ def detect_unit_type(df, explicit_unit_type=None):
     return unit_type
 
 
+def _dedupe_keep_order(items: list) -> list:
+    """Return items with duplicates removed, preserving first-seen order."""
+    seen: set = set()
+    return [x for x in items if not (x in seen or seen.add(x))]
+
+
 # Update whisp_risk to accept and pass the unit_type parameter
 def whisp_risk(
     df: data_lookup_type,  # CHECK THIS
@@ -211,10 +217,7 @@ def whisp_risk(
         _acrop_cols = get_cols_ind_02_commodities(
             filtered_lookup_gee_datasets_df, risk_col="use_for_risk_acrop"
         )
-        _seen: set = set()
-        ind_2_input_columns = [
-            c for c in _pcrop_cols + _acrop_cols if not (_seen.add(c) or c in _seen)
-        ]
+        ind_2_input_columns = _dedupe_keep_order(_pcrop_cols + _acrop_cols)
     if ind_3_input_columns is None:
         ind_3_input_columns = get_cols_ind_03_dist_before_2020(
             filtered_lookup_gee_datasets_df
@@ -739,10 +742,7 @@ def get_cols_ind_08_planted_after_2020(lookup_gee_datasets_df):
     Returns:
     list: List of dataset names set to be used in the risk calculations for the degradation - planted and plantation forests post 2020, excluding those marked for exclusion.
     """
-    # NOTE: no dataset currently feeds Ind_08, so this returns [] and the indicator does
-    # not fire (see #195). FDaP palm/rubber change signal is hard to trust; TMF
-    # forest->plantation (TransitionMap_Subtypes 81-86) seems limited in scope globally.
-    # Needs more investigation before wiring a source in.
+    # No dataset currently feeds Ind_08, so this returns [] and the indicator does not fire (see #195).
     lookup_gee_datasets_df = lookup_gee_datasets_df[
         lookup_gee_datasets_df["exclude_from_output"] != 1
     ]
