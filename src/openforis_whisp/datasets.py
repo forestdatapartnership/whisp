@@ -184,10 +184,6 @@ def g_forty_plantation_2020_prep():
     return _forty_2020().eq(4).rename("ForTy_plantation_2020").selfMask()
 
 
-def g_forty_other_land_2020_prep():
-    return _forty_2020().eq(6).rename("ForTy_other_land_2020").selfMask()
-
-
 # PLACEHOLDER (coded out): planted/plantation AFTER 2020 via the forthcoming ForTy post-2020 release
 # (feeds Ind_08a / Ind_08b). Same argmax recipe as _forty_2020() but on the post-2020 asset. Kept
 # commented so it is NOT auto-discovered: until released, Ind_08a/08b have no dataset and stay "no" for
@@ -428,6 +424,25 @@ def g_esri_2020_2025_crop_prep():
     newCrop = esri_lulc10_crop_2025.And(esri_lulc10_crop_2020.Not())
 
     return newCrop.rename("ESRI_crop_gain_2020_2025").selfMask()
+
+
+# ESRI LULC "other land" = built (7), bare ground (8), water (1), snow/ice (9). Deliberately
+# excludes rangeland (11), which mixes natural grassland with grazed pasture (agricultural use),
+# as well as crops (5), trees (2) and flooded vegetation (4). Used as a non-forest other-land signal.
+def _esri_other_land(year):
+    esri_lulc10_raw = ee.ImageCollection(
+        "projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS"
+    )
+    lulc = esri_lulc10_raw.filterDate(f"{year}-01-01", f"{year}-12-31").mosaic()
+    return lulc.eq(1).Or(lulc.eq(7)).Or(lulc.eq(8)).Or(lulc.eq(9))
+
+
+def g_esri_other_land_2020_prep():
+    return _esri_other_land(2020).rename("ESRI_other_land_2020").selfMask()
+
+
+def g_esri_other_land_2025_prep():
+    return _esri_other_land(2025).rename("ESRI_other_land_2025").selfMask()
 
 
 #### disturbances by year

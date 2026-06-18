@@ -29,6 +29,7 @@ EXPECTED_INDICATOR_COLS = [
     "Ind_11_logging_concession_before_2020",
     "Ind_12_pasture_2020",
     "Ind_13_other_land_2020",
+    "Ind_14_other_land_after_2020",
 ]
 
 

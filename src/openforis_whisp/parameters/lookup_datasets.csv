@@ -203,9 +203,10 @@ IIASA_planted_2020,1850,,NA,planted_2020,0,0,1,0,float32,1,0,g_iiasa_planted_202
 IIASA_plantation_2020,1851,,NA,plantation_2020,0,0,1,0,float32,1,0,g_iiasa_plantation_2020_prep,0
 ForTy_planted_2020,1852,,NA,planted_2020,0,0,1,0,float32,1,0,g_forty_planted_2020_prep,0
 ForTy_plantation_2020,1853,,NA,plantation_2020,0,0,1,0,float32,1,0,g_forty_plantation_2020_prep,0
-ForTy_other_land_2020,1854,,NA,other_land_2020,0,0,1,0,float32,1,0,g_forty_other_land_2020_prep,0
+ESRI_other_land_2020,1855,,NA,other_land_2020,0,0,1,0,float32,1,0,g_esri_other_land_2020_prep,0
 TMF_regrowth_2025,1860,,NA,treecover_after_2020,0,0,1,0,float32,1,0,g_tmf_regrowth_prep,0
 ESRI_2025_TC,1870,,NA,treecover_after_2020,0,0,1,0,float32,1,0,g_esri_2025_tc_prep,0
+ESRI_other_land_2025,1875,,NA,other_land_after_2020,0,0,1,0,float32,1,0,g_esri_other_land_2025_prep,0
 Oil_palm_2024_FDaP,1880,,NA,agri_after_2020,0,0,0,0,float32,1,0,g_fdap_palm_2024_prep,0
 Rubber_2024_FDaP,1890,,NA,agri_after_2020,0,0,0,0,float32,1,0,g_fdap_rubber_2024_prep,0
 Coffee_FDaP_2024,1900,,NA,agri_after_2020,0,0,0,0,float32,1,0,g_fdap_coffee_2024_prep,0
