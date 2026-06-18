@@ -11,7 +11,7 @@ GEOJSON_EXAMPLE_FILEPATH = (
 )
 
 
-EXPECTED_RISK_COLS = ["risk_pcrop", "risk_acrop", "risk_cattle", "risk_timber"]
+EXPECTED_RISK_COLS = ["risk_pcrop", "risk_acrop", "risk_timber"]
 EXPECTED_RISK_VALUES = {"low", "high", "more_info_needed"}
 EXPECTED_INDICATOR_COLS = [
     "Ind_01_treecover",
@@ -27,9 +27,8 @@ EXPECTED_INDICATOR_COLS = [
     "Ind_09_treecover_after_2020",
     "Ind_10_agri_after_2020",
     "Ind_11_logging_concession_before_2020",
-    "Ind_12_pasture_2020",
-    "Ind_13_other_land_2020",
-    "Ind_14_other_land_after_2020",
+    "Ind_12_other_land_2020",
+    "Ind_13_other_land_after_2020",
 ]
 
 
