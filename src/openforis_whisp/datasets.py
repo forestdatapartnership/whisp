@@ -126,6 +126,15 @@ def g_ifl_2020_prep():
     return IFL_2020.rename("IFL_2020").selfMask()
 
 
+# Intact Forest Landscape 2025 (extent as of 1 Jan 2025). Note the project-style asset path; the older
+# users/potapovpeter/IFL_YYYY naming does not carry to 2025. This is a primary-2025 / still-intact
+# candidate, added as an output band for now; wiring it into the timber tree's primary-2025 path is
+# pending (alongside the MapBiomas primary proxy and TMF undisturbed 2025).
+def g_ifl_2025_prep():
+    IFL_2025 = ee.Image("projects/ee-potapovpeter/assets/IFL/IFL_2025m")
+    return IFL_2025.rename("IFL_2025").selfMask()
+
+
 # European Primary Forest Dataset
 def g_epfd_prep():
     EPFD = ee.FeatureCollection("HU_BERLIN/EPFD/V2/polygons")
