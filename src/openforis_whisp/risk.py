@@ -531,8 +531,9 @@ def add_risk_timber_col(
        AND treecover in 2020 (Ind_01) -> LOW; otherwise MORE INFO NEEDED. The primary_2025 "matured to
        primary" path defaults to no for want of a primary-2025 data layer. The stayed-forest LOW is gated
        on 2020 treecover so an ESRI-only 2025 signal cannot earn a LOW where the JRC baseline saw no forest.
-    5. Plantation 2020 -> plantation 2025 (Ind_08b) or other land 2025 (Ind_13) -> LOW; otherwise
-       MORE INFO NEEDED.
+    5. Plantation 2020 -> plantation 2025 (Ind_08b) or other land 2025 (Ind_13) -> LOW; otherwise HIGH
+       (per the drawn diagram A; stricter than the transition matrix, which treats plantation -> any
+       non-agricultural state as compliant).
     6. No forest in 2020 -> LOW (outside EUDR scope; includes other land 2020).
 
     Choices that differ from a literal reading of diagram A, noted for the meeting:
@@ -598,12 +599,16 @@ def add_risk_timber_col(
                 df.at[index, "risk_timber"] = "low"
             else:
                 df.at[index, "risk_timber"] = "more_info_needed"
-        # Rule 5: plantation 2020. Plantation-2025 (Ind_08b, dormant) or other-land-2025 -> LOW.
+        # Rule 5: plantation 2020. Plantation-2025 (Ind_08b) or other-land-2025 -> LOW; otherwise HIGH.
         elif plantation_2020:
             if plantation_2025 or other_land_2025:
                 df.at[index, "risk_timber"] = "low"
             else:
-                df.at[index, "risk_timber"] = "more_info_needed"
+                # Per the drawn diagram A: a 2020 plantation that cannot be confirmed as still plantation
+                # or as other land in 2025 -> HIGH. This is stricter than the transition matrix (which
+                # treats plantation -> any non-agricultural state as compliant); followed here to match
+                # the authoritative diagram.
+                df.at[index, "risk_timber"] = "high"
         # Rule 6: no forest in 2020 -> LOW (outside EUDR scope; includes other land 2020).
         else:
             df.at[index, "risk_timber"] = "low"
