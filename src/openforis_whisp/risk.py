@@ -426,6 +426,7 @@ def whisp_risk(
         ind_8b_name=ind_8b_name,
         ind_9_name=ind_9_name,
         ind_10_name=ind_10_name,
+        ind_12_name=ind_12_name,
         ind_13_name=ind_13_name,
         primary_2025_name="primary_2025",
     )
@@ -514,6 +515,7 @@ def add_risk_timber_col(
     df: data_lookup_type,
     ind_1_name: str,
     ind_2_name: str,
+    ind_12_name: str,
     ind_5_name: str,
     ind_6_name: str,
     ind_7a_name: str,
@@ -539,30 +541,39 @@ def add_risk_timber_col(
     other land 2025 (Ind_13), agriculture 2025 (Ind_10).
 
     Rules (priority order):
+    0. Other land use 2020 (Ind_12) -> LOW (known non-forest in 2020, outside EUDR scope).
     1. Agriculture/commodity 2020 (Ind_02) -> LOW (pre-2020 land use, outside EUDR scope).
-    2. Any forest 2020 AND agriculture after 2020 (Ind_10) -> HIGH (deforestation).
-    3. Primary 2020 -> still primary (primary_2025) or other land 2025 (Ind_13) -> LOW; plantation
-       2025 (Ind_08b) -> HIGH (degradation); otherwise MORE INFO NEEDED.
-    4. Regenerating-planted 2020 -> plantation 2025 (Ind_08b) -> HIGH (degradation); matured to primary
-       (primary_2025) or other land 2025 (Ind_13) -> LOW; stayed regenerating-planted (Ind_09 / Ind_08a)
-       AND treecover in 2020 (Ind_01) -> LOW; otherwise MORE INFO NEEDED. The primary_2025 "matured to
-       primary" path defaults to no for want of a primary-2025 data layer. The stayed-forest LOW is gated
-       on 2020 treecover so an ESRI-only 2025 signal cannot earn a LOW where the JRC baseline saw no forest.
-    5. Plantation 2020 -> plantation 2025 (Ind_08b) or other land 2025 (Ind_13) -> LOW; otherwise HIGH
-       (per the drawn diagram A; stricter than the transition matrix, which treats plantation -> any
-       non-agricultural state as compliant).
-    6. No forest in 2020 -> LOW (outside EUDR scope; includes other land 2020).
+    2. Agriculture after 2020 (Ind_10) -> HIGH (deforestation). Negative gate: rules 0 and 1 already
+       removed other-land-2020 and commodity-2020, so any new agriculture here is conversion from
+       forest/unknown. Replaces the old positive any-forest-2020 guard, which missed deforestation where
+       forest-2020 products are thin (Atlantic Forest, Borneo).
+    3. Primary 2020 -> still primary (primary_2025) or other land 2025 (Ind_13) -> LOW; -> plantation 2025
+       (Ind_08b) = degradation -> HIGH (per the EUDR transition matrix, Art 2(7)); otherwise MORE INFO.
+    4. Regenerating-planted 2020 -> matured to primary (primary_2025) -> LOW; stayed regenerating-planted
+       (Ind_09 / Ind_08a) AND treecover 2020 (Ind_01) -> LOW; -> plantation 2025 (Ind_08b) = degradation
+       -> HIGH; -> other land 2025 (Ind_13) -> LOW; otherwise MORE INFO NEEDED. Degradation-to-plantation
+       is flagged HIGH here, not on the primary branch. The stayed-forest LOW is gated on 2020 treecover
+       so an ESRI-only 2025 signal cannot earn a LOW where the JRC baseline saw no forest (#229).
+    5. Plantation 2020 -> plantation 2025 (Ind_08b) or other land 2025 (Ind_13) -> LOW; otherwise MORE
+       INFO NEEDED (the diagram routes an unconfirmed 2020 plantation to more info, not high).
+    6. Nothing recognised in 2020 -> MORE INFO NEEDED ("if we do not know the 2020 state, we do not
+       know"; an unclassified plot is not assumed compliant).
 
     Choices that differ from a literal reading of diagram A, noted for the meeting:
-    - The "other land 2020 -> LOW" side short-circuit is dropped. A genuinely non-forest plot still
-      reaches LOW by falling through to rule 6, so the explicit node is redundant.
-    - The primary branch is evaluated before the regenerating-planted and plantation branches. A plot
-      that overlaps several 2020 classes (coverage thresholds let this happen) is then assessed against
-      the most-protected class, so a primary degradation is not masked by a plantation overlap. Diagram
-      A lists the plantation branch first.
-    - Plantation 2025 (Ind_08b) is dormant (no global after-2020 split layer yet), so the plantation-2025
-      nodes cannot fire: stable plantations (rule 5) and primary/regen -> plantation degradation
-      (rules 3 and 4) fall to MORE INFO NEEDED until that layer is wired.
+    - Rule 2 is a negative gate (deforestation unless known non-forest in 2020 via rules 0/1), replacing
+      the old positive any-forest-2020 guard. Rule 4's #229 2020-treecover gate remains the one code-only
+      refinement not drawn as a diagram node (it stops ESRI-only commission earning an unearned LOW).
+    - Rule 0 (other land use 2020 -> LOW) uses Ind_12 = ESRI built/water/snow + MapBiomas non-forest 2020
+      (Brazil wall-to-wall, so all non-forest land use there -> LOW). Outside Brazil the non-forest set is
+      still thin (ESRI built/water/snow only), so the negative gate (rule 2) can over-flag there until a
+      global non-forest-2020 layer is wired.
+    - The primary branch is evaluated before the regenerating-planted and plantation branches, so a plot
+      overlapping several 2020 classes is assessed against the most-protected class. Diagram A lists the
+      plantation branch first.
+    - Plantation 2025 (Ind_08b) is LIVE for Brazil via MapBiomas silviculture 2024
+      (nBR_MapBiomas_col10_silviculture_2024) but has no global after-2020 layer (only the dormant ForTy
+      demo), so rule 4's regen -> plantation HIGH and rule 5's stable-plantation LOW fire in Brazil and
+      fall to MORE INFO NEEDED elsewhere until a global layer is wired.
 
     Returns:
         DataFrame with risk_timber column added.
@@ -572,22 +583,36 @@ def add_risk_timber_col(
         primary_2020 = row[ind_5_name] == "yes"
         regen_planted_2020 = row[ind_6_name] == "yes" or row[ind_7a_name] == "yes"
         plantation_2020 = row[ind_7b_name] == "yes"
-        any_forest_2020 = primary_2020 or regen_planted_2020 or plantation_2020
 
         treecover_2020 = row[ind_1_name] == "yes"
         primary_2025 = row[primary_2025_name] == "yes"
         regen_planted_2025 = row[ind_9_name] == "yes" or row[ind_8a_name] == "yes"
         plantation_2025 = row[ind_8b_name] == "yes"
         other_land_2025 = row[ind_13_name] == "yes"
+        other_land_2020 = row[ind_12_name] == "yes"
 
-        # Rule 1: agriculture / commodity in 2020 -> LOW (pre-2020 land use, outside EUDR scope).
-        if row[ind_2_name] == "yes":
+        # Rule 0 (OL2020): other land use in 2020 -> LOW (known non-forest in 2020, outside EUDR scope).
+        if other_land_2020:
             df.at[index, "risk_timber"] = "low"
-        # Rule 2: any forest in 2020 -> agriculture after 2020 = deforestation -> HIGH.
-        # Guarded by any_forest_2020 so an other-land-2020 -> agriculture change is not flagged.
-        elif any_forest_2020 and row[ind_10_name] == "yes":
+        # Rule 1: agriculture / commodity in 2020 -> LOW (pre-2020 land use, outside EUDR scope).
+        elif row[ind_2_name] == "yes":
+            df.at[index, "risk_timber"] = "low"
+        # Rule 2: agriculture after 2020 -> HIGH (deforestation), the coverage-robust "negative gate".
+        # By here the plot is already NOT other-land-2020 (Rule 0) and NOT commodity-2020 (Rule 1), so any
+        # NEW agriculture is treated as conversion from forest/unknown = deforestation. Unlike the old
+        # any_forest_2020 positive gate this does not require a forest-2020 product to positively cover the
+        # plot (which missed real deforestation where forest products are thin, e.g. Atlantic Forest,
+        # Borneo). NB outside Brazil the known-non-forest-2020 set (Rule 0) is thin (ESRI built/water/snow
+        # + Brazil MapBiomas), so this can over-flag non-forest-non-ag -> ag until a global wall-to-wall
+        # non-forest-2020 layer is wired; in Brazil MapBiomas is wall-to-wall so it is clean.
+        elif row[ind_10_name] == "yes":
             df.at[index, "risk_timber"] = "high"
-        # Rule 3: primary 2020. Checked first so primary degradation is not masked by an overlap.
+        # Rule 3: primary 2020. Still primary (primary_2025) or other land 2025 -> LOW; -> plantation 2025
+        # (Ind_08b) = degradation -> HIGH; otherwise MORE INFO NEEDED. The plantation -> HIGH is per the
+        # EUDR transition matrix, which marks primary -> plantation (and -> planted, -> OWL) as DEGRADATION
+        # (Art 2(7)). An earlier simplified diagram had dropped this node; restored here to match the
+        # matrix. Fires via the MapBiomas silviculture GAIN (Ind_08b) in Brazil; primary -> planted and
+        # primary -> OWL degradation stay blind for want of those after-2020 layers.
         elif primary_2020:
             if primary_2025 or other_land_2025:
                 df.at[index, "risk_timber"] = "low"
@@ -595,40 +620,44 @@ def add_risk_timber_col(
                 df.at[index, "risk_timber"] = "high"
             else:
                 df.at[index, "risk_timber"] = "more_info_needed"
-        # Rule 4: regenerating-planted 2020.
+        # Rule 4: regenerating-planted 2020. Order follows the diagram: matured to primary -> stayed
+        # regenerating-planted -> plantation (degradation) -> other land -> more info.
         elif regen_planted_2020:
-            if plantation_2025:
-                df.at[index, "risk_timber"] = "high"
-            elif primary_2025 or other_land_2025:
-                # primary_2025 here is the "regenerating forest matured to primary = compliant" case.
-                # It now fires via Ind_14, a real primary-2025 layer (IFL 2025 currently; the MapBiomas
-                # proxy is available but disabled, see #233), so a regen-2020 plot read as primary/intact
-                # in 2025 takes this LOW path wherever that layer has coverage. The derived component of
-                # primary_2025 (Ind_05 and not Ind_04) cannot fire here, since a regen plot is not primary
-                # in 2020, so this path is only as live as Ind_14's coverage (IFL is global but sparse).
+            if primary_2025:
+                # Regenerating forest matured to primary = compliant. Fires via Ind_14 (IFL 2025; the
+                # MapBiomas proxy is available but disabled, see #233), so only as live as Ind_14 coverage.
                 df.at[index, "risk_timber"] = "low"
-            elif regen_planted_2025 and treecover_2020:
+            elif regen_planted_2025 and treecover_2020 and not plantation_2025:
                 # Stayed regenerating/planted. Gated on 2020 treecover (Ind_01, the JRC/GLAD-family
-                # baseline) so an ESRI-only 2025 treecover signal cannot earn a LOW on a plot the strict
-                # 2020 baseline never saw as forest (the ESRI-vs-JRC mismatch and #229). ESRI is kept in
-                # the pool but cannot solo-drive this LOW. Interim gate until indicators move from
-                # any-source-over-threshold to multi-source agreement.
+                # baseline) so an ESRI-only 2025 treecover signal cannot earn a LOW where the strict 2020
+                # baseline saw no forest (#229). AND NOT plantation_2025 so a NEW plantation (degradation)
+                # is not masked by this LOW: a plot that is both treecover-after and new-plantation falls
+                # through to the plantation-2025 HIGH below (H6 fix; live now that MapBiomas silviculture
+                # GAIN feeds Ind_08b in Brazil). Code refinement, not drawn on the diagram.
+                df.at[index, "risk_timber"] = "low"
+            elif plantation_2025:
+                # Regenerating-planted -> NEW plantation after 2020 = degradation -> HIGH (Ind_08b, fed by
+                # MapBiomas silviculture GAIN in Brazil; globally dormant until a global plantation-after
+                # layer is wired).
+                df.at[index, "risk_timber"] = "high"
+            elif other_land_2025:
                 df.at[index, "risk_timber"] = "low"
             else:
                 df.at[index, "risk_timber"] = "more_info_needed"
-        # Rule 5: plantation 2020. Plantation-2025 (Ind_08b) or other-land-2025 -> LOW; otherwise HIGH.
+        # Rule 5: plantation 2020. Plantation 2025 (Ind_08b) or other land 2025 -> LOW; otherwise MORE
+        # INFO NEEDED (the diagram routes an unconfirmed 2020 plantation to more info, not high).
         elif plantation_2020:
             if plantation_2025 or other_land_2025:
                 df.at[index, "risk_timber"] = "low"
             else:
-                # Per the drawn diagram A: a 2020 plantation that cannot be confirmed as still plantation
-                # or as other land in 2025 -> HIGH. This is stricter than the transition matrix (which
-                # treats plantation -> any non-agricultural state as compliant); followed here to match
-                # the authoritative diagram.
-                df.at[index, "risk_timber"] = "high"
-        # Rule 6: no forest in 2020 -> LOW (outside EUDR scope; includes other land 2020).
+                df.at[index, "risk_timber"] = "more_info_needed"
+        # Rule 6: nothing recognised in 2020 (not commodity, not any forest class) -> MORE INFO NEEDED.
+        # "If we do not know the 2020 state, we do not know": an unclassified plot is no longer assumed
+        # compliant. The diagram's explicit "other land use 2020 -> LOW" node is dormant here (no
+        # other-land-2020 layer is wired into this function), so known-non-forest plots also reach MORE
+        # INFO until that layer is added.
         else:
-            df.at[index, "risk_timber"] = "low"
+            df.at[index, "risk_timber"] = "more_info_needed"
 
     return df
 
