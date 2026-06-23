@@ -607,17 +607,18 @@ def add_risk_timber_col(
         # non-forest-2020 layer is wired; in Brazil MapBiomas is wall-to-wall so it is clean.
         elif row[ind_10_name] == "yes":
             df.at[index, "risk_timber"] = "high"
-        # Rule 3: primary 2020. Still primary (primary_2025) or other land 2025 -> LOW; -> plantation 2025
-        # (Ind_08b) = degradation -> HIGH; otherwise MORE INFO NEEDED. The plantation -> HIGH is per the
-        # EUDR transition matrix, which marks primary -> plantation (and -> planted, -> OWL) as DEGRADATION
-        # (Art 2(7)). An earlier simplified diagram had dropped this node; restored here to match the
-        # matrix. Fires via the MapBiomas silviculture GAIN (Ind_08b) in Brazil; primary -> planted and
-        # primary -> OWL degradation stay blind for want of those after-2020 layers.
-        elif primary_2020:
-            if primary_2025 or other_land_2025:
+        # The 2020 forest-class checks run in the SAME ORDER as the diagram: PLANTATION first, then
+        # regenerating-planted, then primary (primary LAST). Order only matters for a plot flagged as more
+        # than one 2020 class (datasets disagree / overlap), and the diagram order is deliberate: a plot
+        # known to be a PLANTATION in 2020 is handled as a plantation (managed, established before the
+        # cutoff), not mis-read as a primary that later "degraded" to plantation. So plantation_2020 takes
+        # precedence over primary_2020 here.
+        #
+        # Rule 3: plantation 2020. Plantation 2025 (Ind_08b) or other land 2025 -> LOW; otherwise MORE
+        # INFO NEEDED (the diagram routes an unconfirmed 2020 plantation to more info, not high).
+        elif plantation_2020:
+            if plantation_2025 or other_land_2025:
                 df.at[index, "risk_timber"] = "low"
-            elif plantation_2025:
-                df.at[index, "risk_timber"] = "high"
             else:
                 df.at[index, "risk_timber"] = "more_info_needed"
         # Rule 4: regenerating-planted 2020. Order follows the diagram: matured to primary -> stayed
@@ -644,18 +645,23 @@ def add_risk_timber_col(
                 df.at[index, "risk_timber"] = "low"
             else:
                 df.at[index, "risk_timber"] = "more_info_needed"
-        # Rule 5: plantation 2020. Plantation 2025 (Ind_08b) or other land 2025 -> LOW; otherwise MORE
-        # INFO NEEDED (the diagram routes an unconfirmed 2020 plantation to more info, not high).
-        elif plantation_2020:
-            if plantation_2025 or other_land_2025:
+        # Rule 5: primary 2020 (checked LAST, matching the diagram). Still primary (primary_2025) or other
+        # land 2025 -> LOW; -> plantation 2025 (Ind_08b) = degradation -> HIGH; otherwise MORE INFO NEEDED.
+        # The plantation -> HIGH is per the EUDR transition matrix, which marks primary -> plantation (and
+        # -> planted, -> OWL) as DEGRADATION (Art 2(7)). An earlier simplified diagram had dropped this
+        # node; restored here. Fires via the MapBiomas silviculture GAIN (Ind_08b) in Brazil; primary ->
+        # planted and primary -> OWL degradation stay blind for want of those after-2020 layers.
+        elif primary_2020:
+            if primary_2025 or other_land_2025:
                 df.at[index, "risk_timber"] = "low"
+            elif plantation_2025:
+                df.at[index, "risk_timber"] = "high"
             else:
                 df.at[index, "risk_timber"] = "more_info_needed"
-        # Rule 6: nothing recognised in 2020 (not commodity, not any forest class) -> MORE INFO NEEDED.
-        # "If we do not know the 2020 state, we do not know": an unclassified plot is no longer assumed
-        # compliant. The diagram's explicit "other land use 2020 -> LOW" node is dormant here (no
-        # other-land-2020 layer is wired into this function), so known-non-forest plots also reach MORE
-        # INFO until that layer is added.
+        # Rule 6: nothing recognised in 2020 (not other-land, not commodity, not any forest class) ->
+        # MORE INFO NEEDED. "If we do not know the 2020 state, we do not know": an unclassified plot is no
+        # longer assumed compliant. (The other-land-2020 node IS wired now, at Rule 0 / Ind_12, so genuine
+        # known-non-forest plots leave at Rule 0; only truly unclassified plots reach here.)
         else:
             df.at[index, "risk_timber"] = "more_info_needed"
 
