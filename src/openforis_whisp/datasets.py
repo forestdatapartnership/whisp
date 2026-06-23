@@ -1643,13 +1643,17 @@ def _mapbiomasc10_non_forest(year, exclude_ag=False):
     return c.neq(27).And(excl.eq(0))
 
 
-# 2020 baseline (Ind_12, Rule 0): "was it non-forest in 2020?" -> LOW. INCLUDES agriculture on purpose ,
-# pre-existing cropland/pasture in 2020 is correctly LOW (no forest there to deforest), so this stays the
-# broad non-forest layer.
-def nbr_mapbiomasc10_non_forest_2020_prep():
+# 2020 baseline (Ind_12, Rule 0): OTHER LAND = non-forest AND NON-AGRICULTURE, mirroring the 2024 after-state
+# (built, water, bare, grassland, wetland, mining, etc.; agriculture / pasture / crops EXCLUDED). Under the
+# EUDR matrix Agriculture is a separate class from Other land use, so "other land 2020" should not contain ag.
+# NB the non-ag-non-forest classes (grassland / bare / wetland) ARE kept, so a grassland -> cropland change
+# still resolves to LOW via the other-land branch (it stays in this layer) instead of being mis-flagged as
+# deforestation. Pre-existing pasture / cropland is now excluded here, so it falls through to MORE INFO (no
+# longer rescued to LOW by this baseline); a future agriculture-2020 -> LOW node would restore that.
+def nbr_mapbiomasc10_other_land_2020_prep():
     return (
-        _mapbiomasc10_non_forest(2020)
-        .rename("nBR_MapBiomas_col10_non_forest_2020")
+        _mapbiomasc10_non_forest(2020, exclude_ag=True)
+        .rename("nBR_MapBiomas_col10_other_land_2020")
         .selfMask()
     )
 
