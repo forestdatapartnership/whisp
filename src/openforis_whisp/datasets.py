@@ -1565,6 +1565,30 @@ def nbr_mapbiomasc10_silv24_prep():
 
 
 # [non-official dataset by MapBiomas multisector initiative]
+# MULTI-YEAR plantation PRESENCE (not gain) for the timber tree's plantation-2020 STABILITY check
+# (Ind_16 "plantation presence 2025"). Reads MapBiomas Brazil Collection 10 Forest plantation
+# (DN=9 = silviculture) present in ANY year 2021-2024 (OR of classification_2021..classification_2024
+# == 9). A presence/not-loss layer, NOT the gain: a plantation already standing in 2020 stays detected
+# here, which is exactly what the Rule-3 "still a plantation in 2025?" stability test needs (the GAIN
+# layer Ind_08b is 0 on any 2020 plantation, so it wrongly fails stable plantations to MORE INFO). The
+# multi-year OR also rides over the harvest/replant cycle (a year that is bare/harvested in one snapshot
+# is still caught by an adjacent year). Modelled on nbr_mapbiomasc10_silv24_prep (silv-2024 presence);
+# Brazil-only (MapBiomas coverage), latest year 2024.
+def nbr_mapbiomasc10_silv_anyyear_2125_prep():
+    mapbiomasc10 = ee.Image(
+        "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
+    )
+    silv_2021 = mapbiomasc10.select("classification_2021").eq(9)
+    silv_2022 = mapbiomasc10.select("classification_2022").eq(9)
+    silv_2023 = mapbiomasc10.select("classification_2023").eq(9)
+    silv_2024 = mapbiomasc10.select("classification_2024").eq(9)
+    silv_anyyear = silv_2021.Or(silv_2022).Or(silv_2023).Or(silv_2024)
+    return silv_anyyear.rename(
+        "nBR_MapBiomas_col10_silviculture_anyyear_2021_2024"
+    ).selfMask()
+
+
+# [non-official dataset by MapBiomas multisector initiative]
 # PLANTATION EXPANSION 2020 -> 2024 for the timber tree's "plantation after 2020" / degradation node
 # (Ind_08b). Same-product gain: MapBiomas C10 Forest plantation (DN=9, silviculture) present in 2024 AND
 # NOT in 2020 , a NEW plantation that appeared after 2020. This is the degradation signal (primary/regen
