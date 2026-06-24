@@ -98,6 +98,7 @@ def whisp_risk(
     ind_12_pcent_threshold: float = 10,
     ind_13_pcent_threshold: float = 10,
     ind_14_pcent_threshold: float = 10,
+    ind_15_pcent_threshold: float = 10,
     ind_1_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_2_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_3_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
@@ -114,6 +115,7 @@ def whisp_risk(
     ind_12_input_columns: pd.Series = None,
     ind_13_input_columns: pd.Series = None,
     ind_14_input_columns: pd.Series = None,
+    ind_15_input_columns: pd.Series = None,
     ind_1_name: str = "Ind_01_treecover",
     ind_2_name: str = "Ind_02_commodities",
     ind_3_name: str = "Ind_03_disturbance_before_2020",
@@ -130,6 +132,7 @@ def whisp_risk(
     ind_12_name: str = "Ind_12_other_land_2020",
     ind_13_name: str = "Ind_13_other_land_after_2020",
     ind_14_name: str = "Ind_14_primary_2025",
+    ind_15_name: str = "Ind_15_agriculture_2020",
     low_name: str = "no",
     high_name: str = "yes",
     explicit_unit_type: str = None,
@@ -183,6 +186,9 @@ def whisp_risk(
         ind_9_name (str, optional): Name of indicator 9 column. Defaults to "Ind_09_treecover_after_2020".
         ind_10_name (str, optional): Name of indicator 10 column. Defaults to "Ind_10_agri_after_2020".
         ind_11_name (str, optional): Name of indicator 11 column. Defaults to "Ind_11_logging_concession_before_2020".
+        ind_15_pcent_threshold (float, optional): Percentage threshold for indicator 15 (timber agriculture 2020). Defaults to 10.
+        ind_15_input_columns (pd.Series, optional): Input columns for indicator 15. Defaults to pre-existing 2020 agriculture/commodity columns flagged for timber.
+        ind_15_name (str, optional): Name of indicator 15 column. Defaults to "Ind_15_agriculture_2020".
         low_name (str, optional): Value shown in table if less than or equal to the threshold. Defaults to "no".
         high_name (str, optional): Value shown in table if more than the threshold. Defaults to "yes".
         explicit_unit_type (str, optional): Override the autodetected unit type ('ha' or 'percent').
@@ -297,6 +303,10 @@ def whisp_risk(
         ind_14_input_columns = get_cols_ind_14_primary_2025(
             filtered_lookup_gee_datasets_df
         )
+    if ind_15_input_columns is None:
+        ind_15_input_columns = get_cols_ind_15_agriculture_2020(
+            filtered_lookup_gee_datasets_df
+        )
 
     # Check range of values
     check_range(ind_1_pcent_threshold)
@@ -315,6 +325,7 @@ def whisp_risk(
     check_range(ind_12_pcent_threshold)
     check_range(ind_13_pcent_threshold)
     check_range(ind_14_pcent_threshold)
+    check_range(ind_15_pcent_threshold)
 
     input_cols = [
         ind_1_input_columns,
@@ -333,6 +344,7 @@ def whisp_risk(
         ind_12_input_columns,
         ind_13_input_columns,
         ind_14_input_columns,
+        ind_15_input_columns,
     ]
     thresholds = [
         ind_1_pcent_threshold,
@@ -351,6 +363,7 @@ def whisp_risk(
         ind_12_pcent_threshold,
         ind_13_pcent_threshold,
         ind_14_pcent_threshold,
+        ind_15_pcent_threshold,
     ]
     names = [
         ind_1_name,
@@ -369,6 +382,7 @@ def whisp_risk(
         ind_12_name,
         ind_13_name,
         ind_14_name,
+        ind_15_name,
     ]
     [check_range(threshold) for threshold in thresholds]
 
@@ -428,6 +442,7 @@ def whisp_risk(
         ind_10_name=ind_10_name,
         ind_12_name=ind_12_name,
         ind_13_name=ind_13_name,
+        ind_15_name=ind_15_name,
         primary_2025_name="primary_2025",
     )
 
@@ -526,6 +541,7 @@ def add_risk_timber_col(
     ind_10_name: str,
     ind_13_name: str,
     primary_2025_name: str,
+    ind_15_name: str = "Ind_15_agriculture_2020",
 ) -> data_lookup_type:
     """
     Adds the risk_timber column based on the WHISP timber decision tree, the elaborate FAO
@@ -606,8 +622,11 @@ def add_risk_timber_col(
         # Rule 0 (OL2020): other land use in 2020 -> LOW (known non-forest in 2020, outside EUDR scope).
         if other_land_2020:
             df.at[index, "risk_timber"] = "low"
-        # Rule 1: agriculture / commodity in 2020 -> LOW (pre-2020 land use, outside EUDR scope).
-        elif row[ind_2_name] == "yes":
+        # Rule 1: agriculture / commodity in 2020 -> LOW (pre-2020 land use, outside EUDR scope). Now catches
+        # pasture + tree crops + soy/annual cropland (pre-existing agriculture -> LOW), via the timber
+        # agriculture-2020 set (Ind_15), fixing the cropland that the shared pcrop/acrop Ind_02 dropped
+        # (soy/annual crops are use_for_risk_timber=1 but pcrop=acrop=0, so they fell out of Ind_02).
+        elif row[ind_2_name] == "yes" or row[ind_15_name] == "yes":
             df.at[index, "risk_timber"] = "low"
         # Rule 2: deforestation = had forest in 2020 (forest_2020) AND agriculture after 2020 -> HIGH. The
         # forest_2020 gate (treecover OR a forest class) means a genuine NON-forest -> agriculture change
@@ -802,6 +821,21 @@ def get_cols_ind_02_commodities(lookup_gee_datasets_df, risk_col="use_for_risk_p
         lookup_gee_datasets_df["name"][
             (lookup_gee_datasets_df[risk_col] == 1)
             & (lookup_gee_datasets_df["theme"] == "commodities")
+        ]
+    )
+
+
+def get_cols_ind_15_agriculture_2020(lookup_gee_datasets_df):
+    # Timber 2020 agriculture/commodity PRESENCE: theme=commodities AND use_for_risk_timber=1, EXCLUDING
+    # the after-2020 gain layers (theme_timber == 'agri_after_2020', which feed Ind_10). Catches all
+    # pre-existing 2020 agriculture for timber (pasture + tree crops + soy/annual cropland) so the timber
+    # tree's Rule 1 sends pre-existing agriculture -> LOW (it was ag in 2020, so no forest was lost).
+    df = lookup_gee_datasets_df[lookup_gee_datasets_df["exclude_from_output"] != 1]
+    return list(
+        df["name"][
+            (df["use_for_risk_timber"] == 1)
+            & (df["theme"] == "commodities")
+            & (df["theme_timber"] != "agri_after_2020")
         ]
     )
 
