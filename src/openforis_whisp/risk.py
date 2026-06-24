@@ -567,7 +567,14 @@ def add_risk_timber_col(
 
     for index, row in df.iterrows():
         primary_2020 = row[ind_5_name] == "yes"
-        regen_planted_2020 = row[ind_6_name] == "yes" or row[ind_7a_name] == "yes"
+        # regen EXCLUDES primary: Ind_06 (EUFO / MapBiomas forest) is a broad "any forest" layer that
+        # includes primary, so without this a primary plot is flagged regen too and, since regen is
+        # checked before primary, never reaches the primary branch (primary then shows as ~empty).
+        # Enforcing primary/regen mutual exclusivity (which the diagram assumes) routes primary plots to
+        # the primary branch, so still-primary and primary->plantation degradation populate correctly.
+        regen_planted_2020 = (
+            row[ind_6_name] == "yes" or row[ind_7a_name] == "yes"
+        ) and not primary_2020
         plantation_2020 = row[ind_7b_name] == "yes"
 
         treecover_2020 = row[ind_1_name] == "yes"
