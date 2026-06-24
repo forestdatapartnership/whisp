@@ -1622,50 +1622,44 @@ def nbr_mapbiomasc10_ag_gain_2020_2024_prep():
 
 
 # [non-official dataset by MapBiomas multisector initiative]
-# "Other land use" for Brazil: MapBiomas C10 classification that is NEITHER native forest {3,4,5,6,49} NOR
-# silviculture/plantation (9) NOR non-observed (27). That is, all the non-forest land uses (pasture, crops,
-# grassland, wetland, urban, water, bare, MINING (30), etc.), so mining is captured here and needs no
-# separate layer. Wall-to-wall over Brazil. 2020 -> Ind_12 (other-land-2020 -> LOW via Rule 0, and the
-# deforestation negative gate); 2024 -> Ind_13 (other-land-after-2020), so e.g. forest -> mining reads as
-# other land (LOW, outside the EUDR forest -> agriculture definition) rather than deforestation or more
-# info. Silviculture (9) is excluded so a 2020 plantation is handled by the plantation branch. Agriculture
-# stays in the set; a forest -> agriculture transition is caught by the deforestation rule (which runs
-# before the other-land branch checks), so it cannot be mislabelled LOW.
-def _mapbiomasc10_non_forest(year, exclude_ag=False):
+# "Other land use" for Brazil (MapBiomas C10): ONLY the SOLID, sure, non-forest non-agriculture classes,
+# matching the EUDR "Other land use" class (distinct from Agriculture and from forest). Included: urban /
+# built (24), river/lake/ocean water (33), mining (30), rocky outcrop (29), beach/dune/sand (23), and
+# hypersaline salt flat (32). DELIBERATELY EXCLUDED: agriculture / pasture / crops (handled by the
+# commodity / agriculture-2020 node); native forest + silviculture (the forest branches); and the AMBIGUOUS
+# vegetated / bare classes (grassland 12, wetland 11, other-non-vegetated/bare 25, aquaculture 31), which we
+# are not confident are non-forest, so they fall through to MORE INFO rather than being called LOW
+# other-land. 2020 -> Ind_12 (Rule 0 -> LOW); 2024 -> Ind_13 (other-land-after-2020 -> LOW). A forest ->
+# mining/built/water change reads as other land (compliant, outside the EUDR forest -> agriculture
+# definition). Mining is captured both here (class 30) and by the global Tang & Werner + Maus footprint.
+def _mapbiomasc10_other_land(year):
     c = ee.Image(
         "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
     ).select("classification_%d" % year)
-    excluded = [3, 4, 5, 6, 9, 49]  # native forest (3,4,5,6,49) + silviculture (9)
-    if exclude_ag:
-        # also exclude FARMING (pasture 15 + crops) so the result is OTHER LAND = non-forest NON-agriculture
-        excluded = excluded + [15, 20, 21, 35, 39, 40, 41, 46, 47, 48, 62]
-    excl = c.remap(excluded, [1] * len(excluded), 0)
-    return c.neq(27).And(excl.eq(0))
+    solid = [
+        24,
+        33,
+        30,
+        29,
+        23,
+        32,
+    ]  # built, water, mining, rocky, beach/sand, salt flat
+    return c.remap(solid, [1] * len(solid), 0)
 
 
-# 2020 baseline (Ind_12, Rule 0): OTHER LAND = non-forest AND NON-AGRICULTURE, mirroring the 2024 after-state
-# (built, water, bare, grassland, wetland, mining, etc.; agriculture / pasture / crops EXCLUDED). Under the
-# EUDR matrix Agriculture is a separate class from Other land use, so "other land 2020" should not contain ag.
-# NB the non-ag-non-forest classes (grassland / bare / wetland) ARE kept, so a grassland -> cropland change
-# still resolves to LOW via the other-land branch (it stays in this layer) instead of being mis-flagged as
-# deforestation. Pre-existing pasture / cropland is now excluded here, so it falls through to MORE INFO (no
-# longer rescued to LOW by this baseline); a future agriculture-2020 -> LOW node would restore that.
+# 2020 (Ind_12, Rule 0): OTHER LAND = only the SOLID, sure non-forest non-agriculture classes (see helper).
 def nbr_mapbiomasc10_other_land_2020_prep():
     return (
-        _mapbiomasc10_non_forest(2020, exclude_ag=True)
+        _mapbiomasc10_other_land(2020)
         .rename("nBR_MapBiomas_col10_other_land_2020")
         .selfMask()
     )
 
 
-# 2024 after-state (Ind_13): OTHER LAND = non-forest AND NON-AGRICULTURE (built, water, bare, grassland,
-# wetland, mining, etc.). Agriculture is EXCLUDED: under the EUDR transition matrix Agriculture/Agroforestry
-# is a SEPARATE class from Other land use, and forest -> agriculture is deforestation (Ind_10 -> HIGH), not
-# the compliant other-land branch. If ag were left here, a forest -> ag conversion that the Ind_10 gain
-# layers missed could be rescued to LOW via the other-land-2025 branch (masking deforestation).
+# 2024 after-state (Ind_13): OTHER LAND = only the SOLID, sure non-forest non-agriculture classes (see helper).
 def nbr_mapbiomasc10_other_land_2024_prep():
     return (
-        _mapbiomasc10_non_forest(2024, exclude_ag=True)
+        _mapbiomasc10_other_land(2024)
         .rename("nBR_MapBiomas_col10_other_land_2024")
         .selfMask()
     )

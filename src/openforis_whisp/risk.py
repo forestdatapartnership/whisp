@@ -591,21 +591,33 @@ def add_risk_timber_col(
         other_land_2025 = row[ind_13_name] == "yes"
         other_land_2020 = row[ind_12_name] == "yes"
 
+        # "Was there forest to lose in 2020?" = treecover (Ind_01: broad global canopy, EUFO/JRC GFC2020 +
+        # TMF + MapBiomas forest) OR any forest CLASS (primary / regen-planted / plantation). Drives the
+        # deforestation gate (Rule 2) so a NON-forest plot (grassland / bare / cropland) that turns into
+        # agriculture is NOT mis-flagged as deforestation. This matters because risk_timber is emitted for
+        # EVERY plot (pcrop / acrop / cattle plots too), so a no-forest plot must never show a HIGH timber
+        # deforestation verdict in the output table. Treecover is broad/global so the gate stays robust
+        # where the forest-CLASS layers are thin (Atlantic Forest, Borneo); the class terms catch forest the
+        # canopy layer missed (e.g. a plantation the treecover product did not register).
+        forest_2020 = (
+            treecover_2020 or primary_2020 or regen_planted_2020 or plantation_2020
+        )
+
         # Rule 0 (OL2020): other land use in 2020 -> LOW (known non-forest in 2020, outside EUDR scope).
         if other_land_2020:
             df.at[index, "risk_timber"] = "low"
         # Rule 1: agriculture / commodity in 2020 -> LOW (pre-2020 land use, outside EUDR scope).
         elif row[ind_2_name] == "yes":
             df.at[index, "risk_timber"] = "low"
-        # Rule 2: agriculture after 2020 -> HIGH (deforestation), the coverage-robust "negative gate".
-        # By here the plot is already NOT other-land-2020 (Rule 0) and NOT commodity-2020 (Rule 1), so any
-        # NEW agriculture is treated as conversion from forest/unknown = deforestation. Unlike the old
-        # any_forest_2020 positive gate this does not require a forest-2020 product to positively cover the
-        # plot (which missed real deforestation where forest products are thin, e.g. Atlantic Forest,
-        # Borneo). NB outside Brazil the known-non-forest-2020 set (Rule 0) is thin (ESRI built/water/snow
-        # + Brazil MapBiomas), so this can over-flag non-forest-non-ag -> ag until a global wall-to-wall
-        # non-forest-2020 layer is wired; in Brazil MapBiomas is wall-to-wall so it is clean.
-        elif row[ind_10_name] == "yes":
+        # Rule 2: deforestation = had forest in 2020 (forest_2020) AND agriculture after 2020 -> HIGH. The
+        # forest_2020 gate (treecover OR a forest class) means a genuine NON-forest -> agriculture change
+        # (grassland / savanna / bare / pre-existing cropland -> crop) is NOT mis-flagged as deforestation;
+        # it falls through to the forest-class branches / MORE INFO. This keeps the risk_timber column
+        # credible on NON-timber plots: a no-forest plot never shows a HIGH timber deforestation verdict.
+        # Gating on treecover OR forest-class (not treecover alone) catches forest the canopy layer missed
+        # (e.g. a plantation -> ag plot with no treecover_2020), and stays coverage-robust where the forest-
+        # CLASS layers are thin (Atlantic Forest, Borneo) because treecover is broad and global.
+        elif forest_2020 and row[ind_10_name] == "yes":
             df.at[index, "risk_timber"] = "high"
         # The 2020 forest-class checks run in the SAME ORDER as the diagram: PLANTATION first, then
         # regenerating-planted, then primary (primary LAST). Order only matters for a plot flagged as more
