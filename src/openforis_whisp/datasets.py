@@ -177,12 +177,14 @@ def g_iiasa_plantation_2020_prep():
 # with a residual "other" = 250 - sum. PlantedForest is the weakest class (F1 58.2%), so the
 # planted-vs-plantation split is real but uncertain.
 #
-# Presence is taken where a class score is at least halfway between the min and max of the 0-250 range
-# (>= 125), instead of via argmax. Because the five classes plus "other" sum to ~250, at most one class
-# can clear 125 at a pixel, so the classes stay mutually exclusive while low-confidence pixels (which
-# argmax would still assign to a winner) are dropped. TEMPORARY MEASURE suggested by one of the ForTy
-# authors, pending further conversations.
-FORTY_PRESENCE_THRESHOLD = 125  # (0 + 250) / 2
+# Each pixel is assigned its single highest-scoring class via argmax over the five score bands plus the
+# residual "other" (= 250 - sum), giving a mutually-exclusive, exhaustive 1=Primary..5=TreeCrops, 6=Other
+# label (ties resolve to the lowest index, matching the ForTy authors' >= expression). This is the
+# product's intended single-label form. It supersedes the earlier per-band >= 125 threshold: measured
+# over five regions (S Brazil, Amazon, Borneo, Iberia, Congo) the two agreed to 93-100% per class (IoU)
+# and the threshold was already >= 99.9% mutually exclusive, so argmax changes each forest class by only
+# a few percent (mostly the weak Plantation/Planted classes) while guaranteeing the single-label form.
+# See temp_dev_notes/forty_classes_assessment.md.
 
 
 def _forty_2020_mean():
@@ -191,9 +193,20 @@ def _forty_2020_mean():
     ).mean()
 
 
+def _forty_2020_class():
+    # Argmax over the five class scores plus the residual "other" (= 250 - sum). Returns 1=Primary,
+    # 2=NaturallyRegenerating, 3=Planted, 4=Plantation, 5=TreeCrops/Agroforestry, 6=Other. arrayArgmax
+    # returns the first maximum, so ties resolve to the lowest index (Primary wins), as in the authors'
+    # >= ternary. Same recipe as the commented post-2020 helper below.
+    scores = _forty_2020_mean().select([0, 1, 2, 3, 4])
+    other = scores.reduce(ee.Reducer.sum()).multiply(-1).add(250)
+    return scores.addBands(other).toArray().arrayArgmax().arrayGet([0]).add(1)
+
+
 def _forty_class_present(idx):
-    # idx 0=Primary, 1=NaturallyRegenerating, 2=Planted, 3=Plantation, 4=TreeCrops/Agroforestry
-    return _forty_2020_mean().select([idx]).gte(FORTY_PRESENCE_THRESHOLD).selfMask()
+    # idx 0=Primary, 1=NaturallyRegenerating, 2=Planted, 3=Plantation, 4=TreeCrops/Agroforestry;
+    # argmax class label = idx + 1.
+    return _forty_2020_class().eq(idx + 1).selfMask()
 
 
 def g_forty_primary_2020_prep():
@@ -219,16 +232,9 @@ def g_forty_tree_crops_2020_prep():
 
 
 def g_forty_forest_2020_prep():
-    # Forest presence = any of the four forest classes (Primary, NaturallyRegenerating, Planted,
-    # Plantation) present, i.e. the max forest-class score >= the presence threshold.
-    return (
-        _forty_2020_mean()
-        .select([0, 1, 2, 3])
-        .reduce(ee.Reducer.max())
-        .gte(FORTY_PRESENCE_THRESHOLD)
-        .selfMask()
-        .rename("ForTy_forest_2020")
-    )
+    # Forest presence = argmax class is one of the four forest classes (1=Primary, 2=NaturallyRegenerating,
+    # 3=Planted, 4=Plantation), i.e. a forest class outscores TreeCrops and "other" at the pixel.
+    return _forty_2020_class().lte(4).selfMask().rename("ForTy_forest_2020")
 
 
 # DEMO PROXY: stands in for "plantation after 2020" (Ind_08b) using the 2020 plantation extent
@@ -481,6 +487,31 @@ def g_fdap_tree_crop_gain_prep():
     return gain.rename("FDaP_tree_crop_gain_2020_2024").selfMask()
 
 
+# Combined FDaP tree-crop EXTENT in 2020 , the union of palm/cocoa/rubber/coffee in 2020, using the same
+# products + thresholds as the BEFORE side of g_fdap_tree_crop_gain_prep. DORMANT background layer (all
+# use_for_risk_* = 0 in the lookup): available to switch on later, e.g. as the FDaP before-twin to pair the
+# FDaP tree-crop gain's before/after for Rule-1 exoneration (cf. the GLAD/ESRI 2020 baselines).
+def g_fdap_tree_crops_2020_prep():
+    def yr(crop, year, thr):
+        return (
+            ee.ImageCollection(
+                "projects/forestdatapartnership/assets/%s/model_2025b" % crop
+            )
+            .filterDate("%d-01-01" % year, "%d-12-31" % year)
+            .mosaic()
+            .gt(thr)
+            .unmask(0)
+        )
+
+    extent_2020 = (
+        yr("palm", 2020, 0.66)
+        .Or(yr("cocoa", 2020, 0.5))
+        .Or(yr("rubber", 2020, 0.38))
+        .Or(yr("coffee", 2020, 0.28))
+    )
+    return extent_2020.rename("FDaP_tree_crops_2020").selfMask()
+
+
 # Rubber_RBGE  - from Royal Botanical Gardens of Edinburgh (RBGE) NB for 2021
 def g_rbge_rubber_prep():
     return (
@@ -529,6 +560,21 @@ def g_esri_2020_2025_crop_prep():
     newCrop = esri_lulc10_crop_2025.And(esri_lulc10_crop_2020.Not())
 
     return newCrop.rename("ESRI_crop_gain_2020_2025").selfMask()
+
+
+# ESRI 10m LULC cropland EXTENT in 2020 (.eq(5)), the same-product BEFORE-state paired with the ESRI
+# crop gain above. Feeds Ind_15_agriculture_2020 so a plot that was already cropland in 2020 reads as
+# pre-existing agriculture (Rule 1 -> LOW), not new clearing.
+def g_esri_crop_2020_prep():
+    esri_lulc10_crop_2020 = (
+        ee.ImageCollection(
+            "projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS"
+        )
+        .filterDate("2020-01-01", "2020-12-31")
+        .mosaic()
+        .eq(5)
+    )
+    return esri_lulc10_crop_2020.rename("ESRI_crop_2020").selfMask()
 
 
 # GLAD global annual cropland (Potapov et al.), public per-year ImageCollections at

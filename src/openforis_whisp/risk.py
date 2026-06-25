@@ -382,18 +382,38 @@ def whisp_risk(
         unit_type,  # Pass the unit type
     )
 
-    # Derived "still primary in 2025" signal used by the timber tree. STRICT minus-disturbance:
-    # primary in 2020 (Ind_05) with NO post-2020 disturbance (NOT Ind_04). The earlier observed-primary
-    # OR-leg (Ind_14, formerly IFL_2025 / a MapBiomas proxy) is DROPPED: an "undisturbed landscape"
-    # product is just the redundant complement of the disturbance stack, and treecover-presence is too
-    # lenient for primary (a logged/degraded primary still has canopy). Ind_14 is now retired
-    # (use_for_risk_timber=0 on its lookup row, so it is always "no") and kept only as an inert column.
-    # Consequence (intended): the regen "matured-to-primary" path can no longer fire, because a regen
-    # plot has Ind_05=no -> primary_2025=no; primary does not regrow within five years.
+    # TIMBER-SPECIFIC disturbance-after-2020 for the derived primary_2025: theme_timber=='disturbance_after'
+    # AND use_for_risk_timber==1 (NOT the shared Ind_04, which is theme=='disturbance_after' +
+    # use_for_risk_pcrop). The shared Ind_04 pool pulls in alert-based layers (RADD, DIST, GLAD-L/S2, the
+    # per-year GFC/TMF bands) that flag nearly every primary pixel as disturbed, which emptied still-primary
+    # and pushed intact primary (e.g. the Amazon) to more-info. Restricting to the lookup's
+    # theme_timber=disturbance_after rows lets the curated set (e.g. GFC loss + TMF def/deg after 2020) gate
+    # still-primary. Mirrors the interactive viewer's `dist`. The shared Ind_04 is UNCHANGED for pcrop/acrop.
+    df_w_indicators = add_indicator_column(
+        df=df_w_indicators,
+        input_columns=get_cols_ind_04_dist_after_2020_timber(
+            filtered_lookup_gee_datasets_df
+        ),
+        threshold=ind_4_pcent_threshold,
+        new_column_name="Ind_04b_disturbance_after_2020_timber",
+        low_name=low_name,
+        high_name=high_name,
+        sum_comparison=False,
+        unit_type=unit_type,
+    )
+
+    # Derived "still primary in 2025" used by the timber tree. STRICT minus-disturbance: primary in 2020
+    # (Ind_05) with NO post-2020 TIMBER disturbance (NOT Ind_04b above). There is no observed-primary-2025
+    # product wired in (Ind_14 / IFL_2025 retired, use_for_risk_timber=0; kept only as an inert column).
+    # Consequence (intended): the regen "matured-to-primary" path can never fire, because a regen plot has
+    # Ind_05=no -> primary_2025=no.
     for index, row in df_w_indicators.iterrows():
         df_w_indicators.at[index, "primary_2025"] = (
             high_name
-            if (row[ind_5_name] == high_name and row[ind_4_name] == low_name)
+            if (
+                row[ind_5_name] == high_name
+                and row["Ind_04b_disturbance_after_2020_timber"] == low_name
+            )
             else low_name
         )
 
@@ -569,13 +589,16 @@ def add_risk_timber_col(
     - Rule 2 is a negative gate (deforestation unless known non-forest in 2020 via rules 0/1), replacing
       the old positive any-forest-2020 guard. Rule 4's #229 2020-treecover gate remains the one code-only
       refinement not drawn as a diagram node (it stops ESRI-only commission earning an unearned LOW).
-    - Rule 0 (other land use 2020 -> LOW) uses Ind_12 = ESRI built/water/snow + MapBiomas non-forest 2020
-      (Brazil wall-to-wall, so all non-forest land use there -> LOW). Outside Brazil the non-forest set is
-      still thin (ESRI built/water/snow only), so the negative gate (rule 2) can over-flag there until a
-      global non-forest-2020 layer is wired.
-    - The primary branch is evaluated before the regenerating-planted and plantation branches, so a plot
-      overlapping several 2020 classes is assessed against the most-protected class. Diagram A lists the
-      plantation branch first.
+    - Rule 0 (other land use 2020 -> LOW) uses Ind_12 = ESRI built/water/snow + MapBiomas other-land 2020
+      restricted to the SOLID, unambiguous non-forest non-agriculture classes (built, water, mining, rock,
+      sand, salt), deliberately NOT the full wall-to-wall non-forest set even though MapBiomas labels every
+      pixel in Brazil (bare ground and grassland blur into agriculture, so they are excluded). Outside
+      Brazil the non-forest set is still thin (ESRI built/water/snow only), so the negative gate (rule 2)
+      can over-flag there until a global non-forest-2020 layer is wired.
+    - The 2020 forest classes are evaluated PLANTATION first, then regenerating-planted, then primary
+      (primary LAST), matching Diagram A. Order only matters for a plot overlapping several 2020 classes:
+      a plot known to be a plantation in 2020 is handled as a plantation, not mistaken for a degraded
+      primary.
     - The plantation GAIN (Ind_08b) and the multi-year plantation PRESENCE (Ind_16) are both Brazil-only
       (MapBiomas silviculture) with no global after-2020 layer yet, so rules 4/5 regen/primary ->
       plantation HIGH (gain) and rule 3 stable-plantation LOW (presence) fire in Brazil and fall to MORE
@@ -901,6 +924,26 @@ def get_cols_ind_03_dist_before_2020(
         lookup_gee_datasets_df["name"][
             (lookup_gee_datasets_df[risk_col] == 1)
             & (lookup_gee_datasets_df["theme"] == "disturbance_before")
+        ]
+    )
+
+
+def get_cols_ind_04_dist_after_2020_timber(lookup_gee_datasets_df):
+    """
+    Timber-specific disturbance-after-2020: theme_timber == 'disturbance_after' AND use_for_risk_timber == 1.
+    Feeds the DERIVED timber primary_2025 (Ind_05 AND NOT this) ONLY, so the lookup's theme_timber column
+    controls exactly which products gate still-primary. The shared get_cols_ind_04_dist_after_2020
+    (theme == 'disturbance_after' + use_for_risk_pcrop) is UNCHANGED for the pcrop/acrop trees; that pool
+    includes alert-based layers (RADD/DIST/GLAD-L/S2/per-year bands) too noisy for the primary gate (they
+    flag nearly every primary pixel as disturbed, emptying still-primary). Mirrors the viewer's _dist_timber_mask.
+    """
+    lookup_gee_datasets_df = lookup_gee_datasets_df[
+        lookup_gee_datasets_df["exclude_from_output"] != 1
+    ]
+    return list(
+        lookup_gee_datasets_df["name"][
+            (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
+            & (lookup_gee_datasets_df["theme_timber"] == "disturbance_after")
         ]
     )
 
