@@ -641,9 +641,9 @@ def add_risk_timber_col(
                 df.at[index, "risk_timber_pathway"] = "low: other land 2020 (stable)"
             else:
                 df.at[index, "risk_timber"] = "more_info_needed"
-                df.at[
-                    index, "risk_timber_pathway"
-                ] = "more-info: other land 2020 changed"
+                df.at[index, "risk_timber_pathway"] = (
+                    "more-info: other land 2020 changed"
+                )
         # Rule 1: agriculture / commodity in 2020 -> LOW (pre-2020 land use, outside EUDR scope). Now catches
         # pasture + tree crops + soy/annual cropland (pre-existing agriculture -> LOW), via the timber
         # agriculture-2020 set (Ind_15), fixing the cropland that the shared pcrop/acrop Ind_02 dropped
@@ -683,14 +683,14 @@ def add_risk_timber_col(
                 df.at[index, "risk_timber_pathway"] = "low: stable plantation"
             elif other_land_2025:
                 df.at[index, "risk_timber"] = "low"
-                df.at[
-                    index, "risk_timber_pathway"
-                ] = "low: plantation 2020 -> other land"
+                df.at[index, "risk_timber_pathway"] = (
+                    "low: plantation 2020 -> other land"
+                )
             else:
                 df.at[index, "risk_timber"] = "more_info_needed"
-                df.at[
-                    index, "risk_timber_pathway"
-                ] = "more-info: plantation 2020, no 2025 state"
+                df.at[index, "risk_timber_pathway"] = (
+                    "more-info: plantation 2020, no 2025 state"
+                )
         # Rule 4: regenerating-planted 2020. Order follows the diagram: matured to primary -> stayed
         # regenerating-planted -> plantation (degradation) -> other land -> more info.
         elif regen_planted_2020:
@@ -716,17 +716,17 @@ def add_risk_timber_col(
                 # plantation-after layer is wired). The gain is correct here (degradation = NEW plantation),
                 # and is LEFT UNCHANGED; only the Rule-3 stability check switched to the presence layer.
                 df.at[index, "risk_timber"] = "high"
-                df.at[
-                    index, "risk_timber_pathway"
-                ] = "high: regen->plantation degradation"
+                df.at[index, "risk_timber_pathway"] = (
+                    "high: regen->plantation degradation"
+                )
             elif other_land_2025:
                 df.at[index, "risk_timber"] = "low"
                 df.at[index, "risk_timber_pathway"] = "low: regen 2020 -> other land"
             else:
                 df.at[index, "risk_timber"] = "more_info_needed"
-                df.at[
-                    index, "risk_timber_pathway"
-                ] = "more-info: regen 2020, no 2025 state"
+                df.at[index, "risk_timber_pathway"] = (
+                    "more-info: regen 2020, no 2025 state"
+                )
         # Rule 5: primary 2020 (checked LAST, matching the diagram). Still primary (primary_2025) or other
         # land 2025 -> LOW; -> plantation 2025 (Ind_08b) = degradation -> HIGH; otherwise MORE INFO NEEDED.
         # The plantation -> HIGH is per the EUDR transition matrix, which marks primary -> plantation (and
@@ -734,7 +734,12 @@ def add_risk_timber_col(
         # node; restored here. Fires via the MapBiomas silviculture GAIN (Ind_08b) in Brazil; primary ->
         # planted and primary -> OWL degradation stay blind for want of those after-2020 layers.
         elif primary_2020:
-            if primary_2025:
+            # "still primary" requires NOT a new plantation: a primary plot that gained a plantation after
+            # 2020 is degradation (-> HIGH below) and must NOT be masked here just because the disturbance
+            # stack (Ind_04b) missed it. The presence of a new plantation alone = degradation HIGH per EUDR
+            # Art 2(7); relying on disturbance to demote still-primary was a missed HIGH. Mirrors Rule 4's
+            # regen "stayed forest", which already excludes plantation_2025.
+            if primary_2025 and not plantation_2025:
                 df.at[index, "risk_timber"] = "low"
                 df.at[index, "risk_timber_pathway"] = "low: still primary"
             elif other_land_2025:
@@ -744,14 +749,14 @@ def add_risk_timber_col(
                 # primary -> NEW plantation after 2020 = degradation -> HIGH. Uses the GAIN (Ind_08b),
                 # LEFT UNCHANGED; only the Rule-3 stability check switched to the presence layer.
                 df.at[index, "risk_timber"] = "high"
-                df.at[
-                    index, "risk_timber_pathway"
-                ] = "high: primary->plantation degradation"
+                df.at[index, "risk_timber_pathway"] = (
+                    "high: primary->plantation degradation"
+                )
             else:
                 df.at[index, "risk_timber"] = "more_info_needed"
-                df.at[
-                    index, "risk_timber_pathway"
-                ] = "more-info: primary 2020, no 2025 state"
+                df.at[index, "risk_timber_pathway"] = (
+                    "more-info: primary 2020, no 2025 state"
+                )
         # Rule 6: nothing recognised in 2020 (not other-land, not commodity, not any forest class) ->
         # MORE INFO NEEDED. "If we do not know the 2020 state, we do not know": an unclassified plot is no
         # longer assumed compliant. (The other-land-2020 node IS wired now, at Rule 0 / Ind_12, so genuine

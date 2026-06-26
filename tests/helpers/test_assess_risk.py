@@ -146,6 +146,12 @@ def test_timber_decision_tree_terminals() -> None:
             "more-info: plantation 2020, no 2025 state",
             **{_IND_7B: "yes"},
         ),
+        _timber_row(
+            "rule3_plantation_to_other_land",  # plantation 2020 -> other land 2025 (code 18 on the map)
+            "low",
+            "low: plantation 2020 -> other land",
+            **{_IND_7B: "yes", _IND_13: "yes"},
+        ),
         # Rule 4: regenerating-planted 2020.
         _timber_row(
             "rule4_regen_to_plantation",  # code 7 via the Ind_08b GAIN
@@ -177,6 +183,15 @@ def test_timber_decision_tree_terminals() -> None:
             "low",
             "low: still primary",
             **{_IND_5: "yes", _PRIMARY_2025: "yes"},
+        ),
+        _timber_row(
+            # MISSED-HIGH fix: primary_2025=yes (disturbance NOT detected) BUT a new plantation was gained ->
+            # degradation HIGH, NOT masked as "still primary". Regression test for the `and not plantation_2025`
+            # gate added to Rule 5. Without the fix this row read "low: still primary".
+            "rule5_primary_still_but_new_plantation",
+            "high",
+            "high: primary->plantation degradation",
+            **{_IND_5: "yes", _PRIMARY_2025: "yes", _IND_8B: "yes"},
         ),
         _timber_row(
             "rule5_primary_to_plantation",  # code 12 via the Ind_08b GAIN
