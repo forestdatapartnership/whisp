@@ -8,6 +8,7 @@ nBR_MapBiomas_col10_pasture_2024,2201,BR,commodities,agri_after_2020,0,0,0,0,flo
 nBR_MapBiomas_col10_ag_gain_2020_2024,2230,BR,commodities,agri_after_2020,0,0,1,0,float32,1,0,nbr_mapbiomasc10_ag_gain_2020_2024_prep
 GLAD_crop_gain_2020_2024,2240,,commodities,agri_after_2020,0,0,1,0,float32,1,0,g_glad_crop_gain_2020_2024_prep
 FDaP_tree_crop_gain_2020_2024,2270,,commodities,agri_after_2020,0,0,1,0,float32,1,0,g_fdap_tree_crop_gain_prep
+GPW_cultiv_pasture_gain_2020_2022,2280,,commodities,agri_after_2020,0,0,1,0,float32,1,0,g_gpw_cultiv_pasture_gain_2020_2022_prep
 Oil_palm_FDaP,90,,commodities,NA,0,0,0,0,float32,1,0,g_fdap_palm_prep
 Coffee_FDaP,100,,commodities,NA,0,0,0,0,float32,1,0,g_fdap_coffee_2020_prep
 Cocoa_FDaP,110,,commodities,NA,0,0,0,0,float32,1,0,g_fdap_cocoa_prep

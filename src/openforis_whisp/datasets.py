@@ -610,6 +610,34 @@ def g_glad_crop_gain_2020_2024_prep():
     return gain.rename("GLAD_crop_gain_2020_2024").selfMask()
 
 
+# Global Pasture Watch (GPW; WRI / Land & Carbon Lab, Parente et al. 2024) global cultivated-grassland
+# GAIN 2020 -> 2022 = the GLOBAL pasture leg of Ind_10 (agriculture after 2020), alongside the
+# Brazil-only MapBiomas ag_gain. Uses the GGC-30m grassland_c dominant_class band: class 1 = CULTIVATED
+# (managed / grazed = agricultural use under EUDR Art. 2(5)); class 2 = natural/semi-natural is EXCLUDED
+# (a natural land cover, not agriculture). Same-product paired gain (cultivated in 2022 AND NOT
+# cultivated in 2020), so only NEW cultivated grassland since 2020 is counted. GPW v1 is annual
+# 2000-2022, so the after-state is 2022 and LAGS the ESRI (2025) / MapBiomas (2024) pairs; forest ->
+# pasture in 2023-2025 is missed outside Brazil until a newer GPW release. Wired GLOBAL (no Brazil mask):
+# the Ind_10 OR-union plus the treecover_2020 gate (Rule 2) make the MapBiomas overlap harmless (it can
+# only ADD a forest -> pasture HIGH on a plot that carried 2020 treecover). Cultivated grassland is GPW's
+# noisiest class (F1 ~0.64), so treat as a conservative member. See
+# temp_dev_notes/data_assessments/global_pasture_watch_assessment.md.
+def g_gpw_cultiv_pasture_gain_2020_2022_prep():
+    cultiv = ee.ImageCollection(
+        "projects/global-pasture-watch/assets/ggc-30m/v1/grassland_c"
+    )
+    dc_2020 = ee.Image(
+        cultiv.filter(ee.Filter.eq("system:index", "2020")).first()
+    ).select("dominant_class")
+    dc_2022 = ee.Image(
+        cultiv.filter(ee.Filter.eq("system:index", "2022")).first()
+    ).select("dominant_class")
+    cultiv_2020 = dc_2020.eq(1)  # class 1 = cultivated (managed) grassland only
+    cultiv_2022 = dc_2022.eq(1)  # natural/semi-natural (class 2) excluded
+    gain = cultiv_2022.And(cultiv_2020.Not())
+    return gain.rename("GPW_cultiv_pasture_gain_2020_2022").selfMask()
+
+
 # ESRI LULC "other land" = built (7), water (1), snow/ice (9). Bare ground (8) is DROPPED: ESRI
 # commits the bare class on fallow / recently-cleared cropland, so a forest plot cleared for
 # agriculture but imaged bare in 2025 would take the other-land LOW exit instead of the deforestation
