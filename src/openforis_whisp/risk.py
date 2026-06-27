@@ -382,20 +382,23 @@ def whisp_risk(
         unit_type,  # Pass the unit type
     )
 
-    # TIMBER-SPECIFIC disturbance-after-2020 for the derived primary_2025: theme_timber=='disturbance_after'
-    # AND use_for_risk_timber==1 (NOT the shared Ind_04, which is theme=='disturbance_after' +
-    # use_for_risk_pcrop). The shared Ind_04 pool pulls in alert-based layers (RADD, DIST, GLAD-L/S2, the
-    # per-year GFC/TMF bands) that flag nearly every primary pixel as disturbed, which emptied still-primary
-    # and pushed intact primary (e.g. the Amazon) to more-info. Restricting to the lookup's
-    # theme_timber=disturbance_after rows lets the curated set (e.g. GFC loss + TMF def/deg after 2020) gate
-    # still-primary. Mirrors the interactive viewer's `dist`. The shared Ind_04 is UNCHANGED for pcrop/acrop.
+    # Ind_17 = TIMBER-SPECIFIC disturbance-after-2020 (an EMITTED indicator, numbered Ind_17 = next after
+    # Ind_16 rather than "Ind_04b", so it reads as a first-class timber indicator and is not conflated with
+    # the shared Ind_04): theme_timber=='disturbance_after' AND use_for_risk_timber==1 (NOT the shared
+    # Ind_04, which is theme=='disturbance_after' + use_for_risk_pcrop). The shared Ind_04 pool pulls in
+    # alert-based layers (RADD, DIST, GLAD-L/S2, the per-year GFC/TMF bands) that flag nearly every primary
+    # pixel as disturbed, which emptied still-primary and pushed intact primary (e.g. the Amazon) to
+    # more-info. Restricting to the lookup's theme_timber=disturbance_after rows lets the curated set (e.g.
+    # GFC loss + TMF def/deg after 2020) gate still-primary. Mirrors the interactive viewer's `dist`. The
+    # shared Ind_04 is UNCHANGED for pcrop/acrop. Ind_17 both feeds the derived primary_2025 mask below and
+    # is emitted as an output column for transparency.
     df_w_indicators = add_indicator_column(
         df=df_w_indicators,
-        input_columns=get_cols_ind_04_dist_after_2020_timber(
+        input_columns=get_cols_ind_17_disturbance_after_2020_timber(
             filtered_lookup_gee_datasets_df
         ),
         threshold=ind_4_pcent_threshold,
-        new_column_name="Ind_04b_disturbance_after_2020_timber",
+        new_column_name="Ind_17_disturbance_after_2020_timber",
         low_name=low_name,
         high_name=high_name,
         sum_comparison=False,
@@ -403,7 +406,7 @@ def whisp_risk(
     )
 
     # Derived "still primary in 2025" used by the timber tree. STRICT minus-disturbance: primary in 2020
-    # (Ind_05) with NO post-2020 TIMBER disturbance (NOT Ind_04b above). There is no observed-primary-2025
+    # (Ind_05) with NO post-2020 TIMBER disturbance (NOT Ind_17 above). There is no observed-primary-2025
     # product wired in (Ind_14 / IFL_2025 retired, use_for_risk_timber=0; kept only as an inert column).
     # Consequence (intended): the regen "matured-to-primary" path can never fire, because a regen plot has
     # Ind_05=no -> primary_2025=no.
@@ -412,7 +415,7 @@ def whisp_risk(
             high_name
             if (
                 row[ind_5_name] == high_name
-                and row["Ind_04b_disturbance_after_2020_timber"] == low_name
+                and row["Ind_17_disturbance_after_2020_timber"] == low_name
             )
             else low_name
         )
@@ -736,7 +739,7 @@ def add_risk_timber_col(
         elif primary_2020:
             # "still primary" requires NOT a new plantation: a primary plot that gained a plantation after
             # 2020 is degradation (-> HIGH below) and must NOT be masked here just because the disturbance
-            # stack (Ind_04b) missed it. The presence of a new plantation alone = degradation HIGH per EUDR
+            # stack (Ind_17) missed it. The presence of a new plantation alone = degradation HIGH per EUDR
             # Art 2(7); relying on disturbance to demote still-primary was a missed HIGH. Mirrors Rule 4's
             # regen "stayed forest", which already excludes plantation_2025.
             if primary_2025 and not plantation_2025:
@@ -933,10 +936,11 @@ def get_cols_ind_03_dist_before_2020(
     )
 
 
-def get_cols_ind_04_dist_after_2020_timber(lookup_gee_datasets_df):
+def get_cols_ind_17_disturbance_after_2020_timber(lookup_gee_datasets_df):
     """
-    Timber-specific disturbance-after-2020: theme_timber == 'disturbance_after' AND use_for_risk_timber == 1.
-    Feeds the DERIVED timber primary_2025 (Ind_05 AND NOT this) ONLY, so the lookup's theme_timber column
+    Ind_17 = timber-specific disturbance-after-2020: theme_timber == 'disturbance_after' AND use_for_risk_timber == 1.
+    EMITTED as the Ind_17_disturbance_after_2020_timber output column, and feeds the DERIVED timber
+    primary_2025 mask (primary_2025 = Ind_05 AND NOT Ind_17), so the lookup's theme_timber column
     controls exactly which products gate still-primary. The shared get_cols_ind_04_dist_after_2020
     (theme == 'disturbance_after' + use_for_risk_pcrop) is UNCHANGED for the pcrop/acrop trees; that pool
     includes alert-based layers (RADD/DIST/GLAD-L/S2/per-year bands) too noisy for the primary gate (they
@@ -1261,8 +1265,10 @@ def filter_to_risk_columns(
     # Risk output columns (present in df if function called at end)
     risk_cols = ["risk_pcrop", "risk_acrop", "risk_timber", "risk_timber_pathway"]
 
-    # Derived indicator columns (computed in whisp_risk, not from a dataset getter)
-    derived_cols = ["primary_2025"]
+    # Derived indicator columns computed in whisp_risk and kept in the output. primary_2025 is pure-derived
+    # (Ind_05 AND NOT Ind_17); Ind_17 is the emitted timber-disturbance indicator, built inline from the
+    # disturbance-after-2020 timber getter (not threaded via the names param), so it is listed here too.
+    derived_cols = ["primary_2025", "Ind_17_disturbance_after_2020_timber"]
 
     # Post-processing metadata columns (added after validation, not in schema CSV)
     metadata_cols = ["whisp_processing_metadata", "geo_original"]

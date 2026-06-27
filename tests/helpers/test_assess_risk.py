@@ -30,6 +30,7 @@ EXPECTED_INDICATOR_COLS = [
     "Ind_14_primary_2025",
     "Ind_15_agriculture_2020",
     "Ind_16_plantation_presence_2025",
+    "Ind_17_disturbance_after_2020_timber",
 ]
 
 
