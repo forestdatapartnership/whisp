@@ -208,9 +208,13 @@ def whisp_risk(
     if ind_1_input_columns is None:
         ind_1_input_columns = get_cols_ind_01_treecover(filtered_lookup_gee_datasets_df)
     if ind_2_input_columns is None:
-        # Union of pcrop + acrop commodity datasets so Ind_02_commodities remains the
-        # combined signal (same behaviour as the old use_for_risk column). The per-decision-tree
-        # split is documented in the LUT and the getter accepts risk_col for future use.
+        # Union of pcrop + acrop commodity datasets. The two LUT columns are currently held
+        # identical (each equal to this union, i.e. the combined commodity signal that was the
+        # single use_for_risk column up to v3.0.0a14), so this union is decision-neutral and
+        # either column faithfully describes what its tree consumes. The perennial/annual split
+        # is NOT yet wired: both crop trees consume this same Ind_02. To implement it, repopulate
+        # use_for_risk_pcrop/acrop with distinct values and build a per-crop Ind_02 here; the
+        # getter already accepts risk_col for that.
         _pcrop_cols = get_cols_ind_02_commodities(
             filtered_lookup_gee_datasets_df, risk_col="use_for_risk_pcrop"
         )
@@ -871,7 +875,7 @@ def filter_to_risk_columns(
     - Context/metadata columns (plotId, Area, Country, etc.)
     - Dataset columns used in risk indicators
     - Indicator columns (Ind_01_treecover, etc.)
-    - Risk columns (risk_pcrop, risk_acrop, risk_timber, risk_livestock)
+    - Risk columns (risk_pcrop, risk_acrop, risk_timber)
 
     Parameters
     ----------
@@ -896,7 +900,7 @@ def filter_to_risk_columns(
         dataset_cols.extend(col_list)
 
     # Risk output columns (present in df if function called at end)
-    risk_cols = ["risk_pcrop", "risk_acrop", "risk_timber", "risk_livestock"]
+    risk_cols = ["risk_pcrop", "risk_acrop", "risk_timber"]
 
     # Post-processing metadata columns (added after validation, not in schema CSV)
     metadata_cols = ["whisp_processing_metadata", "geo_original"]

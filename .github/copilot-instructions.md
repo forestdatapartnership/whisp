@@ -34,7 +34,7 @@ Whisp ("What is in that plot?") is a Python package for forest monitoring and de
 ### Configuration-Driven Design
 - [`lookup_datasets.csv`](src/openforis_whisp/parameters/lookup_datasets.csv) defines ALL datasets, context columns, and metadata used in Whisp:
   - `corresponding_variable` column documents which function provides each dataset (for comprehension only, not used in code)
-  - Controls which datasets feed into risk calculations: `use_for_risk_pcrop` (perennial crops), `use_for_risk_acrop` (annual crops), `use_for_risk_timber` (timber)
+  - Controls which datasets feed into risk calculations: `use_for_risk_pcrop` (perennial crops) and `use_for_risk_acrop` (annual crops), which are currently held identical because the perennial/annual split is not yet wired (together they act as one combined crop-risk flag); plus `use_for_risk_timber` (timber)
   - Defines themes: `treecover`, `commodities`, `disturbance_before`, `disturbance_after`, `context_and_metadata`
   - National datasets use ISO2 codes in `ISO2_code` column; global datasets leave blank
 - [`config_runtime.py`](src/openforis_whisp/parameters/config_runtime.py) defines output column names and formatting rules
@@ -131,7 +131,7 @@ pytest  # Runs basic tests for Whisp stats)
 2. **Add row to [`lookup_datasets.csv`](src/openforis_whisp/parameters/lookup_datasets.csv)**:
    - Set `corresponding_variable` to function name
    - Set `theme` (treecover/commodities/disturbance_before/disturbance_after)
-   - Set `use_for_risk_pcrop=1` and/or `use_for_risk_acrop=1` if dataset should feed into crop risk calculations (perennial or annual)
+   - Set both `use_for_risk_pcrop=1` and `use_for_risk_acrop=1` (keep them equal) if dataset should feed into crop risk calculations; the perennial/annual split is not yet wired, so the two columns are held identical
    - Set `use_for_risk_timber=1` if dataset should feed into timber risk calculations
    - Set `ISO2_code` if national dataset
 3. No code changes needed for dataset to appear in output - CSV drives everything!
