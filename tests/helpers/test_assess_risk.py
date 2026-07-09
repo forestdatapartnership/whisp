@@ -70,6 +70,7 @@ _IND_12 = "Ind_12_other_land_2020"
 _IND_13 = "Ind_13_other_land_after_2020"
 _IND_15 = "Ind_15_agriculture_2020"
 _IND_16 = "Ind_16_plantation_presence_2025"
+_IND_17 = "Ind_17_disturbance_after_2020_timber"
 _PRIMARY_2025 = "primary_2025"
 
 _TIMBER_INPUT_COLS = [
@@ -86,6 +87,7 @@ _TIMBER_INPUT_COLS = [
     _IND_13,
     _IND_15,
     _IND_16,
+    _IND_17,
     _PRIMARY_2025,
 ]
 
@@ -107,116 +109,152 @@ def test_timber_decision_tree_terminals() -> None:
     NO GEE). Asserts both risk_timber and risk_timber_pathway at every terminal. This is the
     alignment guarantee that the map/viewer/diagram match the tree in risk.py."""
     cases = [
-        # Rule 0: other land 2020 (terminal sub-branch, both legs).
+        # ---- non-forest half (forest_2020 = no) ----
         _timber_row(
-            "rule0_other_land_stable",
+            "nonforest_other_land_stable",
             "low",
             "low: other land 2020 (stable)",
             **{_IND_12: "yes", _IND_13: "yes"},
         ),
         _timber_row(
-            "rule0_other_land_changed",
+            "nonforest_other_land_changed",
             "more_info_needed",
             "more-info: other land 2020 changed",
-            **{_IND_12: "yes", _IND_13: "no"},
+            **{_IND_12: "yes"},
         ),
-        # Rule 1: agriculture / commodity 2020.
         _timber_row(
-            "rule1_agriculture_2020",
+            "nonforest_agriculture_2020",
             "low",
             "low: agriculture 2020",
             **{_IND_15: "yes"},
         ),
-        # Rule 2: deforestation (treecover 2020 AND agriculture after 2020).
         _timber_row(
-            "rule2_deforestation",
+            "nonforest_unclassified",  # incl. afforestation (non-forest 2020 -> new plantation)
+            "more_info_needed",
+            "more-info: non-forest 2020, unclassified",
+        ),
+        # ---- forest half (forest_2020 = yes) ----
+        _timber_row(
+            "forest_deforestation",
             "high",
             "high: deforestation",
             **{_IND_1: "yes", _IND_10: "yes"},
         ),
-        # Rule 3: plantation 2020.
         _timber_row(
-            "rule3_plantation_stable",  # stable via Ind_16 PRESENCE (not the gain)
+            # ROOT DELTA (exoneration closed): a plot that is BOTH forest-2020 (Ind_05) and pre-2020
+            # agriculture (Ind_15), cleared to ag after 2020, is no longer exonerated (agriculture-2020 now
+            # sits inside the non-forest half). It reaches the deforestation HIGH. Current tree read this
+            # "low: agriculture 2020".
+            "forest_and_ag2020_overlap_deforestation",
+            "high",
+            "high: deforestation",
+            **{_IND_5: "yes", _IND_15: "yes", _IND_10: "yes"},
+        ),
+        # plantation-2020 branch: Ind_07b is NOT in the forest gate union, so these rows need Ind_01 to
+        # route into the forest half.
+        _timber_row(
+            "plantation_stable",  # Ind_16 PRESENCE -> LOW
             "low",
             "low: stable plantation",
-            **{_IND_7B: "yes", _IND_16: "yes"},
+            **{_IND_1: "yes", _IND_7B: "yes", _IND_16: "yes"},
         ),
         _timber_row(
-            "rule3_plantation_no_2025",  # no presence, no other-land -> more info
-            "more_info_needed",
-            "more-info: plantation 2020, no 2025 state",
-            **{_IND_7B: "yes"},
-        ),
-        _timber_row(
-            "rule3_plantation_to_other_land",  # plantation 2020 -> other land 2025 (code 18 on the map)
+            "plantation_to_other_land",
             "low",
             "low: plantation 2020 -> other land",
-            **{_IND_7B: "yes", _IND_13: "yes"},
-        ),
-        # Rule 4: regenerating-planted 2020.
-        _timber_row(
-            "rule4_regen_to_plantation",  # code 7 via the Ind_08b GAIN
-            "high",
-            "high: regen->plantation degradation",
-            **{_IND_6: "yes", _IND_8B: "yes"},
+            **{_IND_1: "yes", _IND_7B: "yes", _IND_13: "yes"},
         ),
         _timber_row(
-            "rule4_regen_stayed",  # stayed forest (treecover 2020 + regen-2025, no new plantation)
-            "low",
-            "low: regen stayed forest",
-            **{_IND_6: "yes", _IND_1: "yes", _IND_9: "yes"},
-        ),
-        _timber_row(
-            "rule4_regen_to_other_land",
-            "low",
-            "low: regen 2020 -> other land",
-            **{_IND_6: "yes", _IND_13: "yes"},
-        ),
-        _timber_row(
-            "rule4_regen_more_info",
+            "plantation_no_2025",
             "more_info_needed",
-            "more-info: regen 2020, no 2025 state",
-            **{_IND_6: "yes"},
+            "more-info: plantation 2020, no 2025 state",
+            **{_IND_1: "yes", _IND_7B: "yes"},
         ),
-        # Rule 5: primary 2020.
+        # primary-2020 branch (checked BEFORE regen; plantation-2025 GAIN checked FIRST)
         _timber_row(
-            "rule5_primary_still",  # strict primary_2025
-            "low",
-            "low: still primary",
-            **{_IND_5: "yes", _PRIMARY_2025: "yes"},
-        ),
-        _timber_row(
-            # MISSED-HIGH fix: primary_2025=yes (disturbance NOT detected) BUT a new plantation was gained ->
-            # degradation HIGH, NOT masked as "still primary". Regression test for the `and not plantation_2025`
-            # gate added to Rule 5. Without the fix this row read "low: still primary".
-            "rule5_primary_still_but_new_plantation",
-            "high",
-            "high: primary->plantation degradation",
-            **{_IND_5: "yes", _PRIMARY_2025: "yes", _IND_8B: "yes"},
-        ),
-        _timber_row(
-            "rule5_primary_to_plantation",  # code 12 via the Ind_08b GAIN
+            "primary_to_plantation",
             "high",
             "high: primary->plantation degradation",
             **{_IND_5: "yes", _IND_8B: "yes"},
         ),
         _timber_row(
-            "rule5_primary_to_other_land",
+            # MISSED-HIGH still caught: still-primary but a NEW plantation -> HIGH, because plantation-2025
+            # is checked first (no `and not plantation_2025` guard needed anymore).
+            "primary_still_but_new_plantation",
+            "high",
+            "high: primary->plantation degradation",
+            **{_IND_5: "yes", _PRIMARY_2025: "yes", _IND_8B: "yes"},
+        ),
+        _timber_row(
+            "primary_still",
+            "low",
+            "low: still primary",
+            **{_IND_5: "yes", _PRIMARY_2025: "yes"},
+        ),
+        _timber_row(
+            # Ind_09_treecover_after_2020 DROPPED from the primary branch: a primary plot showing only canopy
+            # but knocked out of still-primary by disturbance is no longer rescued to LOW; it lands on
+            # more-info unless it converted to other land.
+            "primary_disturbed_canopy_only",
+            "more_info_needed",
+            "more-info: primary 2020, no 2025 state",
+            **{_IND_5: "yes", _IND_9: "yes"},
+        ),
+        _timber_row(
+            "primary_to_other_land",
             "low",
             "low: primary 2020 -> other land",
             **{_IND_5: "yes", _IND_13: "yes"},
         ),
         _timber_row(
-            "rule5_primary_more_info",
+            "primary_more_info",
             "more_info_needed",
             "more-info: primary 2020, no 2025 state",
             **{_IND_5: "yes"},
         ),
-        # Rule 6: nothing recognised in 2020 (non-forest, no 2020 state) -> more info.
+        # regen-2020 branch (plantation-2025 GAIN checked FIRST)
         _timber_row(
-            "rule6_state_unknown",
+            "regen_to_plantation",
+            "high",
+            "high: regen->plantation degradation",
+            **{_IND_6: "yes", _IND_8B: "yes"},
+        ),
+        _timber_row(
+            # no new plantation, no disturbance -> stayed-forest LOW. Ind_09 dropped, so a plain regen plot
+            # (nothing adverse detected) is now LOW by absence of disturbance, not by canopy presence.
+            "regen_stayed_forest",
+            "low",
+            "low: regen stayed forest",
+            **{_IND_6: "yes"},
+        ),
+        _timber_row(
+            "regen_to_other_land",
+            "low",
+            "low: regen 2020 -> other land",
+            **{_IND_6: "yes", _IND_13: "yes"},
+        ),
+        _timber_row(
+            # regen + DISTURBANCE (Ind_17), no plantation-gain, no other-land -> more-info. This is now the
+            # ONLY route to the regen more-info leg (a no-disturbance regen plot is LOW, above).
+            "regen_disturbed",
             "more_info_needed",
-            "more-info: 2020 state unknown",
+            "more-info: regen 2020, no 2025 state",
+            **{_IND_6: "yes", _IND_17: "yes"},
+        ),
+        # forest-gate plot with no recognised class or change -> more info
+        _timber_row(
+            "forest_unclassified",  # treecover 2020 only, no class, no change
+            "more_info_needed",
+            "more-info: forest 2020, unclassified",
+            **{_IND_1: "yes"},
+        ),
+        _timber_row(
+            # treecover-only forest (no primary/regen/plantation class) that became other land: keeps the
+            # other-land chance -> revived code 14 low, not more-info.
+            "forest_unclassified_to_other_land",
+            "low",
+            "low: forest 2020 -> other land",
+            **{_IND_1: "yes", _IND_13: "yes"},
         ),
     ]
 

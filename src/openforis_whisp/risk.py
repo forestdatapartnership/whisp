@@ -98,6 +98,7 @@ def whisp_risk(
     ind_14_pcent_threshold: float = 10,
     ind_15_pcent_threshold: float = 10,
     ind_16_pcent_threshold: float = 10,
+    ind_17_pcent_threshold: float = 10,  # timber disturbance-after (Ind_17); own knob, no longer shares ind_4
     ind_1_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_2_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_3_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
@@ -183,6 +184,7 @@ def whisp_risk(
         ind_16_pcent_threshold (float, optional): Percentage threshold for indicator 16 (multi-year plantation presence 2021-2024). Defaults to 10.
         ind_16_input_columns (pd.Series, optional): Input columns for indicator 16. Defaults to the multi-year silviculture-presence columns flagged for timber (theme_timber=plantation_presence_2025).
         ind_16_name (str, optional): Name of indicator 16 column. Defaults to "Ind_16_plantation_presence_2025".
+        ind_17_pcent_threshold (float, optional): Percentage threshold for indicator 17 (timber disturbance after 2020, feeds primary_2025). Defaults to 10.
         low_name (str, optional): Value shown in table if less than or equal to the threshold. Defaults to "no".
         high_name (str, optional): Value shown in table if more than the threshold. Defaults to "yes".
         explicit_unit_type (str, optional): Override the autodetected unit type ('ha' or 'percent').
@@ -315,6 +317,7 @@ def whisp_risk(
     check_range(ind_14_pcent_threshold)
     check_range(ind_15_pcent_threshold)
     check_range(ind_16_pcent_threshold)
+    check_range(ind_17_pcent_threshold)
 
     input_cols = [
         ind_1_input_columns,
@@ -397,7 +400,7 @@ def whisp_risk(
         input_columns=get_cols_ind_17_disturbance_after_2020_timber(
             filtered_lookup_gee_datasets_df
         ),
-        threshold=ind_4_pcent_threshold,
+        threshold=ind_17_pcent_threshold,
         new_column_name="Ind_17_disturbance_after_2020_timber",
         low_name=low_name,
         high_name=high_name,
@@ -534,6 +537,104 @@ def add_risk_acrop_col(
     return df
 
 
+# ---- ROOT timber decision tree, declarative spec (single source of truth) --------------------------
+# Each node is a LEAF {"risk", "pathway"} or a DECISION {"q": <derived-boolean name>, "yes": node,
+# "no": node}. _eval_timber_tree walks it against the per-plot booleans built in add_risk_timber_col.
+# The tree is DATA (no lambdas), so a later generator can walk the SAME structure to emit the Mermaid
+# diagram, the viewer JS walk and the map pathway(), keeping the display copies from drifting.
+def _timber_leaf(risk, pathway):
+    return {"risk": risk, "pathway": pathway}
+
+
+TIMBER_ROOT_TREE = {
+    "q": "forest_2020",
+    "no": {  # non-forest half: no forest in 2020, so nothing to deforest/degrade
+        "q": "other_land_2020",
+        "yes": {
+            "q": "other_land_2025",
+            "yes": _timber_leaf("low", "low: other land 2020 (stable)"),
+            "no": _timber_leaf("more_info_needed", "more-info: other land 2020 changed"),
+        },
+        "no": {
+            "q": "agriculture_2020",
+            "yes": _timber_leaf("low", "low: agriculture 2020"),
+            "no": _timber_leaf("more_info_needed", "more-info: non-forest 2020, unclassified"),
+        },
+    },
+    "yes": {  # forest half: was forest in 2020
+        "q": "agriculture_2025",
+        "yes": _timber_leaf("high", "high: deforestation"),
+        "no": {
+            "q": "plantation_2020",
+            "yes": {  # existing plantation: no degradation HIGH here
+                "q": "plantation_presence_2025",
+                "yes": _timber_leaf("low", "low: stable plantation"),
+                "no": {
+                    "q": "other_land_2025",
+                    "yes": _timber_leaf("low", "low: plantation 2020 -> other land"),
+                    "no": _timber_leaf("more_info_needed", "more-info: plantation 2020, no 2025 state"),
+                },
+            },
+            "no": {
+                "q": "primary_2020",  # checked BEFORE regen
+                "yes": {
+                    "q": "plantation_2025",  # Ind_08b gain = degradation, checked FIRST
+                    "yes": _timber_leaf("high", "high: primary->plantation degradation"),
+                    "no": {
+                        "q": "primary_2025",
+                        "yes": _timber_leaf("low", "low: still primary"),
+                        # Ind_09_treecover_after_2020 ("regrowth" leg) DROPPED: it is too broad (ESRI generic
+                        # canopy) and regionally uneven (TMF regrowth is tropics-only), so a primary plot that
+                        # disturbance (Ind_17_disturbance_after_2020_timber) knocked out of "still primary" is
+                        # no longer rescued to LOW by mere canopy. It falls to more-info unless it converted to
+                        # other land. The disturbance flag lives in primary_2025 = Ind_05 AND NOT Ind_17.
+                        "no": {
+                            "q": "other_land_2025",
+                            "yes": _timber_leaf("low", "low: primary 2020 -> other land"),
+                            "no": _timber_leaf("more_info_needed", "more-info: primary 2020, no 2025 state"),
+                        },
+                    },
+                },
+                "no": {
+                    "q": "regen_planted_2020",
+                    "yes": {
+                        "q": "plantation_2025",  # Ind_08b gain = degradation, checked FIRST
+                        "yes": _timber_leaf("high", "high: regen->plantation degradation"),
+                        "no": {
+                            "q": "other_land_2025",
+                            "yes": _timber_leaf("low", "low: regen 2020 -> other land"),
+                            # Ind_09 replaced by the disturbance flag (mirrors primary): no disturbance ->
+                            # stayed-forest LOW; disturbance -> more-info. LOW earned by absence of disturbance,
+                            # not by broad canopy.
+                            "no": {
+                                "q": "disturbance_2025",
+                                "yes": _timber_leaf("more_info_needed", "more-info: regen 2020, no 2025 state"),
+                                "no": _timber_leaf("low", "low: regen stayed forest"),
+                            },
+                        },
+                    },
+                    # forest by treecover but no primary/regen/plantation class: give it the other-land
+                    # chance before defaulting to more-info (revives code 14, the generic forest -> other land).
+                    "no": {
+                        "q": "other_land_2025",
+                        "yes": _timber_leaf("low", "low: forest 2020 -> other land"),
+                        "no": _timber_leaf("more_info_needed", "more-info: forest 2020, unclassified"),
+                    },
+                },
+            },
+        },
+    },
+}
+
+
+def _eval_timber_tree(yes):
+    """Walk TIMBER_ROOT_TREE against a dict of per-plot booleans; return (risk_timber, risk_timber_pathway)."""
+    node = TIMBER_ROOT_TREE
+    while "q" in node:
+        node = node["yes"] if yes[node["q"]] else node["no"]
+    return node["risk"], node["pathway"]
+
+
 def add_risk_timber_col(
     df: data_lookup_type,
     ind_1_name: str,
@@ -550,6 +651,7 @@ def add_risk_timber_col(
     primary_2025_name: str,
     ind_15_name: str = "Ind_15_agriculture_2020",
     ind_16_name: str = "Ind_16_plantation_presence_2025",
+    ind_17_name: str = "Ind_17_disturbance_after_2020_timber",
 ) -> data_lookup_type:
     """
     Adds the risk_timber column based on the WHISP timber decision tree, the elaborate FAO
@@ -560,7 +662,7 @@ def add_risk_timber_col(
     is kept separate as the operative degradation class.
 
     2020 states: primary (Ind_05), regenerating-planted (Ind_06 or Ind_07a), plantation (Ind_07b).
-    2025 states: primary_2025 (derived STRICT: Ind_05 and not Ind_04), regenerating-planted-2025
+    2025 states: primary_2025 (derived STRICT: Ind_05 and not Ind_17), regenerating-planted-2025
     (treecover after 2020 Ind_09), plantation_2025 = GAIN (Ind_08b, degradation only),
     plantation_presence_2025 = multi-year PRESENCE (Ind_16, stability only), other land 2025 (Ind_13),
     agriculture 2025 (Ind_10).
@@ -613,160 +715,43 @@ def add_risk_timber_col(
 
     for index, row in df.iterrows():
         primary_2020 = row[ind_5_name] == "yes"
-        # regen EXCLUDES primary: Ind_06 (EUFO / MapBiomas forest) is a broad "any forest" layer that
-        # includes primary, so without this a primary plot is flagged regen too and, since regen is
-        # checked before primary, never reaches the primary branch (primary then shows as ~empty).
-        # Enforcing primary/regen mutual exclusivity (which the diagram assumes) routes primary plots to
-        # the primary branch, so still-primary and primary->plantation degradation populate correctly.
-        regen_planted_2020 = (
-            row[ind_6_name] == "yes" or row[ind_7a_name] == "yes"
-        ) and not primary_2020
+        # ROOT tree checks primary BEFORE regen, so the regen branch and the forest gate use plain
+        # (Ind_06 OR Ind_07a) with NO "and not primary" carve-out: a primary+regen overlap resolves to
+        # primary by ORDER, not exclusion.
+        regen_planted_2020 = row[ind_6_name] == "yes" or row[ind_7a_name] == "yes"
         plantation_2020 = row[ind_7b_name] == "yes"
-
         treecover_2020 = row[ind_1_name] == "yes"
-        primary_2025 = row[primary_2025_name] == "yes"
-        regen_planted_2025 = row[ind_9_name] == "yes"
-        plantation_2025 = row[ind_8b_name] == "yes"
-        # plantation_presence_2025 (Ind_16) = multi-year silviculture PRESENCE (any year 2021-2024),
-        # used ONLY by the Rule-3 plantation-2020 STABILITY check. Distinct from plantation_2025
-        # (Ind_08b = the GAIN), which stays the degradation signal on the regen/primary branches.
-        plantation_presence_2025 = row[ind_16_name] == "yes"
-        other_land_2025 = row[ind_13_name] == "yes"
-        other_land_2020 = row[ind_12_name] == "yes"
+        # "Forest in 2020?" root gate = UNION of treecover + the natural-forest classes (Ind_07b plantation
+        # deliberately excluded: ~fully inside Ind_01 via silviculture, and keeping it here would make its
+        # threshold dual-use). Any forest evidence routes the plot into the forest half so its
+        # deforestation/degradation is assessed and cannot be exonerated by a non-forest sliver.
+        forest_2020 = treecover_2020 or primary_2020 or regen_planted_2020
 
-        # Rule 0 (OL2020): other land use in 2020. Terminal sub-branch (no fall-through, so a non-forest
-        # 2020 plot can never drop into a forest/deforestation HIGH below). Still other land in 2025
-        # (Ind_13) -> LOW (stable other land, outside the forest-loss scope). Otherwise (was other land,
-        # changed by 2025) -> MORE INFO NEEDED (we do not know what it changed to).
-        if other_land_2020:
-            if other_land_2025:
-                df.at[index, "risk_timber"] = "low"
-                df.at[index, "risk_timber_pathway"] = "low: other land 2020 (stable)"
-            else:
-                df.at[index, "risk_timber"] = "more_info_needed"
-                df.at[index, "risk_timber_pathway"] = (
-                    "more-info: other land 2020 changed"
-                )
-        # Rule 1: agriculture / commodity in 2020 -> LOW (pre-2020 land use, outside EUDR scope). Now catches
-        # pasture + tree crops + soy/annual cropland (pre-existing agriculture -> LOW), via the timber
-        # agriculture-2020 set (Ind_15), fixing the cropland that the shared pcrop/acrop Ind_02 dropped
-        # (soy/annual crops are use_for_risk_timber=1 but pcrop=acrop=0, so they fell out of Ind_02).
-        elif row[ind_2_name] == "yes" or row[ind_15_name] == "yes":
-            df.at[index, "risk_timber"] = "low"
-            df.at[index, "risk_timber_pathway"] = "low: agriculture 2020"
-        # Rule 2 (the TREECOVER GATE): deforestation = had treecover in 2020 (treecover_2020 = Ind_01) AND
-        # agriculture after 2020 -> HIGH. Ind_01 is the curated mostly-forest set (EUFO / JRC GFC2020, TMF
-        # undisturbed, GLAD Primary, MapBiomas forest + silviculture, country forest), so a genuine NON-forest
-        # plot (grassland / savanna / bare / pre-existing cropland -> crop) is NOT mis-flagged as deforestation
-        # and falls through to the forest-class branches / MORE INFO. This keeps the risk_timber column
-        # credible on NON-timber plots (pcrop / acrop / cattle): a no-treecover plot never shows a HIGH timber
-        # deforestation verdict. Gating on treecover_2020 alone (rather than a treecover-OR-forest-class union)
-        # is justified because the forest classes are ~fully inside Ind_01 already; the only thing dropped is
-        # the non-Brazil IIASA plantation sliver (~0.025% of HIGH in Brazil), to be reinstated later via a
-        # global post-2020 plantation layer.
-        elif treecover_2020 and row[ind_10_name] == "yes":
-            df.at[index, "risk_timber"] = "high"
-            df.at[index, "risk_timber_pathway"] = "high: deforestation"
-        # The 2020 forest-class checks run in the SAME ORDER as the diagram: PLANTATION first, then
-        # regenerating-planted, then primary (primary LAST). Order only matters for a plot flagged as more
-        # than one 2020 class (datasets disagree / overlap), and the diagram order is deliberate: a plot
-        # known to be a PLANTATION in 2020 is handled as a plantation (managed, established before the
-        # cutoff), not mis-read as a primary that later "degraded" to plantation. So plantation_2020 takes
-        # precedence over primary_2020 here.
-        #
-        # Rule 3: plantation 2020. STILL a plantation in 2025 -> LOW (stable plantation, code 4); became
-        # other land 2025 -> LOW (plantation -> other land); otherwise MORE INFO NEEDED (the diagram
-        # routes an unconfirmed 2020 plantation to more info, not high). The STABILITY test uses
-        # plantation_presence_2025 (Ind_16, multi-year silviculture PRESENCE) NOT the gain (Ind_08b):
-        # the gain is 0 on any plantation already standing in 2020, so it wrongly fails ~all stable
-        # plantations to MORE INFO. The gain stays the degradation signal on the regen/primary branches.
-        elif plantation_2020:
-            if plantation_presence_2025:
-                df.at[index, "risk_timber"] = "low"
-                df.at[index, "risk_timber_pathway"] = "low: stable plantation"
-            elif other_land_2025:
-                df.at[index, "risk_timber"] = "low"
-                df.at[index, "risk_timber_pathway"] = (
-                    "low: plantation 2020 -> other land"
-                )
-            else:
-                df.at[index, "risk_timber"] = "more_info_needed"
-                df.at[index, "risk_timber_pathway"] = (
-                    "more-info: plantation 2020, no 2025 state"
-                )
-        # Rule 4: regenerating-planted 2020. Order follows the diagram: matured to primary -> stayed
-        # regenerating-planted -> plantation (degradation) -> other land -> more info.
-        elif regen_planted_2020:
-            if primary_2025:
-                # Regenerating forest matured to primary = compliant. With primary_2025 now strict
-                # (primary-2020 minus disturbance), a regen plot has Ind_05=no -> primary_2025=no, so
-                # this leg NEVER fires (intended: primary does not regrow within five years). Kept as a
-                # structural placeholder aligned to the diagram.
-                df.at[index, "risk_timber"] = "low"
-                df.at[index, "risk_timber_pathway"] = "low: regen matured to primary"
-            elif regen_planted_2025 and treecover_2020 and not plantation_2025:
-                # Stayed regenerating/planted. Gated on 2020 treecover (Ind_01, the JRC/GLAD-family
-                # baseline) so an ESRI-only 2025 treecover signal cannot earn a LOW where the strict 2020
-                # baseline saw no forest (#229). AND NOT plantation_2025 so a NEW plantation (degradation)
-                # is not masked by this LOW: a plot that is both treecover-after and new-plantation falls
-                # through to the plantation-2025 HIGH below (H6 fix; live now that MapBiomas silviculture
-                # GAIN feeds Ind_08b in Brazil). Code refinement, not drawn on the diagram.
-                df.at[index, "risk_timber"] = "low"
-                df.at[index, "risk_timber_pathway"] = "low: regen stayed forest"
-            elif plantation_2025:
-                # Regenerating-planted -> NEW plantation after 2020 = degradation -> HIGH. Uses the GAIN
-                # (Ind_08b, fed by MapBiomas silviculture GAIN in Brazil; globally dormant until a global
-                # plantation-after layer is wired). The gain is correct here (degradation = NEW plantation),
-                # and is LEFT UNCHANGED; only the Rule-3 stability check switched to the presence layer.
-                df.at[index, "risk_timber"] = "high"
-                df.at[index, "risk_timber_pathway"] = (
-                    "high: regen->plantation degradation"
-                )
-            elif other_land_2025:
-                df.at[index, "risk_timber"] = "low"
-                df.at[index, "risk_timber_pathway"] = "low: regen 2020 -> other land"
-            else:
-                df.at[index, "risk_timber"] = "more_info_needed"
-                df.at[index, "risk_timber_pathway"] = (
-                    "more-info: regen 2020, no 2025 state"
-                )
-        # Rule 5: primary 2020 (checked LAST, matching the diagram). Still primary (primary_2025) or other
-        # land 2025 -> LOW; -> plantation 2025 (Ind_08b) = degradation -> HIGH; otherwise MORE INFO NEEDED.
-        # The plantation -> HIGH is per the EUDR transition matrix, which marks primary -> plantation (and
-        # -> planted, -> OWL) as DEGRADATION (Art 2(7)). An earlier simplified diagram had dropped this
-        # node; restored here. Fires via the MapBiomas silviculture GAIN (Ind_08b) in Brazil; primary ->
-        # planted and primary -> OWL degradation stay blind for want of those after-2020 layers.
-        elif primary_2020:
-            # "still primary" requires NOT a new plantation: a primary plot that gained a plantation after
-            # 2020 is degradation (-> HIGH below) and must NOT be masked here just because the disturbance
-            # stack (Ind_17) missed it. The presence of a new plantation alone = degradation HIGH per EUDR
-            # Art 2(7); relying on disturbance to demote still-primary was a missed HIGH. Mirrors Rule 4's
-            # regen "stayed forest", which already excludes plantation_2025.
-            if primary_2025 and not plantation_2025:
-                df.at[index, "risk_timber"] = "low"
-                df.at[index, "risk_timber_pathway"] = "low: still primary"
-            elif other_land_2025:
-                df.at[index, "risk_timber"] = "low"
-                df.at[index, "risk_timber_pathway"] = "low: primary 2020 -> other land"
-            elif plantation_2025:
-                # primary -> NEW plantation after 2020 = degradation -> HIGH. Uses the GAIN (Ind_08b),
-                # LEFT UNCHANGED; only the Rule-3 stability check switched to the presence layer.
-                df.at[index, "risk_timber"] = "high"
-                df.at[index, "risk_timber_pathway"] = (
-                    "high: primary->plantation degradation"
-                )
-            else:
-                df.at[index, "risk_timber"] = "more_info_needed"
-                df.at[index, "risk_timber_pathway"] = (
-                    "more-info: primary 2020, no 2025 state"
-                )
-        # Rule 6: nothing recognised in 2020 (not other-land, not commodity, not any forest class) ->
-        # MORE INFO NEEDED. "If we do not know the 2020 state, we do not know": an unclassified plot is no
-        # longer assumed compliant. (The other-land-2020 node IS wired now, at Rule 0 / Ind_12, so genuine
-        # known-non-forest plots leave at Rule 0; only truly unclassified plots reach here.)
-        else:
-            df.at[index, "risk_timber"] = "more_info_needed"
-            df.at[index, "risk_timber_pathway"] = "more-info: 2020 state unknown"
+        yes_locals = {
+            "forest_2020": forest_2020,
+            "other_land_2020": row[ind_12_name] == "yes",
+            "other_land_2025": row[ind_13_name] == "yes",
+            "agriculture_2020": (row[ind_2_name] == "yes") or (row[ind_15_name] == "yes"),
+            "agriculture_2025": row[ind_10_name] == "yes",
+            "plantation_2020": plantation_2020,
+            # Ind_16 PRESENCE (stability) -> stable-plantation LOW, plantation-2020 branch only.
+            "plantation_presence_2025": row[ind_16_name] == "yes",
+            "primary_2020": primary_2020,
+            # primary_2025 derived upstream = Ind_05 AND NOT Ind_17.
+            "primary_2025": row[primary_2025_name] == "yes",
+            # Ind_09_treecover_after_2020 DROPPED from the tree (too broad: generic ESRI canopy; and
+            # regionally uneven: TMF regrowth is tropics-only). The regen "stayed forest" leg now keys off the
+            # DISTURBANCE flag instead: no disturbance -> stayed-forest LOW, disturbance -> more-info, mirroring
+            # primary_2025 = Ind_05 AND NOT Ind_17. (ind_9_name is retained for signature stability but the
+            # tree no longer consults Ind_09; it is still emitted as an output indicator by whisp_risk.)
+            "disturbance_2025": row[ind_17_name] == "yes",
+            "regen_planted_2020": regen_planted_2020,
+            # Ind_08b GAIN (new plantation) = degradation -> HIGH, checked FIRST in the primary/regen branches.
+            "plantation_2025": row[ind_8b_name] == "yes",
+        }
+        risk_timber, pathway = _eval_timber_tree(yes_locals)
+        df.at[index, "risk_timber"] = risk_timber
+        df.at[index, "risk_timber_pathway"] = pathway
 
     return df
 
