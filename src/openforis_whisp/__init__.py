@@ -100,6 +100,7 @@ from openforis_whisp.data_conversion import (
     convert_csv_to_geojson,
     convert_ee_to_geojson,
     normalize_geojson_to_gdf,
+    split_multipart_geojson,
 )
 
 from openforis_whisp.risk import whisp_risk, detect_unit_type

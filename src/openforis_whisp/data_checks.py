@@ -88,13 +88,16 @@ def analyze_geojson(
         - Path: pathlib.Path to GeoJSON file
     metrics : list
         Which metrics to return. Available metrics:
-        - 'count': number of polygons
+        - 'count': number of features (split multipart geometries beforehand so this
+          equals the number of single-part rows to be processed)
         - 'geometry_types': dict of geometry type counts (e.g., {'Polygon': 95, 'MultiPolygon': 5})
         - 'crs': coordinate reference system (e.g., 'EPSG:4326') - only available when geojson_data is a file path
         - 'file_size_mb': file size in megabytes (only available when geojson_data is a file path)
-        - 'min_area_ha', 'mean_area_ha', 'median_area_ha', 'max_area_ha': area statistics (hectares) (accurate only at equator)
+        - 'min_area_ha', 'mean_area_ha', 'median_area_ha', 'max_area_ha': per-feature area
+          statistics (hectares; a MultiPolygon counts once, summed; accurate only at equator)
         - 'area_percentiles': dict with p25, p50 (median), p75, p90 area values (accurate only at equator)
-        - 'min_vertices', 'mean_vertices', 'median_vertices', 'max_vertices': vertex count statistics
+        - 'min_vertices', 'mean_vertices', 'median_vertices', 'max_vertices': per-feature
+          vertex-count statistics (a MultiPolygon counts once, summed over its parts)
         - 'vertex_percentiles': dict with p25, p50 (median), p75, p90 vertex count values
 
         Default includes all metrics for comprehensive analysis.
@@ -106,19 +109,23 @@ def analyze_geojson(
     Returns:
     --------
     dict with requested metrics:
-        - 'count': number of polygons
+        - 'count': number of features
+        - 'geometrycollection_warning': present only if GeometryCollection features are found
         - 'geometry_types': {'Polygon': int, 'MultiPolygon': int, ...}
         - 'crs': coordinate reference system string (e.g., 'EPSG:4326', only when geojson_data is a file path)
         - 'file_size_mb': file size in megabytes (float, only when geojson_data is a file path)
-        - 'min_area_ha': minimum area among all polygons in hectares
-        - 'mean_area_ha': mean area per polygon in hectares (calculated from coordinates)
-        - 'median_area_ha': median area among all polygons in hectares
-        - 'max_area_ha': maximum area among all polygons in hectares
+        (area/vertex stats below are per-feature: a MultiPolygon counts once, summed
+         over its parts. Split multipart geometries beforehand if you want per-part
+         stats and a 'count' equal to the number of rows to be processed.)
+        - 'min_area_ha': minimum per-feature area in hectares
+        - 'mean_area_ha': mean per-feature area in hectares
+        - 'median_area_ha': median per-feature area in hectares
+        - 'max_area_ha': maximum per-feature area in hectares
         - 'area_percentiles': {'p25': float, 'p50': float, 'p75': float, 'p90': float}
-        - 'min_vertices': minimum number of vertices among all polygons
-        - 'mean_vertices': mean number of vertices per polygon
-        - 'median_vertices': median number of vertices among all polygons
-        - 'max_vertices': maximum number of vertices among all polygons
+        - 'min_vertices': minimum per-feature vertex count
+        - 'mean_vertices': mean per-feature vertex count
+        - 'median_vertices': median per-feature vertex count
+        - 'max_vertices': maximum per-feature vertex count
         - 'vertex_percentiles': {'p25': int, 'p50': int, 'p75': int, 'p90': int}
     """
     # Handle None metrics (use all default metrics)
@@ -176,7 +183,7 @@ def analyze_geojson(
 
                     # Check if CRS is WGS84
                     if detected_crs and detected_crs != "EPSG:4326":
-                        crs_warning = f"⚠️  CRS is {detected_crs}, not EPSG:4326. Area metrics will be inaccurate. Data will be auto-reprojected during processing."
+                        crs_warning = f"Warning: CRS is {detected_crs}, not EPSG:4326. Area metrics will be inaccurate. Data will be auto-reprojected during processing."
                 except Exception as e:
                     # If fiona fails, assume WGS84 (GeoJSON default)
                     detected_crs = "EPSG:4326"
@@ -247,99 +254,139 @@ def analyze_geojson(
             geometry_type_counts = {}
             valid_polygons = 0
 
-            # Detect CRS to determine area conversion factor
+            # Area/vertex computation (shapely) is the expensive part of the sweep.
+            # Only do it when the caller asked for those metrics, so cheap checks
+            # (count, geometry_types) stay ~1 ms instead of ~250 ms.
+            need_area = any(
+                m in metrics
+                for m in [
+                    "min_area_ha",
+                    "mean_area_ha",
+                    "median_area_ha",
+                    "max_area_ha",
+                    "area_percentiles",
+                ]
+            )
+            need_vertices = any(
+                m in metrics
+                for m in [
+                    "min_vertices",
+                    "mean_vertices",
+                    "median_vertices",
+                    "max_vertices",
+                    "vertex_percentiles",
+                ]
+            )
+
+            # Detect CRS to determine area conversion factor (only needed for area)
             area_conversion_factor = 1232100  # Default: WGS84 (degrees to ha)
             detected_crs = None
 
             # Try to detect CRS from file if available
-            if file_path:
+            if need_area and file_path:
                 try:
                     import geopandas as gpd
 
                     gdf_temp = gpd.read_file(str(file_path))
                     detected_crs = gdf_temp.crs
                     if detected_crs and detected_crs != "EPSG:4326":
-                        # Projected CRS typically uses meters, so convert m² to ha
-                        # 1 ha = 10,000 m²
+                        # Projected CRS typically uses meters, so convert m^2 to ha
+                        # 1 ha = 10,000 m^2
                         area_conversion_factor = 1 / 10000
                 except Exception:
                     pass  # Use default if CRS detection fails
 
             for feature in features:
                 try:
-                    coords = feature["geometry"]["coordinates"]
-                    geom_type = feature["geometry"]["type"]
-                    properties = feature.get("properties", {})
+                    geometry = feature.get("geometry") or {}
+                    geom_type = geometry.get("type")
+                    if geom_type is None:
+                        continue
 
-                    # Count geometry types
+                    # Count geometry types first (all types, including unsupported
+                    # ones like GeometryCollection) so nothing is silently dropped
                     geometry_type_counts[geom_type] = (
                         geometry_type_counts.get(geom_type, 0) + 1
                     )
 
-                    if geom_type == "Polygon":
-                        # Count vertices in this polygon
-                        feature_vertices = 0
-                        for ring in coords:
-                            feature_vertices += len(ring)
-                        vertices_list.append(feature_vertices)
+                    # GeometryCollection is not a standard Whisp plot type and has no
+                    # top-level "coordinates"; it is counted above, then excluded from
+                    # area/vertex stats (flagged after the loop).
+                    if geom_type == "GeometryCollection":
+                        continue
 
-                        # Calculate area from coordinates using shapely
-                        try:
-                            # Use shapely.geometry.shape to properly handle all geometry components
-                            geom = shapely_shape(feature["geometry"])
-                            # Convert using detected CRS
-                            area_ha = abs(geom.area) * area_conversion_factor
-                            areas.append(area_ha)
-                        except Exception as e:
-                            # Fallback: estimate from bounding box if geometry fails
-                            bbox_area = _estimate_area_from_bounds(
-                                coords, area_conversion_factor
-                            )
-                            if bbox_area > 0:
-                                areas.append(bbox_area)
-                                bbox_fallback_count += 1
-                                polygon_type_stats["Polygon_bbox"] = (
-                                    polygon_type_stats.get("Polygon_bbox", 0) + 1
+                    coords = geometry["coordinates"]
+                    properties = feature.get("properties", {})
+
+                    if geom_type == "Polygon":
+                        # Count vertices only if a vertex metric was requested
+                        if need_vertices:
+                            feature_vertices = 0
+                            for ring in coords:
+                                feature_vertices += len(ring)
+                            vertices_list.append(feature_vertices)
+
+                        # Calculate area only if an area metric was requested
+                        # (shapely is the expensive part of the sweep)
+                        if need_area:
+                            try:
+                                geom = shapely_shape(feature["geometry"])
+                                area_ha = abs(geom.area) * area_conversion_factor
+                                areas.append(area_ha)
+                            except Exception as e:
+                                # Fallback: estimate from bounding box if geometry fails
+                                bbox_area = _estimate_area_from_bounds(
+                                    coords, area_conversion_factor
                                 )
-                            else:
-                                geometry_skip_count += 1
-                                polygon_type_stats["Polygon_skipped"] = (
-                                    polygon_type_stats.get("Polygon_skipped", 0) + 1
-                                )
+                                if bbox_area > 0:
+                                    areas.append(bbox_area)
+                                    bbox_fallback_count += 1
+                                    polygon_type_stats["Polygon_bbox"] = (
+                                        polygon_type_stats.get("Polygon_bbox", 0) + 1
+                                    )
+                                else:
+                                    geometry_skip_count += 1
+                                    polygon_type_stats["Polygon_skipped"] = (
+                                        polygon_type_stats.get("Polygon_skipped", 0) + 1
+                                    )
                         valid_polygons += 1
 
                     elif geom_type == "MultiPolygon":
-                        # Count vertices in this multipolygon
-                        feature_vertices = 0
-                        for polygon in coords:
-                            for ring in polygon:
-                                feature_vertices += len(ring)
-                        vertices_list.append(feature_vertices)
+                        # Per-feature (one summed entry per MultiPolygon). This is a
+                        # fast check; the real per-part split is done separately by
+                        # exploding the GeoJSON before processing.
+                        if need_vertices:
+                            feature_vertices = 0
+                            for polygon in coords:
+                                for ring in polygon:
+                                    feature_vertices += len(ring)
+                            vertices_list.append(feature_vertices)
 
-                        # Calculate area from coordinates using shapely
-                        try:
-                            # Use shapely.geometry.shape to properly handle MultiPolygon
-                            geom = shapely_shape(feature["geometry"])
-                            # Convert using detected CRS - use total area of all parts
-                            area_ha = abs(geom.area) * area_conversion_factor
-                            areas.append(area_ha)
-                        except Exception as e:
-                            # Fallback: estimate from bounding box if geometry fails
-                            bbox_area = _estimate_area_from_bounds(
-                                coords, area_conversion_factor
-                            )
-                            if bbox_area > 0:
-                                areas.append(bbox_area)
-                                bbox_fallback_count += 1
-                                polygon_type_stats["MultiPolygon_bbox"] = (
-                                    polygon_type_stats.get("MultiPolygon_bbox", 0) + 1
+                        if need_area:
+                            try:
+                                geom = shapely_shape(feature["geometry"])
+                                area_ha = abs(geom.area) * area_conversion_factor
+                                areas.append(area_ha)
+                            except Exception as e:
+                                # Fallback: estimate from bounding box if geometry fails
+                                bbox_area = _estimate_area_from_bounds(
+                                    coords, area_conversion_factor
                                 )
-                            else:
-                                geometry_skip_count += 1
-                                polygon_type_stats["MultiPolygon_skipped"] = (
-                                    polygon_type_stats.get("MultiPolygon_skipped", 0)
-                                    + 1
-                                )
+                                if bbox_area > 0:
+                                    areas.append(bbox_area)
+                                    bbox_fallback_count += 1
+                                    polygon_type_stats["MultiPolygon_bbox"] = (
+                                        polygon_type_stats.get("MultiPolygon_bbox", 0)
+                                        + 1
+                                    )
+                                else:
+                                    geometry_skip_count += 1
+                                    polygon_type_stats["MultiPolygon_skipped"] = (
+                                        polygon_type_stats.get(
+                                            "MultiPolygon_skipped", 0
+                                        )
+                                        + 1
+                                    )
                         valid_polygons += 1
 
                 except:
@@ -350,6 +397,19 @@ def analyze_geojson(
             # Geometry type counts
             if "geometry_types" in metrics:
                 results["geometry_types"] = geometry_type_counts
+
+            # Flag GeometryCollection features: valid GeoJSON but not a standard Whisp
+            # plot type (expected Polygon/MultiPolygon). They are excluded from the
+            # area/vertex statistics above, so warn rather than drop them silently.
+            gc_count = geometry_type_counts.get("GeometryCollection", 0)
+            if gc_count:
+                gc_warning = (
+                    f"Warning: {gc_count} GeometryCollection feature(s) detected. These are not a "
+                    f"standard Whisp plot type (expected Polygon/MultiPolygon) and are excluded "
+                    f"from area and vertex statistics; review or pre-clean the input before processing."
+                )
+                results["geometrycollection_warning"] = gc_warning
+                print(gc_warning)
 
             if areas or vertices_list:
                 # Area statistics
@@ -657,7 +717,8 @@ def check_geojson_limits(
             'max_area_ha': float,
             'mean_vertices': float,
             'max_vertices': int,
-            'valid': bool
+            'valid': bool,
+            'geometrycollection_warning': str  # only if GeometryCollection features found
         }
 
     Raises:
@@ -725,6 +786,10 @@ def check_geojson_limits(
         "crs": metrics.get("crs"),
         "valid": True,
     }
+
+    # Propagate the GeometryCollection warning (advisory; does not fail the check)
+    if metrics.get("geometrycollection_warning"):
+        results["geometrycollection_warning"] = metrics["geometrycollection_warning"]
 
     if verbose:
         print("\nComputed Metrics:")
