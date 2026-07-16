@@ -1,7 +1,16 @@
+import itertools
 from pathlib import Path
 
 from openforis_whisp.stats import whisp_formatted_stats_geojson_to_df
-from openforis_whisp.risk import whisp_risk, add_risk_timber_col
+from openforis_whisp.risk import (
+    whisp_risk,
+    add_risk_timber_col,
+    add_risk_pcrop_col,
+    add_risk_acrop_col,
+)
+from openforis_whisp import decision_tree as _decision_tree
+from openforis_whisp import pcrop_tree_export as _pcrop
+from openforis_whisp import acrop_tree_export as _acrop
 
 import pandas as pd
 
@@ -291,4 +300,58 @@ def test_timber_decision_tree_terminals() -> None:
         assert row["risk_timber_pathway"] == row["_expected_pathway"], (
             f"{row['_case']}: risk_timber_pathway={row['risk_timber_pathway']!r} "
             f"expected {row['_expected_pathway']!r}"
+        )
+
+
+# Crop indicator column names read by the flat crop-risk rules and their decision-tree mirrors.
+_CROP_IND_1 = "Ind_01_treecover"
+_CROP_IND_2 = "Ind_02_commodities"
+_CROP_IND_3 = "Ind_03_disturbance_before_2020"
+_CROP_IND_4 = "Ind_04_disturbance_after_2020"
+
+
+def _crop_bools(spec, row):
+    """Answer each tree question the way the JS / EE walkers do: a question is 'yes' when ANY of its
+    q_to_columns indicators reads 'yes' on this plot."""
+    return {q: any(row[c] == "yes" for c in cols) for q, cols in spec.q_to_columns.items()}
+
+
+def test_pcrop_acrop_decision_tree_terminals() -> None:
+    """Drift guard for the crop DISPLAY trees. Unlike timber (whose TIMBER_ROOT_TREE IS the
+    computation and is guarded by test_timber_decision_tree_terminals), PCROP_SPEC / ACROP_SPEC are
+    SEPARATE mirrors that only draw the Mermaid diagram and paint the map; the authority for the
+    outcome is the flat rules add_risk_pcrop_col / add_risk_acrop_col in risk.py. This test walks
+    each spec over EVERY input combination and asserts it reproduces the flat rule exactly, so the
+    crop diagram/map can never silently diverge from risk.py. Offline, no Earth Engine.
+
+    Perennial (pcrop) consults disturbances before AND after 2020 (Ind_03_disturbance_before_2020 +
+    Ind_04_disturbance_after_2020); annual (acrop) DROPS the before-2020 disturbance because annual
+    crops are not typically established under significant canopy. That structural divergence is
+    intentional (documented in the README) and is exactly what these two specs encode."""
+    # pcrop uses all four indicators -> 16 combinations
+    for vals in itertools.product(["yes", "no"], repeat=4):
+        row = dict(zip([_CROP_IND_1, _CROP_IND_2, _CROP_IND_3, _CROP_IND_4], vals))
+        df = pd.DataFrame([row])
+        add_risk_pcrop_col(df, _CROP_IND_1, _CROP_IND_2, _CROP_IND_3, _CROP_IND_4)
+        authoritative = df.iloc[0]["risk_pcrop"]
+        walked, _pathway = _decision_tree.eval_tree(
+            _crop_bools(_pcrop.PCROP_SPEC, row), _pcrop.PCROP_SPEC
+        )
+        assert walked == authoritative, (
+            f"pcrop tree drifted from add_risk_pcrop_col at {row}: "
+            f"tree={walked!r} vs flat-rule={authoritative!r}"
+        )
+
+    # acrop ignores Ind_03_disturbance_before_2020 -> 8 combinations
+    for vals in itertools.product(["yes", "no"], repeat=3):
+        row = dict(zip([_CROP_IND_1, _CROP_IND_2, _CROP_IND_4], vals))
+        df = pd.DataFrame([row])
+        add_risk_acrop_col(df, _CROP_IND_1, _CROP_IND_2, _CROP_IND_4)
+        authoritative = df.iloc[0]["risk_acrop"]
+        walked, _pathway = _decision_tree.eval_tree(
+            _crop_bools(_acrop.ACROP_SPEC, row), _acrop.ACROP_SPEC
+        )
+        assert walked == authoritative, (
+            f"acrop tree drifted from add_risk_acrop_col at {row}: "
+            f"tree={walked!r} vs flat-rule={authoritative!r}"
         )

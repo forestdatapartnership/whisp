@@ -1,28 +1,31 @@
-"""Single-source export helpers for the timber decision tree.
+"""Timber INSTANCE of the generic decision-tree core, plus the timber export helpers.
 
-``risk.TIMBER_ROOT_TREE`` is the ONE source of truth for the timber pathway. The display copies
-(the Mermaid diagram, the notebook-viewer JS walk, and the map ``pathway()`` raster) used to
-hand-re-implement that tree and drifted apart. This module walks the SAME ``TIMBER_ROOT_TREE`` to
-emit each of those, so a tree change flows out by regenerating, never by hand-editing three copies.
+``risk.TIMBER_ROOT_TREE`` is the ONE source of truth for the timber pathway. The display copies (the
+Mermaid diagram, the notebook-viewer JS walk, and the map ``pathway()`` raster) used to hand-re-implement
+that tree and drifted apart. The generic engine in ``openforis_whisp.decision_tree`` walks the SAME tree
+to emit each of those; THIS module is the thin timber adapter over that engine:
 
-What lives here (all derived from the tree, nothing re-stated):
-  * ``PATHWAY_TO_CODE``     - the STABLE label -> map-code table (the one thing that is not structural;
-                              codes are kept stable across tree edits so palettes/legends do not churn).
-  * ``to_mermaid()``        - the flowchart source for the diagram + the notebook tree pane.
-  * ``eval_tree_ee(qimg)``  - a GENERIC Earth Engine walker: recursive ``no.where(cond, yes)`` over the
-                              tree, so the raster's precedence is the tree's precedence BY CONSTRUCTION
-                              (this is what structurally removes the old exoneration-short-circuit bug).
-  * ``js_module_source()``  - the JS ``TIMBER_TREE`` const + generic ``timberStory`` walk for the viewer.
-  * ``code_names()`` / ``class_codes()`` / ``pathway_label_to_code()`` - the small derived lookups the
-                              notebook needs for its palette, legend and drawn-polygon colouring.
+  * it defines the timber-specific metadata (the stable ``PATHWAY_TO_CODE`` code table, the ``CODE_COLOUR``
+    palette, the per-question ``Q_LABEL`` / ``Q_KIND`` / ``Q_TO_COLUMNS`` and the drill-down wiring), then
+  * bundles all of it into ``TIMBER_SPEC = DecisionTreeSpec(tree=risk.TIMBER_ROOT_TREE, ...)``, and
+  * PRESERVES the historical public API by binding the generic ``decision_tree`` functions to
+    ``TIMBER_SPEC`` (so ``to_mermaid()`` / ``eval_tree_ee(qimg, ee_image)`` / ``code_names()`` and the rest
+    keep working with the same name and call signature they always had).
 
-Import-light on purpose: it only needs ``TIMBER_ROOT_TREE`` from ``risk``; the EE walker takes the
-already-built per-question images as an argument, so this module never imports ``ee`` itself.
+The perennial-crop and annual-crop trees (pcrop / acrop) will be separate instances of the same
+``DecisionTreeSpec`` (their own tree, question -> indicator-column mapping, code map and palette) built
+the same way; they are NOT defined here.
+
+Import-light on purpose: it needs ``TIMBER_ROOT_TREE`` from ``risk`` and the generic ``decision_tree``
+core; the Earth Engine walker takes the already-built per-question images as an argument, so this module
+never imports ``ee`` itself.
 """
 
 from __future__ import annotations
 
-from .risk import TIMBER_ROOT_TREE, _eval_timber_tree
+from . import decision_tree as _dt
+from .decision_tree import DecisionTreeSpec
+from .risk import TIMBER_ROOT_TREE
 
 # --------------------------------------------------------------------------------------------------
 # 1. The STABLE code table.  Codes are intentionally NOT in DFS order: they preserve the historical
@@ -105,6 +108,9 @@ _REPEATED = {"other_land_2025", "plantation_2025"}
 # Descending into the .yes of one of these sets the branch tag for everything below it.
 _BRANCH_ON = {"other_land_2020": "nf", "plantation_2020": "pl", "primary_2020": "pr",
               "regen_planted_2020": "rp"}
+# The forest-half "unclassified" branch carries no forest-class tag, so a repeated question reached there
+# falls back to this tag ("fh" = forest half).
+_DEFAULT_BRANCH_TAG = "fh"
 
 # The per-question map layer for the tree's drill-down (click a node -> show its data layer).
 _Q_TO_LAYER = {
@@ -144,99 +150,9 @@ Q_TO_COLUMNS = {
     "disturbance_2025": ["Ind_17_disturbance_after_2020_timber"],
 }
 
-
-def _node_id(q, branch):
-    base = _ABBREV[q]
-    # Repeated questions get a branch suffix so each occurrence is a distinct node. The forest-half
-    # "unclassified" branch carries no forest-class tag, so fall back to "fh" (forest half).
-    return "%s_%s" % (base, branch or "fh") if q in _REPEATED else base
-
-
-def leaf_code(node):
-    """Map code for a leaf node (raises KeyError if the tree grew a pathway not in PATHWAY_TO_CODE)."""
-    return PATHWAY_TO_CODE[node["pathway"]]
-
-
-# --------------------------------------------------------------------------------------------------
-# 3. Walk helpers -> a JSON-friendly annotated tree (ids/codes baked in), consumed by the emitters.
-# --------------------------------------------------------------------------------------------------
-def annotate(tree=TIMBER_ROOT_TREE):
-    """Return a deep copy of the tree with a stable ``id`` on every node and ``code`` on every leaf."""
-
-    def walk(node, branch):
-        if "q" not in node:
-            code = leaf_code(node)
-            return {"id": "term_%d" % code, "code": code, "risk": node["risk"], "pathway": node["pathway"]}
-        q = node["q"]
-        nid = _node_id(q, branch)
-        yes_branch = _BRANCH_ON.get(q, branch)
-        return {
-            "id": nid, "q": q, "label": Q_LABEL[q], "kind": Q_KIND[q],
-            "is2025": q.endswith("2025"),
-            "yes": walk(node["yes"], yes_branch),
-            "no": walk(node["no"], branch),
-        }
-
-    return walk(tree, "")
-
-
-def _iter_nodes(anno):
-    """Yield every annotated node (decisions and leaves), pre-order."""
-    yield anno
-    if "q" in anno:
-        yield from _iter_nodes(anno["yes"])
-        yield from _iter_nodes(anno["no"])
-
-
-# --------------------------------------------------------------------------------------------------
-# 4. Derived lookups the notebook / maps consume.
-# --------------------------------------------------------------------------------------------------
-def code_names():
-    """code -> its pathway label (the map legend). Only codes actually reached by the tree."""
-    return {code: label for label, code in PATHWAY_TO_CODE.items()}
-
-
-def class_codes():
-    """Verdict class -> sorted list of its codes: {'low': [...], 'more': [...], 'high': [...]}."""
-    out = {"low": [], "more": [], "high": []}
-    for anno in _iter_nodes(annotate()):
-        if "q" in anno:
-            continue
-        risk = anno["risk"]
-        bucket = "high" if risk == "high" else ("low" if risk == "low" else "more")
-        out[bucket].append(anno["code"])
-    return {k: sorted(set(v)) for k, v in out.items()}
-
-
-def pathway_label_to_code():
-    """The drawn-polygon colouring map: risk_timber_pathway label -> map code (a copy of PATHWAY_TO_CODE)."""
-    return dict(PATHWAY_TO_CODE)
-
-
-def node_ids():
-    """Return (decision_ids, terminal_ids) for the whole tree, pre-order (for the viewer click-binding)."""
-    decisions, terminals = [], []
-    for anno in _iter_nodes(annotate()):
-        (terminals if "q" not in anno else decisions).append(anno["id"])
-    return decisions, terminals
-
-
-def node_to_layer():
-    """Mermaid node id -> drill-down map layer key(s) (per-question default + per-branch overrides)."""
-    out = {}
-    for anno in _iter_nodes(annotate()):
-        if "q" not in anno:
-            continue
-        layer = _NODE_LAYER_OVERRIDE.get(anno["id"]) or _Q_TO_LAYER.get(anno["q"])
-        if layer is not None:
-            out[anno["id"]] = layer
-    return out
-
-
-# --------------------------------------------------------------------------------------------------
-# 5. Mermaid emitter.
-# --------------------------------------------------------------------------------------------------
-_TERMTEXT = {"low": "Low risk", "more_info_needed": "More info needed", "high": "High risk"}
+# Mermaid classDef block: styling for the timber node kinds (forest / landuse) plus the shared risk
+# classes (low / more / high) and the 2020 / 2025 question stroke styles. Passed to the spec so the
+# generic emitter hard-codes no styling.
 _CLASSDEFS = """
   classDef forest fill:#bbf7d0,stroke:#16a34a,color:#064e3b;
   classDef landuse fill:#fff7ed,stroke:#f97316,color:#7c2d12;
@@ -247,125 +163,100 @@ _CLASSDEFS = """
   classDef q2025 stroke-width:3px,stroke-dasharray:4 3;
 """
 
-
-def _term_class(risk):
-    return "high" if risk == "high" else ("low" if risk == "low" else "more")
-
-
-def to_mermaid(tree=TIMBER_ROOT_TREE):
-    """Emit the ``flowchart TB`` Mermaid source for the tree (nodes, edges, styling)."""
-    anno = annotate(tree)
-    decisions, leaves, edges, classes = [], [], [], []
-
-    def esc(s):
-        return s.replace('"', "'")
-
-    def walk(node):
-        if "q" not in node:
-            risk = node["risk"]
-            cls = _term_class(risk)
-            label = "%s<br/><small>%s<br/>Code: %d</small>" % (_TERMTEXT[risk], esc(node["pathway"]), node["code"])
-            leaves.append('  %s(["%s"])' % (node["id"], label))
-            classes.append("  class %s %s" % (node["id"], cls))
-            return
-        decisions.append('  %s{"%s"}' % (node["id"], node["label"]))
-        classes.append("  class %s %s" % (node["id"], node["kind"]))
-        classes.append("  class %s %s" % (node["id"], "q2025" if node["is2025"] else "q2020"))
-        edges.append("  %s -- Yes --> %s" % (node["id"], node["yes"]["id"]))
-        edges.append("  %s -- No --> %s" % (node["id"], node["no"]["id"]))
-        walk(node["yes"])
-        walk(node["no"])
-
-    walk(anno)
-    lines = ["flowchart TB"] + decisions + leaves + edges + [_CLASSDEFS.strip("\n")] + classes
-    return "\n".join(lines) + "\n"
+# --------------------------------------------------------------------------------------------------
+# 3. The timber spec: bundle every timber-specific piece so the generic decision_tree functions can
+#    drive the timber tree.  A future PCROP_SPEC / ACROP_SPEC is another DecisionTreeSpec built the same
+#    way (its own tree + question->indicator-column mapping + code map + palette).
+# --------------------------------------------------------------------------------------------------
+TIMBER_SPEC = DecisionTreeSpec(
+    tree=TIMBER_ROOT_TREE,
+    pathway_to_code=PATHWAY_TO_CODE,
+    code_colour=CODE_COLOUR,
+    q_label=Q_LABEL,
+    q_kind=Q_KIND,
+    q_to_columns=Q_TO_COLUMNS,
+    abbrev=_ABBREV,
+    repeated=_REPEATED,
+    branch_on=_BRANCH_ON,
+    q_to_layer=_Q_TO_LAYER,
+    node_layer_override=_NODE_LAYER_OVERRIDE,
+    mermaid_classdefs=_CLASSDEFS,
+    retired_codes=RETIRED_CODES,
+    default_branch_tag=_DEFAULT_BRANCH_TAG,
+    js_source_module="openforis_whisp.timber_tree_export",
+    js_tree_const="TIMBER_TREE",
+    js_answer_ref="risk.py add_risk_timber_col",
+    js_story_fn="timberStory",
+)
 
 
 # --------------------------------------------------------------------------------------------------
-# 6. Generic Earth Engine walker.  qimg maps each question name -> its ee boolean image; the walk
-#    returns an ee code image whose precedence IS the tree's (later .where wins == the yes-branch).
+# 4. Public API: the historical timber functions, now thin bindings of the generic core to TIMBER_SPEC.
+#    Every name and call signature below is preserved (used across timber_map, the notebook viewer and
+#    the temp_dev_notes/risk_maps scripts).
 # --------------------------------------------------------------------------------------------------
-def eval_tree_ee(qimg, ee_image, tree=TIMBER_ROOT_TREE):
-    """Build the per-pixel pathway-code image.
+def leaf_code(node):
+    """Map code for a timber leaf node (raises KeyError if the tree grew a pathway not in PATHWAY_TO_CODE)."""
+    return PATHWAY_TO_CODE[node["pathway"]]
+
+
+# Private pre-order node iterator, kept as a module-level name for back-compat (walks an annotated tree).
+_iter_nodes = _dt.iter_nodes
+
+
+def annotate():
+    """Return the timber tree annotated with a stable ``id`` on every node and ``code`` on every leaf."""
+    return _dt.annotate(TIMBER_SPEC)
+
+
+def code_names():
+    """code -> its pathway label (the map legend). Only codes actually reached by the timber tree."""
+    return _dt.code_names(TIMBER_SPEC)
+
+
+def class_codes():
+    """Risk class -> sorted list of its codes: {'low': [...], 'more': [...], 'high': [...]}."""
+    return _dt.class_codes(TIMBER_SPEC)
+
+
+def pathway_label_to_code():
+    """The drawn-polygon colouring map: risk_timber_pathway label -> map code (a copy of PATHWAY_TO_CODE)."""
+    return _dt.pathway_label_to_code(TIMBER_SPEC)
+
+
+def node_ids():
+    """Return (decision_ids, terminal_ids) for the timber tree, pre-order (for the viewer click-binding)."""
+    return _dt.node_ids(TIMBER_SPEC)
+
+
+def node_to_layer():
+    """Mermaid node id -> drill-down map layer key(s) (per-question default + per-branch overrides)."""
+    return _dt.node_to_layer(TIMBER_SPEC)
+
+
+def to_mermaid():
+    """Emit the ``flowchart TB`` Mermaid source for the timber tree (nodes, edges, styling)."""
+    return _dt.to_mermaid(TIMBER_SPEC)
+
+
+def eval_tree_ee(qimg, ee_image):
+    """Build the per-pixel timber pathway-code image.
 
     ``qimg``: dict question-name -> ee boolean image (1 where the question is 'yes').
     ``ee_image``: the ``ee.Image`` constructor (passed in so this module need not import ee).
     """
-
-    def walk(node):
-        if "q" not in node:
-            return ee_image(leaf_code(node))
-        cond = qimg[node["q"]]
-        return walk(node["no"]).where(cond, walk(node["yes"]))
-
-    return walk(tree)
-
-
-# --------------------------------------------------------------------------------------------------
-# 7. JS emitter: the annotated tree as a JS literal + a generic walk that mirrors _eval_timber_tree.
-# --------------------------------------------------------------------------------------------------
-def _js_qyes_body():
-    lines = []
-    for q, cols in Q_TO_COLUMNS.items():
-        expr = " || ".join("y('%s')" % c for c in cols)
-        lines.append("      case '%s': return %s;" % (q, expr))
-    return "\n".join(lines)
+    return _dt.eval_tree_ee(qimg, ee_image, TIMBER_SPEC)
 
 
 def js_module_source():
-    """Return the JS block: TIMBER_TREE (annotated JSON), qYes(p,q), and timberStory(p).
+    """Return the JS block: TIMBER_TREE (annotated JSON), qYes(p, q), and timberStory(p).
 
-    ``timberStory`` walks TIMBER_TREE exactly like risk.py's _eval_timber_tree, recording each
-    question it passes and the leg that fired, so the viewer popup is faithful by construction.
+    ``timberStory`` walks TIMBER_TREE exactly like risk.py's _eval_timber_tree, recording each question
+    it passes and the leg that fired, so the viewer popup is faithful by construction.
     """
-    import json as _json
-
-    tree_json = _json.dumps(annotate(), separators=(",", ":"))
-    return (
-        "// AUTO-GENERATED from openforis_whisp.timber_tree_export (do not hand-edit; regenerate).\n"
-        "const TIMBER_TREE = %s;\n"
-        "// Answer one question the SAME way risk.py add_risk_timber_col does (yes_locals).\n"
-        "function qYes(p, q) {\n"
-        "  const y = (k) => (p && p[k]) === 'yes';\n"
-        "  switch (q) {\n"
-        "%s\n"
-        "    default: return false;\n"
-        "  }\n"
-        "}\n"
-        "// Walk TIMBER_TREE; return {steps, result, pathway, code}. steps = each question passed\n"
-        "// (with its yes/no answer) then the fired leaf.\n"
-        "function timberStory(p) {\n"
-        "  p = p || {};\n"
-        "  const steps = [];\n"
-        "  let node = TIMBER_TREE;\n"
-        "  while (node && node.q) {\n"
-        "    const ans = qYes(p, node.q);\n"
-        "    steps.push({ q: node.label, ans: ans, fired: false });\n"
-        "    node = ans ? node.yes : node.no;\n"
-        "  }\n"
-        "  if (steps.length) { steps[steps.length - 1].fired = true; steps[steps.length - 1].leg = node.pathway; }\n"
-        "  return { steps: steps, result: node.risk, pathway: node.pathway, code: node.code };\n"
-        "}\n"
-    ) % (tree_json, _js_qyes_body())
+    return _dt.js_module_source(TIMBER_SPEC)
 
 
-# --------------------------------------------------------------------------------------------------
-# 8. Self-check: the code table must cover exactly the tree's leaves (catches drift on import/test).
-# --------------------------------------------------------------------------------------------------
 def selfcheck():
-    """Assert PATHWAY_TO_CODE is a bijection over the tree's leaf pathways; return the leaf/code summary."""
-    leaf_pathways = [n["pathway"] for n in _iter_nodes(annotate()) if "q" not in n]
-    # every leaf has a code
-    missing = [p for p in leaf_pathways if p not in PATHWAY_TO_CODE]
-    assert not missing, "leaves with no code: %s" % missing
-    # no duplicate leaf pathways, no duplicate codes among reached leaves
-    assert len(leaf_pathways) == len(set(leaf_pathways)), "duplicate leaf pathway strings"
-    reached_codes = [PATHWAY_TO_CODE[p] for p in leaf_pathways]
-    assert len(reached_codes) == len(set(reached_codes)), "two leaves share a code"
-    # PATHWAY_TO_CODE has no extra label the tree never reaches
-    extra = set(PATHWAY_TO_CODE) - set(leaf_pathways)
-    assert not extra, "PATHWAY_TO_CODE has labels not in the tree: %s" % sorted(extra)
-    # every reached code has a colour
-    no_colour = [c for c in reached_codes if c not in CODE_COLOUR]
-    assert not no_colour, "codes with no colour: %s" % no_colour
-    return {"n_leaves": len(leaf_pathways), "codes": sorted(reached_codes)}
+    """Assert PATHWAY_TO_CODE is a bijection over the timber tree's leaf pathways; return the summary."""
+    return _dt.selfcheck(TIMBER_SPEC)
