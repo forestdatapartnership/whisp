@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import List, Any, Union
 from geojson import Feature, FeatureCollection, Polygon, Point
 import json
+import logging
 import os
 import geopandas as gpd
 import ee
@@ -145,6 +146,207 @@ def normalize_geojson_to_gdf(
         gdf[id_column] = range(1, len(gdf) + 1)
 
     return gdf
+
+
+def _strip_z(coord: list) -> list:
+    """Drop any Z (and higher) ordinate, keeping [lon, lat]."""
+    return coord[:2]
+
+
+def _split_geometry_into_features(
+    node: Any,
+    out: List[dict],
+    properties: dict,
+    counters: dict,
+    add_part_index: bool,
+) -> None:
+    """
+    Recursively extract single-part features from any GeoJSON node.
+
+    Mirrors the historic whisp-app ``extractFeatures``: MultiPolygon / MultiPoint are
+    split into single parts, GeometryCollection is decomposed, Feature and
+    FeatureCollection are unwrapped, and Z coordinates are stripped. Properties
+    (including external_id) propagate to every emitted feature.
+    """
+    if not isinstance(node, dict):
+        return
+    t = node.get("type")
+
+    if t == "Polygon":
+        out.append(
+            {
+                "type": "Feature",
+                "properties": {**properties},
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [_strip_z(c) for c in ring]
+                        for ring in (node.get("coordinates") or [])
+                    ],
+                },
+            }
+        )
+    elif t == "Point":
+        out.append(
+            {
+                "type": "Feature",
+                "properties": {**properties},
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": _strip_z(node.get("coordinates") or []),
+                },
+            }
+        )
+    elif t == "MultiPoint":
+        counters["multipart"] += 1
+        for idx, pt in enumerate(node.get("coordinates") or [], start=1):
+            props = {**properties}
+            if add_part_index:
+                props["part_index"] = idx
+            out.append(
+                {
+                    "type": "Feature",
+                    "properties": props,
+                    "geometry": {"type": "Point", "coordinates": _strip_z(pt or [])},
+                }
+            )
+    elif t == "MultiPolygon":
+        counters["multipart"] += 1
+        for idx, poly in enumerate(node.get("coordinates") or [], start=1):
+            props = {**properties}
+            if add_part_index:
+                props["part_index"] = idx
+            out.append(
+                {
+                    "type": "Feature",
+                    "properties": props,
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [_strip_z(c) for c in ring] for ring in (poly or [])
+                        ],
+                    },
+                }
+            )
+    elif t == "GeometryCollection":
+        counters["geometrycollection"] += 1
+        for sub in node.get("geometries") or []:
+            _split_geometry_into_features(
+                sub, out, properties, counters, add_part_index
+            )
+    elif t == "Feature":
+        _split_geometry_into_features(
+            node.get("geometry") or {},
+            out,
+            node.get("properties") or {},
+            counters,
+            add_part_index,
+        )
+    elif t == "FeatureCollection":
+        for feat in node.get("features") or []:
+            _split_geometry_into_features(feat, out, {}, counters, add_part_index)
+    # Other geometry types (LineString, MultiLineString) are not Whisp plot types and
+    # are dropped, matching the historic whisp-app behavior.
+
+
+def split_multipart_geojson(
+    geojson_data: Union[str, Path, dict],
+    logger: logging.Logger = None,
+    add_part_index: bool = False,
+) -> dict:
+    """
+    Split multipart geometries into single-part features, in pure Python.
+
+    A self-contained reproduction of the historic whisp-app ``extractFeatures``
+    normalisation, done as a plain dict transform (no geopandas or shapely, roughly
+    30x faster than building a GeoDataFrame and calling ``explode()``):
+
+    - MultiPolygon        -> one Polygon feature per part
+    - MultiPoint          -> one Point feature per part
+    - GeometryCollection  -> decomposed into its constituent geometries
+    - Feature / FeatureCollection -> unwrapped
+    - Z (and higher) coordinates are stripped, keeping [lon, lat]
+    - other geometry types (LineString, MultiLineString) are dropped, as they are not
+      Whisp plot types (matching the historic behavior)
+
+    Every emitted feature inherits all of its parent's properties, so a feature
+    carrying an ``external_id`` becomes N features that all share that same
+    ``external_id``. This matches the documented Whisp contract that "any multipolygons
+    in the input will be split into individual parts, which may result in duplicate
+    attribute values in the output" - the parts are attribute-identical by design.
+
+    Intended to run BEFORE analyze_geojson / check_geojson_limits and before the stats
+    pathway, so everything downstream sees only single-part geometries. After this
+    step ``analyze_geojson(fc)["count"]`` equals the number of individual polygons
+    (i.e. the whisp-app ``count_individual_polygons`` value), so a separate polygon
+    count is no longer needed.
+
+    Note on the geometry audit trail: this runs before the stats call, so with
+    ``geometry_audit_trail=True`` the ``geo_original`` column holds each split single
+    part in 2D, not the original MultiPolygon and not its Z values (both are dropped
+    here). Always feed the split geojson into the stats call so ``geo_original`` lines
+    up with the results. To trace a part back to the geometry the user submitted, use
+    ``external_id``: all parts of one input share it.
+
+    Parameters
+    ----------
+    geojson_data : str | Path | dict
+        A GeoJSON FeatureCollection / Feature / geometry dict, or a path to a GeoJSON file.
+    logger : logging.Logger, optional
+        Logger for the user-facing feedback. Defaults to the shared 'whisp' logger.
+    add_part_index : bool
+        If True, add a 1-based 'part_index' property to each split part for
+        traceability. Defaults to False to keep parts attribute-identical (matching
+        the historic whisp-app behavior, which adds no such column).
+
+    Returns
+    -------
+    dict
+        A GeoJSON FeatureCollection containing only single-part geometries.
+    """
+    logger = logger or logging.getLogger("whisp")
+
+    # Load from file if a path was given
+    if isinstance(geojson_data, (str, Path)):
+        with open(geojson_data, "r", encoding="utf-8") as f:
+            geojson_data = json.load(f)
+
+    if (
+        isinstance(geojson_data, dict)
+        and geojson_data.get("type") == "FeatureCollection"
+    ):
+        n_in = len(geojson_data.get("features") or [])
+    else:
+        n_in = 1
+
+    out_features: List[dict] = []
+    counters = {"multipart": 0, "geometrycollection": 0}
+    _split_geometry_into_features(
+        geojson_data, out_features, {}, counters, add_part_index
+    )
+
+    n_out = len(out_features)
+    n_multipart = counters["multipart"]
+    n_gc = counters["geometrycollection"]
+
+    # User-facing feedback
+    if n_multipart or n_gc:
+        parts = []
+        if n_multipart:
+            parts.append(
+                f"{n_multipart:,} multipart geometr"
+                f"{'y' if n_multipart == 1 else 'ies'} split into single parts"
+            )
+        if n_gc:
+            parts.append(f"{n_gc:,} GeometryCollection decomposed")
+        logger.info(
+            f"{n_in:,} feature(s) received; {'; '.join(parts)}; "
+            f"processing {n_out:,} single-part feature(s). external_id preserved on every part."
+        )
+    else:
+        logger.debug(f"{n_in:,} feature(s); no multipart geometries to split")
+
+    return {"type": "FeatureCollection", "features": out_features}
 
 
 def _create_ee_feature_collection(
