@@ -281,6 +281,13 @@ def split_multipart_geojson(
     (i.e. the whisp-app ``count_individual_polygons`` value), so a separate polygon
     count is no longer needed.
 
+    Note on the geometry audit trail: this runs before the stats call, so with
+    ``geometry_audit_trail=True`` the ``geo_original`` column holds each split single
+    part in 2D, not the original MultiPolygon and not its Z values (both are dropped
+    here). Always feed the split geojson into the stats call so ``geo_original`` lines
+    up with the results. To trace a part back to the geometry the user submitted, use
+    ``external_id``: all parts of one input share it.
+
     Parameters
     ----------
     geojson_data : str | Path | dict
