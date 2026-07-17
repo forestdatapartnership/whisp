@@ -88,16 +88,13 @@ def analyze_geojson(
         - Path: pathlib.Path to GeoJSON file
     metrics : list
         Which metrics to return. Available metrics:
-        - 'count': number of features (split multipart geometries beforehand so this
-          equals the number of single-part rows to be processed)
+        - 'count': number of polygons
         - 'geometry_types': dict of geometry type counts (e.g., {'Polygon': 95, 'MultiPolygon': 5})
         - 'crs': coordinate reference system (e.g., 'EPSG:4326') - only available when geojson_data is a file path
         - 'file_size_mb': file size in megabytes (only available when geojson_data is a file path)
-        - 'min_area_ha', 'mean_area_ha', 'median_area_ha', 'max_area_ha': per-feature area
-          statistics (hectares; a MultiPolygon counts once, summed; accurate only at equator)
+        - 'min_area_ha', 'mean_area_ha', 'median_area_ha', 'max_area_ha': area statistics (hectares) (accurate only at equator)
         - 'area_percentiles': dict with p25, p50 (median), p75, p90 area values (accurate only at equator)
-        - 'min_vertices', 'mean_vertices', 'median_vertices', 'max_vertices': per-feature
-          vertex-count statistics (a MultiPolygon counts once, summed over its parts)
+        - 'min_vertices', 'mean_vertices', 'median_vertices', 'max_vertices': vertex count statistics
         - 'vertex_percentiles': dict with p25, p50 (median), p75, p90 vertex count values
 
         Default includes all metrics for comprehensive analysis.
@@ -109,23 +106,20 @@ def analyze_geojson(
     Returns:
     --------
     dict with requested metrics:
-        - 'count': number of features
+        - 'count': number of polygons
         - 'geometrycollection_warning': present only if GeometryCollection features are found
         - 'geometry_types': {'Polygon': int, 'MultiPolygon': int, ...}
         - 'crs': coordinate reference system string (e.g., 'EPSG:4326', only when geojson_data is a file path)
         - 'file_size_mb': file size in megabytes (float, only when geojson_data is a file path)
-        (area/vertex stats below are per-feature: a MultiPolygon counts once, summed
-         over its parts. Split multipart geometries beforehand if you want per-part
-         stats and a 'count' equal to the number of rows to be processed.)
-        - 'min_area_ha': minimum per-feature area in hectares
-        - 'mean_area_ha': mean per-feature area in hectares
-        - 'median_area_ha': median per-feature area in hectares
-        - 'max_area_ha': maximum per-feature area in hectares
+        - 'min_area_ha': minimum area among all polygons in hectares
+        - 'mean_area_ha': mean area per polygon in hectares (calculated from coordinates)
+        - 'median_area_ha': median area among all polygons in hectares
+        - 'max_area_ha': maximum area among all polygons in hectares
         - 'area_percentiles': {'p25': float, 'p50': float, 'p75': float, 'p90': float}
-        - 'min_vertices': minimum per-feature vertex count
-        - 'mean_vertices': mean per-feature vertex count
-        - 'median_vertices': median per-feature vertex count
-        - 'max_vertices': maximum per-feature vertex count
+        - 'min_vertices': minimum number of vertices among all polygons
+        - 'mean_vertices': mean number of vertices per polygon
+        - 'median_vertices': median number of vertices among all polygons
+        - 'max_vertices': maximum number of vertices among all polygons
         - 'vertex_percentiles': {'p25': int, 'p50': int, 'p75': int, 'p90': int}
     """
     # Handle None metrics (use all default metrics)
