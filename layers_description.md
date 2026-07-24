@@ -194,7 +194,7 @@ The sources listed in the table above are analyzed and disaggregated into ~200 d
 Overall, the output CSV from running Whisp zonal statistics processing for a geometry therefore holds:
 - 124 values from disaggregated layers;
 - 26 values from aggregate or stand-alone layers crucial to the risk analysis;
-- 29 (optional) national layers described in the whisp_columns.xlsx in the whisp_outputs_national tab.
+- 29 (optional) national layers, described in the [result fields reference](https://whisp.openforis.org/docs/reference/result-fields).
 - the yes & no answers to the risk categories in the [decision tree](https://github.com/user-attachments/assets/007b5f50-3939-4707-95fa-98be4d56745f) and the final risk category ("low", "high", or "more info needed") for the perennial crops, annual crops, timber and livestock;
 - some additional metadata and geographic information, e.g. ID, geometry type, hectares, country, etc...
 

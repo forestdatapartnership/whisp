@@ -80,7 +80,7 @@ And specifically for the timber commodity, considering a harvesting date in 2024
   11) Is it part of a logging concession?
 
   The Whisp algorithm outputs multiple statistical columns with disaggregated data from the input datasets, followed by aggregated indicator columns, and the final risk assessment columns.
-    All output columns from Whisp are described in [this excel file](https://github.com/forestdatapartnership/whisp/blob/main/whisp_columns.xlsx)
+    All output columns from Whisp are described in the [result fields reference](https://whisp.openforis.org/docs/reference/result-fields).
 
 The **relevant risk assessment column depends on the commodity** in question:
 
