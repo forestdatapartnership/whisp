@@ -237,3 +237,9 @@ nBR_INPE_TCcer_pasture_2020,2190,BR,commodities,NA,1,1,1,0,float32,1,0,nbr_terra
 nBR_MapBiomas_col9_pasture_2020,2200,BR,commodities,NA,1,1,1,0,float32,1,0,nbr_mapbiomasc9_pasture_prep
 nCI_Cocoa_bnetd,2210,CI,commodities,NA,1,1,1,0,float32,1,0,nci_ocs2020_prep
 nCM_Treecover_2020,2220,CM,treecover,NA,1,1,0,0,float32,1,0,ncm_treecover_2020_prep
+ForTy_forest_2020,65,,treecover,NA,0,0,0,0,float32,1,0,g_forty_forest_2020_prep
+ForTy_tree_crops_2020,145,,commodities,NA,0,0,0,0,float32,1,0,g_forty_tree_crops_2020_prep
+ForTy_primary_2020,1825,,NA,primary,0,0,0,0,float32,1,0,g_forty_primary_2020_prep
+ForTy_nat_reg_2020,1835,,NA,naturally_reg_2020,0,0,0,0,float32,1,0,g_forty_nat_reg_2020_prep
+ForTy_planted_2020,1852,,NA,planted_plantation_2020,0,0,0,0,float32,1,0,g_forty_planted_2020_prep
+ForTy_plantation_2020,1854,,NA,planted_plantation_2020,0,0,0,0,float32,1,0,g_forty_plantation_2020_prep

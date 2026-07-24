@@ -181,6 +181,74 @@ def g_jrc_tmf_plantation_prep():
     return plantation_2020.rename("TMF_plant").selfMask()
 
 
+# ForTy (Google Nature Trace + IIASA) forest typology 2020.
+# See https://eartharxiv.org/repository/view/13130. The product stores five class score bands (0-250),
+# band index 0=Primary, 1=NaturallyRegenerating, 2=Planted, 3=Plantation, 4=TreeCrops/Agroforestry,
+# with a residual "other" = 250 - sum. PlantedForest is the weakest class (F1 58.2%), so the
+# planted-vs-plantation split is real but uncertain.
+#
+# Each pixel is assigned its single highest-scoring class via argmax over the five score bands plus the
+# residual "other" (= 250 - sum), giving a mutually-exclusive, exhaustive 1=Primary..5=TreeCrops, 6=Other
+# label (ties resolve to the lowest index, matching the ForTy authors' >= expression). This is the
+# product's intended single-label form. It supersedes the earlier per-band >= 125 threshold: measured
+# over five regions (S Brazil, Amazon, Borneo, Iberia, Congo) the two agreed to 93-100% per class (IoU)
+# and the threshold was already >= 99.9% mutually exclusive, so argmax changes each forest class by only
+# a few percent (mostly the weak Plantation/Planted classes) while guaranteeing the single-label form.
+# See temp_dev_notes/forty_classes_assessment.md.
+#
+# These are PRESENT-BUT-UNUSED output bands: their lookup rows tick no risk pathway
+# (use_for_risk_pcrop/acrop/timber all 0), so they surface ForTy information in the
+# output without affecting any Ind_/risk_ column.
+
+
+def _forty_2020_mean():
+    return ee.ImageCollection(
+        "projects/nature-trace/assets/forest_typology/forest_typology_2020_v1_0_collection"
+    ).mean()
+
+
+def _forty_2020_class():
+    # Argmax over the five class scores plus the residual "other" (= 250 - sum). Returns 1=Primary,
+    # 2=NaturallyRegenerating, 3=Planted, 4=Plantation, 5=TreeCrops/Agroforestry, 6=Other. arrayArgmax
+    # returns the first maximum, so ties resolve to the lowest index (Primary wins), as in the authors'
+    # >= ternary.
+    scores = _forty_2020_mean().select([0, 1, 2, 3, 4])
+    other = scores.reduce(ee.Reducer.sum()).multiply(-1).add(250)
+    return scores.addBands(other).toArray().arrayArgmax().arrayGet([0]).add(1)
+
+
+def _forty_class_present(idx):
+    # idx 0=Primary, 1=NaturallyRegenerating, 2=Planted, 3=Plantation, 4=TreeCrops/Agroforestry;
+    # argmax class label = idx + 1.
+    return _forty_2020_class().eq(idx + 1).selfMask()
+
+
+def g_forty_primary_2020_prep():
+    return _forty_class_present(0).rename("ForTy_primary_2020")
+
+
+def g_forty_nat_reg_2020_prep():
+    return _forty_class_present(1).rename("ForTy_nat_reg_2020")
+
+
+def g_forty_planted_2020_prep():
+    return _forty_class_present(2).rename("ForTy_planted_2020")
+
+
+def g_forty_plantation_2020_prep():
+    return _forty_class_present(3).rename("ForTy_plantation_2020")
+
+
+def g_forty_tree_crops_2020_prep():
+    return _forty_class_present(4).rename("ForTy_tree_crops_2020")
+
+
+def g_forty_forest_2020_prep():
+    # Forest presence = argmax class is one of the four forest classes (1=Primary, 2=NaturallyRegenerating,
+    # 3=Planted, 4=Plantation), i.e. a forest class outscores TreeCrops and "other" at the pixel.
+    return _forty_2020_class().lte(4).selfMask().rename("ForTy_forest_2020")
+
+
 # # Oil_palm_Descals
 # NB updated to Descals et al 2024 paper (as opposed to Descals et al 2021 paper)
 def g_creaf_descals_palm_prep():
