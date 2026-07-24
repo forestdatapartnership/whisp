@@ -175,7 +175,7 @@ Further standard column names are defined in [src/openforis_whisp/parameters/loo
 
 - For documentation (ensures users and downstream systems are aware of new columns):
   - [layers_description.md](layers_description.md) (dataset and column descriptions)
-  - whisp_columns.xlsx (output column documentation for external systems)
+  - [result fields reference](https://whisp.openforis.org/docs/reference/result-fields) (output column documentation for external systems)
 In future, updating these may be automated to reduce manual updates to multiple similar files.
 
 ### Legacy vs. Modern Functions
@@ -199,7 +199,7 @@ Always use modern functions for new code. Legacy function works correctly but la
 ## Documentation References
 - [Full dataset list](layers_description.md): Detailed provenance for all 50+ datasets
 - [Example notebooks](notebooks/): End-to-end workflows for different use cases
-- [Output columns](whisp_columns.xlsx): Describes all statistics and risk assessment columns (external file)
+- [Output columns](https://whisp.openforis.org/docs/reference/result-fields): Describes all statistics and risk assessment columns
 - [API documentation](https://whisp.openforis.org/documentation/api-guide): For Whisp App integration
 
 ## Performance Considerations
