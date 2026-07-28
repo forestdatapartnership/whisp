@@ -553,64 +553,84 @@ TIMBER_ROOT_TREE = {
         "yes": {
             "q": "other_land_2025",
             "yes": _timber_leaf("low", "low: other land 2020 (stable)"),
-            "no": _timber_leaf("more_info_needed", "more-info: other land 2020 changed"),
+            "no": _timber_leaf(
+                "more_info_needed", "more-info: other land 2020 changed"
+            ),
         },
         "no": {
             "q": "agriculture_2020",
             "yes": _timber_leaf("low", "low: agriculture 2020"),
-            "no": _timber_leaf("more_info_needed", "more-info: non-forest 2020, unclassified"),
+            "no": _timber_leaf(
+                "more_info_needed", "more-info: non-forest 2020, unclassified"
+            ),
         },
     },
     "yes": {  # forest half: was forest in 2020
         "q": "agriculture_2025",
         "yes": _timber_leaf("high", "high: deforestation"),
         "no": {
-            "q": "plantation_2020",
-            "yes": {  # existing plantation: no degradation HIGH here
-                "q": "plantation_presence_2025",
-                "yes": _timber_leaf("low", "low: stable plantation"),
+            "q": "primary_2020",  # PRIMARY checked FIRST among the forest classes (before regen AND
+            # plantation): a genuine primary plot that a broad plantation_2020 layer ALSO flags is no longer
+            # stolen into the stable-plantation branch and masked, so its degradation HIGH can still fire
+            # (caveat 28 fix; plantation_2020 is now checked LAST, below).
+            "yes": {
+                "q": "plantation_2025",  # Ind_08b gain = degradation, checked FIRST
+                "yes": _timber_leaf("high", "high: primary->plantation degradation"),
                 "no": {
-                    "q": "other_land_2025",
-                    "yes": _timber_leaf("low", "low: plantation 2020 -> other land"),
-                    "no": _timber_leaf("more_info_needed", "more-info: plantation 2020, no 2025 state"),
+                    "q": "primary_2025",
+                    "yes": _timber_leaf("low", "low: still primary"),
+                    # Ind_09_treecover_after_2020 ("regrowth" leg) DROPPED: it is too broad (ESRI generic
+                    # canopy) and regionally uneven (TMF regrowth is tropics-only), so a primary plot that
+                    # disturbance (Ind_17_disturbance_after_2020_timber) knocked out of "still primary" is
+                    # no longer rescued to LOW by mere canopy. It falls to more-info unless it converted to
+                    # other land. The disturbance flag lives in primary_2025 = Ind_05 AND NOT Ind_17.
+                    "no": {
+                        "q": "other_land_2025",
+                        "yes": _timber_leaf("low", "low: primary 2020 -> other land"),
+                        "no": _timber_leaf(
+                            "more_info_needed", "more-info: primary 2020, no 2025 state"
+                        ),
+                    },
                 },
             },
             "no": {
-                "q": "primary_2020",  # checked BEFORE regen
+                "q": "regen_planted_2020",  # REGEN checked before plantation, same caveat-28 reason
                 "yes": {
                     "q": "plantation_2025",  # Ind_08b gain = degradation, checked FIRST
-                    "yes": _timber_leaf("high", "high: primary->plantation degradation"),
+                    "yes": _timber_leaf("high", "high: regen->plantation degradation"),
                     "no": {
-                        "q": "primary_2025",
-                        "yes": _timber_leaf("low", "low: still primary"),
-                        # Ind_09_treecover_after_2020 ("regrowth" leg) DROPPED: it is too broad (ESRI generic
-                        # canopy) and regionally uneven (TMF regrowth is tropics-only), so a primary plot that
-                        # disturbance (Ind_17_disturbance_after_2020_timber) knocked out of "still primary" is
-                        # no longer rescued to LOW by mere canopy. It falls to more-info unless it converted to
-                        # other land. The disturbance flag lives in primary_2025 = Ind_05 AND NOT Ind_17.
+                        "q": "other_land_2025",
+                        "yes": _timber_leaf("low", "low: regen 2020 -> other land"),
+                        # Ind_09 replaced by the disturbance flag (mirrors primary): no disturbance ->
+                        # stayed-forest LOW; disturbance -> more-info. LOW earned by absence of disturbance,
+                        # not by broad canopy.
                         "no": {
-                            "q": "other_land_2025",
-                            "yes": _timber_leaf("low", "low: primary 2020 -> other land"),
-                            "no": _timber_leaf("more_info_needed", "more-info: primary 2020, no 2025 state"),
+                            "q": "disturbance_2025",
+                            "yes": _timber_leaf(
+                                "more_info_needed",
+                                "more-info: regen 2020, no 2025 state",
+                            ),
+                            "no": _timber_leaf("low", "low: regen stayed forest"),
                         },
                     },
                 },
+                # PLANTATION checked LAST: only a plot that is NOT primary and NOT regen reaches here, so a
+                # plantation_2020 commission over genuine primary/regen forest can no longer pre-empt and mask
+                # the degradation HIGH (caveat 28). A true established plantation still lands here as before.
                 "no": {
-                    "q": "regen_planted_2020",
-                    "yes": {
-                        "q": "plantation_2025",  # Ind_08b gain = degradation, checked FIRST
-                        "yes": _timber_leaf("high", "high: regen->plantation degradation"),
+                    "q": "plantation_2020",
+                    "yes": {  # existing plantation: no degradation HIGH here
+                        "q": "plantation_presence_2025",
+                        "yes": _timber_leaf("low", "low: stable plantation"),
                         "no": {
                             "q": "other_land_2025",
-                            "yes": _timber_leaf("low", "low: regen 2020 -> other land"),
-                            # Ind_09 replaced by the disturbance flag (mirrors primary): no disturbance ->
-                            # stayed-forest LOW; disturbance -> more-info. LOW earned by absence of disturbance,
-                            # not by broad canopy.
-                            "no": {
-                                "q": "disturbance_2025",
-                                "yes": _timber_leaf("more_info_needed", "more-info: regen 2020, no 2025 state"),
-                                "no": _timber_leaf("low", "low: regen stayed forest"),
-                            },
+                            "yes": _timber_leaf(
+                                "low", "low: plantation 2020 -> other land"
+                            ),
+                            "no": _timber_leaf(
+                                "more_info_needed",
+                                "more-info: plantation 2020, no 2025 state",
+                            ),
                         },
                     },
                     # forest by treecover but no primary/regen/plantation class: give it the other-land
@@ -618,7 +638,9 @@ TIMBER_ROOT_TREE = {
                     "no": {
                         "q": "other_land_2025",
                         "yes": _timber_leaf("low", "low: forest 2020 -> other land"),
-                        "no": _timber_leaf("more_info_needed", "more-info: forest 2020, unclassified"),
+                        "no": _timber_leaf(
+                            "more_info_needed", "more-info: forest 2020, unclassified"
+                        ),
                     },
                 },
             },
@@ -731,7 +753,8 @@ def add_risk_timber_col(
             "forest_2020": forest_2020,
             "other_land_2020": row[ind_12_name] == "yes",
             "other_land_2025": row[ind_13_name] == "yes",
-            "agriculture_2020": (row[ind_2_name] == "yes") or (row[ind_15_name] == "yes"),
+            "agriculture_2020": (row[ind_2_name] == "yes")
+            or (row[ind_15_name] == "yes"),
             "agriculture_2025": row[ind_10_name] == "yes",
             "plantation_2020": plantation_2020,
             # Ind_16 PRESENCE (stability) -> stable-plantation LOW, plantation-2020 branch only.

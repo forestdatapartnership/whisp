@@ -241,7 +241,7 @@ GFT_planted_plantation,1840,,NA,planted_2020,0,0,0,0,float32,1,0,g_gft_plantatio
 IIASA_planted_2020,1850,,NA,planted_2020,0,0,1,0,float32,1,0,g_iiasa_planted_2020_prep
 ForTy_planted_2020,1852,,NA,planted_2020,0,0,1,0,float32,1,0,g_forty_planted_2020_prep
 IFL_2020,1810,,NA,primary,0,0,0,0,float32,1,0,g_ifl_2020_prep
-European_Primary_Forest,1820,,NA,primary,0,0,0,0,float32,1,0,g_epfd_prep
+European_Primary_Forest,1820,,NA,primary,0,0,1,0,float32,1,0,g_epfd_prep
 GFT_primary,1800,,NA,primary,0,0,1,0,float32,1,0,g_gft_primary_prep
 ForTy_primary_2020,1856,,NA,primary,0,0,1,0,float32,1,0,g_forty_primary_2020_prep
 IFL_2025,1811,,NA,primary_2025,0,0,0,0,float32,1,0,g_ifl_2025_prep

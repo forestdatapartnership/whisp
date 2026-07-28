@@ -265,6 +265,22 @@ def test_timber_decision_tree_terminals() -> None:
             "low: forest 2020 -> other land",
             **{_IND_1: "yes", _IND_13: "yes"},
         ),
+        _timber_row(
+            # CAVEAT-28 FIX (plantation checked LAST): a genuine primary-2020 plot that a broad plantation
+            # layer ALSO flags (Ind_07b), with a NEW plantation gain (Ind_08b). Under the old plantation-first
+            # order this was masked as "low: stable plantation"; now primary wins the overlap and the
+            # degradation HIGH fires. Locks in the reorder.
+            "primary_and_plantation2020_overlap_degradation",
+            "high",
+            "high: primary->plantation degradation",
+            **{
+                _IND_1: "yes",
+                _IND_5: "yes",
+                _IND_7B: "yes",
+                _IND_16: "yes",
+                _IND_8B: "yes",
+            },
+        ),
     ]
 
     df = pd.DataFrame(cases)
@@ -313,7 +329,9 @@ _CROP_IND_4 = "Ind_04_disturbance_after_2020"
 def _crop_bools(spec, row):
     """Answer each tree question the way the JS / EE walkers do: a question is 'yes' when ANY of its
     q_to_columns indicators reads 'yes' on this plot."""
-    return {q: any(row[c] == "yes" for c in cols) for q, cols in spec.q_to_columns.items()}
+    return {
+        q: any(row[c] == "yes" for c in cols) for q, cols in spec.q_to_columns.items()
+    }
 
 
 def test_pcrop_acrop_decision_tree_terminals() -> None:
