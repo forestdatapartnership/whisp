@@ -18,5 +18,6 @@ whisp.egg-info/
 build/
 pre-commit.log
 credentials.json
+.whisp_api_key
 config_gee.py
 dist/
