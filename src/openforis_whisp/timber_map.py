@@ -156,6 +156,103 @@ def _count(lookup_df, names):
 
 
 # --------------------------------------------------------------------------------------------------
+# 1b. Combine flexibility (the risk-menu "how are the datasets combined" knob).  Generalises the two
+#     existing folds (_union == "any", _count().gte(k) == "k") to a small rule set, and adds the
+#     COVER-aware rules that need each dataset's extent mask kept (not just its 0-filled presence):
+#       any   : at least one source fires                                   (OR; the default)
+#       all   : every COVERING source fires                                 (strict; needs cover)
+#       k     : at least k sources fire                                     (agreement count)
+#       prop  : firing / covering >= prop, over the sources that cover here (fair under uneven extents)
+#     "prop" is the proportion-of-covering-inputs measure from the risk-menu design: a 1-of-1 pixel
+#     scores 1.0, a 2-of-4 pixel 0.5, so thin-coverage areas are not penalised the way a raw count is.
+#     Composite datasets (e.g. EUFO / JRC GFC2020, itself a fusion of TMF + Hansen + ~35 layers) are NOT
+#     independent votes here; weight or drop their ingredients before a k / prop fold to avoid double-counting.
+# --------------------------------------------------------------------------------------------------
+def _band_presence_cover(row):
+    """Return the ``(presence, cover)`` 0/1 ``ee.Image`` pair for a lookup row, or None.
+
+    ``presence`` is 1 where the dataset fires (band ``> 0``), 0 elsewhere (global 0-fill), i.e. exactly
+    what ``_band_image`` returns. ``cover`` is 1 where the dataset HAS DATA at all (its extent mask), 0
+    elsewhere. Keeping ``cover`` rather than 0-filling it away is what makes the ``all`` and ``prop``
+    rules honest across datasets of differing footprint.
+    """
+    fn = getattr(datasets, str(row["corresponding_variable"]), None)
+    if fn is None:
+        return None
+    try:
+        band = ee.Image(fn()).select(0)
+        presence = band.gt(0).unmask(0, False)
+        cover = band.mask().gt(0).unmask(0, False)
+        return presence, cover
+    except Exception:  # noqa: BLE001 - one unbuildable dataset must not abort the fold
+        return None
+
+
+def _presence_cover_images(lookup_df, names):
+    """The ``(presence, cover)`` image pairs for every lookup row whose ``name`` is in ``names``."""
+    rows = lookup_df[lookup_df["name"].isin(list(names))]
+    pairs = []
+    for _, row in rows.iterrows():
+        pc = _band_presence_cover(row)
+        if pc is not None:
+            pairs.append(pc)
+    return pairs
+
+
+def _combine_pairs(pairs, rule="any", k=2, prop=0.5):
+    """Fold ``(presence, cover)`` image pairs into a 0/1 ``ee.Image`` per the combine ``rule``.
+
+    See the combine note above for the rule semantics. Returns ``ee.Image(0)`` if the pool is empty.
+    ``combine_bools`` is the pure-python mirror (same formulas), tested in place of this EE path.
+    """
+    if not pairs:
+        return ee.Image(0)
+    firing = pairs[0][0]
+    covern = pairs[0][1]
+    for pres, cov in pairs[1:]:
+        firing = firing.add(pres)
+        covern = covern.add(cov)
+    if rule == "any":
+        return firing.gt(0)
+    if rule == "all":
+        return covern.gt(0).And(firing.gte(covern))
+    if rule == "k":
+        return firing.gte(int(k))
+    if rule == "prop":
+        return covern.gt(0).And(firing.divide(covern.max(1)).gte(float(prop)))
+    raise ValueError("unknown combine rule: %r (use any / all / k / prop)" % rule)
+
+
+def _combine(lookup_df, names, rule="any", k=2, prop=0.5):
+    """Build the ``(presence, cover)`` pool for ``names`` and fold it with ``_combine_pairs``."""
+    return _combine_pairs(
+        _presence_cover_images(lookup_df, names), rule=rule, k=k, prop=prop
+    )
+
+
+def combine_bools(presence, cover=None, rule="any", k=2, prop=0.5):
+    """Pure-python mirror of ``_combine_pairs`` for ONE plot / pixel (for testing and tabular use).
+
+    ``presence`` / ``cover`` are iterables of 0/1 (a source fires / a source covers here); ``cover``
+    defaults to all-covered. Returns a bool with the SAME rule semantics as the Earth Engine fold, so a
+    table or the interactive demo can reproduce the map's combine outcome exactly.
+    """
+    presence = [1 if p else 0 for p in presence]
+    cover = [1] * len(presence) if cover is None else [1 if c else 0 for c in cover]
+    firing = sum(presence)
+    covern = sum(cover)
+    if rule == "any":
+        return firing > 0
+    if rule == "all":
+        return covern > 0 and firing >= covern
+    if rule == "k":
+        return firing >= int(k)
+    if rule == "prop":
+        return covern > 0 and (firing / covern) >= float(prop)
+    raise ValueError("unknown combine rule: %r (use any / all / k / prop)" % rule)
+
+
+# --------------------------------------------------------------------------------------------------
 # 2. The qimg builder: the 12 tree-question ee.Images, assembled from the SAME get_cols_ind_* getters
 #    add_risk_timber_col uses, so the map's per-indicator pools are chosen identically to the table.
 #    The derived combinations mirror add_risk_timber_col's yes_locals line for line.
@@ -165,6 +262,7 @@ def build_timber_question_images(
     national_codes: list[str] | None = None,
     k: int = 1,
     thresholds: dict | None = None,
+    combine: dict | None = None,
     lookup_df=None,
 ):
     """Build the dict of 12 tree-question ``ee.Image`` layers (the ``qimg``) consumed by the walker.
@@ -242,15 +340,34 @@ def build_timber_question_images(
     plantation_presence_2025 = _union(lut, n_ind16)
     other_land_2025 = _union(lut, n_ind13)  # Ind_13_other_land_after_2020
     other_land_2020 = _union(lut, n_ind12)  # Ind_12_other_land_2020
-    disturbance_2025 = _union(lut, n_ind17)  # Ind_17_disturbance_after_2020_timber
+    combine = combine or {}
 
-    # Primary-2020 and agriculture-after-2020 as per-source vote COUNTS, so k thresholds them.
-    primary_count = _count(lut, n_ind05)  # Ind_05_primary_2020
-    ag_after_count = _count(lut, n_ind10)  # Ind_10_agri_after_2020
+    def _folded(names, key, default):
+        """Per-indicator fold: apply the ``combine[key]`` rule if supplied, else the ``default`` callable.
 
-    # k = 1 -> any single source (OR-union); k = 2 -> agreement (at least two sources).
-    primary_2020 = primary_count.gte(k)
-    agriculture_2025 = ag_after_count.gte(k)
+        ``combine`` maps an indicator id (e.g. ``"Ind_05"``, ``"Ind_10"``, ``"Ind_17"``) to a rule spec
+        ``{"rule": "any"|"all"|"k"|"prop", "k": int, "prop": float}``. With ``combine`` empty this is a
+        no-op and the historical behaviour is preserved exactly.
+        """
+        spec = combine.get(key)
+        if not spec:
+            return default()
+        return _combine(
+            lut,
+            names,
+            rule=spec.get("rule", "any"),
+            k=int(spec.get("k", 2)),
+            prop=float(spec.get("prop", 0.5)),
+        )
+
+    # Ind_17_disturbance_after_2020_timber (default OR-union; combine["Ind_17"] can require agreement).
+    disturbance_2025 = _folded(n_ind17, "Ind_17", lambda: _union(lut, n_ind17))
+
+    # Primary-2020 and agriculture-after-2020 default to the per-source vote COUNT thresholded at k
+    # (k = 1 -> any single source; k = 2 -> agreement), or the combine[...] rule when supplied. These two
+    # multi-source nodes are where agreement / proportion matters most (see the combine note above).
+    primary_2020 = _folded(n_ind05, "Ind_05", lambda: _count(lut, n_ind05).gte(k))
+    agriculture_2025 = _folded(n_ind10, "Ind_10", lambda: _count(lut, n_ind10).gte(k))
 
     # --- the 12 tree questions, mirroring add_risk_timber_col's yes_locals in ee.Image form ----------
     qimg = {
@@ -284,6 +401,7 @@ def build_timber_pathway_image(
     national_codes: list[str] | None = None,
     k: int = 1,
     thresholds: dict | None = None,
+    combine: dict | None = None,
     lookup_df=None,
     clip: bool = True,
 ):
@@ -303,6 +421,7 @@ def build_timber_pathway_image(
         national_codes=national_codes,
         k=k,
         thresholds=thresholds,
+        combine=combine,
         lookup_df=lookup_df,
     )
     pathway_image = tx.eval_tree_ee(qimg, ee.Image)
@@ -391,6 +510,7 @@ def build_timber_combined_map(
     national_codes: list[str] | None = None,
     k: int = 1,
     thresholds: dict | None = None,
+    combine: dict | None = None,
     lookup_df=None,
     clip: bool = True,
 ):
@@ -411,6 +531,7 @@ def build_timber_combined_map(
         national_codes=national_codes,
         k=k,
         thresholds=thresholds,
+        combine=combine,
         lookup_df=lookup_df,
         clip=clip,
     )
