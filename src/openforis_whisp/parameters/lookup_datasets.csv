@@ -121,6 +121,7 @@ GLAD-L_year_2020,1060,,disturbance_before,NA,0,0,0,0,float32,1,0,g_glad_l_year_p
 GLAD-L_year_2021,1070,,disturbance_after,NA,0,0,0,0,float32,1,0,g_glad_l_year_prep
 GLAD-L_year_2022,1080,,disturbance_after,NA,0,0,0,0,float32,1,0,g_glad_l_year_prep
 GLAD-L_year_2023,1090,,disturbance_after,NA,0,0,0,0,float32,1,0,g_glad_l_year_prep
+GLAD-L_year_2024,1095,,disturbance_after,NA,0,0,0,0,float32,1,0,g_glad_l_year_prep
 GLAD-L_year_2025,1100,,disturbance_after,NA,0,0,0,0,float32,1,0,g_glad_l_year_prep
 GLAD-L_year_2026,1110,,disturbance_after,NA,0,0,0,0,float32,1,0,g_glad_l_year_prep
 GLAD-S2_year_2019,1120,,disturbance_before,NA,0,0,0,0,float32,1,0,g_glad_s2_year_prep
