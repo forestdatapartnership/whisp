@@ -270,5 +270,5 @@ nBR_INPE_TC_primary_forest_Amazon_2020,1960,BR,treecover,primary,1,1,0,0,float32
 TMF_undist,30,,treecover,primary,1,1,1,0,float32,1,0,g_jrc_tmf_undisturbed_prep
 nBR_BFS_primary_forest_Pantanal_2020,1980,BR,treecover,primary,1,1,1,0,float32,1,0,nbr_bfs_ptn_f20_prep
 nBR_BFS_primary_forest_Caatinga_2020,1990,BR,treecover,primary,1,1,1,0,float32,1,0,nbr_bfs_caat_f20_prep
-nBR_BFS_primary_forest_AtlanticForest_2020,2000,BR,treecover,primary,1,1,0,0,float32,1,0,nbr_bfs_atlf_f20_prep
+nBR_BFS_primary_forest_AtlanticForest_2020,2000,BR,treecover,primary,1,1,1,0,float32,1,0,nbr_bfs_atlf_f20_prep
 nBR_BFS_primary_forest_Pampa_2020,2010,BR,treecover,primary,1,1,1,0,float32,1,0,nbr_bfs_pmp_f20_prep
