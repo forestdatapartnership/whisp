@@ -1018,194 +1018,91 @@ def g_radd_before_2020_prep():
 #   2021: projects/glad/alert/2021final (conf21)
 #   2022: projects/glad/alert/2022final (conf22)
 #   2023: projects/glad/alert/2023final (conf23)
-#   2024: NOT AVAILABLE
-#   2025+: projects/glad/alert/UpdResult (conf25, conf26, etc.)
+#   2024: projects/glad/alert/2023final (conf24 - GLAD put 2024 in the 2023final asset; no 2024final)
+#   2025+: projects/glad/alert/UpdResult (conf25, conf26, ...; newest year via CURRENT_YEAR_2DIGIT)
 # More info: https://glad.umd.edu/dataset/glad-forest-alerts
 
 
-# GLAD-L_after_2020 (combined alerts from 2021 to current year, excluding 2024)
+# GLAD-L confidence bands live in per-year "YYYYfinal" assets for 2017-2024 (2024 sits in the
+# 2023final asset - GLAD did not publish a 2024final) and in the rolling "UpdResult" collection for
+# 2025 onward. UpdResult is continuously reprocessed and its tiles do NOT all carry the same year
+# bands (e.g. mid-2026 the two South America tiles 07_28_SA / 07_29_SA dropped conf25), so a plain
+# .mosaic() over the raw multi-band collection raises "Expected a homogeneous image collection".
+# _glad_l_conf mosaics a SINGLE confidence band tolerantly: tiles missing it contribute a masked
+# placeholder, so the collection is homogeneous and mosaic never throws, and a not-yet-published
+# future year simply contributes nothing. Fully server-side (ee.Algorithms.If) - no getInfo().
+def _glad_l_asset_for_year(yy):
+    if 17 <= yy <= 23:
+        return f"projects/glad/alert/20{yy:02d}final"
+    if yy == 24:
+        return "projects/glad/alert/2023final"  # GLAD placed 2024 (conf24) in the 2023final asset
+    return "projects/glad/alert/UpdResult"  # 2025 onward (and any future year)
+
+
+def _glad_l_conf(collection_id, yy):
+    band = f"conf{yy:02d}"
+    coll = ee.ImageCollection(collection_id)
+
+    def _pick(img):
+        img = ee.Image(img)
+        return ee.Image(
+            ee.Algorithms.If(
+                img.bandNames().contains(band),
+                img.select(band),
+                ee.Image(0)
+                .rename(band)
+                .selfMask(),  # masked placeholder -> homogeneous collection
+            )
+        )
+
+    return ee.ImageCollection(coll.map(_pick)).mosaic()
+
+
+def _glad_l_alert(yy):
+    """Binary confirmed-alert (confidence >= 2) presence for GLAD-L year 20YY."""
+    return _glad_l_conf(_glad_l_asset_for_year(yy), yy).gte(2)
+
+
+# GLAD-L_after_2020 (combined confirmed alerts from 2021 to the current year, incl. 2024)
 def g_glad_l_after_2020_prep():
     """
-    GLAD Landsat alerts after 2020 (combined from 2021 onwards).
-    Uses confidence bands with threshold >= 2 for confirmed alerts.
-    Note: 2024 data is not available.
+    GLAD Landsat confirmed alerts (confidence >= 2) combined from 2021 to the current year.
+    Years are driven off CURRENT_YEAR_2DIGIT so new years are picked up automatically, and the
+    tolerant per-band mosaic (see _glad_l_conf) keeps it working as GLAD reprocesses UpdResult tiles.
     """
-    # Load yearly assets and combine into single multiband image
-    glad_combined = (
-        ee.ImageCollection("projects/glad/alert/2021final")
-        .mosaic()
-        .select("conf21")
-        .addBands(
-            ee.ImageCollection("projects/glad/alert/2022final")
-            .mosaic()
-            .select("conf22")
-        )
-        .addBands(
-            ee.ImageCollection("projects/glad/alert/2023final")
-            .mosaic()
-            .select("conf23")
-        )
-        .addBands(
-            ee.ImageCollection("projects/glad/alert/UpdResult")
-            .mosaic()
-            .select(["conf25", "conf26"])
-        )
-    )
-
-    # Combine alerts from all available years (confidence >= 2)
-    # 2024 not available
-    combined_alerts = (
-        glad_combined.select("conf21")
-        .gte(2)
-        .Or(glad_combined.select("conf22").gte(2))
-        .Or(glad_combined.select("conf23").gte(2))
-        .Or(glad_combined.select("conf25").gte(2))
-        .Or(glad_combined.select("conf26").gte(2))
-    )
-
-    return combined_alerts.rename("GLAD-L_after_2020").selfMask()
+    combined = None
+    for yy in range(21, CURRENT_YEAR_2DIGIT + 1):  # 2021..current (includes 2024)
+        alert = _glad_l_alert(yy)
+        combined = alert if combined is None else combined.Or(alert)
+    return combined.rename("GLAD-L_after_2020").selfMask()
 
 
-# GLAD-L_before_2020 (combined alerts from 2017 to 2020)
+# GLAD-L_before_2020 (combined confirmed alerts from 2017 to 2020)
 def g_glad_l_before_2020_prep():
     """
-    GLAD Landsat alerts before 2020 (combined from 2017-2020 inclusive).
-    Uses confidence bands with threshold >= 2 for confirmed alerts.
-    Note: 2015 and 2016 assets are not available in GEE.
-    Coverage: Tropics (30°N to 30°S).
+    GLAD Landsat confirmed alerts (confidence >= 2) combined from 2017-2020 inclusive.
+    Note: 2015 and 2016 assets are not available in GEE. Coverage: tropics (30N to 30S).
+    Uses the tolerant per-band mosaic (see _glad_l_conf).
     """
-    # Load yearly assets and combine
-    glad_combined = (
-        ee.ImageCollection("projects/glad/alert/2017final")
-        .mosaic()
-        .select("conf17")
-        .addBands(
-            ee.ImageCollection("projects/glad/alert/2018final")
-            .mosaic()
-            .select("conf18")
-        )
-        .addBands(
-            ee.ImageCollection("projects/glad/alert/2019final")
-            .mosaic()
-            .select("conf19")
-        )
-        .addBands(
-            ee.ImageCollection("projects/glad/alert/2020final")
-            .mosaic()
-            .select("conf20")
-        )
-    )
-
-    # Combine alerts from all available years (confidence >= 2)
-    combined_alerts = (
-        glad_combined.select("conf17")
-        .gte(2)
-        .Or(glad_combined.select("conf18").gte(2))
-        .Or(glad_combined.select("conf19").gte(2))
-        .Or(glad_combined.select("conf20").gte(2))
-    )
-
-    return combined_alerts.rename("GLAD-L_before_2020").selfMask()
+    combined = None
+    for yy in range(17, 21):  # 2017..2020
+        alert = _glad_l_alert(yy)
+        combined = alert if combined is None else combined.Or(alert)
+    return combined.rename("GLAD-L_before_2020").selfMask()
 
 
-# GLAD-L timeseries - multiband image with one band per year
+# GLAD-L timeseries - one confirmed-alert band per year (2017 -> current year)
 def g_glad_l_year_prep():
     """
-    GLAD Landsat alerts per year as multiband image.
-    Each band is binary (1 = alert with confidence >= 2).
-    Coverage: Entire tropics (30°N to 30°S) from January 1, 2018 to present,
-              and from 2017 to present for select countries in the Amazon,
-              Congo Basin, and insular Southeast Asia.
-    Note: 2015 and 2016 assets are not available in GEE.
-    Note: 2024 data is not available.
-    Includes years from 2017 onwards.
+    GLAD Landsat confirmed alerts (confidence >= 2) as one binary band per year, 2017 to the current
+    year. 2024 is included (GLAD placed conf24 in the 2023final asset). Coverage: tropics (30N-30S);
+    2015/2016 assets do not exist in GEE. Each band uses the tolerant per-band mosaic (see _glad_l_conf).
+    Note: emitting a brand-new year also needs a matching GLAD-L_year_YYYY row in lookup_datasets.csv.
     """
-    # Build multiband image with all available years
-    # Years 2017-2023 use YYYYfinal assets, 2025+ use UpdResult
-    # Note: 2015final and 2016final assets do not exist in GEE
-    img_stack = (
-        # 2017
-        ee.ImageCollection("projects/glad/alert/2017final")
-        .mosaic()
-        .select("conf17")
-        .gte(2)
-        .rename("GLAD-L_year_2017")
-        .selfMask()
-        # 2018
-        .addBands(
-            ee.ImageCollection("projects/glad/alert/2018final")
-            .mosaic()
-            .select("conf18")
-            .gte(2)
-            .rename("GLAD-L_year_2018")
-            .selfMask()
-        )
-        # 2019
-        .addBands(
-            ee.ImageCollection("projects/glad/alert/2019final")
-            .mosaic()
-            .select("conf19")
-            .gte(2)
-            .rename("GLAD-L_year_2019")
-            .selfMask()
-        )
-        # 2020
-        .addBands(
-            ee.ImageCollection("projects/glad/alert/2020final")
-            .mosaic()
-            .select("conf20")
-            .gte(2)
-            .rename("GLAD-L_year_2020")
-            .selfMask()
-        )
-        # 2021
-        .addBands(
-            ee.ImageCollection("projects/glad/alert/2021final")
-            .mosaic()
-            .select("conf21")
-            .gte(2)
-            .rename("GLAD-L_year_2021")
-            .selfMask()
-        )
-        # 2022
-        .addBands(
-            ee.ImageCollection("projects/glad/alert/2022final")
-            .mosaic()
-            .select("conf22")
-            .gte(2)
-            .rename("GLAD-L_year_2022")
-            .selfMask()
-        )
-        # 2023
-        .addBands(
-            ee.ImageCollection("projects/glad/alert/2023final")
-            .mosaic()
-            .select("conf23")
-            .gte(2)
-            .rename("GLAD-L_year_2023")
-            .selfMask()
-        )
-        # 2024 NOT AVAILABLE
-        # 2025
-        .addBands(
-            ee.ImageCollection("projects/glad/alert/UpdResult")
-            .mosaic()
-            .select("conf25")
-            .gte(2)
-            .rename("GLAD-L_year_2025")
-            .selfMask()
-        )
-        # 2026
-        .addBands(
-            ee.ImageCollection("projects/glad/alert/UpdResult")
-            .mosaic()
-            .select("conf26")
-            .gte(2)
-            .rename("GLAD-L_year_2026")
-            .selfMask()
-        )
-    )
-
+    img_stack = None
+    for yy in range(17, CURRENT_YEAR_2DIGIT + 1):  # 2017..current (includes 2024)
+        band = _glad_l_alert(yy).rename(f"GLAD-L_year_20{yy:02d}").selfMask()
+        img_stack = band if img_stack is None else img_stack.addBands(band)
     return img_stack
 
 
