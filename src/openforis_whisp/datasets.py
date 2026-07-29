@@ -1540,17 +1540,21 @@ def nbr_bfs_cer_f20_prep():
 # %%
 # [non-official dataset by MapBiomas multisector initiative]
 # land use/cover from 1985 up to 2024, collection 10
-# Subsetting criteria: classification_2020 = Forest formation (DN=3), Savanna Formation (DN=4, forest according to BR definition), Mangrove (DN=5), Floodable Forest (DN=6), Wooded Sandbank veg (DN=49)
+# Subsetting criteria: classification_2020 = Forest formation (DN=3), Mangrove (DN=5), Floodable Forest (DN=6), Wooded Sandbank veg (DN=49)
 # the resulting dataset shows forest cover in 2020, without distinguishing between primary and secondary forests
 # Migrated C9 -> C10: same class codes (confirmed stable in the Collection 10 legend), same
-# classification_2020 band (the C10-revised 2020 baseline), so semantics are unchanged.
+# classification_2020 band (the C10-revised 2020 baseline).
+# Savanna Formation (DN=4) EXCLUDED 2026-07-28: it is cerrado savanna (arboreal-shrub physiognomy, ~3-6 m,
+# open canopy), counted as forest only under the Brazilian definition, not the FAO / EUDR Art 2(4) test
+# (0.5 ha, 5 m height, 10% canopy). Folding it into the forest gate over-broadened "forest in 2020" over the
+# Cerrado and could false-HIGH savanna-to-agriculture as deforestation (caveats_discussion.md caveat 30 / W2).
+# Genuine dense Cerrado forest is still gated via DN=3 plus the BFS Cerrado polygons and the global members.
 def nbr_mapbiomasc10_f20_prep():
     mapbiomasc10_20 = ee.Image(
         "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
     ).select("classification_2020")
     mapbiomasc10_20_forest = (
         mapbiomasc10_20.eq(3)
-        .Or(mapbiomasc10_20.eq(4))
         .Or(mapbiomasc10_20.eq(5))
         .Or(mapbiomasc10_20.eq(6))
         .Or(mapbiomasc10_20.eq(49))
@@ -1561,18 +1565,19 @@ def nbr_mapbiomasc10_f20_prep():
 
 
 # [non-official dataset by MapBiomas multisector initiative]
-# 2024 sibling of nbr_mapbiomasc10_f20_prep: same forest class codes {3,4,5,6,49}, latest year band.
-# Subsetting criteria: classification_2024 = Forest formation (DN=3), Savanna Formation (DN=4, forest
-# according to BR definition), Mangrove (DN=5), Floodable Forest (DN=6), Wooded Sandbank veg (DN=49)
+# 2024 sibling of nbr_mapbiomasc10_f20_prep: same forest class codes, latest year band.
+# Subsetting criteria: classification_2024 = Forest formation (DN=3), Mangrove (DN=5),
+# Floodable Forest (DN=6), Wooded Sandbank veg (DN=49)
 # the resulting dataset shows forest cover in 2024 (matched 2020-vs-2024 change source).
 # 2024 is the latest MapBiomas Collection 10 year; no MapBiomas product reaches 2025.
+# Savanna Formation (DN=4) EXCLUDED 2026-07-28 to match the 2020 baseline (nbr_mapbiomasc10_f20_prep):
+# cerrado savanna is not FAO / EUDR forest; keeping it out of both endpoints keeps the change source consistent.
 def nbr_mapbiomasc10_f24_prep():
     mapbiomasc10_24 = ee.Image(
         "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
     ).select("classification_2024")
     mapbiomasc10_24_forest = (
         mapbiomasc10_24.eq(3)
-        .Or(mapbiomasc10_24.eq(4))
         .Or(mapbiomasc10_24.eq(5))
         .Or(mapbiomasc10_24.eq(6))
         .Or(mapbiomasc10_24.eq(49))
@@ -1818,7 +1823,9 @@ def g_global_mining_after_2020_prep():
 # [non-official dataset by MapBiomas multisector initiative]
 # PRIMARY PROXY 2024 (Brazil-only), PRESENT-but-unused output band (not wired into any risk getter).
 # Recipe: native forest in the latest year (2024) AND NOT mapped as secondary vegetation in 2024.
-#  - native forest = MapBiomas C10 LULC integration classification_2024 in {3,4,5,6,49}
+#  - native forest = MapBiomas C10 LULC integration classification_2024 in {3,5,6,49}
+#    (Savanna Formation DN=4 EXCLUDED 2026-07-28, matching the forest-gate change: cerrado savanna is not
+#    FAO / EUDR forest, and it was ~76% of this proxy in a Cerrado test box; see nbr_mapbiomasc10_f20_prep)
 #  - secondary vegetation = MapBiomas C10 deforestation/secondary-vegetation product
 #    classification_2024 == 3 (code 3 = secondary vegetation; code 2 = primary/native vegetation,
 #    verified in EE by cross-tabbing against the C9 secondary-vegetation-age product and the C10 LULC).
@@ -1826,17 +1833,16 @@ def g_global_mining_after_2020_prep():
 # 1985 baseline" proxy, NOT a true primary class. It cannot see pre-1985 disturbance. It is an
 # independent latest-year observation (not anchored to the 2020 primary layer), which is what a
 # "matured to primary" path would need. It was wired into Ind_14 (primary_2025) but is now DISABLED
-# (use_for_risk_timber=0) because it over-counts in savanna biomes: in a Cerrado test box ~76% of the
-# proxy was Savanna Formation (class 4), not forest. To re-enable, tick use_for_risk_timber, ideally
-# after restricting forest_24 to true-forest classes {3, 5, 6} (dropping 4 savanna and 49 wooded
-# sandbank). The preferred real-primary replacement (TerraClass 2024 upload) is tracked in #233.
+# (use_for_risk_timber=0). It formerly over-counted savanna (in a Cerrado test box ~76% of the proxy was
+# Savanna Formation, class 4); class 4 is now excluded (above), which addresses most of that. It stays off
+# pending a true-primary replacement (TerraClass 2024 upload, tracked in #233); if re-enabled as a STRICT
+# primary, consider also dropping DN=49 wooded sandbank to reach true-forest {3, 5, 6}.
 def nbr_mapbiomasc10_primary_proxy24_prep():
     mapbiomasc10_24 = ee.Image(
         "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
     ).select("classification_2024")
     forest_24 = (
         mapbiomasc10_24.eq(3)
-        .Or(mapbiomasc10_24.eq(4))
         .Or(mapbiomasc10_24.eq(5))
         .Or(mapbiomasc10_24.eq(6))
         .Or(mapbiomasc10_24.eq(49))
