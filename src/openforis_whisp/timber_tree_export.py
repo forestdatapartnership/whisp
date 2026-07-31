@@ -61,9 +61,24 @@ RETIRED_CODES = {15}
 # Per-code display colour (hex, no '#'). Preserves the historical palette for codes 1-18; 15 keeps its
 # old grey (now the primary->regrowth leg) and 19 is a new more-info purple-grey.
 CODE_COLOUR = {
-    1: "c7e9c0", 2: "238b45", 3: "41ab5d", 4: "addd8e", 5: "bcbddc", 6: "e31a1c",
-    7: "e7298a", 8: "9e9ac8", 9: "6a51a3", 10: "807dba", 11: "66c2a4", 12: "67000d",
-    13: "54278f", 14: "238b8b", 15: "8c8c9e", 16: "80cdc1", 17: "35978f", 18: "01665e",
+    1: "c7e9c0",
+    2: "238b45",
+    3: "41ab5d",
+    4: "addd8e",
+    5: "bcbddc",
+    6: "e31a1c",
+    7: "e7298a",
+    8: "9e9ac8",
+    9: "6a51a3",
+    10: "807dba",
+    11: "66c2a4",
+    12: "67000d",
+    13: "54278f",
+    14: "238b8b",
+    15: "8c8c9e",
+    16: "80cdc1",
+    17: "35978f",
+    18: "01665e",
     19: "b3b3d1",
 }
 
@@ -72,54 +87,83 @@ CODE_COLOUR = {
 #    These are the only hand-maintained semantics; they change only when a NEW question is introduced.
 # --------------------------------------------------------------------------------------------------
 Q_LABEL = {
-    "forest_2020": 'Forest in 2020?<br/><small>(treecover / primary / regen / planted)</small>',
-    "other_land_2020": 'Other land use in 2020?<br/><small>(built / water / mining / bare)</small>',
-    "other_land_2025": 'Became / still other land?<br/><small>(2025)</small>',
-    "agriculture_2020": 'Agriculture or commodity in 2020?',
-    "agriculture_2025": 'Agriculture after 2020?<br/><small>(deforestation)</small>',
-    "plantation_2020": 'Plantation in 2020?',
-    "plantation_presence_2025": 'Still a plantation in 2025?<br/><small>(presence)</small>',
-    "primary_2020": 'Primary forest in 2020?',
-    "plantation_2025": 'New plantation after 2020?<br/><small>(degradation)</small>',
-    "primary_2025": 'Still primary in 2025?',
-    "regen_planted_2020": 'Regenerating / planted forest in 2020?',
-    "disturbance_2025": 'Disturbance after 2020?<br/><small>(logging / loss / degradation)</small>',
+    "forest_2020": "Forest in 2020?<br/><small>(treecover / primary / regen / planted)</small>",
+    "other_land_2020": "Other land use in 2020?<br/><small>(built / water / mining / bare)</small>",
+    "other_land_2025": "Became / still other land?<br/><small>(2025)</small>",
+    "agriculture_2020": "Agriculture or commodity in 2020?",
+    "agriculture_2025": "Agriculture after 2020?<br/><small>(deforestation)</small>",
+    "plantation_2020": "Plantation in 2020?",
+    "plantation_presence_2025": "Still a plantation in 2025?<br/><small>(presence)</small>",
+    "primary_2020": "Primary forest in 2020?",
+    "plantation_2025": "New plantation after 2020?<br/><small>(degradation)</small>",
+    "primary_2025": "Still primary in 2025?",
+    "regen_planted_2020": "Regenerating / planted forest in 2020?",
+    "disturbance_2025": "Disturbance after 2020?<br/><small>(logging / loss / degradation)</small>",
 }
 Q_KIND = {
     "forest_2020": "forest",
-    "other_land_2020": "landuse", "other_land_2025": "landuse",
-    "agriculture_2020": "landuse", "agriculture_2025": "landuse",
-    "plantation_2020": "forest", "plantation_presence_2025": "forest",
-    "primary_2020": "forest", "plantation_2025": "forest", "primary_2025": "forest",
+    "other_land_2020": "landuse",
+    "other_land_2025": "landuse",
+    "agriculture_2020": "landuse",
+    "agriculture_2025": "landuse",
+    "plantation_2020": "forest",
+    "plantation_presence_2025": "forest",
+    "primary_2020": "forest",
+    "plantation_2025": "forest",
+    "primary_2025": "forest",
     "regen_planted_2020": "forest",
     "disturbance_2025": "forest",
 }
 
 # Short, stable id stems per question (for Mermaid node ids + the drill-down mapping).
 _ABBREV = {
-    "forest_2020": "FOREST2020", "other_land_2020": "OL2020", "other_land_2025": "OL2025",
-    "agriculture_2020": "AG2020", "agriculture_2025": "AG2025", "plantation_2020": "PL2020",
-    "plantation_presence_2025": "PLpres2025", "primary_2020": "PR2020", "plantation_2025": "PL2025",
-    "primary_2025": "PRstill2025", "regen_planted_2020": "RP2020",
+    "forest_2020": "FOREST2020",
+    "other_land_2020": "OL2020",
+    "other_land_2025": "OL2025",
+    "agriculture_2020": "AG2020",
+    "agriculture_2025": "AG2025",
+    "plantation_2020": "PL2020",
+    "plantation_presence_2025": "PLpres2025",
+    "primary_2020": "PR2020",
+    "plantation_2025": "PL2025",
+    "primary_2025": "PRstill2025",
+    "regen_planted_2020": "RP2020",
     "disturbance_2025": "DIST2025",
 }
 # Questions that appear more than once get a branch suffix so each occurrence is a distinct node.
 _REPEATED = {"other_land_2025", "plantation_2025"}
 # Descending into the .yes of one of these sets the branch tag for everything below it.
-_BRANCH_ON = {"other_land_2020": "nf", "plantation_2020": "pl", "primary_2020": "pr",
-              "regen_planted_2020": "rp"}
+_BRANCH_ON = {
+    "other_land_2020": "nf",
+    "plantation_2020": "pl",
+    "primary_2020": "pr",
+    "regen_planted_2020": "rp",
+}
 # The forest-half "unclassified" branch carries no forest-class tag, so a repeated question reached there
 # falls back to this tag ("fh" = forest half).
 _DEFAULT_BRANCH_TAG = "fh"
 
 # The per-question map layer for the tree's drill-down (click a node -> show its data layer).
 _Q_TO_LAYER = {
+    "forest_2020": "agree_forest",  # the root gate: treecover OR primary OR regen OR planted
     "other_land_2020": "agree_other_land",
-    "agriculture_2020": ["agree_ag_whole", "agree_cropland", "agree_treecrop", "agree_pasture"],
+    # default for the forest-half branches (gain, not presence); the non-forest branch overrides it below
+    "other_land_2025": "gain_other_land_gain",
+    "agriculture_2020": [
+        "agree_ag_whole",
+        "agree_cropland",
+        "agree_treecrop",
+        "agree_pasture",
+    ],
     "plantation_2020": "agree_plantation",
     "regen_planted_2020": "agree_regen",
     "primary_2020": "agree_primary",
-    "agriculture_2025": ["gain_ag_whole_gain", "gain_cropland_gain", "gain_treecrop_gain", "gain_pasture_gain"],
+    "agriculture_2025": [
+        "gain_ag_whole_gain",
+        "gain_cropland_gain",
+        "gain_treecrop_gain",
+        "gain_pasture_gain",
+    ],
     "plantation_presence_2025": "gain_plantation_presence",
     "plantation_2025": "gain_plantation_gain",
     "primary_2025": "gain_still_primary_2025",
@@ -130,13 +174,18 @@ _NODE_LAYER_OVERRIDE = {
     "OL2025_pl": "gain_other_land_gain",
     "OL2025_pr": "gain_other_land_gain",
     "OL2025_rp": "gain_other_land_gain",
-    "DIST2025": "gain_regen_stayed_2025",          # regen stayed forest (absence of disturbance)
+    "DIST2025": "gain_regen_stayed_2025",  # regen stayed forest (absence of disturbance)
 }
 
 # The per-question -> Whisp result column(s) mapping, mirroring risk.py add_risk_timber_col's yes_locals.
 # Used only to generate the JS walk (so the viewer popup answers each question the same way risk.py does).
 Q_TO_COLUMNS = {
-    "forest_2020": ["Ind_01_treecover", "Ind_05_primary_2020", "Ind_06_nat_reg_forest_2020", "Ind_07a_planted_2020"],
+    "forest_2020": [
+        "Ind_01_treecover",
+        "Ind_05_primary_2020",
+        "Ind_06_nat_reg_forest_2020",
+        "Ind_07a_planted_2020",
+    ],
     "other_land_2020": ["Ind_12_other_land_2020"],
     "other_land_2025": ["Ind_13_other_land_after_2020"],
     "agriculture_2020": ["Ind_02_commodities", "Ind_15_agriculture_2020"],
