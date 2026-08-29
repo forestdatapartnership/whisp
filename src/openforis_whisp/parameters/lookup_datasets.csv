@@ -244,3 +244,4 @@ ForTy_primary_2020,1825,,NA,primary,0,0,0,0,float32,1,0,g_forty_primary_2020_pre
 ForTy_nat_reg_2020,1835,,NA,naturally_reg_2020,0,0,0,0,float32,1,0,g_forty_nat_reg_2020_prep
 ForTy_planted_2020,1852,,NA,planted_plantation_2020,0,0,0,0,float32,1,0,g_forty_planted_2020_prep
 ForTy_plantation_2020,1854,,NA,planted_plantation_2020,0,0,0,0,float32,1,0,g_forty_plantation_2020_prep
+SBTN_natural_2020,67,,NA,NA,0,0,0,0,float32,1,0,g_sbtn_natural_2020_prep

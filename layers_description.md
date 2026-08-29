@@ -32,6 +32,10 @@ To view the layers in action, go to [https://whisp.earthmap.org/](https://whisp.
 <tr><td rowspan="3">Forest_FDaP</td><td rowspan="3">Forest persistence for 2020 based on combining multiple forest/ tree cover datasets. Threshold set for Whisp based on the intersection of recall and precision in charts for accuracy.</td><td rowspan="2">FDaP (2025). Forest Data Partnership https://developers.google.com/earth-engine/datasets/publisher/forestdatapartnership</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/community_forests/ForestPersistence_2020")</td></tr>
+    <tr><td colspan="3"><b>Natural lands:</b></td></tr>
+    <tr><td rowspan="3">SBTN_natural_2020</td><td rowspan="3">Binary "natural" band, where 1 is natural land (natural forests, mangroves, short vegetation, water, bare and snow, including their wet and peat variants) and 0 is non-natural. Emitted as an output column only; it feeds no Whisp indicator or risk column.</td><td rowspan="2">Mazur, E., Sims, M., Goldman, E., Schneider, M., Pirri, M. D., Beatty, C. R., Stolle, F., & Stevenson, M. (2025). <i>SBTN Natural Lands Map v1.1: Technical Documentation.</i> Science Based Targets Network. https://sciencebasedtargetsnetwork.org/wp-content/uploads/2025/02/Technical-Guidance-2025-Step3-Land-v1_1-Natural-Lands-Map.pdf</td></tr>
+    <tr></tr>
+    <tr><td>ee.Image("WRI/SBTN/naturalLands/v1_1/2020")</td></tr>
     <tr><td colspan="3"><b>Commodity datasets:</b></td></tr>
     <tr><td rowspan="3">TMF_plant</td><td rowspan="3">Classes representing any type of plantation from transition map (classes 81-85). Deforestation data after 2020 removed so remaining areas represent plantations at end of 2020.</td><td rowspan="2">Vancutsem, C., Achard, F., Pekel, J.-F., Vieilledent, G., Carboni, S., Simonetti, D., Gallego, J., Aragão, L. E. O. C., & Nasi, R. (2021). <i>Long-term (1990–2019) monitoring of forest cover changes in the humid tropics.</i> Science Advances, 7(10). https://doi.org/10.1126/sciadv.abe1603</td></tr>
     <tr></tr>

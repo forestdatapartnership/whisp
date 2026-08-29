@@ -249,6 +249,17 @@ def g_forty_forest_2020_prep():
     return _forty_2020_class().lte(4).selfMask().rename("ForTy_forest_2020")
 
 
+# SBTN_natural_2020
+def g_sbtn_natural_2020_prep():
+    return (
+        ee.Image("WRI/SBTN/naturalLands/v1_1/2020")
+        .select("natural")
+        .eq(1)
+        .rename("SBTN_natural_2020")
+        .selfMask()
+    )
+
+
 # # Oil_palm_Descals
 # NB updated to Descals et al 2024 paper (as opposed to Descals et al 2021 paper)
 def g_creaf_descals_palm_prep():
