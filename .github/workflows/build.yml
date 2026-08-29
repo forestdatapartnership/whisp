@@ -1,0 +1,46 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tooling
+        run: pip install poetry twine
+
+      - name: Build wheel and sdist
+        run: poetry build
+
+      - name: Check package metadata
+        run: twine check dist/*
+
+      - name: Verify lookup table ships in the wheel
+        # lookup_datasets.csv is data, not code: if it stops being packaged the
+        # library still imports and then produces no dataset columns at runtime.
+        run: |
+          unzip -l dist/*.whl | grep -q "openforis_whisp/parameters/lookup_datasets.csv" \
+            || { echo "lookup_datasets.csv missing from wheel"; exit 1; }
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/

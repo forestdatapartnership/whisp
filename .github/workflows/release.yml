@@ -1,0 +1,114 @@
+name: Create Release
+
+# Releases the version currently in pyproject.toml, then bumps it for the next
+# cycle (so main always sits one version ahead of the latest release).
+on:
+  workflow_dispatch:
+    inputs:
+      next-version:
+        description: "Version set on main AFTER the release: a bump rule (prerelease, patch, minor, major) or an explicit version (e.g. 3.1.0b1)"
+        required: false
+        default: "prerelease"
+        type: string
+      whats-new:
+        description: "Optional notes placed above the auto-generated changelog"
+        required: false
+        type: string
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tooling
+        run: pip install poetry twine
+
+      - name: Resolve version
+        id: vars
+        run: |
+          VER=$(poetry version -s)
+          echo "version=$VER" >> $GITHUB_OUTPUT
+          echo "tag=v$VER" >> $GITHUB_OUTPUT
+
+      - name: Fail if the tag already exists
+        run: |
+          git fetch --tags
+          if git rev-parse "refs/tags/${{ steps.vars.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Tag ${{ steps.vars.outputs.tag }} already exists - bump pyproject.toml first" >&2
+            exit 1
+          fi
+
+      - name: Validate next-version
+        # Checked up front so a typo fails before anything reaches PyPI; the bump
+        # itself only runs at the end, once the release has succeeded.
+        env:
+          NEXT: ${{ github.event.inputs.next-version || 'prerelease' }}
+        run: poetry version --dry-run "$NEXT"
+
+      - name: Build wheel and sdist
+        run: poetry build
+
+      - name: Publish to PyPI
+        # PYPI_API_TOKEN is a PyPI API token (repo secret) scoped to openforis-whisp.
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: poetry publish --username __token__ --password "$PYPI_TOKEN"
+
+      - name: Tag the release
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.vars.outputs.tag }}" -m "Release ${{ steps.vars.outputs.tag }}"
+          git push origin "${{ steps.vars.outputs.tag }}"
+
+      - name: Compose release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WHATS_NEW: ${{ github.event.inputs.whats-new }}
+          TAG: ${{ steps.vars.outputs.tag }}
+          VERSION: ${{ steps.vars.outputs.version }}
+        run: |
+          if [ -n "$WHATS_NEW" ]; then
+            printf '%s\n\n' "$WHATS_NEW" > RELEASE_NOTES.md
+          else
+            : > RELEASE_NOTES.md
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+            -f tag_name="$TAG" --jq .body >> RELEASE_NOTES.md
+          printf '\n**PyPi Release**: [openforis-whisp](https://pypi.org/project/openforis-whisp/%s/)\n' \
+            "$VERSION" >> RELEASE_NOTES.md
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.vars.outputs.tag }}" \
+            --title "${{ steps.vars.outputs.tag }}" \
+            --notes-file RELEASE_NOTES.md
+
+      - name: Bump version for the next cycle
+        env:
+          NEXT: ${{ github.event.inputs.next-version || 'prerelease' }}
+        run: |
+          rm -f RELEASE_NOTES.md
+          poetry version "$NEXT"
+          NEW=$(poetry version -s)
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml
+          git commit -m "Bump version to $NEW [skip ci]"
+          git push origin HEAD:main
