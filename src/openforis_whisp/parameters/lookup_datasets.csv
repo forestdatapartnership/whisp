@@ -24,8 +24,8 @@ Coffee_FDaP,100,,commodities,NA,0,0,0,0,float32,1,0,g_fdap_coffee_2020_prep
 Cocoa_FDaP,110,,commodities,NA,0,0,0,0,float32,1,0,g_fdap_cocoa_prep
 Cocoa_ETH,120,,commodities,NA,1,1,1,0,float32,1,0,g_eth_kalischek_cocoa_prep
 Rubber_FDaP,130,,commodities,NA,0,0,0,0,float32,1,0,g_fdap_rubber_prep
-Rubber_RBGE,140,,commodities,NA,1,1,1,0,float32,1,0,g_rbge_rubber_prep
-Rubber_RBGE_2020,145,,commodities,NA,0,0,0,0,float32,1,0,g_rbge_rubber_2020_prep
+Rubber_RBGE,140,,commodities,NA,0,0,0,0,float32,1,0,g_rbge_rubber_prep
+Rubber_RBGE_2020,145,,commodities,NA,1,1,1,0,float32,1,0,g_rbge_rubber_2020_prep
 Soy_Song_2020,150,,commodities,NA,1,1,1,0,float32,1,0,g_soy_song_2020_prep
 TMF_def_2000,160,,disturbance_before,NA,0,0,0,0,float32,1,0,g_tmf_def_per_year_prep
 TMF_def_2001,170,,disturbance_before,NA,0,0,0,0,float32,1,0,g_tmf_def_per_year_prep

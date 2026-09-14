@@ -400,7 +400,9 @@ def g_fdap_coffee_2024_prep():
     return coffee_2024.rename("Coffee_FDaP_2024").selfMask()
 
 
-# Rubber_RBGE  - from Royal Botanical Gardens of Edinburgh (RBGE) NB for 2021
+# Rubber_RBGE  - from Royal Botanical Gardens of Edinburgh (RBGE) NB for 2021. Superseded in risk by
+# g_rbge_rubber_2020_prep below (use_for_risk_* = 0 in the LUT); kept as an output column for reference
+# and for comparison against the newer map.
 def g_rbge_rubber_prep():
     return (
         ee.Image(
@@ -412,10 +414,13 @@ def g_rbge_rubber_prep():
 
 
 # Rubber_RBGE_2020 - RBGE's newer 10m SEA rubber map (Ahrends et al. 2026), which supersedes the
-# Wang et al. 2023 map in g_rbge_rubber_prep. Trained on substantially more data and partly built to
-# address limitations found in the earlier map. Nominal year is 2020, which lines up with the cutoff
-# better than the older map's 2021/22. Output-only for now (use_for_risk_* = 0 in the LUT) so it can
-# be compared against Rubber_RBGE on real plots before any swap moves risk outcomes.
+# Wang et al. 2023 map in g_rbge_rubber_prep and replaces it in risk (use_for_risk_* = 1 here, 0 there).
+# Trained on substantially more data and partly built to address limitations found in the earlier map.
+# Nominal year is 2020, which lines up with the cutoff better than the older map's 2021/22.
+# NB the two maps disagree markedly in the islands (IoU 0.01-0.25 in Sumatra, Kalimantan, peninsular
+# Malaysia) while agreeing in mainland SEA (IoU 0.62-0.82). Because the commodities theme EXONERATES
+# (commodity present in 2020 -> low risk), the swap mostly changes outcomes where the new map sees less
+# rubber than the old, i.e. Indonesia, where affected plots lose the 2020-commodity exoneration.
 # The asset carries two bands, "rubber" (0/1) and "no_data" (0/1); selfMask on the rubber band means
 # no_data pixels drop out as not-rubber, same as any other zero.
 def g_rbge_rubber_2020_prep():
