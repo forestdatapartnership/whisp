@@ -400,22 +400,9 @@ def g_fdap_coffee_2024_prep():
     return coffee_2024.rename("Coffee_FDaP_2024").selfMask()
 
 
-# Rubber_RBGE  - from Royal Botanical Gardens of Edinburgh (RBGE) NB for 2021. Superseded in risk by
-# g_rbge_rubber_2020_prep below (use_for_risk_* = 0 in the LUT); kept as an output column for reference
-# and for comparison against the newer map.
-def g_rbge_rubber_prep():
-    return (
-        ee.Image(
-            "users/wangyxtina/MapRubberPaper/rRubber10m202122_perc1585DifESAdist5pxPF"
-        )
-        .rename("Rubber_RBGE")
-        .selfMask()
-    )
-
-
-# Rubber_RBGE_2020 - RBGE's newer 10m SEA rubber map (Ahrends et al. 2026), which supersedes the
-# Wang et al. 2023 map in g_rbge_rubber_prep and replaces it in risk (use_for_risk_* = 1 here, 0 there).
-# Trained on substantially more data and partly built to address limitations found in the earlier map.
+# Rubber_RBGE_2020 - RBGE's 10m SEA rubber map (Ahrends et al. 2026). Replaces the Wang et al. 2023 map
+# that Whisp carried as Rubber_RBGE, which the providers have marked superseded in the asset's own
+# description. Trained on substantially more data and partly built to address limitations found in it.
 # Reference year is 2020. The imagery behind it is 2021 for mainland SEA (the 2020 dry season was wet
 # under a developing La Nina) and 2019 for equatorial Indonesia, and the authors designate the product
 # as "broadly representative of plantation distribution in 2020" on the grounds of long rubber
