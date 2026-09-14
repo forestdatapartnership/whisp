@@ -400,13 +400,20 @@ def g_fdap_coffee_2024_prep():
     return coffee_2024.rename("Coffee_FDaP_2024").selfMask()
 
 
-# Rubber_RBGE  - from Royal Botanical Gardens of Edinburgh (RBGE) NB for 2021
-def g_rbge_rubber_prep():
+# Rubber_RBGE_2020 - RBGE's 10m SEA rubber map (Ahrends et al. 2026), replacing the Wang et al. 2023
+# map Whisp carried as Rubber_RBGE, which its providers have marked superseded.
+# Called _2020 even though the imagery is 2021 for mainland SEA and 2019 for Indonesia: the authors
+# designate it as representing 2020, which works here because the map targets mature rubber, and rubber
+# takes about 7 years to reach tapping, so nothing planted after the cutoff can appear in it.
+# It under-maps rubber in Indonesia and Malaysia (cloud cover, weak phenological signal). Worth knowing,
+# because a commodity present in 2020 makes a plot low risk, so rubber this map misses costs plots that
+# low outcome rather than flagging them.
+# Two bands, "rubber" and "no_data"; selecting rubber then selfMask drops no_data as not-rubber.
+def g_rbge_rubber_2020_prep():
     return (
-        ee.Image(
-            "users/wangyxtina/MapRubberPaper/rRubber10m202122_perc1585DifESAdist5pxPF"
-        )
-        .rename("Rubber_RBGE")
+        ee.Image("projects/rubber-499107/assets/rubber_SEA_2020")
+        .select("rubber")
+        .rename("Rubber_RBGE_2020")
         .selfMask()
     )
 
