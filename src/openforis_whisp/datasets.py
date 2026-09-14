@@ -416,11 +416,18 @@ def g_rbge_rubber_prep():
 # Rubber_RBGE_2020 - RBGE's newer 10m SEA rubber map (Ahrends et al. 2026), which supersedes the
 # Wang et al. 2023 map in g_rbge_rubber_prep and replaces it in risk (use_for_risk_* = 1 here, 0 there).
 # Trained on substantially more data and partly built to address limitations found in the earlier map.
-# Nominal year is 2020, which lines up with the cutoff better than the older map's 2021/22.
+# Reference year is 2020, but NB the imagery is not: the preprint uses 2021 imagery for mainland SEA
+# (2020 dry season was wet under a developing La Nina) and 2019 for equatorial Indonesia, arguing that
+# long rubber rotations make it "broadly representative of plantation distribution in 2020". So the
+# gain over the older map (Wang et al. 2021 imagery) is the better training data, not a cleaner 2020
+# snapshot.
 # NB the two maps disagree markedly in the islands (IoU 0.01-0.25 in Sumatra, Kalimantan, peninsular
-# Malaysia) while agreeing in mainland SEA (IoU 0.62-0.82). Because the commodities theme EXONERATES
-# (commodity present in 2020 -> low risk), the swap mostly changes outcomes where the new map sees less
-# rubber than the old, i.e. Indonesia, where affected plots lose the 2020-commodity exoneration.
+# Malaysia) while agreeing in mainland SEA (IoU 0.62-0.82). This map is deliberately conservative
+# (continental SEA user's accuracy 0.95 but producer's 0.78, and higher omission again in insular SEA;
+# Zenodo flags under-mapping under persistent cloud and weak phenology in Malaysia and Indonesia).
+# That interacts with how the layer is used: the commodities theme EXONERATES (commodity present in
+# 2020 -> low risk), so omitted rubber costs a plot its 2020-commodity exoneration rather than adding a
+# deforestation flag. Measured effect of the swap is small (see PR), but it leans that way.
 # The asset carries two bands, "rubber" (0/1) and "no_data" (0/1); selfMask on the rubber band means
 # no_data pixels drop out as not-rubber, same as any other zero.
 def g_rbge_rubber_2020_prep():
