@@ -416,11 +416,15 @@ def g_rbge_rubber_prep():
 # Rubber_RBGE_2020 - RBGE's newer 10m SEA rubber map (Ahrends et al. 2026), which supersedes the
 # Wang et al. 2023 map in g_rbge_rubber_prep and replaces it in risk (use_for_risk_* = 1 here, 0 there).
 # Trained on substantially more data and partly built to address limitations found in the earlier map.
-# Reference year is 2020, but NB the imagery is not: the preprint uses 2021 imagery for mainland SEA
-# (2020 dry season was wet under a developing La Nina) and 2019 for equatorial Indonesia, arguing that
-# long rubber rotations make it "broadly representative of plantation distribution in 2020". So the
-# gain over the older map (Wang et al. 2021 imagery) is the better training data, not a cleaner 2020
-# snapshot.
+# Reference year is 2020. The imagery behind it is 2021 for mainland SEA (the 2020 dry season was wet
+# under a developing La Nina) and 2019 for equatorial Indonesia, and the authors designate the product
+# as "broadly representative of plantation distribution in 2020" on the grounds of long rubber
+# rotations. That holds for our use: these maps target MATURE rubber, which takes ~7 years to reach
+# tapping, so a stand visible as mature in 2021 imagery was necessarily planted well before 2020, and
+# post-cutoff planting cannot leak into the baseline. Wang et al. by contrast maps "the extent of
+# rubber across all Southeast Asia in 2021" from a 2020-2022 composite, i.e. it straddles the cutoff
+# and nowhere claims to represent 2020, so this is the first of the two actually designated as a 2020
+# baseline.
 # NB the two maps disagree markedly in the islands (IoU 0.01-0.25 in Sumatra, Kalimantan, peninsular
 # Malaysia) while agreeing in mainland SEA (IoU 0.62-0.82). This map is deliberately conservative
 # (continental SEA user's accuracy 0.95 but producer's 0.78, and higher omission again in insular SEA;
