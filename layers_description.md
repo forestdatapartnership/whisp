@@ -62,6 +62,9 @@ Centre d'Information Géographique et du Numérique / Bureau National d'Études 
 <tr><td rowspan="3">Rubber_RBGE</td><td rowspan="3">Binary layer for South East Asia.</td><td rowspan="2">Wang et al., (2024) Wang, Y., Hollingsworth, P.M., Zhai, D. et al. High-resolution maps show that rubber causes substantial deforestation. Nature 623, 340–346 (2023). https://doi.org/10.1038/s41586-023-06642-z</td></tr>
     <tr></tr>
     <tr><td>ee.Image("users/wangyxtina/MapRubberPaper/rRubber10m202122_perc1585DifESAdist5pxPF")</td>
+    <tr><td rowspan="3">Rubber_RBGE_2020</td><td rowspan="3">Binary layer for South East Asia, 10m, nominal year 2020. Newer RBGE map, trained on substantially more data, which supersedes Rubber_RBGE. Output only for now (not used in any risk decision) so it can be compared against Rubber_RBGE before any swap.</td><td rowspan="2">Ahrends, A., Harrison, S. B., Hollingsworth, P. M., Heath, J. D. J., Wang, Y., Xu, J. and Green, J. M. H. (2026). Rubber mapping reveals opportunities and current limitations of deforestation due-diligence. Preprint: https://www.biorxiv.org/content/10.64898/2026.07.25.740673v1 Data: https://zenodo.org/records/21439869</td></tr>
+    <tr></tr>
+    <tr><td>ee.Image("projects/rubber-499107/assets/rubber_SEA_2020")</td></tr>
     <tr><td rowspan="3">Rubber_FDaP</td><td rowspan="3">Rubber probability model. Filtered collection to 2020 data. Threshold set for Whisp based on the intersection of recall and precision in charts for accuracy.</td><td rowspan="2">FDaP (2025). Forest Data Partnership https://developers.google.com/earth-engine/datasets/publisher/forestdatapartnership</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/rubber/model_2025b")</td></tr>

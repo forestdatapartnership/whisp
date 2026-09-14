@@ -411,6 +411,22 @@ def g_rbge_rubber_prep():
     )
 
 
+# Rubber_RBGE_2020 - RBGE's newer 10m SEA rubber map (Ahrends et al. 2026), which supersedes the
+# Wang et al. 2023 map in g_rbge_rubber_prep. Trained on substantially more data and partly built to
+# address limitations found in the earlier map. Nominal year is 2020, which lines up with the cutoff
+# better than the older map's 2021/22. Output-only for now (use_for_risk_* = 0 in the LUT) so it can
+# be compared against Rubber_RBGE on real plots before any swap moves risk outcomes.
+# The asset carries two bands, "rubber" (0/1) and "no_data" (0/1); selfMask on the rubber band means
+# no_data pixels drop out as not-rubber, same as any other zero.
+def g_rbge_rubber_2020_prep():
+    return (
+        ee.Image("projects/rubber-499107/assets/rubber_SEA_2020")
+        .select("rubber")
+        .rename("Rubber_RBGE_2020")
+        .selfMask()
+    )
+
+
 # soy 2020 South America
 def g_soy_song_2020_prep():
     return (
