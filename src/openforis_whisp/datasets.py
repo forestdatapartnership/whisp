@@ -400,27 +400,15 @@ def g_fdap_coffee_2024_prep():
     return coffee_2024.rename("Coffee_FDaP_2024").selfMask()
 
 
-# Rubber_RBGE_2020 - RBGE's 10m SEA rubber map (Ahrends et al. 2026). Replaces the Wang et al. 2023 map
-# that Whisp carried as Rubber_RBGE, which the providers have marked superseded in the asset's own
-# description. Trained on substantially more data and partly built to address limitations found in it.
-# Reference year is 2020. The imagery behind it is 2021 for mainland SEA (the 2020 dry season was wet
-# under a developing La Nina) and 2019 for equatorial Indonesia, and the authors designate the product
-# as "broadly representative of plantation distribution in 2020" on the grounds of long rubber
-# rotations. That holds for our use: these maps target MATURE rubber, which takes ~7 years to reach
-# tapping, so a stand visible as mature in 2021 imagery was necessarily planted well before 2020, and
-# post-cutoff planting cannot leak into the baseline. Wang et al. by contrast maps "the extent of
-# rubber across all Southeast Asia in 2021" from a 2020-2022 composite, i.e. it straddles the cutoff
-# and nowhere claims to represent 2020, so this is the first of the two actually designated as a 2020
-# baseline.
-# NB the two maps disagree markedly in the islands (IoU 0.01-0.25 in Sumatra, Kalimantan, peninsular
-# Malaysia) while agreeing in mainland SEA (IoU 0.62-0.82). This map is deliberately conservative
-# (continental SEA user's accuracy 0.95 but producer's 0.78, and higher omission again in insular SEA;
-# Zenodo flags under-mapping under persistent cloud and weak phenology in Malaysia and Indonesia).
-# That interacts with how the layer is used: the commodities theme EXONERATES (commodity present in
-# 2020 -> low risk), so omitted rubber costs a plot its 2020-commodity exoneration rather than adding a
-# deforestation flag. Measured effect of the swap is small (see PR), but it leans that way.
-# The asset carries two bands, "rubber" (0/1) and "no_data" (0/1); selfMask on the rubber band means
-# no_data pixels drop out as not-rubber, same as any other zero.
+# Rubber_RBGE_2020 - RBGE's 10m SEA rubber map (Ahrends et al. 2026), replacing the Wang et al. 2023
+# map Whisp carried as Rubber_RBGE, which its providers have marked superseded.
+# Called _2020 even though the imagery is 2021 for mainland SEA and 2019 for Indonesia: the authors
+# designate it as representing 2020, which works here because the map targets mature rubber, and rubber
+# takes about 7 years to reach tapping, so nothing planted after the cutoff can appear in it.
+# It under-maps rubber in Indonesia and Malaysia (cloud cover, weak phenological signal). Worth knowing,
+# because a commodity present in 2020 makes a plot low risk, so rubber this map misses costs plots that
+# low outcome rather than flagging them.
+# Two bands, "rubber" and "no_data"; selecting rubber then selfMask drops no_data as not-rubber.
 def g_rbge_rubber_2020_prep():
     return (
         ee.Image("projects/rubber-499107/assets/rubber_SEA_2020")
