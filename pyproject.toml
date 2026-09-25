@@ -61,6 +61,7 @@ where = ["src"]
 "whisp.parameters" = ["lookup_datasets.csv"]
 
 [tool.pytest.ini_options]
+testpaths = ["tests"]
 log_cli = true
 log_cli_level = "WARNING"
 
