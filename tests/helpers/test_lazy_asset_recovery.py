@@ -187,3 +187,26 @@ def test_supplied_image_with_custom_bands_is_not_replaced(
         advanced_stats.whisp_stats_geojson_to_df_sequential(
             three_plots, whisp_image=image, custom_bands={"My_band": {}}
         )
+
+
+def test_modis_fire_next_year_builds_as_empty_band_not_an_error(monkeypatch):
+    """
+    From 1 January the fire layer asks for a year MODIS has not published yet. That year must come
+    out as an all-masked band (same as no fire) rather than raising, and must not hide real data.
+    """
+    next_year = datasets.CURRENT_YEAR + 1
+    monkeypatch.setattr(datasets, "CURRENT_YEAR", next_year)
+    image = datasets.g_modis_fire_prep()
+
+    future_band, past_band = f"MODIS_fire_{next_year}", f"MODIS_fire_{next_year - 2}"
+    assert image.bandNames().getInfo()[-1] == future_band
+
+    # Mato Grosso, on the arc of deforestation, where MODIS maps burns every year
+    region = ee.Geometry.Rectangle([-56, -12, -54, -10])
+    burned_pixels = (
+        image.select([future_band, past_band])
+        .reduceRegion(ee.Reducer.count(), region, 500)
+        .getInfo()
+    )
+    assert burned_pixels[future_band] == 0
+    assert burned_pixels[past_band] > 0
