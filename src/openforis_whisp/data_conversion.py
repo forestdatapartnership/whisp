@@ -702,14 +702,11 @@ def convert_ee_to_df(
     if remove_geom:
         ee_object = ee_object.map(lambda f: ee.Feature(None, f.toDictionary()))
 
-    try:
-        kwargs["expression"] = ee_object
-        kwargs["fileFormat"] = "PANDAS_DATAFRAME"
-        df = ee.data.computeFeatures(kwargs)
-
-        return df
-    except Exception as e:
-        raise Exception(e)
+    kwargs["expression"] = ee_object
+    kwargs["fileFormat"] = "PANDAS_DATAFRAME"
+    # Errors are left as they are (not re-wrapped) so callers can tell an ee.EEException, such as
+    # a broken dataset, from other failures.
+    return ee.data.computeFeatures(kwargs)
 
 
 def convert_ee_to_shapefile(feature_collection, shapefile_path):

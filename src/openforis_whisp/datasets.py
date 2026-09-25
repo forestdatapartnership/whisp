@@ -32,6 +32,7 @@ CURRENT_YEAR = datetime.now().year
 CURRENT_YEAR_2DIGIT = CURRENT_YEAR % 100  # Last two digits for RADD datasets
 
 import inspect
+from concurrent.futures import ThreadPoolExecutor
 
 import logging
 
@@ -581,10 +582,16 @@ def g_modis_fire_prep():
     modis_fire = ee.ImageCollection("MODIS/061/MCD64A1")
     start_year = 2000
 
-    # Determine the last available year by checking the latest image in the collection
-    last_image = modis_fire.sort("system:time_start", False).first()
-    last_date = ee.Date(last_image.get("system:time_start"))
-    end_year = last_date.get("year").getInfo()
+    # Years run to CURRENT_YEAR rather than asking EE for the latest image date, which cost a
+    # getInfo() round trip every time the whisp image was built (tried once in 1770c2c, reverted in
+    # 74039a5 because an unpublished year then broke the band). Early in the year MODIS has no images
+    # yet for the current year, and mosaic() of an empty collection has no BurnDate band to select.
+    # Merging in a fully masked BurnDate placeholder keeps the band there: an unpublished year comes
+    # out as all masked (same as no fire) and real images are unaffected. Same idea as _glad_l_conf.
+    end_year = CURRENT_YEAR
+    burn_date_placeholder = ee.ImageCollection(
+        [ee.Image(0).rename("BurnDate").selfMask()]
+    )
 
     img_stack = None
 
@@ -595,8 +602,9 @@ def g_modis_fire_prep():
         date_ed = f"{year}-12-31"
         modis_year = (
             modis_fire.filterDate(date_st, date_ed)
-            .mosaic()
             .select(["BurnDate"])
+            .merge(burn_date_placeholder)
+            .mosaic()
             .gte(0)
             .rename(band_name)
             .selfMask()
@@ -611,10 +619,9 @@ def g_esa_fire_prep():
     esa_fire = ee.ImageCollection("ESA/CCI/FireCCI/5_1")
     start_year = 2001
 
-    # Determine the last available year by checking the latest image in the collection
-    last_image = esa_fire.sort("system:time_start", False).first()
-    last_date = ee.Date(last_image.get("system:time_start"))
-    end_year = last_date.get("year").getInfo()
+    # FireCCI 5.1 is a finished product ending in 2020, so the end year is fixed rather than read
+    # from the collection with a getInfo() call on every image build.
+    end_year = 2020
 
     img_stack = None
 
@@ -1572,28 +1579,39 @@ def combine_datasets(
     auto_recovery=False,
 ):
     """
-    Combines datasets into a single multiband image, with fallback if assets are missing.
+    Combines datasets into a single multiband image.
+
+    Building the image makes no calls to Earth Engine, so a broken or missing asset only shows up
+    when the image is used. The stats functions catch that error, rebuild the image without the
+    broken dataset(s) using combine_datasets_without_broken(), and carry on.
 
     Parameters
     ----------
     national_codes : list, optional
         List of ISO2 country codes to include national datasets
     validate_bands : bool, optional
-        If True, validates band names with a slow .getInfo() call (default: False)
-        Only enable for debugging. Normal operation relies on exception handling.
+        If True, check every dataset against Earth Engine up front and leave out any that fail
+        (default: False). This is slower and normally not needed, see above.
     include_context_bands : bool, optional
-        If True (default), includes context bands (admin_code, water_flag) in the output.
+        If True (default), includes context bands (admin_code, In_waterbody) in the output.
         Set to False when using stats.py implementations that compile datasets differently.
     auto_recovery : bool, optional
-        If True (default), automatically enables validate_bands when an error is detected
-        during initial assembly. This allows graceful recovery from missing/broken datasets.
+        Ignored, kept so existing calls still work. Broken datasets are now dealt with when
+        processing fails rather than by an up-front check.
 
     Returns
     -------
     ee.Image
         Combined multiband image with all datasets (and optionally context bands)
     """
-    # Step 1: Combine all main dataset images
+    if validate_bands:
+        img_combined, _ = combine_datasets_without_broken(
+            national_codes=national_codes,
+            include_context_bands=include_context_bands,
+        )
+        return img_combined
+
+    # Combine all main dataset images and convert to area per pixel
     all_images = [ee.Image(1).rename(geometry_area_column)]
     for func in list_functions(national_codes=national_codes):
         try:
@@ -1601,56 +1619,127 @@ def combine_datasets(
         except ee.EEException as e:
             print(f"Error loading image: {e}")
 
-    img_combined = ee.Image.cat(all_images)
+    img_combined = ee.Image.cat(all_images).multiply(ee.Image.pixelArea())
 
-    # Step 2: Determine if validation needed
-    should_validate = validate_bands
-    if auto_recovery and not validate_bands:
-        try:
-            # Fast error detection: batch check main + context bands in one call
-            bands_to_check = [img_combined.bandNames().get(0)]
-            if include_context_bands:
-                admin_image = g_gaul_admin_code()
-                water_mask = g_water_mask_prep()
-                bands_to_check.extend(
-                    [admin_image.bandNames().get(0), water_mask.bandNames().get(0)]
-                )
-            ee.List(bands_to_check).getInfo()  # trigger error if any band is invalid
-        except ee.EEException as e:
-            print(f"Error detected, enabling recovery mode: {str(e)[:80]}...")
-            should_validate = True
-
-    # Step 3: Validate and recover if needed
-    if should_validate:
-        try:
-            img_combined.bandNames().getInfo()  # check all bands
-        except ee.EEException as e:
-            print("Using valid datasets filter due to error in validation")
-            funcs = list_functions(national_codes=national_codes)
-            valid_imgs = keep_valid_images([(func.__name__, func()) for func in funcs])
-            all_images_retry = [ee.Image(1).rename(geometry_area_column)]
-            all_images_retry.extend(valid_imgs)
-            img_combined = ee.Image.cat(all_images_retry)
-
-    # Step 4: Multiply main datasets by pixel area
-    img_combined = img_combined.multiply(ee.Image.pixelArea())
-
-    # Step 5: Add context bands (admin_code only - water mask is now in prep functions)
+    # Add context bands (admin_code, In_waterbody), which are not converted to area
     if include_context_bands:
-        for band_func, band_name in [
-            (g_gaul_admin_code, "admin_code"),
-            (g_water_mask_prep, "In_waterbody"),
-        ]:
+        for band_func, band_name in _context_bands():
             try:
-                band_img = band_func()
-                if should_validate:
-                    band_img.bandNames().getInfo()
-                img_combined = img_combined.addBands(band_img)
+                img_combined = img_combined.addBands(band_func())
             except ee.EEException as e:
                 print(f"Warning: Could not add {band_name} band: {e}")
 
     print("Whisp multiband image compiled")
     return img_combined
+
+
+def _context_bands():
+    """Context band functions and their band names, added after the area conversion."""
+    return [(g_gaul_admin_code, "admin_code"), (g_water_mask_prep, "In_waterbody")]
+
+
+# Parts of Earth Engine error messages that mean "try again later" rather than "a dataset is broken"
+_TRANSIENT_EE_ERROR_HINTS = (
+    "quota",
+    "limit",
+    "too many",
+    "timeout",
+    "timed out",
+    "memory",
+    "payload",
+    "must be less than",
+    "internal error",
+    "unavailable",
+)
+
+
+def is_dataset_error(exc):
+    """
+    True if exc is an Earth Engine error that could come from a broken dataset (asset missing or
+    renamed, band missing, mismatched bands in a collection) rather than a passing problem such as
+    quota, timeouts or memory.
+
+    Used to decide whether to rebuild the image without broken datasets. If the rebuild finds
+    nothing broken the caller raises the original error again, so a false positive only costs one
+    round of checks.
+    """
+    if not isinstance(exc, ee.EEException):
+        return False
+    message = str(exc).lower()
+    return not any(hint in message for hint in _TRANSIENT_EE_ERROR_HINTS)
+
+
+def _find_broken_images(named_images, max_workers=8):
+    """Names of the images whose bands Earth Engine cannot resolve, checked in parallel."""
+
+    def _check(item):
+        name, img = item
+        try:
+            img.bandNames().getInfo()
+            return None
+        except ee.EEException as e:
+            print(f"Invalid image ({name}): {e}")
+            return name
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        results = list(executor.map(_check, named_images))
+    return [name for name in results if name is not None]
+
+
+def combine_datasets_without_broken(national_codes=None, include_context_bands=True):
+    """
+    Build the whisp image leaving out any dataset whose asset Earth Engine cannot load.
+
+    This is the slow path, used after processing has failed with a dataset error (or when
+    combine_datasets is called with validate_bands=True). Each dataset gets its own bandNames()
+    check, run in parallel, so it costs one round of requests rather than one per dataset in turn.
+
+    Parameters
+    ----------
+    national_codes : list, optional
+        List of ISO2 country codes to include national datasets
+    include_context_bands : bool, optional
+        If True (default), includes context bands (admin_code, In_waterbody) in the output.
+
+    Returns
+    -------
+    tuple of (ee.Image, list of str)
+        The combined image and the names of the prep functions that were left out.
+    """
+    dropped = []
+
+    main_images = []
+    for func in list_functions(national_codes=national_codes):
+        try:
+            main_images.append((func.__name__, func()))
+        except Exception as e:
+            print(f"Invalid image ({func.__name__}): {e}")
+            dropped.append(func.__name__)
+
+    context_images = []
+    if include_context_bands:
+        for band_func, band_name in _context_bands():
+            try:
+                context_images.append((band_func.__name__, band_func()))
+            except Exception as e:
+                print(f"Warning: Could not add {band_name} band: {e}")
+                dropped.append(band_func.__name__)
+
+    broken = set(_find_broken_images(main_images + context_images))
+    dropped.extend(name for name, _ in main_images + context_images if name in broken)
+
+    img_combined = ee.Image.cat(
+        [ee.Image(1).rename(geometry_area_column)]
+        + [img for name, img in main_images if name not in broken]
+    ).multiply(ee.Image.pixelArea())
+    for name, img in context_images:
+        if name not in broken:
+            img_combined = img_combined.addBands(img)
+
+    if dropped:
+        print(f"Warning: left out broken dataset(s): {', '.join(dropped)}")
+    print("Whisp multiband image compiled")
+    return img_combined, dropped
 
 
 ######helper functions to check images

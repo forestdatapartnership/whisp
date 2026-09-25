@@ -72,7 +72,11 @@ from openforis_whisp.data_conversion import (
     convert_ee_to_df,
     convert_ee_to_geojson,
 )
-from openforis_whisp.datasets import combine_datasets
+from openforis_whisp.datasets import (
+    combine_datasets,
+    combine_datasets_without_broken,
+    is_dataset_error,
+)
 from openforis_whisp.reformat import validate_dataframe_using_lookups_flexible
 from openforis_whisp.stats import (
     reformat_geometry_type,
@@ -842,6 +846,66 @@ def _add_geometry_audit_trail(
 # ============================================================================
 
 
+class _BatchSkipped(Exception):
+    """Raised by a batch that was not run because another batch hit a dataset error."""
+
+
+def _run_logging_output(logger, func, *args, **kwargs):
+    """
+    Run func with its printed output captured and passed on to logger: lines that look like
+    problems (invalid, error, warning, recovery) at warning level, the rest at debug level.
+    """
+    captured = io.StringIO()
+    try:
+        with redirect_stdout(captured):
+            return func(*args, **kwargs)
+    finally:
+        for line in captured.getvalue().strip().splitlines():
+            lowered = line.lower()
+            if any(w in lowered for w in ("invalid", "error", "warning", "recovery")):
+                logger.warning(line)
+            elif line:
+                logger.debug(line)
+
+
+def _rebuild_without_broken(
+    error, national_codes, image_supplied, custom_bands, logger
+):
+    """
+    Rebuild the whisp image without broken datasets after processing failed with error.
+
+    Returns the rebuilt image. Raises the original error again if no dataset turns out to be
+    broken (the failure has another cause), and raises a RuntimeError if the caller passed in
+    their own image with custom bands, since that image cannot be rebuilt here.
+    """
+    if image_supplied and custom_bands:
+        raise RuntimeError(
+            "Processing failed with what looks like a broken dataset in the supplied whisp_image. "
+            "It has custom bands so it cannot be rebuilt automatically: rebuild it with "
+            "combine_datasets(validate_bands=True), which leaves out broken datasets, then add the "
+            f"custom bands again. Original error: {error}"
+        ) from error
+
+    logger.warning(
+        f"Processing failed with a possible dataset error: {str(error)[:200]}. "
+        "Checking each dataset and rebuilding the image without any that are broken..."
+    )
+    image, dropped = _run_logging_output(
+        logger, combine_datasets_without_broken, national_codes=national_codes
+    )
+    if not dropped:
+        logger.warning("No broken dataset found, so the error has another cause.")
+        raise error
+
+    message = f"Dropped broken dataset(s): {', '.join(dropped)}"
+    if image_supplied:
+        message += (
+            " (the supplied whisp_image was replaced by a rebuilt standard image)"
+        )
+    logger.warning(message)
+    return image
+
+
 def process_ee_batch(
     fc: ee.FeatureCollection,
     whisp_image: ee.Image,
@@ -911,6 +975,11 @@ def process_ee_batch(
 
         except ee.EEException as e:
             error_msg = str(e)
+
+            # A broken dataset fails the same way every time, so don't retry or wait: raise so the
+            # caller can rebuild the image without it.
+            if is_dataset_error(e):
+                raise
 
             if "Quota" in error_msg or "limit" in error_msg.lower():
                 if attempt < max_retries - 1:
@@ -1077,35 +1146,14 @@ def whisp_stats_geojson_to_df_concurrent(
 
     logger.debug(f"Stripped GeoJSON to essential columns: {keep_cols}")
 
-    # Create image if not provided
+    # Create image if not provided. This makes no Earth Engine calls: a broken dataset is only
+    # found if processing fails, and is then dropped by _rebuild_without_broken.
+    image_supplied = whisp_image is not None
     if whisp_image is None:
         logger.debug("Creating Whisp image...")
-        # Capture print statements from combine_datasets and re-emit via logger
-        captured = io.StringIO()
-        with redirect_stdout(captured):
-            try:
-                # First try with auto_recovery (validates only if error detected)
-                whisp_image = combine_datasets(
-                    national_codes=national_codes, auto_recovery=True
-                )
-            except Exception as e:
-                logger.warning(
-                    f"First attempt failed: {str(e)[:100]}. Retrying with validate_bands=True..."
-                )
-                # Retry with full validation to catch and fix bad bands
-                whisp_image = combine_datasets(
-                    national_codes=national_codes, validate_bands=True
-                )
-        for line in captured.getvalue().strip().splitlines():
-            if (
-                "invalid" in line.lower()
-                or "error" in line.lower()
-                or "warning" in line.lower()
-                or "recovery" in line.lower()
-            ):
-                logger.warning(line)
-            elif line:
-                logger.debug(line)
+        whisp_image = _run_logging_output(
+            logger, combine_datasets, national_codes=national_codes
+        )
 
     # Create reducer
     reducer = ee.Reducer.sum().combine(ee.Reducer.median(), sharedInputs=True)
@@ -1133,6 +1181,9 @@ def whisp_stats_geojson_to_df_concurrent(
     ) -> Tuple[int, pd.DataFrame, pd.DataFrame]:
         """Process one batch: server EE work + client metadata."""
         with ee_semaphore:
+            # Another batch hit a dataset error: skip without calling EE (all batches are rerun)
+            if band_error_detected.is_set():
+                raise _BatchSkipped()
             # Server-side: convert to EE, optionally add metadata, reduce
             fc = convert_batch_to_ee(batch)
             if add_metadata_server:
@@ -1156,8 +1207,10 @@ def whisp_stats_geojson_to_df_concurrent(
     # Track if we had errors that suggest bad bands
     batch_errors = []
 
-    # Fail-fast flag for band errors - shared across threads
+    # Set when a batch hits a dataset error (e.g. a broken asset): the other batches stop, the
+    # image is rebuilt without the broken dataset(s) and all batches are rerun
     band_error_detected = threading.Event()
+    dataset_error = None
 
     # Suppress fiona logging during batch processing (threads create new loggers)
     fiona_logger = logging.getLogger("fiona")
@@ -1166,15 +1219,6 @@ def whisp_stats_geojson_to_df_concurrent(
     old_pyogrio_level = pyogrio_logger.level
     fiona_logger.setLevel(logging.CRITICAL)
     pyogrio_logger.setLevel(logging.CRITICAL)
-
-    # Keywords that indicate missing asset/band errors
-    BAND_ERROR_KEYWORDS = [
-        "image.load",
-        "asset",
-        "not found",
-        "does not exist",
-        "imagecollection.load",
-    ]
 
     try:
         # Don't suppress stdout here - we want progress messages to show in Colab
@@ -1270,22 +1314,22 @@ def whisp_stats_geojson_to_df_concurrent(
                             logger,
                         )
 
+                except _BatchSkipped:
+                    continue
                 except Exception as e:
-                    # Batch failed - check if it's a band error for fail-fast
                     error_msg = str(e)
-                    error_msg_lower = error_msg.lower()
 
-                    # Check if this is a band/asset error - trigger fail-fast
-                    is_this_band_error = any(
-                        keyword in error_msg_lower for keyword in BAND_ERROR_KEYWORDS
-                    )
-
-                    if is_this_band_error and not band_error_detected.is_set():
+                    # A dataset error fails every batch the same way, so stop now: queued batches
+                    # are cancelled and running ones skip or finish their single EE call
+                    if is_dataset_error(e):
                         band_error_detected.set()
+                        dataset_error = e
                         logger.warning(
-                            f"Band/asset error detected in batch {batch_idx}. "
-                            f"Cancelling remaining batches for retry with validation..."
+                            f"Dataset error in batch {batch_idx}: {error_msg[:200]}. "
+                            "Stopping remaining batches..."
                         )
+                        executor.shutdown(wait=False, cancel_futures=True)
+                        break
 
                     logger.error(f"Batch {batch_idx} failed: {error_msg[:100]}")
                     logger.debug(f"Full error: {error_msg}")
@@ -1308,22 +1352,22 @@ def whisp_stats_geojson_to_df_concurrent(
     time_str = _format_time(total_time)
     if band_error_detected.is_set():
         logger.info(
-            f"Processing stopped early due to band error after {completed_batches:,}/{len(batches):,} batches in {time_str}"
+            f"Processing stopped early due to a dataset error after {completed_batches:,}/{len(batches):,} batches in {time_str}"
         )
     else:
         logger.info(
             f"Processing complete: {completed_batches:,}/{len(batches):,} batches in {time_str}"
         )
 
-    # If band error was detected, retry immediately with validation (fail-fast path)
+    # If a dataset error was hit, rebuild the image without the broken dataset(s) and rerun all
+    # batches. This raises if nothing is found to be broken or a supplied image can't be rebuilt.
     if band_error_detected.is_set():
-        logger.warning("Retrying all batches with validate_bands=True...")
+        whisp_image = _rebuild_without_broken(
+            dataset_error, national_codes, image_supplied, custom_bands, logger
+        )
+        band_error_detected.clear()
         try:
-            with redirect_stdout(io.StringIO()):
-                whisp_image = combine_datasets(
-                    national_codes=national_codes, validate_bands=True
-                )
-            logger.info("Image recreated with validation. Reprocessing all batches...")
+            logger.info("Reprocessing all batches with the rebuilt image...")
 
             # Clear state for full retry
             results = []
@@ -1430,7 +1474,7 @@ def whisp_stats_geojson_to_df_concurrent(
             )
 
         except Exception as retry_error:
-            logger.error(f"Failed to recreate image with validation: {retry_error}")
+            logger.error(f"Rerun after rebuilding the image failed: {retry_error}")
             # Fall through to error handling below
 
     # If we have batch errors (either from initial run or retry), raise RuntimeError
@@ -1838,35 +1882,14 @@ def whisp_stats_geojson_to_df_sequential(
 
     logger.debug(f"Stripped GeoJSON to essential columns: {keep_cols}")
 
-    # Create image if not provided
+    # Create image if not provided. This makes no Earth Engine calls: a broken dataset is only
+    # found if processing fails, and is then dropped by _rebuild_without_broken.
+    image_supplied = whisp_image is not None
     if whisp_image is None:
         logger.debug("Creating Whisp image...")
-        # Capture print statements from combine_datasets and re-emit via logger
-        captured = io.StringIO()
-        with redirect_stdout(captured):
-            try:
-                # First try with auto_recovery (validates only if error detected)
-                whisp_image = combine_datasets(
-                    national_codes=national_codes, auto_recovery=True
-                )
-            except Exception as e:
-                logger.warning(
-                    f"First attempt failed: {str(e)[:100]}. Retrying with validate_bands=True..."
-                )
-                # Retry with full validation to catch and fix bad bands
-                whisp_image = combine_datasets(
-                    national_codes=national_codes, validate_bands=True
-                )
-        for line in captured.getvalue().strip().splitlines():
-            if (
-                "invalid" in line.lower()
-                or "error" in line.lower()
-                or "warning" in line.lower()
-                or "recovery" in line.lower()
-            ):
-                logger.warning(line)
-            elif line:
-                logger.debug(line)
+        whisp_image = _run_logging_output(
+            logger, combine_datasets, national_codes=national_codes
+        )
 
     # Drop external_id before sending to EE to enable caching
     # (external_id is preserved separately in gdf for client-side merging)
@@ -1893,32 +1916,16 @@ def whisp_stats_geojson_to_df_sequential(
         results_fc = whisp_image.reduceRegions(collection=fc, reducer=reducer, scale=10)
         df_server = convert_ee_to_df(results_fc)
     except Exception as e:
-        # Check if this is a band error
-        error_msg = str(e)
-        is_band_error = any(
-            keyword in error_msg
-            for keyword in ["Image.load", "asset", "not found", "does not exist"]
-        )
-
-        if is_band_error and whisp_image is not None:
-            logger.warning(
-                f"Detected bad band error: {error_msg[:100]}. Retrying with validate_bands=True..."
-            )
-            try:
-                with redirect_stdout(io.StringIO()):
-                    whisp_image = combine_datasets(
-                        national_codes=national_codes, validate_bands=True
-                    )
-                logger.info("Image recreated with validation. Retrying processing...")
-                results_fc = whisp_image.reduceRegions(
-                    collection=fc, reducer=reducer, scale=10
-                )
-                df_server = convert_ee_to_df(results_fc)
-            except Exception as retry_e:
-                logger.error(f"Retry failed: {str(retry_e)[:100]}")
-                raise
-        else:
+        # A broken dataset (e.g. a dead asset): rebuild the image without it and retry once.
+        # _rebuild_without_broken raises if nothing is broken or a supplied image can't be rebuilt.
+        if not is_dataset_error(e):
             raise
+        whisp_image = _rebuild_without_broken(
+            e, national_codes, image_supplied, custom_bands, logger
+        )
+        logger.info("Retrying processing with the rebuilt image...")
+        results_fc = whisp_image.reduceRegions(collection=fc, reducer=reducer, scale=10)
+        df_server = convert_ee_to_df(results_fc)
 
     logger.info("Server-side processing complete")
 
