@@ -84,7 +84,7 @@ def whisp_risk(
     df: data_lookup_type,  # CHECK THIS
     ind_1_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_2_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
-    ind_3_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
+    ind_3_pcent_threshold: float = 50,  # higher than the others: pre-2020 disturbance leads to a low risk outcome, so it must cover most of the plot
     ind_4_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_5_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_6_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
@@ -129,7 +129,7 @@ def whisp_risk(
         df (DataFrame): Input DataFrame.
         ind_1_pcent_threshold (float, optional): Percentage threshold for indicator 1 (treecover). Defaults to 10.
         ind_2_pcent_threshold (float, optional): Percentage threshold for indicator 2 (commodities). Defaults to 10.
-        ind_3_pcent_threshold (float, optional): Percentage threshold for indicator 3 (disturbance before 2020). Defaults to 10.
+        ind_3_pcent_threshold (float, optional): Percentage threshold for indicator 3 (disturbance before 2020). Defaults to 50, so pre-2020 disturbance only leads to a low risk outcome when it covers most of the plot.
         ind_4_pcent_threshold (float, optional): Percentage threshold for indicator 4 (disturbance after 2020). Defaults to 10.
         ind_5_pcent_threshold (float, optional): Percentage threshold for indicator 5 (primary forest 2020). Defaults to 10.
         ind_6_pcent_threshold (float, optional): Percentage threshold for indicator 6 (naturally regenerating forest 2020). Defaults to 10.

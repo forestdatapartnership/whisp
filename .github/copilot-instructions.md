@@ -66,7 +66,7 @@ Whisp supports both **hectares** and **percent** units:
 - Unit type stored in column defined by `stats_unit_type_column` (default: `"Unit"`)
 - [`risk.py::detect_unit_type()`](src/openforis_whisp/risk.py) auto-detects or accepts `explicit_unit_type` override
 - All rows in a DataFrame **must** use same unit type (no mixing)
-- Risk thresholds (e.g., `ind_1_pcent_threshold`) are percentage thresholds regardless of unit type
+- Risk thresholds (e.g., `ind_1_pcent_threshold`) are percentage thresholds regardless of unit type. Default is 10 for all indicators except `ind_3_pcent_threshold` (disturbance before 2020), which defaults to 50 because a "yes" there leads to a low risk outcome in the perennial crop tree
 
 ### Risk Assessment Logic
 [`risk.py::whisp_risk()`](src/openforis_whisp/risk.py) implements commodity-specific decision trees:
