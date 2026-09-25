@@ -7,6 +7,7 @@ import random
 import numpy as np
 import logging
 import sys
+import tempfile
 
 import urllib.request
 import os
@@ -95,16 +96,15 @@ def init_ee() -> None:
         # if in test env use the private key
         if "EE_PRIVATE_KEY" in os.environ:
 
-            # key need to be decoded in a file
+            # key need to be decoded in a file; keep it out of the working tree so it
+            # cannot be committed by accident
             content = base64.b64decode(os.environ["EE_PRIVATE_KEY"]).decode()
-            with open("ee_private_key.json", "w") as f:
-                f.write(content)
+            key_path = Path(tempfile.gettempdir()) / "ee_private_key.json"
+            key_path.write_text(content)
 
             # connection to the service account
             service_account = "test-sepal-ui@sepal-ui.iam.gserviceaccount.com"
-            credentials = ee.ServiceAccountCredentials(
-                service_account, "ee_private_key.json"
-            )
+            credentials = ee.ServiceAccountCredentials(service_account, str(key_path))
             ee.Initialize(credentials)
             logger.logger.info(f"Used env var")
 
