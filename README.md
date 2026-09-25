@@ -170,7 +170,7 @@ The **relevant risk assessment column depends on the commodity** in question:
 
   For running locally on your machine (or in Sepal), see: [whisp_geojson_to_csv.ipynb](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/whisp_geojson_to_csv.ipynb) or if datasets are very large (e.g., >100,000 features), you could also try [whisp_ee_asset_to_drive.ipynb](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/whisp_ee_asset_to_drive.ipynb).
 
-  ### Requirements for running the package
+  ### Requirements for running the package <a name="whisp_requirements"></a>
 
   - A Google Earth Engine (GEE) account.
   - A registered cloud GEE project.
@@ -246,6 +246,29 @@ To add your own data directly you will need some coding experience as well as fa
 Contributions are welcome!
 - Fork the repo, make changes, and open a pull request.
 - For adding new datasets to the codebase and for project-specific coding standards see [.github/copilot-instructions.md](.github/copilot-instructions.md)
+
+### Developer setup <a name="whisp_dev_setup"></a>
+
+You need a Google Earth Engine account and a registered cloud project (see [requirements](#whisp_requirements)). Then:
+
+```
+git clone https://github.com/forestdatapartnership/whisp.git
+cd whisp
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -e .
+pip install pytest pre-commit
+cp .env.template .env            # then set PROJECT to your Earth Engine cloud project
+earthengine authenticate         # one-off browser sign-in
+pre-commit install
+pytest
+```
+
+Notes:
+- `.env` is gitignored. Keep any keys or project names there or in environment variables, never in tracked files or notebook outputs.
+- The tests run real Earth Engine computations on a small fixture (about 50 plots), so they need the credentials and project above and take around a minute. The same tests run as a pre-commit hook on every commit.
+- If you want the tests to sign you out of Earth Engine afterwards (so every run starts with a fresh browser sign-in and no credentials stay on disk), set `WHISP_CLEAR_EE_CREDS=1` in `.env`. Off by default.
+- Formatting is done by the pinned `black` pre-commit hook; let it reformat your files rather than running a different `black` version by hand.
 
 ## Code of Conduct <a name="whisp_conduct"></a>
 

@@ -118,7 +118,9 @@ Output values: `"High"`, `"Low"`, `"More info needed"`
 
 ### Testing with GEE
 ```bash
-# GEE authentication happens automatically via conftest.py fixture
+# conftest.py calls init_ee(): needs PROJECT in .env and a local EE sign-in
+# (`earthengine authenticate`); with no credentials it opens a browser flow mid-run.
+# Set WHISP_CLEAR_EE_CREDS=1 to delete the credentials file after the run (off by default).
 pytest  # Runs basic tests for Whisp stats)
 
 # Key test: tests/helpers/test_assess_risk.py
@@ -142,16 +144,15 @@ pytest  # Runs basic tests for Whisp stats)
 # Poetry for dependency management
 poetry install
 
-# Ruff for linting/formatting (configured in pyproject.toml)
-# Pre-commit hooks handle automatic formatting
+# Pre-commit hooks handle formatting (pinned black) and run pytest on every commit
 
 pre-commit install  # Set up hooks
 ```
 
-**Ruff rules**: Max complexity 10, line length 120, enforces type hints (ANN), imports sorted (I), etc. See [`pyproject.toml`](pyproject.toml) `[tool.ruff]` section.
+**Formatting**: the pre-commit `black` hook (pinned version) is what runs; let it reformat rather than running a different black by hand. Ruff is configured in [`pyproject.toml`](pyproject.toml) (`[tool.ruff]`: max complexity 10, line length 120, type hints, import sorting) but its hook is currently disabled.
 
 ### Running Locally vs. Colab
-- **Local**: Use virtual environment (`.venv`), install with `pip install --pre openforis-whisp`
+- **Local**: Use virtual environment (`.venv`); for development `pip install -e .` from a clone (see README "Developer setup"), for plain use `pip install --pre openforis-whisp`
 - **Colab**: See [`notebooks/Colab_whisp_geojson_to_csv.ipynb`](notebooks/Colab_whisp_geojson_to_csv.ipynb) for authentication flow
 - **SEPAL**: Special virtual environment setup (see [SEPAL docs](https://docs.sepal.io/en/latest/cli/python.html#virtual-environment))
 
