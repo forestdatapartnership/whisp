@@ -459,3 +459,40 @@ def test_runs_recover_from_a_pixel_level_error(three_plots, monkeypatch, mode):
     assert any(c.startswith("Alive_dataset") for c in df.columns)
     assert not any(c.startswith("Pixel_bad") for c in df.columns)
     assert df.attrs["whisp_unavailable_datasets"] == ["pixel_bad"]
+
+
+def test_a_timeout_while_probing_keeps_the_original_error(monkeypatch):
+    # Nothing fails the band check and the pixel check itself hits a memory limit: the user
+    # should see the original error, not the memory limit
+    monkeypatch.setattr(
+        datasets, "list_functions", lambda national_codes=None: [g_alive_prep]
+    )
+
+    class _Fails:
+        def getInfo(self):
+            raise ee.EEException("User memory limit exceeded.")
+
+    monkeypatch.setattr(datasets, "_pixel_probe", lambda region: lambda img: _Fails())
+    monkeypatch.setattr(datasets.time, "sleep", lambda s: None)
+    error = ee.EEException("Expected a homogeneous image collection")
+    with pytest.raises(ee.EEException) as raised:
+        advanced_stats._rebuild_without_broken(
+            error, None, False, logging.getLogger("test"), probe_region="region"
+        )
+    assert raised.value is error
+
+
+@pytest.mark.parametrize("mode", ["sequential", "concurrent"])
+def test_a_dead_asset_and_a_pixel_level_error_together(three_plots, monkeypatch, mode):
+    # The band check finds the dead one; the pixel-level one only shows on the rerun, and a
+    # second round (always checking pixels) catches it
+    monkeypatch.setattr(advanced_stats, "validate_ee_endpoint", lambda *a, **k: None)
+    monkeypatch.setattr(
+        datasets,
+        "list_functions",
+        lambda national_codes=None: [g_alive_prep, g_dead_prep, g_pixel_bad_prep],
+    )
+    df = getattr(advanced_stats, f"whisp_stats_geojson_to_df_{mode}")(three_plots)
+    assert len(df) == 3
+    assert any(c.startswith("Alive_dataset") for c in df.columns)
+    assert sorted(df.attrs["whisp_unavailable_datasets"]) == ["dead", "pixel_bad"]

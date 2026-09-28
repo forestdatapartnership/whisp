@@ -1725,7 +1725,10 @@ def _pixel_probe(region):
 
 
 def combine_datasets_without_broken(
-    national_codes=None, include_context_bands=True, probe_region=None
+    national_codes=None,
+    include_context_bands=True,
+    probe_region=None,
+    force_probe=False,
 ):
     """
     Build the whisp image leaving out any dataset whose asset Earth Engine cannot load.
@@ -1749,6 +1752,9 @@ def combine_datasets_without_broken(
         If True (default), includes context bands (admin_code, In_waterbody) in the output.
     probe_region : ee.FeatureCollection, optional
         Polygons to compute pixels over if the band check finds nothing broken.
+    force_probe : bool, optional
+        Compute pixels over probe_region even if the band check found something (used when a run
+        still fails after a first rebuild, e.g. a pixel-level error behind a dead asset).
 
     Returns
     -------
@@ -1776,11 +1782,18 @@ def combine_datasets_without_broken(
 
     all_images = main_images + context_images
     broken = set(_find_broken_images(all_images))
-    if not broken and not dropped and probe_region is not None:
-        print(
-            "No dataset failed the band check; checking pixels where the run failed..."
-        )
-        broken = set(_find_broken_images(all_images, probe=_pixel_probe(probe_region)))
+    if probe_region is not None and (force_probe or not (broken or dropped)):
+        print("Checking each dataset's pixels where the run failed...")
+        survivors = [(name, img) for name, img in all_images if name not in broken]
+        try:
+            broken |= set(
+                _find_broken_images(survivors, probe=_pixel_probe(probe_region))
+            )
+        except ee.EEException as e:
+            # e.g. a timeout or memory limit while checking: that says nothing about any one
+            # dataset, so carry on with what the band check found (the caller then raises the
+            # original error if that was nothing)
+            print(f"Warning: the pixel check could not finish: {str(e)[:150]}")
     dropped.extend(name for name, _ in all_images if name in broken)
 
     if len(dropped) > (len(all_images) + len(dropped) - len(broken)) / 2:
@@ -1850,8 +1863,10 @@ def supplied_image_error(error):
         "Whisp only rebuilds images it builds itself, as it can't know what a passed-in image "
         "contains. Rebuild the image now with combine_datasets(national_codes=..., "
         "auto_recovery=True), which leaves out broken datasets, add any custom bands again and "
-        "rerun, or leave out whisp_image so Whisp builds and recovers the image itself. If you "
-        "keep the image between runs (e.g. a cached copy), rebuild that copy too."
+        "rerun, or leave out whisp_image so Whisp builds and recovers the image itself (do "
+        "this if a rebuilt image still fails, as some errors only show when pixels are "
+        "computed, which only Whisp's own recovery checks). If you keep the image between runs "
+        "(e.g. a cached copy), rebuild that copy too."
     )
 
 
