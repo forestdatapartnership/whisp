@@ -1,7 +1,7 @@
 import ee
 import pandas as pd
 from pathlib import Path
-from .datasets import combine_datasets
+from .datasets import combine_datasets, is_dataset_error, supplied_image_error
 import json
 import logging
 import country_converter as coco
@@ -855,7 +855,13 @@ def whisp_stats_ee_to_df(
             print(f"An error occurred during the conversion from EE to DataFrame: {e}")
             raise e
 
-    except:  # retry with validation of whisp input datasets
+    except Exception as e:
+        # Retry once without broken datasets, but only for a dataset error and only if Whisp
+        # built the image: a passed-in image is never swapped for a rebuilt one
+        if not is_dataset_error(e):
+            raise
+        if whisp_image is not None:
+            raise supplied_image_error(e) from e
         try:
             stats_feature_collection = whisp_stats_ee_to_ee(
                 feature_collection,
@@ -1012,6 +1018,9 @@ def whisp_stats_ee_to_drive(
                 national_codes=national_codes,
                 unit_type=unit_type,
                 whisp_image=whisp_image,  # Pass through
+                # One quick check that leaves out broken datasets before the export task starts,
+                # as nothing can recover once the task is running
+                validate_bands=whisp_image is None,
             ),
             description="whisp_output_table",
             # folder="whisp_results",

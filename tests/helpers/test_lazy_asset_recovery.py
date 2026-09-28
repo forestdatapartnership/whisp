@@ -8,6 +8,7 @@ exist, so no real asset is created or deleted.
 
 import json
 import logging
+import time
 from pathlib import Path
 
 import ee
@@ -68,9 +69,22 @@ def stack_with_dead_dataset(monkeypatch):
     monkeypatch.setattr(
         advanced_stats, "combine_datasets_without_broken", counting_rebuild
     )
-    sleeps = []
-    monkeypatch.setattr(advanced_stats.time, "sleep", lambda s: sleeps.append(s))
-    return rebuilds, sleeps
+    spy = _TimeSpy()
+    monkeypatch.setattr(advanced_stats, "time", spy)
+    return rebuilds, spy.sleeps
+
+
+class _TimeSpy:
+    """Stands in for the time module inside advanced_stats, recording its retry sleeps."""
+
+    def __init__(self):
+        self.sleeps = []
+
+    def sleep(self, seconds):
+        self.sleeps.append(seconds)
+
+    def __getattr__(self, name):
+        return getattr(time, name)
 
 
 @pytest.fixture
@@ -89,6 +103,7 @@ def three_plots(tmp_path):
         "ImageCollection.load: ImageCollection asset 'projects/x/assets/y' not found (does not exist or caller does not have access).",
         "Image.select: Pattern 'Map' did not match any bands.",
         "Expected a homogeneous image collection, but an image with incompatible bands was encountered.",
+        "Image.load: Asset 'projects/x/assets/y' does not exist or doesn't allow this operation.",
     ],
 )
 def test_is_dataset_error_true_for_broken_dataset_messages(message):
@@ -103,6 +118,10 @@ def test_is_dataset_error_true_for_broken_dataset_messages(message):
         "Computation timed out.",
         "User memory limit exceeded.",
         "Request payload size exceeds the limit: 10485760 bytes.",
+        "Deadline exceeded",
+        "Earth Engine capacity exceeded.",
+        "An internal server error has occurred.",
+        "Geometry.polygon: Invalid geometry.",
     ],
 )
 def test_is_dataset_error_false_for_passing_problems(message):
@@ -166,7 +185,7 @@ def test_rebuild_raises_original_error_when_nothing_is_broken(monkeypatch):
     error = ee.EEException("Image.reduceRegions: some other problem")
     with pytest.raises(ee.EEException) as raised:
         advanced_stats._rebuild_without_broken(
-            error, None, False, None, logging.getLogger("test")
+            error, None, False, logging.getLogger("test")
         )
     assert raised.value is error
 
@@ -213,14 +232,167 @@ def test_bespoke_image_built_with_auto_recovery_runs_with_dead_dataset(
     assert rebuilds == []  # cleaned up front, so the run itself never had to rebuild
 
 
-def test_supplied_image_with_custom_bands_is_not_replaced(
-    three_plots, stack_with_dead_dataset
+@pytest.mark.parametrize("mode", ["sequential", "concurrent"])
+@pytest.mark.parametrize("custom", [False, True])
+def test_passed_in_image_is_never_rebuilt(
+    three_plots, stack_with_dead_dataset, monkeypatch, mode, custom
 ):
+    # Whisp can't know what a passed-in image contains, so it stops with guidance instead
+    monkeypatch.setattr(advanced_stats, "validate_ee_endpoint", lambda *a, **k: None)
+    rebuilds, _ = stack_with_dead_dataset
     image = combine_datasets()
-    with pytest.raises(RuntimeError, match="validate_bands=True"):
-        advanced_stats.whisp_stats_geojson_to_df_sequential(
-            three_plots, whisp_image=image, custom_bands={"My_band": {}}
-        )
+    kwargs = {}
+    if custom:
+        image = image.addBands(ee.Image(1).rename("My_band"))
+        kwargs["custom_bands"] = ["My_band"]
+    run = getattr(advanced_stats, f"whisp_stats_geojson_to_df_{mode}")
+    with pytest.raises(RuntimeError, match="auto_recovery=True") as raised:
+        run(three_plots, whisp_image=image, **kwargs)
+    assert isinstance(raised.value.__cause__, ee.EEException)
+    assert rebuilds == []
+
+
+def test_unavailable_datasets_only_in_metadata_when_something_was_dropped(
+    three_plots, stack_with_dead_dataset, monkeypatch
+):
+    df = advanced_stats.whisp_formatted_stats_geojson_to_df_sequential(three_plots)
+    assert df["whisp_processing_metadata"].iloc[0]["unavailable_datasets"] == ["dead"]
+
+    monkeypatch.setattr(
+        datasets, "list_functions", lambda national_codes=None: [g_alive_prep]
+    )
+    df = advanced_stats.whisp_formatted_stats_geojson_to_df_sequential(three_plots)
+    assert "unavailable_datasets" not in df["whisp_processing_metadata"].iloc[0]
+
+
+def test_unavailable_dataset_names_use_column_prefixes():
+    assert datasets.unavailable_dataset_names(
+        ["g_esa_fire_prep", "g_modis_fire_prep", "g_gaul_admin_code", "g_dead_prep"]
+    ) == ["ESA_fire", "MODIS_fire", "admin_code", "dead"]
+
+
+def test_concurrent_many_batches_stops_early_then_reruns_once(
+    tmp_path, stack_with_dead_dataset, monkeypatch
+):
+    # 12 batches, at most 2 in Earth Engine at once: the first dataset error should stop the rest
+    monkeypatch.setattr(advanced_stats, "validate_ee_endpoint", lambda *a, **k: None)
+    data = json.loads(GEOJSON_EXAMPLE_FILEPATH.read_text())
+    data["features"] = data["features"][:12]
+    path = tmp_path / "twelve_plots.geojson"
+    path.write_text(json.dumps(data))
+    calls = []
+    original = advanced_stats.process_ee_batch
+
+    def counting(*args, **kwargs):
+        calls.append(1)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(advanced_stats, "process_ee_batch", counting)
+    rebuilds, sleeps = stack_with_dead_dataset
+    df = advanced_stats.whisp_stats_geojson_to_df_concurrent(
+        path, batch_size=1, max_concurrent=2
+    )
+    assert len(df) == 12
+    assert len(rebuilds) == 1
+    assert sleeps == []
+    assert (
+        len(calls) <= 4 + 12
+    )  # a few in flight when the first error hit, then the rerun
+
+
+def test_too_many_broken_datasets_raise_instead_of_dropping_them(monkeypatch):
+    def g_dead_two_prep():
+        return ee.Image(DEAD_ASSET + "-2").rename("Dead_two")
+
+    monkeypatch.setattr(
+        datasets,
+        "list_functions",
+        lambda national_codes=None: [g_alive_prep, g_dead_prep, g_dead_two_prep],
+    )
+    with pytest.raises(RuntimeError, match="access or connection problem"):
+        combine_datasets_without_broken(include_context_bands=False)
+
+
+class _FakeImage:
+    """Enough of an ee.Image for process_ee_batch: reduceRegions just returns a token."""
+
+    def reduceRegions(self, **kwargs):
+        return "token"
+
+
+def _batch_frame():
+    import pandas as pd
+
+    return pd.DataFrame({"plotId": ["1"], "Area_sum": [1.0]})
+
+
+def _failing_then_ok(monkeypatch, error):
+    attempts = []
+
+    def fake_convert(results):
+        attempts.append(1)
+        if len(attempts) == 1:
+            raise error
+        return _batch_frame()
+
+    monkeypatch.setattr(advanced_stats, "convert_ee_to_df", fake_convert)
+    return attempts
+
+
+def test_unknown_earth_engine_error_is_still_retried(monkeypatch):
+    spy = _TimeSpy()
+    monkeypatch.setattr(advanced_stats, "time", spy)
+    attempts = _failing_then_ok(monkeypatch, ee.EEException("Deadline exceeded"))
+    df = advanced_stats.process_ee_batch("fc", _FakeImage(), None, 0, max_retries=3)
+    assert len(df) == 1 and len(attempts) == 2 and len(spy.sleeps) == 1
+
+
+def test_dataset_error_is_not_retried(monkeypatch):
+    spy = _TimeSpy()
+    monkeypatch.setattr(advanced_stats, "time", spy)
+    error = ee.EEException(
+        "Image.load: Asset 'x' does not exist or doesn't allow this operation."
+    )
+    attempts = _failing_then_ok(monkeypatch, error)
+    with pytest.raises(ee.EEException):
+        advanced_stats.process_ee_batch("fc", _FakeImage(), None, 0, max_retries=3)
+    assert len(attempts) == 1 and spy.sleeps == []
+
+
+def test_memory_error_keeps_its_message(monkeypatch):
+    monkeypatch.setattr(advanced_stats, "time", _TimeSpy())
+
+    def always_fails(results):
+        raise ee.EEException("User memory limit exceeded.")
+
+    monkeypatch.setattr(advanced_stats, "convert_ee_to_df", always_fails)
+    with pytest.raises(Exception, match="User memory limit exceeded"):
+        advanced_stats.process_ee_batch("fc", _FakeImage(), None, 0, max_retries=2)
+
+
+def test_quota_error_keeps_its_message(monkeypatch):
+    monkeypatch.setattr(advanced_stats, "time", _TimeSpy())
+
+    def always_fails(results):
+        raise ee.EEException("Quota exceeded for project x.")
+
+    monkeypatch.setattr(advanced_stats, "convert_ee_to_df", always_fails)
+    with pytest.raises(RuntimeError, match="Quota exceeded for project x"):
+        advanced_stats.process_ee_batch("fc", _FakeImage(), None, 0, max_retries=2)
+
+
+def test_convert_ee_to_df_passes_earth_engine_errors_through(monkeypatch):
+    from openforis_whisp import data_conversion
+
+    error = ee.EEException("Image.load: Asset 'x' does not exist.")
+
+    def raiser(kwargs):
+        raise error
+
+    monkeypatch.setattr(ee.data, "computeFeatures", raiser)
+    with pytest.raises(ee.EEException) as raised:
+        data_conversion.convert_ee_to_df(ee.FeatureCollection([]))
+    assert raised.value is error
 
 
 def test_modis_fire_next_year_builds_as_empty_band_not_an_error(monkeypatch):

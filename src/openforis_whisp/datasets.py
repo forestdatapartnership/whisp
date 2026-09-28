@@ -32,6 +32,8 @@ CURRENT_YEAR = datetime.now().year
 CURRENT_YEAR_2DIGIT = CURRENT_YEAR % 100  # Last two digits for RADD datasets
 
 import inspect
+import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 import logging
@@ -1631,6 +1633,8 @@ def combine_datasets(
         try:
             img_combined.bandNames().size().getInfo()
         except ee.EEException as e:
+            if not is_dataset_error(e):
+                raise  # e.g. quota or connection trouble: not a reason to drop datasets
             print(
                 f"Warning: a dataset failed to load, leaving out broken ones: {str(e)[:150]}"
             )
@@ -1649,48 +1653,53 @@ def _context_bands():
     return [(g_gaul_admin_code, "admin_code"), (g_water_mask_prep, "In_waterbody")]
 
 
-# Parts of Earth Engine error messages that mean "try again later" rather than "a dataset is broken"
-_TRANSIENT_EE_ERROR_HINTS = (
-    "quota",
-    "limit",
-    "too many",
-    "timeout",
-    "timed out",
-    "memory",
-    "payload",
-    "must be less than",
-    "internal error",
-    "unavailable",
+# Parts of Earth Engine error messages that mean a dataset itself is broken: asset missing, moved or
+# not shared, band renamed, or a collection whose images no longer have matching bands. Anything
+# else (quota, timeouts, memory, server trouble, wording we haven't seen) is left to the normal
+# retry handling rather than treated as a broken dataset.
+_DATASET_ERROR_SIGNS = (
+    "image.load",
+    "imagecollection.load",
+    "not found",
+    "does not exist",
+    "doesn't allow this operation",
+    "did not match any bands",
+    "homogeneous image collection",
 )
 
 
 def is_dataset_error(exc):
     """
-    True if exc is an Earth Engine error that could come from a broken dataset (asset missing or
-    renamed, band missing, mismatched bands in a collection) rather than a passing problem such as
-    quota, timeouts or memory.
-
-    Used to decide whether to rebuild the image without broken datasets. If the rebuild finds
-    nothing broken the caller raises the original error again, so a false positive only costs one
-    round of checks.
+    True if exc is an Earth Engine error that says a dataset itself is broken (asset missing or
+    not shared, band renamed, mismatched bands in a collection). Only these trigger a rebuild of
+    the image without broken datasets; any other error keeps the normal retry handling.
     """
     if not isinstance(exc, ee.EEException):
         return False
     message = str(exc).lower()
-    return not any(hint in message for hint in _TRANSIENT_EE_ERROR_HINTS)
+    return any(sign in message for sign in _DATASET_ERROR_SIGNS)
 
 
 def _find_broken_images(named_images, max_workers=8):
-    """Names of the images whose bands Earth Engine cannot resolve, checked in parallel."""
+    """
+    Names of the images whose bands Earth Engine cannot resolve, checked in parallel. Only a
+    dataset error counts as broken: any other error (e.g. rate limiting while checking) is tried
+    once more and then raised, so a healthy dataset is never dropped by mistake.
+    """
 
     def _check(item):
         name, img = item
-        try:
-            img.bandNames().getInfo()
-            return None
-        except ee.EEException as e:
-            print(f"Invalid image ({name}): {e}")
-            return name
+        for attempt in range(2):
+            try:
+                img.bandNames().getInfo()
+                return None
+            except ee.EEException as e:
+                if is_dataset_error(e):
+                    print(f"Invalid image ({name}): {e}")
+                    return name
+                if attempt == 1:
+                    raise
+                time.sleep(2)
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         results = list(executor.map(_check, named_images))
@@ -1702,8 +1711,11 @@ def combine_datasets_without_broken(national_codes=None, include_context_bands=T
     Build the whisp image leaving out any dataset whose asset Earth Engine cannot load.
 
     This is the slow path, used after processing has failed with a dataset error (or when
-    combine_datasets is called with validate_bands=True). Each dataset gets its own bandNames()
+    combine_datasets finds one with auto_recovery=True). Each dataset gets its own bandNames()
     check, run in parallel, so it costs one round of requests rather than one per dataset in turn.
+
+    If more than half the datasets fail, that points to an access or connection problem rather
+    than broken datasets, so a RuntimeError is raised instead of dropping them.
 
     Parameters
     ----------
@@ -1723,7 +1735,7 @@ def combine_datasets_without_broken(national_codes=None, include_context_bands=T
     for func in list_functions(national_codes=national_codes):
         try:
             main_images.append((func.__name__, func()))
-        except Exception as e:
+        except ee.EEException as e:
             print(f"Invalid image ({func.__name__}): {e}")
             dropped.append(func.__name__)
 
@@ -1732,12 +1744,20 @@ def combine_datasets_without_broken(national_codes=None, include_context_bands=T
         for band_func, band_name in _context_bands():
             try:
                 context_images.append((band_func.__name__, band_func()))
-            except Exception as e:
+            except ee.EEException as e:
                 print(f"Warning: Could not add {band_name} band: {e}")
                 dropped.append(band_func.__name__)
 
-    broken = set(_find_broken_images(main_images + context_images))
-    dropped.extend(name for name, _ in main_images + context_images if name in broken)
+    all_images = main_images + context_images
+    broken = set(_find_broken_images(all_images))
+    dropped.extend(name for name, _ in all_images if name in broken)
+
+    if len(dropped) > (len(all_images) + len(dropped) - len(broken)) / 2:
+        raise RuntimeError(
+            f"{len(dropped)} of the whisp datasets failed to load, which looks like an Earth Engine "
+            "access or connection problem rather than broken datasets, so none were dropped. "
+            "Check your Earth Engine login and project and try again."
+        )
 
     img_combined = ee.Image.cat(
         [ee.Image(1).rename(geometry_area_column)]
@@ -1751,6 +1771,57 @@ def combine_datasets_without_broken(national_codes=None, include_context_bands=T
         print(f"Warning: left out broken dataset(s): {', '.join(dropped)}")
     print("Whisp multiband image compiled")
     return img_combined, dropped
+
+
+def unavailable_dataset_names(func_names):
+    """
+    Short names for dropped datasets, as they appear in the output columns: the shared column
+    prefix of each prep function's rows in the lookup table (g_esa_fire_prep -> "ESA_fire"). Falls
+    back to the function name without its g_/_prep parts if the lookup has no rows for it.
+    """
+    import pandas as pd
+    from openforis_whisp.parameters.config_runtime import DEFAULT_LOOKUP_TABLE_PATH
+
+    lookup = pd.read_csv(
+        DEFAULT_LOOKUP_TABLE_PATH, usecols=["name", "corresponding_variable"]
+    )
+    context_names = {
+        "g_gaul_admin_code": "admin_code",
+        "g_water_mask_prep": "In_waterbody",
+    }
+    names = []
+    for func_name in func_names:
+        columns = lookup.loc[
+            lookup["corresponding_variable"] == func_name, "name"
+        ].tolist()
+        if func_name in context_names:
+            names.append(context_names[func_name])
+        elif len(columns) == 1:
+            names.append(columns[0])
+        elif columns:
+            prefix = os.path.commonprefix(columns)
+            names.append(
+                prefix[: max(prefix.rfind("_"), prefix.rfind("-"), 0)] or prefix
+            )
+        else:
+            names.append(func_name.removeprefix("g_").removesuffix("_prep"))
+    return names
+
+
+def supplied_image_error(error):
+    """
+    The error raised when a run on an image the caller passed in fails with a dataset error. Whisp
+    only rebuilds images it built itself, as it can't know what a passed-in image contains.
+    """
+    return RuntimeError(
+        "Earth Engine failed on the whisp_image you passed in, with what looks like a broken or "
+        f"missing dataset: {str(error)[:300]}\n"
+        "Whisp only rebuilds images it builds itself, as it can't know what a passed-in image "
+        "contains. Rebuild the image now with combine_datasets(national_codes=..., "
+        "auto_recovery=True), which leaves out broken datasets, add any custom bands again and "
+        "rerun, or leave out whisp_image so Whisp builds and recovers the image itself. If you "
+        "keep the image between runs (e.g. a cached copy), rebuild that copy too."
+    )
 
 
 ######helper functions to check images
