@@ -21,6 +21,7 @@ def init_calls(monkeypatch):
     calls = []
     monkeypatch.setattr(ee, "Initialize", lambda *a, **k: calls.append((a, k)))
     monkeypatch.setattr(ee, "Reset", lambda: calls.append("reset"))
+    monkeypatch.setattr(whisp, "_applied_key_path", None)
     return calls
 
 
@@ -107,3 +108,26 @@ def test_wrong_endpoint_warns_once_instead_of_failing(monkeypatch, caplog):
         advanced_stats.validate_ee_endpoint("high-volume", raise_error=False)
     warnings = [r for r in caplog.records if "HIGH-VOLUME" in r.getMessage()]
     assert len(warnings) == 1
+
+
+def test_repeat_calls_with_the_same_settings_do_nothing(monkeypatch, init_calls):
+    # e.g. an API worker calling initialize_ee for every job
+    monkeypatch.setattr(ee.data, "is_initialized", lambda: True)
+    monkeypatch.setattr(whisp, "_current_ee_url", lambda: whisp.EE_HIGH_VOLUME_URL)
+    monkeypatch.setattr(whisp, "_applied_key_path", "key.json")
+    whisp.initialize_ee("key.json", use_high_vol_endpoint=True)
+    whisp.initialize_ee(use_high_vol_endpoint=True)
+    assert init_calls == []
+
+
+def test_switching_endpoint_still_reinitializes(monkeypatch, init_calls):
+    monkeypatch.setattr(ee.data, "is_initialized", lambda: True)
+    monkeypatch.setattr(whisp, "_current_ee_url", lambda: whisp.EE_HIGH_VOLUME_URL)
+    monkeypatch.setattr(whisp, "_applied_key_path", "key.json")
+    monkeypatch.setattr(
+        whisp.service_account.Credentials,
+        "from_service_account_file",
+        lambda path, scopes: "key-creds",
+    )
+    whisp.initialize_ee("key.json", use_high_vol_endpoint=False)
+    assert init_calls == ["reset", (("key-creds",), {"url": None, "project": None})]

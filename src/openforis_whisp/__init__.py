@@ -28,8 +28,15 @@ def initialize_ee(credentials_path=None, use_high_vol_endpoint=False):
     credentials_path: path to a service-account JSON key file (optional).
     use_high_vol_endpoint: True to use the high-volume endpoint (defaults to False).
     """
-    if _is_ee_initialized() and not (credentials_path or use_high_vol_endpoint):
-        return
+    global _applied_key_path
+    if _is_ee_initialized():
+        if not (credentials_path or use_high_vol_endpoint):
+            return
+        # Already set up this way (e.g. a worker calling this for every job): leave it alone
+        wanted_url = EE_HIGH_VOLUME_URL if use_high_vol_endpoint else _DEFAULT_EE_URL
+        same_key = credentials_path is None or credentials_path == _applied_key_path
+        if same_key and _current_ee_url() == wanted_url:
+            return
     # Work out credentials and project before touching the live client, so a bad key path leaves
     # a working session as it was
     if credentials_path:
@@ -52,10 +59,28 @@ def initialize_ee(credentials_path=None, use_high_vol_endpoint=False):
     except Exception:
         _reset_ee()
         raise
+    _applied_key_path = credentials_path
     if credentials_path:
         print("EE initialized with credentials from:", credentials_path)
     else:
         print("EE initialized with default credentials.")
+
+
+_DEFAULT_EE_URL = getattr(
+    ee.data, "DEFAULT_CLOUD_API_BASE_URL", "https://earthengine.googleapis.com"
+)
+_applied_key_path = None  # the key file initialize_ee last set Earth Engine up with
+
+
+def _current_ee_url():
+    """The Earth Engine endpoint in use now, if it can be read."""
+    try:
+        from ee import _state
+
+        url = _state.get_state().cloud_api_base_url
+    except Exception:  # earthengine-api before 1.6.12
+        url = getattr(ee.data, "_cloud_api_base_url", None)
+    return str(url).rstrip("/") if url else None
 
 
 def _reset_ee():
