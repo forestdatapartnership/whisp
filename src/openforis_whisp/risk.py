@@ -6,14 +6,14 @@ from .logger import StdoutLogger
 
 from openforis_whisp.parameters.config_runtime import (
     geometry_area_column,
-    DEFAULT_LOOKUP_TABLE_PATH,
+    read_lookup_table,
     stats_unit_type_column,
 )
 
 from openforis_whisp.reformat import filter_lookup_by_country_codes
 
 # could embed this in each function below that uses lookup_gee_datasets_df.
-lookup_gee_datasets_df: data_lookup_type = pd.read_csv(DEFAULT_LOOKUP_TABLE_PATH)
+lookup_gee_datasets_df: data_lookup_type = read_lookup_table()
 
 logger = StdoutLogger(__name__)
 
