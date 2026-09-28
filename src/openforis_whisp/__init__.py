@@ -2,49 +2,72 @@ import ee
 from google.oauth2 import service_account
 
 
+EE_HIGH_VOLUME_URL = "https://earthengine-highvolume.googleapis.com"
+
+
 def _is_ee_initialized():
-    """Check if Earth Engine is initialized, compatible with both EE 1.6.x and 1.7.x."""
-    try:
-        return ee.data._initialized
-    except AttributeError:
-        # EE 1.7+ removed _initialized; check if credentials are set instead
-        try:
-            return ee.data.get_persistent_credentials() is not None
-        except Exception:
-            return False
+    """True if the Earth Engine client is initialized, on any earthengine-api version (#250)."""
+    is_initialized = getattr(ee.data, "is_initialized", None)
+    if is_initialized is not None:
+        return bool(is_initialized())
+    return bool(getattr(ee.data, "_initialized", False))
 
 
 def initialize_ee(credentials_path=None, use_high_vol_endpoint=False):
-    """Initializes Google Earth Engine using the provided path or defaults to normal if no path is given.
+    """
+    Initialize Google Earth Engine, with a service-account key file if given, otherwise with the
+    default credentials.
+
+    Earth Engine may already be initialized (importing whisp tries the defaults), so whenever a key
+    file or the high-volume endpoint is asked for it is initialized again, so those settings always
+    take effect. With neither, an existing initialization is left as it is. Errors are raised
+    rather than printed, so a credentials problem shows up at start-up, not mid-analysis.
+
     Args:
-    use_high_vol_endpoint: True/False to use high-volume endpoint via opt_url parameter (defaults to False).
+    credentials_path: path to a service-account JSON key file (optional).
+    use_high_vol_endpoint: True to use the high-volume endpoint (defaults to False).
+    """
+    if _is_ee_initialized() and not (credentials_path or use_high_vol_endpoint):
+        return
+    url = EE_HIGH_VOLUME_URL if use_high_vol_endpoint else None
+    try:
+        if credentials_path:
+            credentials = service_account.Credentials.from_service_account_file(
+                credentials_path,
+                scopes=["https://www.googleapis.com/auth/earthengine"],
+            )
+            ee.Initialize(credentials, url=url)
+            print("EE initialized with credentials from:", credentials_path)
+        else:
+            # Keep the Cloud project already in use, as default credentials usually need one
+            ee.Initialize(url=url, project=_current_ee_project())
+            print("EE initialized with default credentials.")
+    except Exception:
+        _reset_ee()
+        raise
+
+
+def _reset_ee():
+    """
+    Clear a failed initialization. A failed ee.Initialize() can leave the client looking
+    initialized (with the wrong project), which would make later checks skip a real one.
     """
     try:
-        if not _is_ee_initialized():
-            print(credentials_path)
-            if credentials_path:
-                credentials = service_account.Credentials.from_service_account_file(
-                    credentials_path,
-                    scopes=["https://www.googleapis.com/auth/earthengine"],
-                )
-                if use_high_vol_endpoint == False:
-                    ee.Initialize(credentials)
-                else:
-                    ee.Initialize(
-                        credentials,
-                        opt_url="https://earthengine-highvolume.googleapis.com",
-                    )
-                print("EE initialized with credentials from:", credentials_path)
-            else:
-                if use_high_vol_endpoint == False:
-                    ee.Initialize()
-                else:
-                    ee.Initialize(
-                        opt_url="https://earthengine-highvolume.googleapis.com"
-                    )
-                print("EE initialized with default credentials.")
-    except Exception as e:
-        print("Error initializing EE:", e)
+        ee.Reset()
+    except Exception:
+        pass
+
+
+def _current_ee_project():
+    """The Cloud project Earth Engine is set up with now, if any, so re-initializing keeps it."""
+    try:
+        from ee import _state
+
+        project = _state.get_state().cloud_api_user_project
+    except Exception:
+        return None
+    default = getattr(ee.data, "DEFAULT_CLOUD_API_USER_PROJECT", None)
+    return None if not project or project == default else project
 
 
 # Default to normal initialize if nobody calls whisp.initialize_ee.
@@ -53,6 +76,7 @@ try:
         ee.Initialize()
         print("EE auto-initialized with default credentials.")
 except Exception as e:
+    _reset_ee()
     print("Error in default EE initialization:", e)
 
 from openforis_whisp.datasets import combine_datasets, combine_custom_bands

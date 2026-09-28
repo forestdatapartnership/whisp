@@ -480,16 +480,24 @@ def check_ee_endpoint(endpoint_type: str = "high-volume") -> bool:
     bool
         True if using expected endpoint, False otherwise
     """
-    try:
-        api_url = str(ee.data._cloud_api_base_url)
-    except AttributeError:
-        # EE 1.7+ removed _cloud_api_base_url; try alternative approaches
+    api_url = None
+    # earthengine-api 1.6.12+ keeps client state in ee._state; older versions on ee.data (#250)
+    for get_url in (
+        lambda: ee._state.get_state().cloud_api_base_url,
+        lambda: ee.data._cloud_api_base_url,
+        lambda: ee.data._api_base_url,
+    ):
         try:
-            api_url = str(ee.data._api_base_url)
-        except AttributeError:
-            # Cannot determine endpoint; assume correct and let EE handle errors
-            logging.debug("Cannot determine EE endpoint URL; skipping endpoint check.")
-            return True
+            api_url = get_url()
+        except Exception:
+            continue
+        if api_url:
+            break
+    if not api_url:
+        # Cannot determine endpoint; assume correct and let EE handle errors
+        logging.debug("Cannot determine EE endpoint URL; skipping endpoint check.")
+        return True
+    api_url = str(api_url)
 
     if endpoint_type == "high-volume":
         return "highvolume" in api_url.lower()
@@ -518,14 +526,14 @@ def validate_ee_endpoint(endpoint_type: str = "high-volume", raise_error: bool =
     if not check_ee_endpoint(endpoint_type):
         if endpoint_type == "high-volume":
             msg = (
-                "Concurrent/local mode requires the HIGH-VOLUME endpoint. To change endpoint run:\n"
+                "Concurrent/local mode works best on the HIGH-VOLUME endpoint. To change endpoint run:\n"
                 "ee.Reset()\n"
                 "ee.Initialize(project=gee_project_name, opt_url='https://earthengine-highvolume.googleapis.com')  # or ee.Initialize(opt_url='https://earthengine-highvolume.googleapis.com')\n"
                 "# where gee_project_name is your GEE project (necessary in Colab)"
             )
         else:  # standard endpoint
             msg = (
-                "Sequential/legacy mode requires the STANDARD endpoint. To change endpoint run:\n"
+                "Sequential/legacy mode works best on the STANDARD endpoint. To change endpoint run:\n"
                 "ee.Reset()\n"
                 "ee.Initialize(project=gee_project_name)  # or ee.Initialize()\n"
                 "# where gee_project_name is your GEE project (necessary in Colab)"
@@ -533,8 +541,13 @@ def validate_ee_endpoint(endpoint_type: str = "high-volume", raise_error: bool =
 
         if raise_error:
             raise RuntimeError(msg)
-        else:
+        elif endpoint_type not in _endpoint_warned:
+            # Once per process: a long-running worker would otherwise repeat it on every job
+            _endpoint_warned.add(endpoint_type)
             logging.warning(msg)
+
+
+_endpoint_warned = set()
 
 
 # ============================================================================
@@ -1099,7 +1112,9 @@ def whisp_stats_geojson_to_df_concurrent(
         logger.debug(f"Using decimal_places={decimal_places} from config")
 
     # Validate endpoint
-    validate_ee_endpoint("high-volume", raise_error=True)
+    # A warning, not an error: both endpoints work, and a worker (e.g. the Whisp API) runs
+    # sequential and concurrent jobs on whichever one it was started with
+    validate_ee_endpoint("high-volume", raise_error=False)
 
     # Load GeoJSON with output suppressed (external_id_column renamed to 'external_id' if provided)
     gdf = _load_and_prepare_geojson(
@@ -1696,7 +1711,7 @@ def whisp_stats_geojson_to_df_sequential(
         logger.debug(f"Using decimal_places={decimal_places} from config")
 
     # Validate endpoint
-    validate_ee_endpoint("standard", raise_error=True)
+    validate_ee_endpoint("standard", raise_error=False)
 
     # Load GeoJSON with output suppressed (external_id_column renamed to 'external_id' if provided)
     gdf = _load_and_prepare_geojson(

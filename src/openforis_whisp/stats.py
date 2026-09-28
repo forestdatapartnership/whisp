@@ -143,7 +143,7 @@ def whisp_formatted_stats_geojson_to_df_legacy(
     from openforis_whisp.advanced_stats import validate_ee_endpoint
 
     # Validate endpoint - legacy mode uses standard endpoint (same as sequential)
-    validate_ee_endpoint("standard", raise_error=True)
+    validate_ee_endpoint("standard", raise_error=False)
 
     # Convert GeoJSON to Earth Engine FeatureCollection
     # Note: Geometry validation/cleaning should be done before calling this function

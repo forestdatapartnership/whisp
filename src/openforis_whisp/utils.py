@@ -85,12 +85,9 @@ def load_env_vars() -> None:
 def init_ee() -> None:
     """Initialize earth engine according to the environment"""
 
-    # only do the initialization if the credential are missing
-    try:
-        credentials_missing = not ee.data._credentials
-    except AttributeError:
-        # EE 1.7+ removed _credentials
-        credentials_missing = True
+    # only do the initialization if Earth Engine isn't initialized yet (#250)
+    is_initialized = getattr(ee.data, "is_initialized", None)
+    credentials_missing = not (is_initialized() if is_initialized else False)
     if credentials_missing:
 
         # if in test env use the private key

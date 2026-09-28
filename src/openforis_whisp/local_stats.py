@@ -1535,7 +1535,7 @@ def whisp_stats_local(
         max_extract_workers = max(1, os.cpu_count() - 1)
 
     # Validate EE endpoint - local mode requires high-volume endpoint
-    validate_ee_endpoint("high-volume", raise_error=True)
+    validate_ee_endpoint("high-volume", raise_error=False)
 
     # Ensure output directory exists
     output_path = Path(output_dir)
