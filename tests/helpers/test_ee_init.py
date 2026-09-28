@@ -17,8 +17,10 @@ from openforis_whisp import advanced_stats, utils
 
 @pytest.fixture
 def init_calls(monkeypatch):
+    """Record ee.Initialize and ee.Reset calls (in order) instead of running them."""
     calls = []
     monkeypatch.setattr(ee, "Initialize", lambda *a, **k: calls.append((a, k)))
+    monkeypatch.setattr(ee, "Reset", lambda: calls.append("reset"))
     return calls
 
 
@@ -29,12 +31,37 @@ def test_is_ee_initialized_follows_the_client(monkeypatch, state):
 
 
 def test_explicit_high_volume_request_reinitializes(monkeypatch, init_calls):
+    # Keeps the current credentials and project, starting from a clean client
     monkeypatch.setattr(ee.data, "is_initialized", lambda: True)
     monkeypatch.setattr(whisp, "_current_ee_project", lambda: "my-project")
+    monkeypatch.setattr(whisp, "_current_ee_credentials", lambda: "my-creds")
     whisp.initialize_ee(use_high_vol_endpoint=True)
     assert init_calls == [
-        ((), {"url": whisp.EE_HIGH_VOLUME_URL, "project": "my-project"})
+        "reset",
+        (("my-creds",), {"url": whisp.EE_HIGH_VOLUME_URL, "project": "my-project"}),
     ]
+
+
+@pytest.mark.parametrize("high_vol", [True, False])
+def test_key_file_uses_its_own_project_and_the_asked_endpoint(
+    monkeypatch, init_calls, high_vol
+):
+    monkeypatch.setattr(ee.data, "is_initialized", lambda: True)
+    monkeypatch.setattr(
+        whisp.service_account.Credentials,
+        "from_service_account_file",
+        lambda path, scopes: "key-creds",
+    )
+    whisp.initialize_ee("key.json", use_high_vol_endpoint=high_vol)
+    url = whisp.EE_HIGH_VOLUME_URL if high_vol else None
+    assert init_calls == ["reset", (("key-creds",), {"url": url, "project": None})]
+
+
+def test_bad_key_path_leaves_a_working_session_alone(monkeypatch, init_calls):
+    monkeypatch.setattr(ee.data, "is_initialized", lambda: True)
+    with pytest.raises(FileNotFoundError):
+        whisp.initialize_ee("missing-key.json")
+    assert init_calls == []
 
 
 def test_no_settings_leaves_an_existing_initialization_alone(monkeypatch, init_calls):
@@ -54,7 +81,7 @@ def test_failed_initialization_raises_and_resets(monkeypatch):
     monkeypatch.setattr(ee, "Reset", lambda: resets.append(1))
     with pytest.raises(ee.EEException, match="no project found"):
         whisp.initialize_ee()
-    assert resets == [1]
+    assert resets == [1, 1]  # a clean start before, and cleared again after the failure
 
 
 def test_init_ee_skips_when_already_initialized(monkeypatch):

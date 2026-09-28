@@ -19,9 +19,10 @@ def initialize_ee(credentials_path=None, use_high_vol_endpoint=False):
     default credentials.
 
     Earth Engine may already be initialized (importing whisp tries the defaults), so whenever a key
-    file or the high-volume endpoint is asked for it is initialized again, so those settings always
-    take effect. With neither, an existing initialization is left as it is. Errors are raised
-    rather than printed, so a credentials problem shows up at start-up, not mid-analysis.
+    file or the high-volume endpoint is asked for it is set up again from scratch, so those
+    settings always take effect and are checked straight away. Without a key file the current
+    credentials and project are kept. With neither setting, an existing initialization is left as
+    it is. Errors are raised rather than printed, so a credentials problem shows up at start-up.
 
     Args:
     credentials_path: path to a service-account JSON key file (optional).
@@ -29,22 +30,32 @@ def initialize_ee(credentials_path=None, use_high_vol_endpoint=False):
     """
     if _is_ee_initialized() and not (credentials_path or use_high_vol_endpoint):
         return
+    # Work out credentials and project before touching the live client, so a bad key path leaves
+    # a working session as it was
+    if credentials_path:
+        credentials = service_account.Credentials.from_service_account_file(
+            credentials_path,
+            scopes=["https://www.googleapis.com/auth/earthengine"],
+        )
+        project = None  # the service account's own project applies
+    else:
+        credentials = _current_ee_credentials() or "persistent"
+        project = _current_ee_project()  # default credentials usually need one
     url = EE_HIGH_VOLUME_URL if use_high_vol_endpoint else None
+
+    # Start from a clean client: the new settings are then checked straight away (a key without
+    # Earth Engine access fails here, not mid-analysis), a forked worker gets its own connection,
+    # and asking for the standard endpoint really switches back to it
+    _reset_ee()
     try:
-        if credentials_path:
-            credentials = service_account.Credentials.from_service_account_file(
-                credentials_path,
-                scopes=["https://www.googleapis.com/auth/earthengine"],
-            )
-            ee.Initialize(credentials, url=url)
-            print("EE initialized with credentials from:", credentials_path)
-        else:
-            # Keep the Cloud project already in use, as default credentials usually need one
-            ee.Initialize(url=url, project=_current_ee_project())
-            print("EE initialized with default credentials.")
+        ee.Initialize(credentials, url=url, project=project)
     except Exception:
         _reset_ee()
         raise
+    if credentials_path:
+        print("EE initialized with credentials from:", credentials_path)
+    else:
+        print("EE initialized with default credentials.")
 
 
 def _reset_ee():
@@ -64,10 +75,22 @@ def _current_ee_project():
         from ee import _state
 
         project = _state.get_state().cloud_api_user_project
-    except Exception:
-        return None
+    except Exception:  # earthengine-api before 1.6.12
+        project = getattr(ee.data, "_cloud_api_user_project", None)
     default = getattr(ee.data, "DEFAULT_CLOUD_API_USER_PROJECT", None)
     return None if not project or project == default else project
+
+
+def _current_ee_credentials():
+    """The credentials Earth Engine is using now, if any, so re-initializing keeps them."""
+    if not _is_ee_initialized():
+        return None
+    try:
+        from ee import _state
+
+        return _state.get_state().credentials
+    except Exception:  # earthengine-api before 1.6.12
+        return getattr(ee.data, "_credentials", None)
 
 
 # Default to normal initialize if nobody calls whisp.initialize_ee.

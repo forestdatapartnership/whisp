@@ -528,7 +528,7 @@ def validate_ee_endpoint(endpoint_type: str = "high-volume", raise_error: bool =
             msg = (
                 "Concurrent/local mode works best on the HIGH-VOLUME endpoint. To change endpoint run:\n"
                 "ee.Reset()\n"
-                "ee.Initialize(project=gee_project_name, opt_url='https://earthengine-highvolume.googleapis.com')  # or ee.Initialize(opt_url='https://earthengine-highvolume.googleapis.com')\n"
+                "ee.Initialize(project=gee_project_name, url='https://earthengine-highvolume.googleapis.com')  # or whisp.initialize_ee(use_high_vol_endpoint=True)\n"
                 "# where gee_project_name is your GEE project (necessary in Colab)"
             )
         else:  # standard endpoint
