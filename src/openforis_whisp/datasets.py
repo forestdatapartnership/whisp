@@ -1800,13 +1800,11 @@ def unavailable_dataset_names(func_names):
             names.append(context_names[func_name])
         elif len(columns) == 1:
             names.append(columns[0])
-        elif columns:
-            prefix = os.path.commonprefix(columns)
-            names.append(
-                prefix[: max(prefix.rfind("_"), prefix.rfind("-"), 0)] or prefix
-            )
         else:
-            names.append(func_name.removeprefix("g_").removesuffix("_prep"))
+            prefix = os.path.commonprefix(columns) if columns else ""
+            short = prefix[: max(prefix.rfind("_"), prefix.rfind("-"), 0)] or prefix
+            # columns with nothing in common (or none at all): use the function's name
+            names.append(short or func_name.removeprefix("g_").removesuffix("_prep"))
     return names
 
 

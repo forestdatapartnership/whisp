@@ -21,14 +21,15 @@ _METADATA_COLUMN = "whisp_processing_metadata"
 _RISK_FLAGS = ("use_for_risk_pcrop", "use_for_risk_acrop", "use_for_risk_timber")
 
 
-def risk_inputs_left_out(unavailable):
+def risk_inputs_left_out(unavailable, lookup=None):
     """
     Of the datasets a stats run left out (the short names in unavailable_datasets), the ones that
     feed a risk tree, each with the risk outputs it feeds, e.g. {"RADD_after_2020": ["pcrop", ...]}.
+    `lookup` defaults to the full lookup table; whisp_risk passes the one filtered by country.
     """
     from openforis_whisp.datasets import unavailable_dataset_names
 
-    lookup = lookup_gee_datasets_df
+    lookup = lookup_gee_datasets_df if lookup is None else lookup
     preps = lookup["corresponding_variable"].dropna().unique().tolist()
     short_names = dict(zip(preps, unavailable_dataset_names(preps)))
     affected = {}
@@ -43,25 +44,32 @@ def risk_inputs_left_out(unavailable):
     return affected
 
 
-def _note_risk_inputs_left_out(df):
+def _as_metadata(value):
+    """A whisp_processing_metadata value as a dict (it is a string if read back from a CSV)."""
+    if isinstance(value, str):
+        import ast
+
+        try:
+            value = ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _note_risk_inputs_left_out(df, lookup=None):
     """
     If whisp_processing_metadata lists unavailable_datasets that feed a risk tree, warn through
-    the whisp logger (which reaches API job messages) and add risk_computed_without to the
-    metadata, since risk is then worked out without them.
+    the whisp logger (which reaches API job messages) and add risk_computed_without to each row's
+    metadata, since risk is then worked out without them. Rows from different runs (e.g. results
+    joined together) are each checked.
     """
     if _METADATA_COLUMN not in df.columns or df.empty:
         return df
-    meta = df[_METADATA_COLUMN].iloc[0]
-    if isinstance(meta, str):  # e.g. read back from a CSV
-        try:
-            import ast
-
-            meta = ast.literal_eval(meta)
-        except (ValueError, SyntaxError):
-            return df
-    if not isinstance(meta, dict) or not meta.get("unavailable_datasets"):
+    metas = [_as_metadata(m) for m in df[_METADATA_COLUMN]]
+    unavailable = sorted({n for m in metas for n in m.get("unavailable_datasets", [])})
+    if not unavailable:
         return df
-    affected = risk_inputs_left_out(meta["unavailable_datasets"])
+    affected = risk_inputs_left_out(unavailable, lookup)
     if not affected:
         return df
     detail = "; ".join(f"{name} ({', '.join(f)})" for name, f in affected.items())
@@ -69,7 +77,17 @@ def _note_risk_inputs_left_out(df):
         f"Risk worked out without unavailable dataset(s) that feed it: {detail}"
     )
     df = df.copy()
-    df[_METADATA_COLUMN] = [{**meta, "risk_computed_without": list(affected)}] * len(df)
+    df[_METADATA_COLUMN] = [
+        {
+            **m,
+            "risk_computed_without": [
+                n for n in m.get("unavailable_datasets", []) if n in affected
+            ],
+        }
+        if any(n in affected for n in m.get("unavailable_datasets", []))
+        else m
+        for m in metas
+    ]
     return df
 
 
@@ -242,9 +260,6 @@ def whisp_risk(
     unit_type = detect_unit_type(df, explicit_unit_type)
     print(f"Using unit type: {unit_type}")
 
-    # Say so if the stats run left out a dataset that feeds a risk tree
-    df = _note_risk_inputs_left_out(df)
-
     lookup_df_copy = lookup_gee_datasets_df.copy()
 
     # Add custom bands to lookup if provided
@@ -261,6 +276,10 @@ def whisp_risk(
         filter_col="ISO2_code",
         national_codes=national_codes,
     )
+
+    # Say so if the stats run left out a dataset that feeds a risk tree (national datasets only
+    # count when their country is included)
+    df = _note_risk_inputs_left_out(df, filtered_lookup_gee_datasets_df)
 
     # Get indicator columns (now includes custom bands)
     if ind_1_input_columns is None:

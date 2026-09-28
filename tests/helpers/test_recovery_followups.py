@@ -115,3 +115,37 @@ def test_concurrent_formatting_error_is_reported_not_rerun(three_plots, monkeypa
     monkeypatch.setattr(reformat, "format_stats_dataframe", broken_format)
     with pytest.raises(ValueError, match="formatting went wrong"):
         advanced_stats.whisp_stats_geojson_to_df_concurrent(three_plots)
+
+
+def test_rows_from_different_runs_are_each_checked():
+    import pandas as pd
+
+    clean = {"whisp_version": "x"}
+    dropped = {"whisp_version": "x", "unavailable_datasets": ["RADD_after_2020"]}
+    df = pd.DataFrame({"whisp_processing_metadata": [clean, dropped, str(dropped)]})
+    noted = risk._note_risk_inputs_left_out(df)["whisp_processing_metadata"]
+    assert "risk_computed_without" not in noted.iloc[0]
+    assert noted.iloc[1]["risk_computed_without"] == ["RADD_after_2020"]
+    assert noted.iloc[2]["risk_computed_without"] == ["RADD_after_2020"]
+
+
+def test_national_datasets_only_count_when_their_country_is_included():
+    from openforis_whisp.reformat import filter_lookup_by_country_codes
+
+    lookup = risk.lookup_gee_datasets_df
+    national = lookup[lookup["ISO2_code"].notna() & (lookup["use_for_risk_pcrop"] == 1)]
+    row = national.iloc[0]
+    short = datasets.unavailable_dataset_names([row["corresponding_variable"]])[0]
+    without_country = filter_lookup_by_country_codes(lookup, "ISO2_code", None)
+    with_country = filter_lookup_by_country_codes(
+        lookup, "ISO2_code", [row["ISO2_code"].lower()]
+    )
+    assert risk.risk_inputs_left_out([short], without_country) == {}
+    assert short in risk.risk_inputs_left_out([short], with_country)
+
+
+def test_dataset_short_names_are_never_blank():
+    names = datasets.unavailable_dataset_names(
+        ["g_glad_gfc_10pc_prep", "g_fdap_forest_prep"]
+    )
+    assert names == ["GFC_TC_2020", "Forest_FDaP"]
