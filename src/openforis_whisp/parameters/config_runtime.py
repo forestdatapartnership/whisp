@@ -50,21 +50,29 @@ YEAR_SERIES_TO_CURRENT_YEAR = (
     "RADD_year_",
 )
 
+# Fixed when the package loads, like CURRENT_YEAR in datasets.py, so the lookup and the prep
+# functions agree on the newest year for the whole session (even one running over New Year)
+CURRENT_YEAR = datetime.now().year
+
 
 def read_lookup_table(path=DEFAULT_LOOKUP_TABLE_PATH):
     """Read a lookup CSV, extending the per-year series above to the current year."""
     lookup = pd.read_csv(path)
+    if "name" not in lookup.columns:
+        return lookup  # e.g. a custom file without dataset rows: nothing to extend
+    names = lookup["name"].astype(str)
     extra = []
     for prefix in YEAR_SERIES_TO_CURRENT_YEAR:
-        rows = lookup[lookup["name"].str.fullmatch(rf"{re.escape(prefix)}\d{{4}}")]
+        rows = lookup[names.str.fullmatch(rf"{re.escape(prefix)}\d{{4}}")]
         if rows.empty:
             continue
         newest = rows.loc[rows["name"].str[-4:].astype(int).idxmax()]
         newest_year = int(newest["name"][-4:])
-        for year in range(newest_year + 1, datetime.now().year + 1):
+        for year in range(newest_year + 1, CURRENT_YEAR + 1):
             row = newest.copy()
             row["name"] = f"{prefix}{year}"
-            row["order"] = newest["order"] + (year - newest_year)
+            if "order" in lookup.columns:
+                row["order"] = newest["order"] + (year - newest_year)
             extra.append(row)
     if not extra:
         return lookup

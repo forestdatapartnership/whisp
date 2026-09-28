@@ -15,6 +15,7 @@ from openforis_whisp.logger import StdoutLogger, FileLogger
 from openforis_whisp.pd_schemas import data_lookup_type
 
 
+from openforis_whisp.parameters import config_runtime
 from openforis_whisp.parameters.config_runtime import (
     DEFAULT_LOOKUP_TABLE_PATH,
     read_lookup_table,
@@ -73,6 +74,8 @@ def load_schema_if_any_file_changed(file_paths=None, national_codes=None):
         str(sorted(national_codes)) if national_codes else "no_countries"
     )
     cache_key_parts.append(f"national_codes:{national_codes_key}")
+    # Generated per-year lookup rows depend on the year (see read_lookup_table)
+    cache_key_parts.append(f"year:{config_runtime.CURRENT_YEAR}")
 
     current_cache_key = "|".join(cache_key_parts)
 
@@ -188,7 +191,7 @@ def create_schema_from_dataframe(schema_df: pd.DataFrame) -> pa.DataFrameSchema:
 
     # Sort DataFrame by 'order' if it exists
     if "order" in schema_df.columns:
-        schema_df = schema_df.sort_values(by="order")
+        schema_df = schema_df.sort_values(by="order", kind="stable")
 
     # Remove rows where 'exclude_from_output' equals 1, if that column exists
     if "exclude_from_output" in schema_df.columns:
