@@ -66,16 +66,21 @@ def _note_risk_inputs_left_out(df, lookup=None):
     if _METADATA_COLUMN not in df.columns or df.empty:
         return df
     metas = [_as_metadata(m) for m in df[_METADATA_COLUMN]]
+    # Always start from scratch: a rerun of whisp_risk (say with different national_codes) must
+    # replace the previous run's note, not keep it
+    had_note = any("risk_inputs_unavailable" in m for m in metas)
+    metas = [
+        {k: v for k, v in m.items() if k != "risk_inputs_unavailable"} for m in metas
+    ]
     unavailable = sorted({n for m in metas for n in m.get("unavailable_datasets", [])})
-    if not unavailable:
+    affected = risk_inputs_left_out(unavailable, lookup) if unavailable else {}
+    if not affected and not had_note:
         return df
-    affected = risk_inputs_left_out(unavailable, lookup)
-    if not affected:
-        return df
-    detail = "; ".join(f"{name} ({', '.join(f)})" for name, f in affected.items())
-    get_whisp_logger().warning(
-        f"Risk worked out without unavailable dataset(s) that feed it: {detail}"
-    )
+    if affected:
+        detail = "; ".join(f"{name} ({', '.join(f)})" for name, f in affected.items())
+        get_whisp_logger().warning(
+            f"Risk worked out without unavailable dataset(s) that feed it: {detail}"
+        )
     df = df.copy()
     df[_METADATA_COLUMN] = [
         {

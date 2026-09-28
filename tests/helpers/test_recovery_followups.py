@@ -54,6 +54,33 @@ def test_risk_inputs_left_out_maps_short_names_to_the_risk_trees_they_feed():
     assert affected == {"RADD_after_2020": ["pcrop", "acrop", "timber"]}
 
 
+def test_rerunning_risk_replaces_a_stale_risk_inputs_unavailable_note():
+    import pandas as pd
+
+    # A previous run noted RADD_after_2020; rerun with a lookup where it no longer feeds any tree
+    # (as a different national_codes filter or a custom lookup could do): the old note must go
+    stale = {
+        "unavailable_datasets": ["RADD_after_2020"],
+        "risk_inputs_unavailable": ["RADD_after_2020"],
+    }
+    df = pd.DataFrame(
+        {"whisp_processing_metadata": [stale, {"unavailable_datasets": []}]}
+    )
+    lookup = risk.lookup_gee_datasets_df.copy()
+    lookup.loc[lookup["name"] == "RADD_after_2020", list(risk._RISK_FLAGS)] = 0
+    rerun = risk._note_risk_inputs_left_out(df, lookup)
+    assert "risk_inputs_unavailable" not in rerun["whisp_processing_metadata"].iloc[0]
+    assert rerun["whisp_processing_metadata"].iloc[0]["unavailable_datasets"] == [
+        "RADD_after_2020"
+    ]
+    # and with the normal lookup the note comes back, recomputed rather than carried over
+    again = risk._note_risk_inputs_left_out(rerun)
+    assert again["whisp_processing_metadata"].iloc[0]["risk_inputs_unavailable"] == [
+        "RADD_after_2020"
+    ]
+    assert "risk_inputs_unavailable" not in again["whisp_processing_metadata"].iloc[1]
+
+
 def test_whisp_risk_notes_when_it_works_without_a_dataset_that_feeds_it(whisp_log):
     import pandas as pd
 
