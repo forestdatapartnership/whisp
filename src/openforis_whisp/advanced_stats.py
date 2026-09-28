@@ -1063,7 +1063,9 @@ def whisp_stats_geojson_to_df_concurrent(
     unit_type : str
         "ha" or "percent"
     whisp_image : ee.Image, optional
-        Pre-combined image (created with combine_datasets if None)
+        Pre-combined image. If None, Whisp builds it and leaves out any broken dataset if
+        processing fails. A passed-in image is never rebuilt, so build it with
+        combine_datasets(auto_recovery=True) to leave out broken datasets up front.
     custom_bands : Dict[str, Any], optional
         Custom band information
     batch_size : int
@@ -1467,154 +1469,10 @@ def whisp_stats_geojson_to_df_concurrent(
                 convert_water_flag=True,
             )
         except Exception as e:
-            if image_supplied:
-                raise  # a passed-in image is never swapped for a rebuilt one
-            # If formatting fails, try recreating the image with validation
-            logger.warning(
-                f"Formatting failed: {str(e)[:100]}. Attempting to recreate image with band validation..."
-            )
-            try:
-                with redirect_stdout(io.StringIO()):
-                    whisp_image_validated = combine_datasets(
-                        national_codes=national_codes, validate_bands=True
-                    )
-
-                # Reprocess batches with validated image - create a local process function
-                logger.info("Reprocessing batches with validated image...")
-                results_validated = []
-
-                def process_batch_validated(
-                    batch_idx: int, batch: gpd.GeoDataFrame
-                ) -> Tuple[int, pd.DataFrame, pd.DataFrame]:
-                    """Process one batch with validated image."""
-                    with ee_semaphore:
-                        fc = convert_batch_to_ee(batch)
-                        if add_metadata_server:
-                            fc = extract_centroid_and_geomtype_server(fc)
-                        df_server = process_ee_batch(
-                            fc,
-                            whisp_image_validated,
-                            reducer,
-                            batch_idx,
-                            max_retries,
-                            logger,
-                        )
-                        df_client = extract_centroid_and_geomtype_client(
-                            batch,
-                            external_id_column=external_id_column,
-                            return_attributes_only=True,
-                        )
-                    return batch_idx, df_server, df_client
-
-                with ThreadPoolExecutor(max_workers=pool_workers) as executor:
-                    futures = {
-                        executor.submit(process_batch_validated, i, batch): i
-                        for i, batch in enumerate(batches)
-                    }
-
-                    for future in as_completed(futures):
-                        try:
-                            batch_idx, df_server, df_client = future.result()
-                            if plot_id_column not in df_server.columns:
-                                logger.warning(
-                                    f"Batch {batch_idx + 1} (retry): plotId DROPPED by EE. "
-                                    f"Regenerating. Columns from EE: {list(df_server.columns)}"
-                                )
-                                # Use 1-indexed range to match client-side assignment
-                                df_server[plot_id_column] = range(1, len(df_server) + 1)
-
-                            # Ensure plotId is string type (consistent with creation)
-                            if plot_id_column in df_server.columns:
-                                df_server[plot_id_column] = df_server[
-                                    plot_id_column
-                                ].astype(str)
-                            if plot_id_column in df_client.columns:
-                                df_client[plot_id_column] = df_client[
-                                    plot_id_column
-                                ].astype(str)
-
-                            # Drop external_id from df_server if it exists (already in df_client)
-                            if "external_id" in df_server.columns:
-                                df_server = df_server.drop(columns=["external_id"])
-
-                            merged = df_server.merge(
-                                df_client,
-                                on=plot_id_column,
-                                how="left",
-                                suffixes=("", "_client"),
-                            )
-                            results_validated.append(merged)
-                        except Exception as batch_e:
-                            logger.error(
-                                f"Batch reprocessing error: {str(batch_e)[:100]}"
-                            )
-
-                if results_validated:
-                    # Concatenate with explicit dtype handling to suppress FutureWarning
-                    combined = pd.concat(
-                        results_validated, ignore_index=True, sort=False
-                    )
-                    # Ensure all column names are strings (fixes pandas .str accessor issues later)
-                    combined.columns = combined.columns.astype(str)
-
-                    # Clean up duplicate external_id columns created by merges (if any exist)
-                    # external_id was already renamed during load, so we just need to handle duplicates
-                    if external_id_column and "external_id" in combined.columns:
-                        # Find merge duplicates like external_id_x, external_id_y, external_id_ee, external_id_client
-                        duplicate_variants = [
-                            col
-                            for col in combined.columns
-                            if col != "external_id" and col.startswith("external_id_")
-                        ]
-
-                        if duplicate_variants:
-                            logger.debug(
-                                f"Dropping duplicate external_id columns: {duplicate_variants}"
-                            )
-                            combined = combined.drop(
-                                columns=duplicate_variants, errors="ignore"
-                            )
-
-                    # plotId column is already present, just ensure it's at position 0
-                    if plot_id_column in combined.columns:
-                        combined = combined[
-                            [plot_id_column]
-                            + [col for col in combined.columns if col != plot_id_column]
-                        ]
-
-                    # Add admin context again
-                    try:
-                        from openforis_whisp.parameters.lookup_gaul1_admin import (
-                            lookup_dict,
-                        )
-
-                        combined = join_admin_codes(
-                            df=combined,
-                            lookup_dict=lookup_dict,
-                            id_col="admin_code_median",
-                        )
-                    except ImportError:
-                        logger.warning(
-                            "Could not import lookup dictionary - admin context not added"
-                        )
-
-                    # Try formatting again with validated data
-                    formatted = format_stats_dataframe(
-                        df=combined,
-                        area_col=f"{geometry_area_column}_sum",
-                        decimal_places=decimal_places,
-                        unit_type=unit_type,
-                        remove_columns=True,
-                        convert_water_flag=True,
-                    )
-                else:
-                    logger.error(" Reprocessing with validation produced no results")
-                    return pd.DataFrame()
-            except Exception as retry_e:
-                logger.error(
-                    f"Failed to recover from formatting error: {str(retry_e)[:100]}"
-                )
-                raise retry_e
+            # Broken datasets are dealt with per batch before this point, so a formatting
+            # error has another cause: report it rather than rerunning every batch
+            logger.error(f"Formatting failed: {e}")
+            raise
 
         # Ensure plot_id is present (should already be there from batch processing)
         if plot_id_column not in formatted.columns:
@@ -1668,7 +1526,9 @@ def whisp_stats_geojson_to_df_sequential(
     unit_type : str
         "ha" or "percent"
     whisp_image : ee.Image, optional
-        Pre-combined image
+        Pre-combined image. If None, Whisp builds it and leaves out any broken dataset if
+        processing fails. A passed-in image is never rebuilt, so build it with
+        combine_datasets(auto_recovery=True) to leave out broken datasets up front.
     custom_bands : Dict[str, Any], optional
         Custom band information
     add_metadata_client_side : bool
@@ -1909,7 +1769,9 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
     unit_type : str
         "ha" or "percent"
     whisp_image : ee.Image, optional
-        Pre-combined image
+        Pre-combined image. If None, Whisp builds it and leaves out any broken dataset if
+        processing fails. A passed-in image is never rebuilt, so build it with
+        combine_datasets(auto_recovery=True) to leave out broken datasets up front.
     custom_bands : Dict[str, Any], optional
         Custom band information
     batch_size : int
@@ -2091,7 +1953,9 @@ def whisp_formatted_stats_geojson_to_df_sequential(
     unit_type : str
         "ha" or "percent"
     whisp_image : ee.Image, optional
-        Pre-combined image
+        Pre-combined image. If None, Whisp builds it and leaves out any broken dataset if
+        processing fails. A passed-in image is never rebuilt, so build it with
+        combine_datasets(auto_recovery=True) to leave out broken datasets up front.
     custom_bands : Dict[str, Any], optional
         Custom band information
     add_metadata_client_side : bool
@@ -2271,7 +2135,9 @@ def whisp_formatted_stats_geojson_to_df_fast(
     unit_type : str
         "ha" or "percent"
     whisp_image : ee.Image, optional
-        Pre-combined image
+        Pre-combined image. If None, Whisp builds it and leaves out any broken dataset if
+        processing fails. A passed-in image is never rebuilt, so build it with
+        combine_datasets(auto_recovery=True) to leave out broken datasets up front.
     custom_bands : Dict[str, Any], optional
         Custom band information
     mode : str

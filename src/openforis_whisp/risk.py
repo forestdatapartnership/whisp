@@ -1,7 +1,7 @@
 import pandas as pd
 
 from .pd_schemas import data_lookup_type
-from .logger import StdoutLogger
+from .logger import StdoutLogger, get_whisp_logger
 
 
 from openforis_whisp.parameters.config_runtime import (
@@ -16,6 +16,79 @@ from openforis_whisp.reformat import filter_lookup_by_country_codes
 lookup_gee_datasets_df: data_lookup_type = read_lookup_table()
 
 logger = StdoutLogger(__name__)
+
+_METADATA_COLUMN = "whisp_processing_metadata"
+_RISK_FLAGS = ("use_for_risk_pcrop", "use_for_risk_acrop", "use_for_risk_timber")
+
+
+def risk_inputs_left_out(unavailable, lookup=None):
+    """
+    Of the datasets a stats run left out (the short names in unavailable_datasets), the ones that
+    feed a risk tree, each with the risk outputs it feeds, e.g. {"RADD_after_2020": ["pcrop", ...]}.
+    `lookup` defaults to the full lookup table; whisp_risk passes the one filtered by country.
+    """
+    from openforis_whisp.datasets import unavailable_dataset_names
+
+    lookup = lookup_gee_datasets_df if lookup is None else lookup
+    preps = lookup["corresponding_variable"].dropna().unique().tolist()
+    short_names = dict(zip(preps, unavailable_dataset_names(preps)))
+    affected = {}
+    for name in unavailable:
+        preps_for_name = [p for p, short in short_names.items() if short == name]
+        rows = lookup[lookup["corresponding_variable"].isin(preps_for_name)]
+        feeds = [
+            f.replace("use_for_risk_", "") for f in _RISK_FLAGS if (rows[f] == 1).any()
+        ]
+        if feeds:
+            affected[name] = feeds
+    return affected
+
+
+def _as_metadata(value):
+    """A whisp_processing_metadata value as a dict (it is a string if read back from a CSV)."""
+    if isinstance(value, str):
+        import ast
+
+        try:
+            value = ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _note_risk_inputs_left_out(df, lookup=None):
+    """
+    If whisp_processing_metadata lists unavailable_datasets that feed a risk tree, warn through
+    the whisp logger (which reaches API job messages) and add risk_computed_without to each row's
+    metadata, since risk is then worked out without them. Rows from different runs (e.g. results
+    joined together) are each checked.
+    """
+    if _METADATA_COLUMN not in df.columns or df.empty:
+        return df
+    metas = [_as_metadata(m) for m in df[_METADATA_COLUMN]]
+    unavailable = sorted({n for m in metas for n in m.get("unavailable_datasets", [])})
+    if not unavailable:
+        return df
+    affected = risk_inputs_left_out(unavailable, lookup)
+    if not affected:
+        return df
+    detail = "; ".join(f"{name} ({', '.join(f)})" for name, f in affected.items())
+    get_whisp_logger().warning(
+        f"Risk worked out without unavailable dataset(s) that feed it: {detail}"
+    )
+    df = df.copy()
+    df[_METADATA_COLUMN] = [
+        {
+            **m,
+            "risk_computed_without": [
+                n for n in m.get("unavailable_datasets", []) if n in affected
+            ],
+        }
+        if any(n in affected for n in m.get("unavailable_datasets", []))
+        else m
+        for m in metas
+    ]
+    return df
 
 
 # requires lookup_gee_datasets_df
@@ -203,6 +276,10 @@ def whisp_risk(
         filter_col="ISO2_code",
         national_codes=national_codes,
     )
+
+    # Say so if the stats run left out a dataset that feeds a risk tree (national datasets only
+    # count when their country is included)
+    df = _note_risk_inputs_left_out(df, filtered_lookup_gee_datasets_df)
 
     # Get indicator columns (now includes custom bands)
     if ind_1_input_columns is None:
