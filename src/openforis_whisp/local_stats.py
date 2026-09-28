@@ -1506,7 +1506,13 @@ def whisp_stats_local(
     Returns:
         pandas.DataFrame: Formatted zonal statistics matching concurrent mode output
     """
-    from openforis_whisp.datasets import combine_datasets
+    from openforis_whisp.datasets import (
+        combine_datasets,
+        combine_datasets_without_broken,
+        is_dataset_error,
+        supplied_image_error,
+        unavailable_dataset_names,
+    )
 
     # Set up logger based on verbose flag
     logger = _whisp_logger
@@ -1559,14 +1565,34 @@ def whisp_stats_local(
 
     # Step 2: Download GeoTIFFs in parallel
     _whisp_logger.debug("Downloading GeoTIFF data from Earth Engine...")
+    image_supplied = image is not None
     if image is None:
         image = combine_datasets(
             national_codes=national_codes,
             include_context_bands=include_context_bands,
         )
 
-    # Get band names from the EE image (single getInfo call for both naming and tile size calculation)
-    band_names = image.bandNames().getInfo()
+    # Get band names from the EE image (single getInfo call for both naming and tile size calculation).
+    # It is also the first call that loads every dataset, so a broken one shows up here: leave it out
+    # if Whisp built the image, otherwise stop with guidance (a passed-in image is never swapped).
+    try:
+        band_names = image.bandNames().getInfo()
+    except ee.EEException as e:
+        if not is_dataset_error(e):
+            raise
+        if image_supplied:
+            raise supplied_image_error(e) from e
+        _whisp_logger.warning(
+            f"A dataset failed to load, leaving out broken ones: {str(e)[:200]}"
+        )
+        image, dropped = combine_datasets_without_broken(
+            national_codes=national_codes,
+            include_context_bands=include_context_bands,
+        )
+        _whisp_logger.warning(
+            f"Dropped unavailable dataset(s): {', '.join(unavailable_dataset_names(dropped))}"
+        )
+        band_names = image.bandNames().getInfo()
     num_bands = len(band_names)
     _whisp_logger.debug(f"Image has {num_bands} bands")
 
