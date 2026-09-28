@@ -20,6 +20,10 @@ release, and bumps the version on `main`.
 Release notes are generated from merged PR titles, so write PR titles as
 changelog entries.
 
+They are grouped by PR label (`.github/release.yml`): `datasets`, `enhancement`
+(Features), `bug` (Fixes), `documentation` (Docs), `repo`. Label each PR before
+merging; unlabelled ones fall under "Other changes".
+
 The bump leaves `main` one version ahead of the newest tag.
 
 ## Release by hand

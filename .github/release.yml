@@ -1,17 +1,23 @@
-# Groups the auto-generated release notes by PR label (see the Create Release workflow).
-# Label each PR before merging: results / reliability / housekeeping. Unlabelled PRs land
-# under "Other changes" so nothing is lost.
+# Groups the auto-generated release notes under the headings earlier releases used by hand.
+# Label each PR before merging (datasets / enhancement / bug / documentation / repo);
+# anything unlabelled lands under "Other changes" so nothing is lost.
 changelog:
   categories:
-    - title: Changes to results
+    - title: Datasets update
       labels:
-        - results
-    - title: Reliability
+        - datasets
+    - title: Features
       labels:
-        - reliability
-    - title: Docs and housekeeping
+        - enhancement
+    - title: Fixes
       labels:
-        - housekeeping
+        - bug
+    - title: Docs
+      labels:
+        - documentation
+    - title: Repo
+      labels:
+        - repo
     - title: Other changes
       labels:
         - "*"
