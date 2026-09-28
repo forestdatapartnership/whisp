@@ -1066,7 +1066,9 @@ def g_modis_fire_after_2020_prep():
     modis_fire = ee.ImageCollection("MODIS/061/MCD64A1")
     start_year = 2021
     # Use pre-calculated current year (avoids repeated datetime calls)
-    end_year = CURRENT_YEAR - 1  # Use year - 1 to ensure data availability
+    # Runs to the current year like the per-year MODIS_fire bands; the filter simply finds no
+    # images for months not yet published
+    end_year = CURRENT_YEAR
     date_st = str(start_year) + "-01-01"
     date_ed = str(end_year) + "-12-31"
     return (

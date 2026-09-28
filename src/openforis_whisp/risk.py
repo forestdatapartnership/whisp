@@ -1,7 +1,7 @@
 import pandas as pd
 
 from .pd_schemas import data_lookup_type
-from .logger import StdoutLogger
+from .logger import StdoutLogger, get_whisp_logger
 
 
 from openforis_whisp.parameters.config_runtime import (
@@ -16,6 +16,61 @@ from openforis_whisp.reformat import filter_lookup_by_country_codes
 lookup_gee_datasets_df: data_lookup_type = pd.read_csv(DEFAULT_LOOKUP_TABLE_PATH)
 
 logger = StdoutLogger(__name__)
+
+_METADATA_COLUMN = "whisp_processing_metadata"
+_RISK_FLAGS = ("use_for_risk_pcrop", "use_for_risk_acrop", "use_for_risk_timber")
+
+
+def risk_inputs_left_out(unavailable):
+    """
+    Of the datasets a stats run left out (the short names in unavailable_datasets), the ones that
+    feed a risk tree, each with the risk outputs it feeds, e.g. {"RADD_after_2020": ["pcrop", ...]}.
+    """
+    from openforis_whisp.datasets import unavailable_dataset_names
+
+    lookup = lookup_gee_datasets_df
+    preps = lookup["corresponding_variable"].dropna().unique().tolist()
+    short_names = dict(zip(preps, unavailable_dataset_names(preps)))
+    affected = {}
+    for name in unavailable:
+        preps_for_name = [p for p, short in short_names.items() if short == name]
+        rows = lookup[lookup["corresponding_variable"].isin(preps_for_name)]
+        feeds = [
+            f.replace("use_for_risk_", "") for f in _RISK_FLAGS if (rows[f] == 1).any()
+        ]
+        if feeds:
+            affected[name] = feeds
+    return affected
+
+
+def _note_risk_inputs_left_out(df):
+    """
+    If whisp_processing_metadata lists unavailable_datasets that feed a risk tree, warn through
+    the whisp logger (which reaches API job messages) and add risk_computed_without to the
+    metadata, since risk is then worked out without them.
+    """
+    if _METADATA_COLUMN not in df.columns or df.empty:
+        return df
+    meta = df[_METADATA_COLUMN].iloc[0]
+    if isinstance(meta, str):  # e.g. read back from a CSV
+        try:
+            import ast
+
+            meta = ast.literal_eval(meta)
+        except (ValueError, SyntaxError):
+            return df
+    if not isinstance(meta, dict) or not meta.get("unavailable_datasets"):
+        return df
+    affected = risk_inputs_left_out(meta["unavailable_datasets"])
+    if not affected:
+        return df
+    detail = "; ".join(f"{name} ({', '.join(f)})" for name, f in affected.items())
+    get_whisp_logger().warning(
+        f"Risk worked out without unavailable dataset(s) that feed it: {detail}"
+    )
+    df = df.copy()
+    df[_METADATA_COLUMN] = [{**meta, "risk_computed_without": list(affected)}] * len(df)
+    return df
 
 
 # requires lookup_gee_datasets_df
@@ -186,6 +241,9 @@ def whisp_risk(
     # Determine the unit type
     unit_type = detect_unit_type(df, explicit_unit_type)
     print(f"Using unit type: {unit_type}")
+
+    # Say so if the stats run left out a dataset that feeds a risk tree
+    df = _note_risk_inputs_left_out(df)
 
     lookup_df_copy = lookup_gee_datasets_df.copy()
 
