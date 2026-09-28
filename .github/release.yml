@@ -1,0 +1,17 @@
+# Groups the auto-generated release notes by PR label (see the Create Release workflow).
+# Label each PR before merging: results / reliability / housekeeping. Unlabelled PRs land
+# under "Other changes" so nothing is lost.
+changelog:
+  categories:
+    - title: Changes to results
+      labels:
+        - results
+    - title: Reliability
+      labels:
+        - reliability
+    - title: Docs and housekeeping
+      labels:
+        - housekeeping
+    - title: Other changes
+      labels:
+        - "*"
