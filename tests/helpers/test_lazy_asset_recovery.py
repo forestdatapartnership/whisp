@@ -416,3 +416,107 @@ def test_modis_fire_next_year_builds_as_empty_band_not_an_error(monkeypatch):
     )
     assert burned_pixels[future_band] == 0
     assert burned_pixels[past_band] > 0
+
+
+def g_pixel_bad_prep():
+    """Stand-in dataset that passes a band check but fails when pixels are computed (#248)."""
+    mixed = ee.ImageCollection([ee.Image(1).rename("a"), ee.Image(2).rename("b")])
+    return mixed.mosaic().rename("Pixel_bad")
+
+
+def test_pixel_check_finds_what_the_band_check_misses(three_plots, monkeypatch):
+    monkeypatch.setattr(
+        datasets,
+        "list_functions",
+        lambda national_codes=None: [g_alive_prep, g_pixel_bad_prep],
+    )
+    _, dropped = combine_datasets_without_broken(include_context_bands=False)
+    assert dropped == []  # bands look fine
+
+    region = ee.FeatureCollection(
+        [ee.Feature(ee.Geometry.Rectangle([-56, -12, -55.99, -11.99]))]
+    )
+    image, dropped = combine_datasets_without_broken(
+        include_context_bands=False, probe_region=region
+    )
+    assert dropped == ["g_pixel_bad_prep"]
+    assert image.bandNames().getInfo() == [
+        datasets.geometry_area_column,
+        "Alive_dataset",
+    ]
+
+
+@pytest.mark.parametrize("mode", ["sequential", "concurrent"])
+def test_runs_recover_from_a_pixel_level_error(three_plots, monkeypatch, mode):
+    monkeypatch.setattr(advanced_stats, "validate_ee_endpoint", lambda *a, **k: None)
+    monkeypatch.setattr(
+        datasets,
+        "list_functions",
+        lambda national_codes=None: [g_alive_prep, g_pixel_bad_prep],
+    )
+    df = getattr(advanced_stats, f"whisp_stats_geojson_to_df_{mode}")(three_plots)
+    assert len(df) == 3
+    assert any(c.startswith("Alive_dataset") for c in df.columns)
+    assert not any(c.startswith("Pixel_bad") for c in df.columns)
+    assert df.attrs["whisp_unavailable_datasets"] == ["pixel_bad"]
+
+
+def test_a_timeout_while_probing_keeps_the_original_error(monkeypatch):
+    # Nothing fails the band check and the pixel check itself hits a memory limit: the user
+    # should see the original error, not the memory limit
+    monkeypatch.setattr(
+        datasets, "list_functions", lambda national_codes=None: [g_alive_prep]
+    )
+
+    class _Fails:
+        def getInfo(self):
+            raise ee.EEException("User memory limit exceeded.")
+
+    monkeypatch.setattr(datasets, "_pixel_probe", lambda region: lambda img: _Fails())
+    monkeypatch.setattr(datasets.time, "sleep", lambda s: None)
+    error = ee.EEException("Expected a homogeneous image collection")
+    with pytest.raises(ee.EEException) as raised:
+        advanced_stats._rebuild_without_broken(
+            error, None, False, logging.getLogger("test"), probe_region="region"
+        )
+    assert raised.value is error
+
+
+@pytest.mark.parametrize("mode", ["sequential", "concurrent"])
+def test_a_dead_asset_and_a_pixel_level_error_together(three_plots, monkeypatch, mode):
+    # The band check finds the dead one; the pixel-level one only shows on the rerun, and a
+    # second round (always checking pixels) catches it
+    monkeypatch.setattr(advanced_stats, "validate_ee_endpoint", lambda *a, **k: None)
+    monkeypatch.setattr(
+        datasets,
+        "list_functions",
+        lambda national_codes=None: [g_alive_prep, g_dead_prep, g_pixel_bad_prep],
+    )
+    df = getattr(advanced_stats, f"whisp_stats_geojson_to_df_{mode}")(three_plots)
+    assert len(df) == 3
+    assert any(c.startswith("Alive_dataset") for c in df.columns)
+    assert sorted(df.attrs["whisp_unavailable_datasets"]) == ["dead", "pixel_bad"]
+
+
+class _Raises:
+    """Stands in for an EE object whose getInfo() raises the given error."""
+
+    def __init__(self, error):
+        self.error = error
+
+    def getInfo(self):
+        raise self.error
+
+
+def test_one_flaky_pixel_check_does_not_sink_the_others(monkeypatch):
+    monkeypatch.setattr(datasets.time, "sleep", lambda s: None)
+    outcomes = {
+        "flaky": ee.EEException("User memory limit exceeded."),
+        "network": ConnectionError("connection reset"),
+        "broken": ee.EEException("Expected a homogeneous image collection"),
+    }
+    images = [(name, name) for name in outcomes]
+    broken = datasets._find_broken_images(
+        images, probe=lambda name: _Raises(outcomes[name]), skip_other_errors=True
+    )
+    assert broken == ["broken"]

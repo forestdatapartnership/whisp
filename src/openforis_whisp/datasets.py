@@ -1682,24 +1682,32 @@ def is_dataset_error(exc):
     return any(sign in message for sign in _DATASET_ERROR_SIGNS)
 
 
-def _find_broken_images(named_images, max_workers=8):
+def _find_broken_images(
+    named_images, probe=None, max_workers=8, skip_other_errors=False
+):
     """
-    Names of the images whose bands Earth Engine cannot resolve, checked in parallel. Only a
-    dataset error counts as broken: any other error (e.g. rate limiting while checking) is tried
-    once more and then raised, so a healthy dataset is never dropped by mistake.
+    Names of the images that fail a check, run in parallel. By default the check asks for the
+    band names; `probe(img)` can give a heavier check (see _pixel_probe). Only a dataset error
+    counts as broken: any other error (e.g. rate limiting while checking) is tried once more and
+    then raised, or with skip_other_errors that one dataset is just treated as fine, so a healthy
+    dataset is never dropped by mistake and one flaky check doesn't sink the rest.
     """
+    probe = probe or (lambda img: img.bandNames())
 
     def _check(item):
         name, img = item
         for attempt in range(2):
             try:
-                img.bandNames().getInfo()
+                probe(img).getInfo()
                 return None
-            except ee.EEException as e:
-                if is_dataset_error(e):
+            except Exception as e:
+                if isinstance(e, ee.EEException) and is_dataset_error(e):
                     print(f"Invalid image ({name}): {e}")
                     return name
                 if attempt == 1:
+                    if skip_other_errors:
+                        print(f"Warning: could not check {name}: {str(e)[:150]}")
+                        return None
                     raise
                 time.sleep(2)
 
@@ -1708,13 +1716,38 @@ def _find_broken_images(named_images, max_workers=8):
     return [name for name in results if name is not None]
 
 
-def combine_datasets_without_broken(national_codes=None, include_context_bands=True):
+def _pixel_probe(region):
+    """
+    A check that makes Earth Engine compute pixels, for errors that only appear then (e.g. a
+    collection whose images no longer have matching bands, #248). Each dataset is reduced to one
+    pixel count summed over `region` (the polygons the run failed on) at the run's 10 m scale.
+    """
+
+    def probe(img):
+        count = img.reduce(ee.Reducer.count())
+        return count.reduceRegions(
+            collection=region, reducer=ee.Reducer.sum(), scale=10
+        ).aggregate_sum("sum")
+
+    return probe
+
+
+def combine_datasets_without_broken(
+    national_codes=None,
+    include_context_bands=True,
+    probe_region=None,
+    force_probe=False,
+):
     """
     Build the whisp image leaving out any dataset whose asset Earth Engine cannot load.
 
     This is the slow path, used after processing has failed with a dataset error (or when
     combine_datasets finds one with auto_recovery=True). Each dataset gets its own bandNames()
     check, run in parallel, so it costs one round of requests rather than one per dataset in turn.
+
+    If that finds nothing and `probe_region` (the polygons the run failed on) is given, each
+    dataset is checked again by computing pixels there (#249), which catches errors a band check
+    can't, like the mismatched GLAD-L tiles in #248.
 
     If more than half the datasets fail, that points to an access or connection problem rather
     than broken datasets, so a RuntimeError is raised instead of dropping them.
@@ -1725,6 +1758,11 @@ def combine_datasets_without_broken(national_codes=None, include_context_bands=T
         List of ISO2 country codes to include national datasets
     include_context_bands : bool, optional
         If True (default), includes context bands (admin_code, In_waterbody) in the output.
+    probe_region : ee.FeatureCollection, optional
+        Polygons to compute pixels over if the band check finds nothing broken.
+    force_probe : bool, optional
+        Compute pixels over probe_region even if the band check found something (used when a run
+        still fails after a first rebuild, e.g. a pixel-level error behind a dead asset).
 
     Returns
     -------
@@ -1752,6 +1790,16 @@ def combine_datasets_without_broken(national_codes=None, include_context_bands=T
 
     all_images = main_images + context_images
     broken = set(_find_broken_images(all_images))
+    if probe_region is not None and (force_probe or not (broken or dropped)):
+        print("Checking each dataset's pixels where the run failed...")
+        survivors = [(name, img) for name, img in all_images if name not in broken]
+        # A timeout or memory limit while checking one dataset says nothing about it, so that
+        # dataset counts as fine (the caller raises the original error if nothing is found)
+        broken |= set(
+            _find_broken_images(
+                survivors, probe=_pixel_probe(probe_region), skip_other_errors=True
+            )
+        )
     dropped.extend(name for name, _ in all_images if name in broken)
 
     if len(dropped) > (len(all_images) + len(dropped) - len(broken)) / 2:
@@ -1816,8 +1864,10 @@ def supplied_image_error(error):
         "Whisp only rebuilds images it builds itself, as it can't know what a passed-in image "
         "contains. Rebuild the image now with combine_datasets(national_codes=..., "
         "auto_recovery=True), which leaves out broken datasets, add any custom bands again and "
-        "rerun, or leave out whisp_image so Whisp builds and recovers the image itself. If you "
-        "keep the image between runs (e.g. a cached copy), rebuild that copy too."
+        "rerun, or leave out whisp_image so Whisp builds and recovers the image itself (do "
+        "this if a rebuilt image still fails, as some errors only show when pixels are "
+        "computed, which only Whisp's own recovery checks). If you keep the image between runs "
+        "(e.g. a cached copy), rebuild that copy too."
     )
 
 

@@ -895,9 +895,19 @@ def _run_logging_output(logger, func, *args, **kwargs):
                 logger.debug(line)
 
 
-def _rebuild_without_broken(error, national_codes, image_supplied, logger):
+def _rebuild_without_broken(
+    error,
+    national_codes,
+    image_supplied,
+    logger,
+    probe_region=None,
+    force_probe=False,
+    previous=None,
+):
     """
     Rebuild the whisp image without broken datasets after processing failed with a dataset error.
+    `probe_region` is the polygons the run failed on, used to find errors that only show up when
+    pixels are computed.
 
     Returns (rebuilt image, short names of the datasets left out). Raises the original error again
     if no dataset turns out to be broken (the failure has another cause). A passed-in image is
@@ -911,10 +921,21 @@ def _rebuild_without_broken(error, national_codes, image_supplied, logger):
         "Checking each dataset and rebuilding the image without any that are broken..."
     )
     image, dropped = _run_logging_output(
-        logger, combine_datasets_without_broken, national_codes=national_codes
+        logger,
+        combine_datasets_without_broken,
+        national_codes=national_codes,
+        probe_region=probe_region,
+        force_probe=force_probe,
     )
     if not dropped:
         logger.warning("No broken dataset found, so the error has another cause.")
+        raise error
+    if previous is not None and sorted(unavailable_dataset_names(dropped)) == sorted(
+        previous
+    ):
+        logger.warning(
+            "Checking again found nothing new, so the error has another cause."
+        )
         raise error
 
     unavailable = unavailable_dataset_names(dropped)
@@ -1230,6 +1251,7 @@ def whisp_stats_geojson_to_df_concurrent(
     # Set when a batch hits a dataset error (e.g. a broken asset): the other batches stop, the
     # image is rebuilt without the broken dataset(s) and all batches are rerun once
     band_error_detected = threading.Event()
+    failing_batch = {}  # the batch that hit the dataset error, for the pixel check
     unavailable = []
 
     def merge_batch(df_server, df_client):
@@ -1293,6 +1315,7 @@ def whisp_stats_geojson_to_df_concurrent(
                     if is_dataset_error(e):
                         band_error_detected.set()
                         dataset_error = e
+                        failing_batch["idx"] = batch_idx
                         logger.warning(
                             f"Dataset error in batch {batch_idx}: {error_msg[:200]}. "
                             "Stopping remaining batches..."
@@ -1330,22 +1353,32 @@ def whisp_stats_geojson_to_df_concurrent(
 
     try:
         results, batch_errors, dataset_error = run_batches()
-        if dataset_error is not None:
+        # On a dataset error, rebuild without the broken dataset(s) and rerun every batch, so all
+        # rows come from the same image. A second round (always checking pixels where it failed)
+        # covers two different breakages at once. Raises if nothing is broken or the image was
+        # passed in.
+        for attempt in range(2):
+            if dataset_error is None:
+                break
             logger.info(
                 f"Processing stopped early due to a dataset error after "
                 f"{completed_batches:,}/{len(batches):,} batches"
             )
-            # Rebuild without the broken dataset(s) and rerun every batch once, so all rows come
-            # from the same image. Raises if nothing is broken or the image was passed in.
             whisp_image, unavailable = _rebuild_without_broken(
-                dataset_error, national_codes, image_supplied, logger
+                dataset_error,
+                national_codes,
+                image_supplied,
+                logger,
+                probe_region=convert_batch_to_ee(batch_map[failing_batch["idx"]]),
+                force_probe=attempt > 0,
+                previous=unavailable if attempt > 0 else None,
             )
             band_error_detected.clear()
             logger.info("Reprocessing all batches with the rebuilt image...")
             results, batch_errors, dataset_error = run_batches()
-            if dataset_error is not None:
-                logger.error("Another dataset error after rebuilding the image")
-                raise dataset_error
+        if dataset_error is not None:
+            logger.error("Still a dataset error after rebuilding the image")
+            raise dataset_error
     except KeyboardInterrupt:
         logger.warning("Processing interrupted by user")
         raise
@@ -1656,20 +1689,29 @@ def whisp_stats_geojson_to_df_sequential(
         f"Processing {len(gdf):,} features with Earth Engine (sequential mode)..."
     )
     unavailable = []
-    try:
-        results_fc = whisp_image.reduceRegions(collection=fc, reducer=reducer, scale=10)
-        df_server = convert_ee_to_df(results_fc)
-    except Exception as e:
-        # A broken dataset (e.g. a dead asset): rebuild the image without it and retry once.
-        # _rebuild_without_broken raises if nothing is broken or the image was passed in.
-        if not is_dataset_error(e):
-            raise
-        whisp_image, unavailable = _rebuild_without_broken(
-            e, national_codes, image_supplied, logger
-        )
-        logger.info("Retrying processing with the rebuilt image...")
-        results_fc = whisp_image.reduceRegions(collection=fc, reducer=reducer, scale=10)
-        df_server = convert_ee_to_df(results_fc)
+    # On a broken dataset (e.g. a dead asset), rebuild the image without it and retry, at most
+    # twice; the second round always checks pixels where it failed. _rebuild_without_broken
+    # raises if nothing is broken or the image was passed in.
+    for attempt in range(3):
+        try:
+            results_fc = whisp_image.reduceRegions(
+                collection=fc, reducer=reducer, scale=10
+            )
+            df_server = convert_ee_to_df(results_fc)
+            break
+        except Exception as e:
+            if not is_dataset_error(e) or attempt == 2:
+                raise
+            whisp_image, unavailable = _rebuild_without_broken(
+                e,
+                national_codes,
+                image_supplied,
+                logger,
+                probe_region=fc,
+                force_probe=attempt > 0,
+                previous=unavailable if attempt > 0 else None,
+            )
+            logger.info("Retrying processing with the rebuilt image...")
 
     logger.info("Server-side processing complete")
 
