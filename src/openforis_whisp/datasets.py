@@ -878,7 +878,7 @@ def g_glad_l_year_prep():
     GLAD Landsat confirmed alerts (confidence >= 2) as one binary band per year, 2017 to the current
     year. 2024 is included (GLAD placed conf24 in the 2023final asset). Coverage: tropics (30N-30S);
     2015/2016 assets do not exist in GEE. Each band uses the tolerant per-band mosaic (see _glad_l_conf).
-    Note: emitting a brand-new year also needs a matching GLAD-L_year_YYYY row in lookup_datasets.csv.
+    Lookup rows for new years are added automatically (YEAR_SERIES_TO_CURRENT_YEAR in config_runtime).
     """
     img_stack = None
     for yy in range(17, CURRENT_YEAR_2DIGIT + 1):  # 2017..current (includes 2024)
@@ -1779,12 +1779,9 @@ def unavailable_dataset_names(func_names):
     prefix of each prep function's rows in the lookup table (g_esa_fire_prep -> "ESA_fire"). Falls
     back to the function name without its g_/_prep parts if the lookup has no rows for it.
     """
-    import pandas as pd
-    from openforis_whisp.parameters.config_runtime import DEFAULT_LOOKUP_TABLE_PATH
+    from openforis_whisp.parameters.config_runtime import read_lookup_table
 
-    lookup = pd.read_csv(
-        DEFAULT_LOOKUP_TABLE_PATH, usecols=["name", "corresponding_variable"]
-    )
+    lookup = read_lookup_table()[["name", "corresponding_variable"]]
     context_names = {
         "g_gaul_admin_code": "admin_code",
         "g_water_mask_prep": "In_waterbody",

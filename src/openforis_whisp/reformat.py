@@ -17,6 +17,7 @@ from openforis_whisp.pd_schemas import data_lookup_type
 
 from openforis_whisp.parameters.config_runtime import (
     DEFAULT_LOOKUP_TABLE_PATH,
+    read_lookup_table,
 )
 
 logger = StdoutLogger(__name__)
@@ -163,7 +164,7 @@ def append_csvs_to_dataframe(csv_paths):
     for path in csv_paths:
         try:
             # Read the CSV file into a DataFrame
-            df = pd.read_csv(path)
+            df = read_lookup_table(path)
             # Append to the combined DataFrame
             combined_df = pd.concat([combined_df, df], ignore_index=True)
         except Exception as e:
