@@ -54,13 +54,40 @@ def test_risk_inputs_left_out_maps_short_names_to_the_risk_trees_they_feed():
     assert affected == {"RADD_after_2020": ["pcrop", "acrop", "timber"]}
 
 
+def test_rerunning_risk_replaces_a_stale_risk_inputs_unavailable_note():
+    import pandas as pd
+
+    # A previous run noted RADD_after_2020; rerun with a lookup where it no longer feeds any tree
+    # (as a different national_codes filter or a custom lookup could do): the old note must go
+    stale = {
+        "unavailable_datasets": ["RADD_after_2020"],
+        "risk_inputs_unavailable": ["RADD_after_2020"],
+    }
+    df = pd.DataFrame(
+        {"whisp_processing_metadata": [stale, {"unavailable_datasets": []}]}
+    )
+    lookup = risk.lookup_gee_datasets_df.copy()
+    lookup.loc[lookup["name"] == "RADD_after_2020", list(risk._RISK_FLAGS)] = 0
+    rerun = risk._note_risk_inputs_left_out(df, lookup)
+    assert "risk_inputs_unavailable" not in rerun["whisp_processing_metadata"].iloc[0]
+    assert rerun["whisp_processing_metadata"].iloc[0]["unavailable_datasets"] == [
+        "RADD_after_2020"
+    ]
+    # and with the normal lookup the note comes back, recomputed rather than carried over
+    again = risk._note_risk_inputs_left_out(rerun)
+    assert again["whisp_processing_metadata"].iloc[0]["risk_inputs_unavailable"] == [
+        "RADD_after_2020"
+    ]
+    assert "risk_inputs_unavailable" not in again["whisp_processing_metadata"].iloc[1]
+
+
 def test_whisp_risk_notes_when_it_works_without_a_dataset_that_feeds_it(whisp_log):
     import pandas as pd
 
     meta = {"whisp_version": "x", "unavailable_datasets": ["RADD_after_2020"]}
     df = pd.DataFrame({"whisp_processing_metadata": [meta, meta]})
     noted = risk._note_risk_inputs_left_out(df)
-    assert noted["whisp_processing_metadata"].iloc[1]["risk_computed_without"] == [
+    assert noted["whisp_processing_metadata"].iloc[1]["risk_inputs_unavailable"] == [
         "RADD_after_2020"
     ]
     assert any("RADD_after_2020" in r.getMessage() for r in whisp_log.records)
@@ -69,7 +96,7 @@ def test_whisp_risk_notes_when_it_works_without_a_dataset_that_feeds_it(whisp_lo
         {"whisp_processing_metadata": [{"unavailable_datasets": ["ESA_fire"]}]}
     )
     assert (
-        "risk_computed_without"
+        "risk_inputs_unavailable"
         not in risk._note_risk_inputs_left_out(quiet)["whisp_processing_metadata"].iloc[
             0
         ]
@@ -124,9 +151,9 @@ def test_rows_from_different_runs_are_each_checked():
     dropped = {"whisp_version": "x", "unavailable_datasets": ["RADD_after_2020"]}
     df = pd.DataFrame({"whisp_processing_metadata": [clean, dropped, str(dropped)]})
     noted = risk._note_risk_inputs_left_out(df)["whisp_processing_metadata"]
-    assert "risk_computed_without" not in noted.iloc[0]
-    assert noted.iloc[1]["risk_computed_without"] == ["RADD_after_2020"]
-    assert noted.iloc[2]["risk_computed_without"] == ["RADD_after_2020"]
+    assert "risk_inputs_unavailable" not in noted.iloc[0]
+    assert noted.iloc[1]["risk_inputs_unavailable"] == ["RADD_after_2020"]
+    assert noted.iloc[2]["risk_inputs_unavailable"] == ["RADD_after_2020"]
 
 
 def test_national_datasets_only_count_when_their_country_is_included():

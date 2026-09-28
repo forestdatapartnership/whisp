@@ -84,6 +84,8 @@ And specifically for the timber commodity, considering a harvesting date in 2024
   The Whisp algorithm outputs multiple statistical columns with disaggregated data from the input datasets, followed by aggregated indicator columns, and the final risk assessment columns.
     All output columns from Whisp are described in the [result fields reference](https://whisp.openforis.org/docs/reference/result-fields).
 
+  Occasionally a dataset can't be read from Earth Engine (an asset has moved or gone empty). Rather than failing the whole run, Whisp skips it and records its name in the `whisp_processing_metadata` column, under `unavailable_datasets`. If a skipped dataset is one the risk assessment uses, `whisp_risk` warns and also lists it under `risk_inputs_unavailable` in the same column, meaning the risk columns were worked out without that dataset.
+
 The **relevant risk assessment column depends on the commodity** in question:
 
 <table>
