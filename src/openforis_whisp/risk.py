@@ -59,7 +59,7 @@ def _as_metadata(value):
 def _note_risk_inputs_left_out(df, lookup=None):
     """
     If whisp_processing_metadata lists unavailable_datasets that feed a risk tree, warn through
-    the whisp logger (which reaches API job messages) and add risk_computed_without to each row's
+    the whisp logger (which reaches API job messages) and add risk_inputs_unavailable to each row's
     metadata, since risk is then worked out without them. Rows from different runs (e.g. results
     joined together) are each checked.
     """
@@ -80,7 +80,7 @@ def _note_risk_inputs_left_out(df, lookup=None):
     df[_METADATA_COLUMN] = [
         {
             **m,
-            "risk_computed_without": [
+            "risk_inputs_unavailable": [
                 n for n in m.get("unavailable_datasets", []) if n in affected
             ],
         }
