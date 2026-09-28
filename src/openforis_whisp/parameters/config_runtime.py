@@ -48,6 +48,7 @@ YEAR_SERIES_TO_CURRENT_YEAR = (
     "GLAD-L_year_",
     "GLAD-S2_year_",
     "RADD_year_",
+    "DIST_year_",
 )
 
 # Fixed when the package loads, like CURRENT_YEAR in datasets.py, so the lookup and the prep

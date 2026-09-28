@@ -446,6 +446,30 @@ def test_pixel_check_finds_what_the_band_check_misses(three_plots, monkeypatch):
     ]
 
 
+def g_empty_collection_prep():
+    """Stand-in for a collection that has gone empty, the way the DIST alerts did in 2026 (#182)."""
+    gone = ee.ImageCollection("projects/glad/HLSDIST/current/VEG-DIST-STATUS").filter(
+        ee.Filter.eq("system:index", "no_such_image")
+    )
+    return gone.mosaic().remap([3, 6, 7, 8], [1, 1, 1, 1], 0).rename("Empty_collection")
+
+
+@pytest.mark.parametrize("mode", ["sequential", "concurrent"])
+def test_runs_recover_from_an_empty_collection(three_plots, monkeypatch, mode):
+    # "Image has no bands" is what an empty collection raises once pixels are computed
+    monkeypatch.setattr(advanced_stats, "validate_ee_endpoint", lambda *a, **k: None)
+    monkeypatch.setattr(
+        datasets,
+        "list_functions",
+        lambda national_codes=None: [g_alive_prep, g_empty_collection_prep],
+    )
+    df = getattr(advanced_stats, f"whisp_stats_geojson_to_df_{mode}")(three_plots)
+    assert len(df) == 3
+    assert any(c.startswith("Alive_dataset") for c in df.columns)
+    assert not any(c.startswith("Empty_collection") for c in df.columns)
+    assert df.attrs["whisp_unavailable_datasets"] == ["empty_collection"]
+
+
 @pytest.mark.parametrize("mode", ["sequential", "concurrent"])
 def test_runs_recover_from_a_pixel_level_error(three_plots, monkeypatch, mode):
     monkeypatch.setattr(advanced_stats, "validate_ee_endpoint", lambda *a, **k: None)

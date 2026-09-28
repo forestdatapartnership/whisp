@@ -694,100 +694,100 @@ def g_radd_before_2020_prep():
 # DIST alerts are for all veg types so masked by EUFO forest 2020
 # NB alerts only for 2024 onwards (in GEE at least, available for 2023 ofrom the GLAD site)
 # for conistency using "...after_2020..." terminology.
-# def g_glad_dist_after_2020_prep():
-#
-#     # no need to filter by date as all dates are later than 2023
-#
-#     # Load the vegetation disturbance collections
-#     VEGDISTSTATUS = ee.ImageCollection(
-#         "projects/glad/HLSDIST/current/VEG-DIST-STATUS"
-#     ).mosaic()
-#
-#     # Key for high-confidence alerts (values 3, 6, 7, 8)
-#     high_conf_values = [3, 6, 7, 8]
-#
-#     # Create high-confidence mask
-#     dist_high_conf = VEGDISTSTATUS.remap(
-#         high_conf_values, [1] * len(high_conf_values), 0
-#     )
-#
-#     return dist_high_conf.updateMask(g_jrc_gfc_2020_prep()).rename(
-#         "DIST_after_2020"
-#     )  # Mask alerts to forest and rename band
+def g_glad_dist_after_2020_prep():
+
+    # no need to filter by date as all dates are later than 2023
+
+    # Load the vegetation disturbance collections
+    VEGDISTSTATUS = ee.ImageCollection(
+        "projects/glad/HLSDIST/current/VEG-DIST-STATUS"
+    ).mosaic()
+
+    # Key for high-confidence alerts (values 3, 6, 7, 8)
+    high_conf_values = [3, 6, 7, 8]
+
+    # Create high-confidence mask
+    dist_high_conf = VEGDISTSTATUS.remap(
+        high_conf_values, [1] * len(high_conf_values), 0
+    )
+
+    return dist_high_conf.updateMask(g_jrc_gfc_2020_prep()).rename(
+        "DIST_after_2020"
+    )  # Mask alerts to forest and rename band
 
 
-# # DIST_alert_2024 to DIST_alert_< current year >
-# # Notes:
-# # 1) so far only available for 2024 onwards in GEE
-# # 2) masked alerts (as dist alerts are for all vegetation) to JRC EUFO 2020 layer, as close to EUDR definition
+# DIST_alert_2024 to DIST_alert_< current year >
+# Notes:
+# 1) so far only available for 2024 onwards in GEE
+# 2) masked alerts (as dist alerts are for all vegetation) to JRC EUFO 2020 layer, as close to EUDR definition
 
 
-# def g_glad_dist_year_prep():
-#     """
-#     GLAD DIST alerts per year as multiband image.
-#     Each band is binary (1 = high-confidence disturbance alert).
-#     Uses VEG-DIST-DATE to filter by year, VEG-DIST-STATUS for confidence.
-#     Masked to EUFO 2020 forest.
-#     Note: Only available from 2024 onwards.
-#     Fully server-side using ee.List.iterate (no Python for loop).
-#     """
-#     # Load the vegetation disturbance collections
-#     #  Vegetation disturbance status (0-8, class flag, 8-bit)
-#     VEGDISTSTATUS = ee.ImageCollection(
-#         "projects/glad/HLSDIST/current/VEG-DIST-STATUS"
-#     ).mosaic()
-#     # Initial vegetation disturbance date (>0: days since 2020-12-31, 16-bit)
-#     VEGDISTDATE = ee.ImageCollection(
-#         "projects/glad/HLSDIST/current/VEG-DIST-DATE"
-#     ).mosaic()
-#
-#     # Key for high-confidence alerts (values 3, 6, 7, 8)
-#     # 3 = <50% loss, high confidence, ongoing
-#     # 6 = ≥50% loss, high confidence, ongoing
-#     # 7 = <50% loss, high confidence, finished
-#     # 8 = ≥50% loss, high confidence, finished
-#     high_conf_values = [3, 6, 7, 8]
-#     dist_high_conf = VEGDISTSTATUS.remap(
-#         high_conf_values, [1] * len(high_conf_values), 0
-#     )
-#
-#     # Year range: 2024 to current year
-#     start_year = 2024
-#     end_year = CURRENT_YEAR
-#
-#     # Reference date for day offset calculation (2020-12-31)
-#     ref_date = ee.Date("2020-12-31")
-#
-#     # Create first band (2024)
-#     first_year = ee.Number(start_year)
-#     first_start_days = ee.Date.fromYMD(first_year, 1, 1).difference(ref_date, "day")
-#     first_end_days = ee.Date.fromYMD(first_year.add(1), 1, 1).difference(
-#         ref_date, "day"
-#     )
-#     first_year_mask = VEGDISTDATE.gte(first_start_days).And(
-#         VEGDISTDATE.lt(first_end_days)
-#     )
-#     first_band_name = ee.String("DIST_year_").cat(first_year.format("%d"))
-#     first_band = (
-#         first_year_mask.updateMask(dist_high_conf).rename(first_band_name).selfMask()
-#     )
-#
-#     # Server-side iteration to add remaining years
-#     years = ee.List.sequence(start_year + 1, end_year)
-#
-#     def add_year_band(year, img_stack):
-#         year_num = ee.Number(year)
-#         start_days = ee.Date.fromYMD(year_num, 1, 1).difference(ref_date, "day")
-#         end_days = ee.Date.fromYMD(year_num.add(1), 1, 1).difference(ref_date, "day")
-#         year_mask = VEGDISTDATE.gte(start_days).And(VEGDISTDATE.lt(end_days))
-#         band_name = ee.String("DIST_year_").cat(year_num.format("%d"))
-#         year_band = year_mask.updateMask(dist_high_conf).rename(band_name).selfMask()
-#         return ee.Image(img_stack).addBands(year_band)
-#
-#     img_stack = ee.Image(years.iterate(add_year_band, first_band))
-#
-#     # Mask to EUFO 2020 forest
-#     return img_stack.updateMask(g_jrc_gfc_2020_prep())
+def g_glad_dist_year_prep():
+    """
+    GLAD DIST alerts per year as multiband image.
+    Each band is binary (1 = high-confidence disturbance alert).
+    Uses VEG-DIST-DATE to filter by year, VEG-DIST-STATUS for confidence.
+    Masked to EUFO 2020 forest.
+    Note: Only available from 2024 onwards.
+    Fully server-side using ee.List.iterate (no Python for loop).
+    """
+    # Load the vegetation disturbance collections
+    #  Vegetation disturbance status (0-8, class flag, 8-bit)
+    VEGDISTSTATUS = ee.ImageCollection(
+        "projects/glad/HLSDIST/current/VEG-DIST-STATUS"
+    ).mosaic()
+    # Initial vegetation disturbance date (>0: days since 2020-12-31, 16-bit)
+    VEGDISTDATE = ee.ImageCollection(
+        "projects/glad/HLSDIST/current/VEG-DIST-DATE"
+    ).mosaic()
+
+    # Key for high-confidence alerts (values 3, 6, 7, 8)
+    # 3 = <50% loss, high confidence, ongoing
+    # 6 = ≥50% loss, high confidence, ongoing
+    # 7 = <50% loss, high confidence, finished
+    # 8 = ≥50% loss, high confidence, finished
+    high_conf_values = [3, 6, 7, 8]
+    dist_high_conf = VEGDISTSTATUS.remap(
+        high_conf_values, [1] * len(high_conf_values), 0
+    )
+
+    # Year range: 2024 to current year
+    start_year = 2024
+    end_year = CURRENT_YEAR
+
+    # Reference date for day offset calculation (2020-12-31)
+    ref_date = ee.Date("2020-12-31")
+
+    # Create first band (2024)
+    first_year = ee.Number(start_year)
+    first_start_days = ee.Date.fromYMD(first_year, 1, 1).difference(ref_date, "day")
+    first_end_days = ee.Date.fromYMD(first_year.add(1), 1, 1).difference(
+        ref_date, "day"
+    )
+    first_year_mask = VEGDISTDATE.gte(first_start_days).And(
+        VEGDISTDATE.lt(first_end_days)
+    )
+    first_band_name = ee.String("DIST_year_").cat(first_year.format("%d"))
+    first_band = (
+        first_year_mask.updateMask(dist_high_conf).rename(first_band_name).selfMask()
+    )
+
+    # Server-side iteration to add remaining years
+    years = ee.List.sequence(start_year + 1, end_year)
+
+    def add_year_band(year, img_stack):
+        year_num = ee.Number(year)
+        start_days = ee.Date.fromYMD(year_num, 1, 1).difference(ref_date, "day")
+        end_days = ee.Date.fromYMD(year_num.add(1), 1, 1).difference(ref_date, "day")
+        year_mask = VEGDISTDATE.gte(start_days).And(VEGDISTDATE.lt(end_days))
+        band_name = ee.String("DIST_year_").cat(year_num.format("%d"))
+        year_band = year_mask.updateMask(dist_high_conf).rename(band_name).selfMask()
+        return ee.Image(img_stack).addBands(year_band)
+
+    img_stack = ee.Image(years.iterate(add_year_band, first_band))
+
+    # Mask to EUFO 2020 forest
+    return img_stack.updateMask(g_jrc_gfc_2020_prep())
 
 
 # GLAD-L (GLAD Landsat) Alerts
@@ -1656,9 +1656,10 @@ def _context_bands():
 
 
 # Parts of Earth Engine error messages that mean a dataset itself is broken: asset missing, moved or
-# not shared, band renamed, or a collection whose images no longer have matching bands. Anything
-# else (quota, timeouts, memory, server trouble, wording we haven't seen) is left to the normal
-# retry handling rather than treated as a broken dataset.
+# not shared, band renamed, a collection whose images no longer have matching bands, or a
+# collection that has gone empty (its mosaic "has no bands", how the DIST alerts broke, #182).
+# Anything else (quota, timeouts, memory, server trouble, wording we haven't seen) is left to the
+# normal retry handling rather than treated as a broken dataset.
 _DATASET_ERROR_SIGNS = (
     "image.load",
     "imagecollection.load",
@@ -1667,6 +1668,7 @@ _DATASET_ERROR_SIGNS = (
     "doesn't allow this operation",
     "did not match any bands",
     "homogeneous image collection",
+    "has no bands",
 )
 
 
