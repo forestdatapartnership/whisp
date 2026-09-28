@@ -1680,12 +1680,15 @@ def is_dataset_error(exc):
     return any(sign in message for sign in _DATASET_ERROR_SIGNS)
 
 
-def _find_broken_images(named_images, probe=None, max_workers=8):
+def _find_broken_images(
+    named_images, probe=None, max_workers=8, skip_other_errors=False
+):
     """
     Names of the images that fail a check, run in parallel. By default the check asks for the
     band names; `probe(img)` can give a heavier check (see _pixel_probe). Only a dataset error
     counts as broken: any other error (e.g. rate limiting while checking) is tried once more and
-    then raised, so a healthy dataset is never dropped by mistake.
+    then raised, or with skip_other_errors that one dataset is just treated as fine, so a healthy
+    dataset is never dropped by mistake and one flaky check doesn't sink the rest.
     """
     probe = probe or (lambda img: img.bandNames())
 
@@ -1695,11 +1698,14 @@ def _find_broken_images(named_images, probe=None, max_workers=8):
             try:
                 probe(img).getInfo()
                 return None
-            except ee.EEException as e:
-                if is_dataset_error(e):
+            except Exception as e:
+                if isinstance(e, ee.EEException) and is_dataset_error(e):
                     print(f"Invalid image ({name}): {e}")
                     return name
                 if attempt == 1:
+                    if skip_other_errors:
+                        print(f"Warning: could not check {name}: {str(e)[:150]}")
+                        return None
                     raise
                 time.sleep(2)
 
@@ -1785,15 +1791,13 @@ def combine_datasets_without_broken(
     if probe_region is not None and (force_probe or not (broken or dropped)):
         print("Checking each dataset's pixels where the run failed...")
         survivors = [(name, img) for name, img in all_images if name not in broken]
-        try:
-            broken |= set(
-                _find_broken_images(survivors, probe=_pixel_probe(probe_region))
+        # A timeout or memory limit while checking one dataset says nothing about it, so that
+        # dataset counts as fine (the caller raises the original error if nothing is found)
+        broken |= set(
+            _find_broken_images(
+                survivors, probe=_pixel_probe(probe_region), skip_other_errors=True
             )
-        except ee.EEException as e:
-            # e.g. a timeout or memory limit while checking: that says nothing about any one
-            # dataset, so carry on with what the band check found (the caller then raises the
-            # original error if that was nothing)
-            print(f"Warning: the pixel check could not finish: {str(e)[:150]}")
+        )
     dropped.extend(name for name, _ in all_images if name in broken)
 
     if len(dropped) > (len(all_images) + len(dropped) - len(broken)) / 2:

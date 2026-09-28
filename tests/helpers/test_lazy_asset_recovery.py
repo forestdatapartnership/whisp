@@ -496,3 +496,27 @@ def test_a_dead_asset_and_a_pixel_level_error_together(three_plots, monkeypatch,
     assert len(df) == 3
     assert any(c.startswith("Alive_dataset") for c in df.columns)
     assert sorted(df.attrs["whisp_unavailable_datasets"]) == ["dead", "pixel_bad"]
+
+
+class _Raises:
+    """Stands in for an EE object whose getInfo() raises the given error."""
+
+    def __init__(self, error):
+        self.error = error
+
+    def getInfo(self):
+        raise self.error
+
+
+def test_one_flaky_pixel_check_does_not_sink_the_others(monkeypatch):
+    monkeypatch.setattr(datasets.time, "sleep", lambda s: None)
+    outcomes = {
+        "flaky": ee.EEException("User memory limit exceeded."),
+        "network": ConnectionError("connection reset"),
+        "broken": ee.EEException("Expected a homogeneous image collection"),
+    }
+    images = [(name, name) for name in outcomes]
+    broken = datasets._find_broken_images(
+        images, probe=lambda name: _Raises(outcomes[name]), skip_other_errors=True
+    )
+    assert broken == ["broken"]

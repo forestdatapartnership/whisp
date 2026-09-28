@@ -883,7 +883,13 @@ def _run_logging_output(logger, func, *args, **kwargs):
 
 
 def _rebuild_without_broken(
-    error, national_codes, image_supplied, logger, probe_region=None, force_probe=False
+    error,
+    national_codes,
+    image_supplied,
+    logger,
+    probe_region=None,
+    force_probe=False,
+    previous=None,
 ):
     """
     Rebuild the whisp image without broken datasets after processing failed with a dataset error.
@@ -910,6 +916,13 @@ def _rebuild_without_broken(
     )
     if not dropped:
         logger.warning("No broken dataset found, so the error has another cause.")
+        raise error
+    if previous is not None and sorted(unavailable_dataset_names(dropped)) == sorted(
+        previous
+    ):
+        logger.warning(
+            "Checking again found nothing new, so the error has another cause."
+        )
         raise error
 
     unavailable = unavailable_dataset_names(dropped)
@@ -1341,6 +1354,7 @@ def whisp_stats_geojson_to_df_concurrent(
                 logger,
                 probe_region=convert_batch_to_ee(batch_map[failing_batch["idx"]]),
                 force_probe=attempt > 0,
+                previous=unavailable if attempt > 0 else None,
             )
             band_error_detected.clear()
             logger.info("Reprocessing all batches with the rebuilt image...")
@@ -1820,6 +1834,7 @@ def whisp_stats_geojson_to_df_sequential(
                 logger,
                 probe_region=fc,
                 force_probe=attempt > 0,
+                previous=unavailable if attempt > 0 else None,
             )
             logger.info("Retrying processing with the rebuilt image...")
 
