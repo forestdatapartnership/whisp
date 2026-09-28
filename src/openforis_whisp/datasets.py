@@ -1581,36 +1581,32 @@ def combine_datasets(
     """
     Combines datasets into a single multiband image.
 
-    Building the image makes no calls to Earth Engine, so a broken or missing asset only shows up
-    when the image is used. The stats functions catch that error, rebuild the image without the
-    broken dataset(s) using combine_datasets_without_broken(), and carry on.
+    By default building the image makes no calls to Earth Engine, so a broken or missing asset only
+    shows up when the image is used. The stats functions catch that error, rebuild the image without
+    the broken dataset(s) using combine_datasets_without_broken(), and carry on.
+
+    If you build the image yourself and pass it in (e.g. to add custom bands), the stats functions
+    can't rebuild it for you, so use auto_recovery=True here: one quick check up front, and broken
+    datasets are left out before you add anything to the image.
 
     Parameters
     ----------
     national_codes : list, optional
         List of ISO2 country codes to include national datasets
     validate_bands : bool, optional
-        If True, check every dataset against Earth Engine up front and leave out any that fail
-        (default: False). This is slower and normally not needed, see above.
+        Same as auto_recovery (default: False). Kept for existing calls.
     include_context_bands : bool, optional
         If True (default), includes context bands (admin_code, In_waterbody) in the output.
         Set to False when using stats.py implementations that compile datasets differently.
     auto_recovery : bool, optional
-        Ignored, kept so existing calls still work. Broken datasets are now dealt with when
-        processing fails rather than by an up-front check.
+        If True, make one quick Earth Engine call to check every dataset loads, and only if that
+        fails check each dataset (in parallel) and leave out the broken ones (default: False).
 
     Returns
     -------
     ee.Image
         Combined multiband image with all datasets (and optionally context bands)
     """
-    if validate_bands:
-        img_combined, _ = combine_datasets_without_broken(
-            national_codes=national_codes,
-            include_context_bands=include_context_bands,
-        )
-        return img_combined
-
     # Combine all main dataset images and convert to area per pixel
     all_images = [ee.Image(1).rename(geometry_area_column)]
     for func in list_functions(national_codes=national_codes):
@@ -1628,6 +1624,21 @@ def combine_datasets(
                 img_combined = img_combined.addBands(band_func())
             except ee.EEException as e:
                 print(f"Warning: Could not add {band_name} band: {e}")
+
+    # Optional up-front check: one call that makes Earth Engine load every dataset. Only if it
+    # fails are the datasets checked one by one (in parallel) and the broken ones left out.
+    if auto_recovery or validate_bands:
+        try:
+            img_combined.bandNames().size().getInfo()
+        except ee.EEException as e:
+            print(
+                f"Warning: a dataset failed to load, leaving out broken ones: {str(e)[:150]}"
+            )
+            img_combined, _ = combine_datasets_without_broken(
+                national_codes=national_codes,
+                include_context_bands=include_context_bands,
+            )
+            return img_combined
 
     print("Whisp multiband image compiled")
     return img_combined

@@ -117,7 +117,6 @@ def test_is_dataset_error_false_for_non_earth_engine_errors():
     "kwargs",
     [
         {},
-        {"auto_recovery": True},
         {"national_codes": ["br", "co", "ci", "cm"]},
         {"include_context_bands": False},
     ],
@@ -125,6 +124,25 @@ def test_is_dataset_error_false_for_non_earth_engine_errors():
 def test_combine_datasets_makes_no_earth_engine_calls(ee_calls, kwargs):
     combine_datasets(**kwargs)
     assert ee_calls == []
+
+
+@pytest.mark.parametrize("flag", ["auto_recovery", "validate_bands"])
+def test_up_front_check_is_one_call_when_all_datasets_load(ee_calls, flag):
+    combine_datasets(national_codes=["br", "co", "ci", "cm"], **{flag: True})
+    assert len(ee_calls) == 1
+
+
+def test_auto_recovery_leaves_out_broken_dataset_before_image_is_returned(monkeypatch):
+    monkeypatch.setattr(
+        datasets,
+        "list_functions",
+        lambda national_codes=None: [g_alive_prep, g_dead_prep],
+    )
+    image = combine_datasets(auto_recovery=True, include_context_bands=False)
+    assert image.bandNames().getInfo() == [
+        datasets.geometry_area_column,
+        "Alive_dataset",
+    ]
 
 
 def test_combine_datasets_without_broken_drops_only_the_broken_dataset(monkeypatch):
@@ -177,6 +195,22 @@ def test_concurrent_recovers_from_dead_dataset(
         three_plots, batch_size=1, max_concurrent=3
     )
     _assert_ran_without_dead_dataset(df, 3, rebuilds, sleeps)
+
+
+def test_bespoke_image_built_with_auto_recovery_runs_with_dead_dataset(
+    three_plots, stack_with_dead_dataset
+):
+    # The notebook flow: build with auto_recovery=True, add custom bands, pass the image in
+    rebuilds, sleeps = stack_with_dead_dataset
+    image = combine_datasets(auto_recovery=True).addBands(ee.Image(1).rename("My_band"))
+    df = advanced_stats.whisp_stats_geojson_to_df_sequential(
+        three_plots, whisp_image=image, custom_bands=["My_band"]
+    )
+    assert len(df) == 3
+    assert any(c.startswith("My_band") for c in df.columns)
+    assert any(c.startswith("Alive_dataset") for c in df.columns)
+    assert not any(c.startswith("Dead_dataset") for c in df.columns)
+    assert rebuilds == []  # cleaned up front, so the run itself never had to rebuild
 
 
 def test_supplied_image_with_custom_bands_is_not_replaced(
