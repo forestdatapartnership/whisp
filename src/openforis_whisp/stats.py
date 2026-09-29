@@ -1,4 +1,5 @@
 import ee
+from openforis_whisp import control_flow
 import pandas as pd
 from pathlib import Path
 from .datasets import combine_datasets, is_dataset_error, supplied_image_error
@@ -85,80 +86,6 @@ def get_admin_boundaries_fc():
     return _admin_boundaries_FC
 
 
-def whisp_formatted_stats_geojson_to_df_legacy(
-    input_geojson_filepath: Path | str,
-    external_id_column=None,
-    national_codes=None,
-    unit_type="ha",
-    whisp_image=None,
-    custom_bands=None,  # New parameter
-) -> pd.DataFrame:
-    """
-        Legacy function for basic Whisp stats extraction.
-
-        DEPRECATED: This is the original implementation maintained for backward compatibility.
-        Use whisp_formatted_stats_geojson_to_df() for new code, which provides automatic
-        optimization, formatting, and schema validation.
-
-        Converts a GeoJSON file to a pandas DataFrame containing Whisp stats for the input ROI.
-        Output df is validated against a panderas schema (created on the fly from the two lookup CSVs).
-
-        This function first converts the provided GeoJSON file into an Earth Engine FeatureCollection.
-        It then processes the FeatureCollection to extract relevant Whisp statistics,
-        returning a structured DataFrame that aligns with the expected schema.
-
-        If `external_id_column` is provided, it will be used to link external identifiers
-        from the input GeoJSON to the output DataFrame.
-
-        Parameters
-        ----------
-        input_geojson_filepath : Path | str
-            The filepath to the GeoJSON of the ROI to analyze.
-        external_id_column : str, optional
-            The column in the GeoJSON containing external IDs to be preserved in the output DataFrame.
-            This column must exist as a property in ALL features of the GeoJSON file.
-            Use debug_feature_collection_properties() to inspect available properties if you encounter errors.
-        remove_geom : bool, default=False
-            If True, the geometry of the GeoJSON is removed from the output DataFrame.
-        national_codes : list, optional
-            List of ISO2 country codes to include national datasets.
-        unit_type: str, optional
-            Whether to use hectares ("ha") or percentage ("percent"), by default "ha".
-        whisp_image : ee.Image, optional
-            Pre-combined multiband Earth Engine Image containing all Whisp datasets.
-            If provided, this image will be used instead of combining datasets based on national_codes.
-            If None, datasets will be combined automatically using national_codes parameter.
-        custom_bands : list or dict, optional
-            Custom band information for extra columns. Can be:
-            - List of band names: ['Aa_test', 'elevation']
-            - Dict with types: {'Aa_test': 'float64', 'elevation': 'float32'}
-            - None: preserves all extra columns automatically
-
-    Returns
-        -------
-        df_stats : pd.DataFrame
-            The DataFrame containing the Whisp stats for the input ROI.
-    """
-    # Import here to avoid circular import with advanced_stats
-    from openforis_whisp.advanced_stats import validate_ee_endpoint
-
-    # Validate endpoint - legacy mode uses standard endpoint (same as sequential)
-    validate_ee_endpoint("standard", raise_error=False)
-
-    # Convert GeoJSON to Earth Engine FeatureCollection
-    # Note: Geometry validation/cleaning should be done before calling this function
-    feature_collection = convert_geojson_to_ee(str(input_geojson_filepath))
-
-    return whisp_formatted_stats_ee_to_df(
-        feature_collection,
-        external_id_column,
-        national_codes=national_codes,
-        unit_type=unit_type,
-        whisp_image=whisp_image,
-        custom_bands=custom_bands,  # Pass through
-    )
-
-
 def whisp_formatted_stats_geojson_to_df(
     input_geojson_filepath: Path | str,
     external_id_column=None,
@@ -213,7 +140,6 @@ def whisp_formatted_stats_geojson_to_df(
             Downloads GeoTIFFs to a temp directory, adds 5% decoy features for privacy,
             runs zonal stats locally with exactextract, then cleans up. Requires high-volume endpoint.
             For advanced options (custom decoy %, bbox extension, etc.) use whisp_stats_local() directly.
-        - "legacy": Uses original implementation (basic stats extraction only, no formatting)
     batch_size : int, optional
         Features per batch for concurrent/sequential modes, by default 10.
         Only applicable for "concurrent" and "sequential" modes.
@@ -259,45 +185,13 @@ def whisp_formatted_stats_geojson_to_df(
     ...     batch_size=15
     ... )
 
-    >>> # Use legacy mode for backward compatibility (basic extraction only)
-    >>> df = whisp_formatted_stats_geojson_to_df(
-    ...     "data.geojson",
-    ...     mode="legacy"
-    ... )
     """
     # Import here to avoid circular imports
-    try:
-        from openforis_whisp.advanced_stats import (
-            whisp_formatted_stats_geojson_to_df_fast,
-        )
-    except ImportError:
-        # Fallback to legacy if advanced_stats not available
-        mode = "legacy"
+    from openforis_whisp.advanced_stats import whisp_formatted_stats_geojson_to_df_fast
 
     logger = logging.getLogger("whisp")
 
-    if mode == "legacy":
-        # Log info if batch_size or max_concurrent were passed but won't be used
-        if batch_size != 10 or max_concurrent != 20:
-            unused = []
-            if batch_size != 10:
-                unused.append(f"batch_size={batch_size}")
-            if max_concurrent != 20:
-                unused.append(f"max_concurrent={max_concurrent}")
-            logger.info(
-                f"Mode is 'legacy': {', '.join(unused)}\n"
-                "parameter(s) are not used in legacy mode."
-            )
-        # Use original implementation (basic stats extraction only)
-        return whisp_formatted_stats_geojson_to_df_legacy(
-            input_geojson_filepath=input_geojson_filepath,
-            external_id_column=external_id_column,
-            national_codes=national_codes,
-            unit_type=unit_type,
-            whisp_image=whisp_image,
-            custom_bands=custom_bands,
-        )
-    elif mode in ("concurrent", "sequential"):
+    if mode in ("concurrent", "sequential"):
         # Log info if batch_size or max_concurrent are not used in sequential mode
         if mode == "sequential":
             unused = []
@@ -349,7 +243,7 @@ def whisp_formatted_stats_geojson_to_df(
         )
     else:
         raise ValueError(
-            f"Invalid mode '{mode}'. Must be 'concurrent', 'sequential', 'local', or 'legacy'."
+            f"Invalid mode '{mode}'. Must be 'concurrent', 'sequential' or 'local'."
         )
 
 
@@ -669,6 +563,8 @@ def whisp_stats_geojson_to_drive(
             whisp_image=whisp_image,  # Pass through
         )
 
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         print(f"An error occurred: {e}")
 
@@ -754,6 +650,8 @@ def whisp_stats_ee_to_ee(
             if keep_properties is None:
                 feature_collection = feature_collection.select(["external_id"])
 
+        except control_flow.PROPAGATE:
+            raise
         except Exception as e:
             # Handle the exception and provide a helpful error message
             print(
@@ -841,6 +739,8 @@ def whisp_stats_ee_to_df(
                 whisp_image=whisp_image,  # Pass through
                 validate_bands=False,  # try withoutb validation first
             )
+        except control_flow.PROPAGATE:
+            raise
         except Exception as e:
             print(f"An error occurred during Whisp stats processing: {e}")
             raise e
@@ -851,10 +751,14 @@ def whisp_stats_ee_to_df(
                 ee_object=stats_feature_collection,
                 remove_geom=remove_geom,
             )
+        except control_flow.PROPAGATE:
+            raise
         except Exception as e:
             print(f"An error occurred during the conversion from EE to DataFrame: {e}")
             raise e
 
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         # Retry once without broken datasets, but only for a dataset error and only if Whisp
         # built the image: a passed-in image is never swapped for a rebuilt one
@@ -871,6 +775,8 @@ def whisp_stats_ee_to_df(
                 whisp_image=whisp_image,
                 validate_bands=True,  # If error, try with validation
             )
+        except control_flow.PROPAGATE:
+            raise
         except Exception as e:
             print(f"An error occurred during Whisp stats processing: {e}")
             raise e
@@ -881,6 +787,8 @@ def whisp_stats_ee_to_df(
                 ee_object=stats_feature_collection,
                 remove_geom=remove_geom,
             )
+        except control_flow.PROPAGATE:
+            raise
         except Exception as e:
             print(f"An error occurred during the conversion from EE to DataFrame: {e}")
             raise e
@@ -1030,6 +938,8 @@ def whisp_stats_ee_to_drive(
         print(
             "Exporting to Google Drive: 'whisp_output_table.csv'. To track progress: https://code.earthengine.google.com/tasks"
         )
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         print(f"An error occurred during the export: {e}")
 
@@ -1523,6 +1433,8 @@ def ee_image_checker(image):
             return True
     except ee.EEException as e:
         print(f"Image validation failed with EEException: {e}")
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         print(f"Image validation failed with exception: {e}")
     return False
@@ -1637,6 +1549,8 @@ def validate_external_id_column(feature_collection, external_id_column):
             "error_message": error_message,
         }
 
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         return {
             "is_valid": False,
@@ -1701,6 +1615,8 @@ def debug_feature_collection_properties(feature_collection, max_features=5):
             ],
         }
 
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         return {"error": f"Error during debugging: {str(e)}"}
 

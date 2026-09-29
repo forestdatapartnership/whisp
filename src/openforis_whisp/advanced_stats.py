@@ -6,8 +6,8 @@ with Whisp datasets using concurrent batching (for high-volume processing)
 and standard sequential processing.
 
 NOTE: This module is a transition state. The plan is to eventually merge these
-functions into stats.py and replace the standard functions there as the primary
-implementation, deprecating the legacy versions.
+functions into stats.py as the primary implementation; whisp_formatted_stats_ee_to_df
+there stays as the FeatureCollection-based path.
 
 Key features:
   - whisp_stats_geojson_to_df_concurrent
@@ -19,6 +19,7 @@ Key features:
 """
 
 import ee
+from openforis_whisp import control_flow
 import pandas as pd
 import geopandas as gpd
 import logging
@@ -79,17 +80,6 @@ from openforis_whisp.datasets import (
     supplied_image_error,
     unavailable_dataset_names,
 )
-
-# Exceptions that must never be caught and treated as a failed batch. Celery (used by the Whisp
-# API) stops a task that runs too long by raising SoftTimeLimitExceeded, which subclasses
-# Exception, so it has to be let through explicitly (#235).
-try:
-    from celery.exceptions import SoftTimeLimitExceeded as _SoftTimeLimitExceeded
-except ImportError:  # celery not installed: nothing extra to let through
-
-    class _SoftTimeLimitExceeded(Exception):
-        pass
-
 
 from openforis_whisp.reformat import validate_dataframe_using_lookups_flexible
 from openforis_whisp.stats import (
@@ -533,7 +523,7 @@ def validate_ee_endpoint(endpoint_type: str = "high-volume", raise_error: bool =
             )
         else:  # standard endpoint
             msg = (
-                "Sequential/legacy mode works best on the STANDARD endpoint. To change endpoint run:\n"
+                "Sequential mode works best on the STANDARD endpoint. To change endpoint run:\n"
                 "ee.Reset()\n"
                 "ee.Initialize(project=gee_project_name)  # or ee.Initialize()\n"
                 "# where gee_project_name is your GEE project (necessary in Colab)"
@@ -1049,6 +1039,8 @@ def process_ee_batch(
                 else:
                     raise
 
+        except control_flow.PROPAGATE:
+            raise
         except Exception as e:
             if attempt < max_retries - 1:
                 time.sleep(min(5, 2**attempt))
@@ -1306,7 +1298,7 @@ def whisp_stats_geojson_to_df_concurrent(
                     results.append(merge_batch(df_server, df_client))
                 except _BatchSkipped:
                     continue
-                except _SoftTimeLimitExceeded:
+                except control_flow.PROPAGATE:
                     raise
                 except Exception as e:
                     error_msg = str(e)
@@ -1516,6 +1508,8 @@ def whisp_stats_geojson_to_df_concurrent(
                 remove_columns=True,
                 convert_water_flag=True,
             )
+        except control_flow.PROPAGATE:
+            raise
         except Exception as e:
             # Broken datasets are dealt with per batch before this point, so a formatting
             # error has another cause: report it rather than rerunning every batch
@@ -1699,6 +1693,8 @@ def whisp_stats_geojson_to_df_sequential(
             )
             df_server = convert_ee_to_df(results_fc)
             break
+        except control_flow.PROPAGATE:
+            raise
         except Exception as e:
             if not is_dataset_error(e) or attempt == 2:
                 raise
