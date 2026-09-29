@@ -1,6 +1,6 @@
 """
 Follow-ups to the lazy broken-dataset handling (#262): whisp_risk says when a dataset left out of
-the run feeds a risk tree, legacy mode recovers only images it built, and a formatting error in
+the run feeds a risk tree, the FeatureCollection path (whisp_stats_ee_to_df) recovers only images it built, and a formatting error in
 concurrent mode is reported rather than triggering a full rerun.
 """
 
@@ -103,7 +103,7 @@ def test_whisp_risk_notes_when_it_works_without_a_dataset_that_feeds_it(whisp_lo
     )
 
 
-def test_legacy_mode_recovers_an_image_it_built(three_plots, monkeypatch):
+def test_ee_to_df_recovers_an_image_it_built(three_plots, monkeypatch):
     monkeypatch.setattr(
         datasets,
         "list_functions",
@@ -115,7 +115,7 @@ def test_legacy_mode_recovers_an_image_it_built(three_plots, monkeypatch):
     assert not any(c.startswith("Dead_dataset") for c in df.columns)
 
 
-def test_legacy_mode_never_rebuilds_a_passed_in_image(three_plots, monkeypatch):
+def test_ee_to_df_never_rebuilds_a_passed_in_image(three_plots, monkeypatch):
     monkeypatch.setattr(
         datasets,
         "list_functions",

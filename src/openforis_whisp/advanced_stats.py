@@ -6,8 +6,8 @@ with Whisp datasets using concurrent batching (for high-volume processing)
 and standard sequential processing.
 
 NOTE: This module is a transition state. The plan is to eventually merge these
-functions into stats.py and replace the standard functions there as the primary
-implementation, deprecating the legacy versions.
+functions into stats.py as the primary implementation; whisp_formatted_stats_ee_to_df
+there stays as the FeatureCollection-based path.
 
 Key features:
   - whisp_stats_geojson_to_df_concurrent
@@ -523,7 +523,7 @@ def validate_ee_endpoint(endpoint_type: str = "high-volume", raise_error: bool =
             )
         else:  # standard endpoint
             msg = (
-                "Sequential/legacy mode works best on the STANDARD endpoint. To change endpoint run:\n"
+                "Sequential mode works best on the STANDARD endpoint. To change endpoint run:\n"
                 "ee.Reset()\n"
                 "ee.Initialize(project=gee_project_name)  # or ee.Initialize()\n"
                 "# where gee_project_name is your GEE project (necessary in Colab)"
