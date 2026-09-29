@@ -13,6 +13,7 @@
 #   Editable mode runs the package locally and thus changes to any files are reflected immediately.
 
 import ee
+from openforis_whisp import control_flow
 
 # ee.Authenticate()
 # ee.Initialize()
@@ -1702,6 +1703,8 @@ def _find_broken_images(
             try:
                 probe(img).getInfo()
                 return None
+            except control_flow.PROPAGATE:
+                raise
             except Exception as e:
                 if isinstance(e, ee.EEException) and is_dataset_error(e):
                     print(f"Invalid image ({name}): {e}")
@@ -1976,6 +1979,8 @@ def ee_image_checker(image):
             return True
     except ee.EEException as e:
         print(f"Image validation failed with EEException: {e}")
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         print(f"Image validation failed with exception: {e}")
     return False

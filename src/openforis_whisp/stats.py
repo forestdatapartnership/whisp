@@ -1,4 +1,5 @@
 import ee
+from openforis_whisp import control_flow
 import pandas as pd
 from pathlib import Path
 from .datasets import combine_datasets, is_dataset_error, supplied_image_error
@@ -669,6 +670,8 @@ def whisp_stats_geojson_to_drive(
             whisp_image=whisp_image,  # Pass through
         )
 
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         print(f"An error occurred: {e}")
 
@@ -754,6 +757,8 @@ def whisp_stats_ee_to_ee(
             if keep_properties is None:
                 feature_collection = feature_collection.select(["external_id"])
 
+        except control_flow.PROPAGATE:
+            raise
         except Exception as e:
             # Handle the exception and provide a helpful error message
             print(
@@ -841,6 +846,8 @@ def whisp_stats_ee_to_df(
                 whisp_image=whisp_image,  # Pass through
                 validate_bands=False,  # try withoutb validation first
             )
+        except control_flow.PROPAGATE:
+            raise
         except Exception as e:
             print(f"An error occurred during Whisp stats processing: {e}")
             raise e
@@ -851,10 +858,14 @@ def whisp_stats_ee_to_df(
                 ee_object=stats_feature_collection,
                 remove_geom=remove_geom,
             )
+        except control_flow.PROPAGATE:
+            raise
         except Exception as e:
             print(f"An error occurred during the conversion from EE to DataFrame: {e}")
             raise e
 
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         # Retry once without broken datasets, but only for a dataset error and only if Whisp
         # built the image: a passed-in image is never swapped for a rebuilt one
@@ -871,6 +882,8 @@ def whisp_stats_ee_to_df(
                 whisp_image=whisp_image,
                 validate_bands=True,  # If error, try with validation
             )
+        except control_flow.PROPAGATE:
+            raise
         except Exception as e:
             print(f"An error occurred during Whisp stats processing: {e}")
             raise e
@@ -881,6 +894,8 @@ def whisp_stats_ee_to_df(
                 ee_object=stats_feature_collection,
                 remove_geom=remove_geom,
             )
+        except control_flow.PROPAGATE:
+            raise
         except Exception as e:
             print(f"An error occurred during the conversion from EE to DataFrame: {e}")
             raise e
@@ -1030,6 +1045,8 @@ def whisp_stats_ee_to_drive(
         print(
             "Exporting to Google Drive: 'whisp_output_table.csv'. To track progress: https://code.earthengine.google.com/tasks"
         )
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         print(f"An error occurred during the export: {e}")
 
@@ -1523,6 +1540,8 @@ def ee_image_checker(image):
             return True
     except ee.EEException as e:
         print(f"Image validation failed with EEException: {e}")
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         print(f"Image validation failed with exception: {e}")
     return False
@@ -1637,6 +1656,8 @@ def validate_external_id_column(feature_collection, external_id_column):
             "error_message": error_message,
         }
 
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         return {
             "is_valid": False,
@@ -1701,6 +1722,8 @@ def debug_feature_collection_properties(feature_collection, max_features=5):
             ],
         }
 
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         return {"error": f"Error during debugging: {str(e)}"}
 

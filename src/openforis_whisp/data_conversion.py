@@ -1,4 +1,5 @@
 import pandas as pd
+from openforis_whisp import control_flow
 import geojson
 from shapely.geometry import shape
 from pathlib import Path
@@ -562,6 +563,8 @@ def convert_ee_to_geojson(ee_object, filename=None, indent=2, **kwargs):
                 return json_object
         else:
             print("Could not convert the Earth Engine object to geojson")
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         raise Exception(e)
 
