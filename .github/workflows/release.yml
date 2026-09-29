@@ -87,8 +87,13 @@ jobs:
           else
             : > RELEASE_NOTES.md
           fi
+          # House style from earlier hand-written releases: "- title in #N" (no author, it is
+          # one person's repo), category headings in bold under "What's Changed"
           gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
-            -f tag_name="$TAG" --jq .body >> RELEASE_NOTES.md
+            -f tag_name="$TAG" --jq .body \
+            | sed -E -e 's, by @[A-Za-z0-9-]+ in https://github.com/[^ ]+/pull/([0-9]+), in #\1,' \
+                     -e 's,^\* ,- ,' \
+                     -e 's,^### (.+)$,**\1:**,' >> RELEASE_NOTES.md
           printf '\n**PyPi Release**: [openforis-whisp](https://pypi.org/project/openforis-whisp/%s/)\n' \
             "$VERSION" >> RELEASE_NOTES.md
 
