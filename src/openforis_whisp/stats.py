@@ -4,6 +4,7 @@ from pathlib import Path
 from .datasets import combine_datasets, is_dataset_error, supplied_image_error
 import json
 import logging
+import warnings
 import country_converter as coco
 from openforis_whisp.parameters.config_runtime import (
     plot_id_column,
@@ -85,6 +86,16 @@ def get_admin_boundaries_fc():
     return _admin_boundaries_FC
 
 
+# Shown (as a FutureWarning, which this package does not silence) whenever the legacy
+# entry point is used. Removal is tied to the end of the 3.0.0 alpha series (#196).
+LEGACY_DEPRECATION_MESSAGE = (
+    "whisp_formatted_stats_geojson_to_df_legacy() and mode='legacy' are deprecated and will "
+    "be removed in openforis-whisp 3.0.0b1. Use whisp_formatted_stats_geojson_to_df(path, "
+    "mode='sequential'), or whisp_formatted_stats_ee_to_df(convert_geojson_to_ee(path), ...) "
+    "to keep this exact per-feature pipeline, which is staying."
+)
+
+
 def whisp_formatted_stats_geojson_to_df_legacy(
     input_geojson_filepath: Path | str,
     external_id_column=None,
@@ -92,53 +103,31 @@ def whisp_formatted_stats_geojson_to_df_legacy(
     unit_type="ha",
     whisp_image=None,
     custom_bands=None,  # New parameter
+    _warn=True,  # the mode='legacy' wrapper warns itself
 ) -> pd.DataFrame:
     """
-        Legacy function for basic Whisp stats extraction.
+    Legacy function for basic Whisp stats extraction.
+    DEPRECATED since 3.0.0a20, removed in 3.0.0b1 (#196). This is only the GeoJSON front
+    door to whisp_formatted_stats_ee_to_df(): it converts the file to an Earth Engine
+    FeatureCollection and runs the original per-feature reduceRegion pipeline, which is
+    not going away. Use whisp_formatted_stats_geojson_to_df(path, mode="sequential"), or
+    whisp_formatted_stats_ee_to_df(convert_geojson_to_ee(path), ...) to keep this exact
+    pipeline. Calling this function emits a FutureWarning and still runs.
 
-        DEPRECATED: This is the original implementation maintained for backward compatibility.
-        Use whisp_formatted_stats_geojson_to_df() for new code, which provides automatic
-        optimization, formatting, and schema validation.
+    Args:
+        input_geojson_filepath: path to the GeoJSON file.
+        external_id_column: name of a property to carry through as the external id.
+        national_codes: list of ISO2 codes to include national datasets for.
+        unit_type: "ha" or "percent".
+        whisp_image: a pre-built Whisp image to use instead of building one.
+        custom_bands: extra bands to add, see combine_custom_bands.
 
-        Converts a GeoJSON file to a pandas DataFrame containing Whisp stats for the input ROI.
-        Output df is validated against a panderas schema (created on the fly from the two lookup CSVs).
-
-        This function first converts the provided GeoJSON file into an Earth Engine FeatureCollection.
-        It then processes the FeatureCollection to extract relevant Whisp statistics,
-        returning a structured DataFrame that aligns with the expected schema.
-
-        If `external_id_column` is provided, it will be used to link external identifiers
-        from the input GeoJSON to the output DataFrame.
-
-        Parameters
-        ----------
-        input_geojson_filepath : Path | str
-            The filepath to the GeoJSON of the ROI to analyze.
-        external_id_column : str, optional
-            The column in the GeoJSON containing external IDs to be preserved in the output DataFrame.
-            This column must exist as a property in ALL features of the GeoJSON file.
-            Use debug_feature_collection_properties() to inspect available properties if you encounter errors.
-        remove_geom : bool, default=False
-            If True, the geometry of the GeoJSON is removed from the output DataFrame.
-        national_codes : list, optional
-            List of ISO2 country codes to include national datasets.
-        unit_type: str, optional
-            Whether to use hectares ("ha") or percentage ("percent"), by default "ha".
-        whisp_image : ee.Image, optional
-            Pre-combined multiband Earth Engine Image containing all Whisp datasets.
-            If provided, this image will be used instead of combining datasets based on national_codes.
-            If None, datasets will be combined automatically using national_codes parameter.
-        custom_bands : list or dict, optional
-            Custom band information for extra columns. Can be:
-            - List of band names: ['Aa_test', 'elevation']
-            - Dict with types: {'Aa_test': 'float64', 'elevation': 'float32'}
-            - None: preserves all extra columns automatically
-
-    Returns
-        -------
-        df_stats : pd.DataFrame
-            The DataFrame containing the Whisp stats for the input ROI.
+    Returns:
+        DataFrame with the formatted Whisp stats.
     """
+    if _warn:
+        warnings.warn(LEGACY_DEPRECATION_MESSAGE, FutureWarning, stacklevel=2)
+
     # Import here to avoid circular import with advanced_stats
     from openforis_whisp.advanced_stats import validate_ee_endpoint
 
@@ -213,7 +202,8 @@ def whisp_formatted_stats_geojson_to_df(
             Downloads GeoTIFFs to a temp directory, adds 5% decoy features for privacy,
             runs zonal stats locally with exactextract, then cleans up. Requires high-volume endpoint.
             For advanced options (custom decoy %, bbox extension, etc.) use whisp_stats_local() directly.
-        - "legacy": Uses original implementation (basic stats extraction only, no formatting)
+        - "legacy": Deprecated, removed in 3.0.0b1. The original per-feature pipeline (the same as
+            whisp_formatted_stats_ee_to_df); warns with a FutureWarning and still runs.
     batch_size : int, optional
         Features per batch for concurrent/sequential modes, by default 10.
         Only applicable for "concurrent" and "sequential" modes.
@@ -259,24 +249,14 @@ def whisp_formatted_stats_geojson_to_df(
     ...     batch_size=15
     ... )
 
-    >>> # Use legacy mode for backward compatibility (basic extraction only)
-    >>> df = whisp_formatted_stats_geojson_to_df(
-    ...     "data.geojson",
-    ...     mode="legacy"
-    ... )
     """
     # Import here to avoid circular imports
-    try:
-        from openforis_whisp.advanced_stats import (
-            whisp_formatted_stats_geojson_to_df_fast,
-        )
-    except ImportError:
-        # Fallback to legacy if advanced_stats not available
-        mode = "legacy"
+    from openforis_whisp.advanced_stats import whisp_formatted_stats_geojson_to_df_fast
 
     logger = logging.getLogger("whisp")
 
     if mode == "legacy":
+        warnings.warn(LEGACY_DEPRECATION_MESSAGE, FutureWarning, stacklevel=2)
         # Log info if batch_size or max_concurrent were passed but won't be used
         if batch_size != 10 or max_concurrent != 20:
             unused = []
@@ -296,6 +276,7 @@ def whisp_formatted_stats_geojson_to_df(
             unit_type=unit_type,
             whisp_image=whisp_image,
             custom_bands=custom_bands,
+            _warn=False,
         )
     elif mode in ("concurrent", "sequential"):
         # Log info if batch_size or max_concurrent are not used in sequential mode
@@ -349,7 +330,8 @@ def whisp_formatted_stats_geojson_to_df(
         )
     else:
         raise ValueError(
-            f"Invalid mode '{mode}'. Must be 'concurrent', 'sequential', 'local', or 'legacy'."
+            f"Invalid mode '{mode}'. Must be 'concurrent', 'sequential' or 'local' "
+            "('legacy' is deprecated but still accepted until 3.0.0b1)."
         )
 
 

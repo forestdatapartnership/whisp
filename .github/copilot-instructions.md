@@ -186,10 +186,10 @@ In future, updating these may be automated to reduce manual updates to multiple 
   - `mode="concurrent"`: Uses [advanced_stats.py](src/openforis_whisp/advanced_stats.py) with high-volume EE endpoint for parallel processing
   - `mode="sequential"`: Uses [advanced_stats.py](src/openforis_whisp/advanced_stats.py) with standard EE endpoint for single-threaded processing
   - `mode="local"`: Uses [local_stats.py](src/openforis_whisp/local_stats.py) for privacy-preserving local processing (downloads GeoTIFFs, uses exactextract)
-  - `mode="legacy"`: Calls the original implementation for backward compatibility
-- **Legacy**: `whisp_formatted_stats_geojson_to_df_legacy()` — kept for backward compatibility, but will be removed in the future.
+  - `mode="legacy"`: Deprecated since 3.0.0a20, removed in 3.0.0b1 (#196). Warns (FutureWarning) and still runs the original per-feature pipeline.
+- **Legacy**: `whisp_formatted_stats_geojson_to_df_legacy()` — deprecated, same removal. It is only the GeoJSON front door to `whisp_formatted_stats_ee_to_df()`, which stays.
 
-Always use modern functions for new code. Legacy function works correctly but lacks newer optimizations.
+Always use modern functions for new code. Note `advanced_stats.py` silences `DeprecationWarning` at import, so package deprecations use `FutureWarning`.
 
 ### GeoJSON Geometry Handling
 - Input: GeoJSON features with Polygon/MultiPolygon geometries

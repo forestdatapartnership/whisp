@@ -6,8 +6,9 @@ with Whisp datasets using concurrent batching (for high-volume processing)
 and standard sequential processing.
 
 NOTE: This module is a transition state. The plan is to eventually merge these
-functions into stats.py and replace the standard functions there as the primary
-implementation, deprecating the legacy versions.
+functions into stats.py as the primary implementation. The GeoJSON "legacy" entry
+point there is deprecated (removed in 3.0.0b1, #196); whisp_formatted_stats_ee_to_df
+stays as the FeatureCollection-based path.
 
 Key features:
   - whisp_stats_geojson_to_df_concurrent
