@@ -247,7 +247,7 @@ To add your own data directly you will need some coding experience as well as fa
 
 Contributions are welcome!
 - Fork the repo, make changes, and open a pull request.
-- For adding new datasets to the codebase and for project-specific coding standards see [.github/copilot-instructions.md](.github/copilot-instructions.md)
+- For adding new datasets to the codebase and for project-specific coding standards see [AGENTS.md](AGENTS.md)
 
 ### Developer setup <a name="whisp_dev_setup"></a>
 
