@@ -179,17 +179,16 @@ Further standard column names are defined in [src/openforis_whisp/parameters/loo
   - [result fields reference](https://whisp.openforis.org/docs/reference/result-fields) (output column documentation for external systems)
 In future, updating these may be automated to reduce manual updates to multiple similar files.
 
-### Legacy vs. Modern Functions
+### Processing modes
 [stats.py](src/openforis_whisp/stats.py):
 
-- **Modern**: `whisp_formatted_stats_geojson_to_df()` — main entry point that routes to appropriate mode:
+- `whisp_formatted_stats_geojson_to_df()` is the main entry point and routes by `mode`:
   - `mode="concurrent"`: Uses [advanced_stats.py](src/openforis_whisp/advanced_stats.py) with high-volume EE endpoint for parallel processing
   - `mode="sequential"`: Uses [advanced_stats.py](src/openforis_whisp/advanced_stats.py) with standard EE endpoint for single-threaded processing
   - `mode="local"`: Uses [local_stats.py](src/openforis_whisp/local_stats.py) for privacy-preserving local processing (downloads GeoTIFFs, uses exactextract)
-  - `mode="legacy"`: Deprecated since 3.0.0a20, removed in 3.0.0b1 (#196). Warns (FutureWarning) and still runs the original per-feature pipeline.
-- **Legacy**: `whisp_formatted_stats_geojson_to_df_legacy()` — deprecated, same removal. It is only the GeoJSON front door to `whisp_formatted_stats_ee_to_df()`, which stays.
+- `whisp_formatted_stats_ee_to_df()` is the FeatureCollection-based path (per-feature reduceRegion on the standard endpoint), used by the drive and geojson wrappers. The old `mode="legacy"` GeoJSON wrapper around it was removed in 3.0.0a20 (#196).
 
-Always use modern functions for new code. Note `advanced_stats.py` silences `DeprecationWarning` at import, so package deprecations use `FutureWarning`.
+Note `advanced_stats.py` silences `DeprecationWarning` at import, so any package deprecation must use `FutureWarning`.
 
 ### GeoJSON Geometry Handling
 - Input: GeoJSON features with Polygon/MultiPolygon geometries

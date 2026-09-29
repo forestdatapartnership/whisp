@@ -4,7 +4,6 @@ from pathlib import Path
 from .datasets import combine_datasets, is_dataset_error, supplied_image_error
 import json
 import logging
-import warnings
 import country_converter as coco
 from openforis_whisp.parameters.config_runtime import (
     plot_id_column,
@@ -86,68 +85,6 @@ def get_admin_boundaries_fc():
     return _admin_boundaries_FC
 
 
-# Shown (as a FutureWarning, which this package does not silence) whenever the legacy
-# entry point is used. Removal is tied to the end of the 3.0.0 alpha series (#196).
-LEGACY_DEPRECATION_MESSAGE = (
-    "whisp_formatted_stats_geojson_to_df_legacy() and mode='legacy' are deprecated and will "
-    "be removed in openforis-whisp 3.0.0b1. Use whisp_formatted_stats_geojson_to_df(path, "
-    "mode='sequential'), or whisp_formatted_stats_ee_to_df(convert_geojson_to_ee(path), ...) "
-    "to keep this exact per-feature pipeline, which is staying."
-)
-
-
-def whisp_formatted_stats_geojson_to_df_legacy(
-    input_geojson_filepath: Path | str,
-    external_id_column=None,
-    national_codes=None,
-    unit_type="ha",
-    whisp_image=None,
-    custom_bands=None,  # New parameter
-    _warn=True,  # the mode='legacy' wrapper warns itself
-) -> pd.DataFrame:
-    """
-    Legacy function for basic Whisp stats extraction.
-    DEPRECATED since 3.0.0a20, removed in 3.0.0b1 (#196). This is only the GeoJSON front
-    door to whisp_formatted_stats_ee_to_df(): it converts the file to an Earth Engine
-    FeatureCollection and runs the original per-feature reduceRegion pipeline, which is
-    not going away. Use whisp_formatted_stats_geojson_to_df(path, mode="sequential"), or
-    whisp_formatted_stats_ee_to_df(convert_geojson_to_ee(path), ...) to keep this exact
-    pipeline. Calling this function emits a FutureWarning and still runs.
-
-    Args:
-        input_geojson_filepath: path to the GeoJSON file.
-        external_id_column: name of a property to carry through as the external id.
-        national_codes: list of ISO2 codes to include national datasets for.
-        unit_type: "ha" or "percent".
-        whisp_image: a pre-built Whisp image to use instead of building one.
-        custom_bands: extra bands to add, see combine_custom_bands.
-
-    Returns:
-        DataFrame with the formatted Whisp stats.
-    """
-    if _warn:
-        warnings.warn(LEGACY_DEPRECATION_MESSAGE, FutureWarning, stacklevel=2)
-
-    # Import here to avoid circular import with advanced_stats
-    from openforis_whisp.advanced_stats import validate_ee_endpoint
-
-    # Validate endpoint - legacy mode uses standard endpoint (same as sequential)
-    validate_ee_endpoint("standard", raise_error=False)
-
-    # Convert GeoJSON to Earth Engine FeatureCollection
-    # Note: Geometry validation/cleaning should be done before calling this function
-    feature_collection = convert_geojson_to_ee(str(input_geojson_filepath))
-
-    return whisp_formatted_stats_ee_to_df(
-        feature_collection,
-        external_id_column,
-        national_codes=national_codes,
-        unit_type=unit_type,
-        whisp_image=whisp_image,
-        custom_bands=custom_bands,  # Pass through
-    )
-
-
 def whisp_formatted_stats_geojson_to_df(
     input_geojson_filepath: Path | str,
     external_id_column=None,
@@ -202,8 +139,6 @@ def whisp_formatted_stats_geojson_to_df(
             Downloads GeoTIFFs to a temp directory, adds 5% decoy features for privacy,
             runs zonal stats locally with exactextract, then cleans up. Requires high-volume endpoint.
             For advanced options (custom decoy %, bbox extension, etc.) use whisp_stats_local() directly.
-        - "legacy": Deprecated, removed in 3.0.0b1. The original per-feature pipeline (the same as
-            whisp_formatted_stats_ee_to_df); warns with a FutureWarning and still runs.
     batch_size : int, optional
         Features per batch for concurrent/sequential modes, by default 10.
         Only applicable for "concurrent" and "sequential" modes.
@@ -255,30 +190,7 @@ def whisp_formatted_stats_geojson_to_df(
 
     logger = logging.getLogger("whisp")
 
-    if mode == "legacy":
-        warnings.warn(LEGACY_DEPRECATION_MESSAGE, FutureWarning, stacklevel=2)
-        # Log info if batch_size or max_concurrent were passed but won't be used
-        if batch_size != 10 or max_concurrent != 20:
-            unused = []
-            if batch_size != 10:
-                unused.append(f"batch_size={batch_size}")
-            if max_concurrent != 20:
-                unused.append(f"max_concurrent={max_concurrent}")
-            logger.info(
-                f"Mode is 'legacy': {', '.join(unused)}\n"
-                "parameter(s) are not used in legacy mode."
-            )
-        # Use original implementation (basic stats extraction only)
-        return whisp_formatted_stats_geojson_to_df_legacy(
-            input_geojson_filepath=input_geojson_filepath,
-            external_id_column=external_id_column,
-            national_codes=national_codes,
-            unit_type=unit_type,
-            whisp_image=whisp_image,
-            custom_bands=custom_bands,
-            _warn=False,
-        )
-    elif mode in ("concurrent", "sequential"):
+    if mode in ("concurrent", "sequential"):
         # Log info if batch_size or max_concurrent are not used in sequential mode
         if mode == "sequential":
             unused = []
@@ -330,8 +242,7 @@ def whisp_formatted_stats_geojson_to_df(
         )
     else:
         raise ValueError(
-            f"Invalid mode '{mode}'. Must be 'concurrent', 'sequential' or 'local' "
-            "('legacy' is deprecated but still accepted until 3.0.0b1)."
+            f"Invalid mode '{mode}'. Must be 'concurrent', 'sequential' or 'local'."
         )
 
 
