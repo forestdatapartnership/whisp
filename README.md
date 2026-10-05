@@ -58,7 +58,7 @@ Additional categories are specific for the timber commodity, considering a harve
   10) Commodities or croplands in 2024.
   11) Logging concessions;
 
-  There are multiple datasets for each category. Find the full current [list of datasets used in Whisp here](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md).
+  There are multiple datasets for each category. Find the full current [list of datasets used in Whisp here](layers_description.md).
 
   ### Whisp risk assessment <a name="whisp_risk"></a>
 
@@ -119,7 +119,7 @@ The **relevant risk assessment column depends on the commodity** in question:
   </tr>
 </table>
 
-  **Note:** the specific datasets named in the diagrams below are examples only and may not all be reflected in the current codebase. For the datasets currently used, see the [layers description](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md).
+  **Note:** the specific datasets named in the diagrams below are examples only and may not all be reflected in the current codebase. For the datasets currently used, see the [layers description](layers_description.md).
 
   *The Whisp algorithm for **Perennial Crops** visualized:*
   ![CoE_Graphic 5](https://github.com/user-attachments/assets/007b5f50-3939-4707-95fa-98be4d56745f)
