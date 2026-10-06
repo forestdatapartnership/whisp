@@ -65,8 +65,9 @@ def g_esa_worldcover_trees_prep():
 
 # EUFO_2020
 def g_jrc_gfc_2020_prep():
-    # JRC GFC2020 V3 is a single Image with band 'Map'
-    jrc_gfc2020 = ee.Image("JRC/GFC2020/V3").select("Map")
+    # JRC GFC2020 V4 is a single Image with band 'Map' (1 = forest).
+    # V3 is deprecated in the GEE catalog and superseded by V4 (released 2026).
+    jrc_gfc2020 = ee.Image("JRC/GFC2020/V4").select("Map")
     return jrc_gfc2020.rename("EUFO_2020").selfMask()
 
 
