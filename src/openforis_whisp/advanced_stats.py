@@ -72,6 +72,9 @@ from openforis_whisp.data_conversion import (
     convert_geojson_to_ee,
     convert_ee_to_df,
     convert_ee_to_geojson,
+    check_external_id_column,
+    external_id_to_str,
+    read_split_metadata,
 )
 from openforis_whisp.datasets import (
     combine_datasets,
@@ -182,7 +185,7 @@ def _load_and_prepare_geojson(
                     columns={external_id_column: "external_id"}
                 )  # hard coding here to avoid confusion later
             # Convert to string to ensure consistent type throughout pipeline
-            gdf["external_id"] = gdf["external_id"].astype(str)
+            gdf["external_id"] = external_id_to_str(gdf["external_id"])
 
         return gdf
     finally:
@@ -1137,25 +1140,8 @@ def whisp_stats_geojson_to_df_concurrent(
     )
     logger.info(f"Loaded {len(gdf):,} features")
 
-    # Validate external_id if provided (lightweight client-side check)
-    # Note: external_id_column already renamed to 'external_id' during load
-    if external_id_column and "external_id" not in gdf.columns:
-        # Exclude geometry column from available columns list
-        available_cols = [c for c in gdf.columns if c != gdf.geometry.name]
-        raise ValueError(
-            f"Column '{external_id_column}' not found in GeoJSON properties. "
-            f"Available columns: {available_cols}"
-        )
-
-    # Check completeness of external_id (warn if nulls exist)
-    if external_id_column and "external_id" in gdf.columns:
-        null_count = gdf["external_id"].isna().sum()
-        if null_count > 0:
-            null_pct = (null_count / len(gdf)) * 100
-            logger.warning(
-                f"Column 'external_id' (from '{external_id_column}') has {null_count:,} null values ({null_pct:.1f}% of {len(gdf):,} features). "
-                f"These features may have missing external IDs in output."
-            )
+    # Shared check: raises if the column is absent, warns if some values are empty
+    check_external_id_column(gdf, external_id_column, logger)
 
     if validate_geometries:
         gdf = clean_geodataframe(
@@ -1178,7 +1164,7 @@ def whisp_stats_geojson_to_df_concurrent(
 
     # CRITICAL: Convert external_id to string (both plotId and external_id are now strings)
     if external_id_column and "external_id" in gdf_for_ee.columns:
-        gdf_for_ee["external_id"] = gdf_for_ee["external_id"].astype(str)
+        gdf_for_ee["external_id"] = external_id_to_str(gdf_for_ee["external_id"])
         logger.debug(f"Converted external_id column to string type")
 
     logger.debug(f"Stripped GeoJSON to essential columns: {keep_cols}")
@@ -1606,25 +1592,8 @@ def whisp_stats_geojson_to_df_sequential(
     )
     logger.info(f"Loaded {len(gdf):,} features")
 
-    # Validate external_id if provided (lightweight client-side check)
-    # Note: external_id_column already renamed to 'external_id' during load
-    if external_id_column and "external_id" not in gdf.columns:
-        # Exclude geometry column from available columns list
-        available_cols = [c for c in gdf.columns if c != gdf.geometry.name]
-        raise ValueError(
-            f"Column '{external_id_column}' not found in GeoJSON properties. "
-            f"Available columns: {available_cols}"
-        )
-
-    # Check completeness of external_id (warn if nulls exist)
-    if external_id_column and "external_id" in gdf.columns:
-        null_count = gdf["external_id"].isna().sum()
-        if null_count > 0:
-            null_pct = (null_count / len(gdf)) * 100
-            logger.warning(
-                f"Column 'external_id' (from '{external_id_column}') has {null_count:,} null values ({null_pct:.1f}% of {len(gdf):,} features). "
-                f"These features may have missing external IDs in output."
-            )
+    # Shared check: raises if the column is absent, warns if some values are empty
+    check_external_id_column(gdf, external_id_column, logger)
 
     # Clean geometries (preserve both null and invalid geometries by default)
     gdf = clean_geodataframe(
@@ -1647,7 +1616,7 @@ def whisp_stats_geojson_to_df_sequential(
 
     # CRITICAL: Convert external_id to string (both plotId and external_id are now strings)
     if external_id_column and "external_id" in gdf_for_ee.columns:
-        gdf_for_ee["external_id"] = gdf_for_ee["external_id"].astype(str)
+        gdf_for_ee["external_id"] = external_id_to_str(gdf_for_ee["external_id"])
         logger.debug(f"Converted external_id column to string type")
 
     logger.debug(f"Stripped GeoJSON to essential columns: {keep_cols}")
@@ -1961,6 +1930,10 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
     # Only present when a dataset could not be loaded and was left out of this run
     if unavailable:
         metadata_dict["unavailable_datasets"] = unavailable
+    # Only present when the input went through split_multipart_geojson and parts were split
+    split_info = read_split_metadata(input_geojson_filepath)
+    if split_info:
+        metadata_dict["multipart_split"] = split_info
     metadata_series = pd.Series(
         [metadata_dict] * len(df_validated), name="whisp_processing_metadata"
     )
@@ -2133,6 +2106,10 @@ def whisp_formatted_stats_geojson_to_df_sequential(
     # Only present when a dataset could not be loaded and was left out of this run
     if unavailable:
         metadata_dict["unavailable_datasets"] = unavailable
+    # Only present when the input went through split_multipart_geojson and parts were split
+    split_info = read_split_metadata(input_geojson_filepath)
+    if split_info:
+        metadata_dict["multipart_split"] = split_info
     metadata_series = pd.Series(
         [metadata_dict] * len(df_validated), name="whisp_processing_metadata"
     )

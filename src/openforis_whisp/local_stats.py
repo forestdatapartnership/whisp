@@ -52,7 +52,12 @@ from openforis_whisp.stats import (
     reformat_geometry_type,
     set_point_geometry_area_to_zero,
 )
-from openforis_whisp.data_conversion import normalize_geojson_to_gdf
+from openforis_whisp.data_conversion import (
+    normalize_geojson_to_gdf,
+    check_external_id_column,
+    external_id_to_str,
+    read_split_metadata,
+)
 from openforis_whisp.parameters.lookup_gaul1_admin import (
     lookup_dict as gaul_lookup_dict,
 )
@@ -1658,11 +1663,14 @@ def whisp_stats_local(
     # Reload gdf (fresh, without modifications from earlier in the function)
     gdf = gpd.read_file(input_geojson_filepath)
 
+    # Same check as concurrent mode: raises if the column is absent, warns on empty values
+    check_external_id_column(gdf, external_id_column, _whisp_logger)
+
     # Rename external_id column early (matching concurrent mode's _load_and_prepare_geojson)
     if external_id_column and external_id_column in gdf.columns:
         if external_id_column != "external_id":
             gdf = gdf.rename(columns={external_id_column: "external_id"})
-        gdf["external_id"] = gdf["external_id"].astype(str)
+        gdf["external_id"] = external_id_to_str(gdf["external_id"])
 
     df_metadata = extract_centroid_and_geomtype_client(
         gdf, external_id_column=external_id_column, return_attributes_only=True
@@ -1747,6 +1755,10 @@ def whisp_stats_local(
             "%Y-%m-%d %H:%M:%S%z"
         ),
     }
+    # Only present when the input went through split_multipart_geojson and parts were split
+    split_info = read_split_metadata(input_geojson_filepath)
+    if split_info:
+        metadata_dict["multipart_split"] = split_info
     metadata_series = pd.Series(
         [metadata_dict] * len(stats_df), name="whisp_processing_metadata"
     )
