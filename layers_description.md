@@ -13,7 +13,7 @@ To view the layers in action, go to [https://whisp.earthmap.org/](https://whisp.
   </thead>
   <tbody>
     <tr><td colspan="3"><b>Tree cover datasets:</b></td></tr>
-    <tr><td rowspan="3">EUFO_2020</td><td rowspan="3">Binary values, where 1 is forest.</td><td rowspan="2">Bourgoin, C.; Achard, F.; Beuchle, R.; Carboni, S.; Carreiras, J.; Marinelli, D.; Rotllan-Puig, X.; Simonetti, D.; Colditz, R. (2026) <i> Global map of forest cover 2020 </i> version 4. European Commission, Joint Research Centre (JRC) [Dataset]. doi: https://doi.org/10.2905/JRC.3KATEH8</td></tr>
+    <tr><td rowspan="3">EUFO_2020</td><td rowspan="3">Binary values, where 1 is forest.</td><td rowspan="2">Bourgoin, C.; Achard, F.; Beuchle, R.; Carboni, S.; Carreiras, J.; Marinelli, D.; Rotllan-Puig, X.; Simonetti, D.; Colditz, R. (2026) <i> Global map of forest cover 2020 </i> version 4. European Commission, Joint Research Centre (JRC) [Dataset]. DOI: https://doi.org/10.2905/JRC.3KATEH8 PID: https://data.europa.eu/89h/cf7c49ea-8f00-4c5a-bd40-6f25dc341580</td></tr>
     <tr></tr>
     <tr><td>ee.Image("JRC/GFC2020/V4")</td></tr>
     <tr><td rowspan="3">GLAD_Primary</td><td rowspan="3">Binary input layer representing primary forest in 2001. Loss pixels 2001-2020 removed with ancillary dataset.</td><td rowspan="2">Turubanova, S., Potapov, P. V., Tyukavina, A., & Hansen, M. C. (2018). <i>Ongoing primary forest loss in Brazil, Democratic Republic of the Congo, and Indonesia.</i> Environmental Research Letters, 13(7), 074028. https://doi.org/10.1088/1748-9326/aacd1c</td></tr>
