@@ -340,9 +340,10 @@ def split_multipart_geojson(
             )
         if n_gc:
             parts.append(f"{n_gc:,} GeometryCollection decomposed")
-        logger.info(
+        logger.warning(
             f"{n_in:,} feature(s) received; {'; '.join(parts)}; "
-            f"processing {n_out:,} single-part feature(s). external_id preserved on every part."
+            f"processing {n_out:,} single-part feature(s). Parts inherit all properties "
+            "of their input feature and have consecutive plotIds."
         )
     else:
         logger.debug(f"{n_in:,} feature(s); no multipart geometries to split")
