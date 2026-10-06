@@ -9,6 +9,7 @@ from typing import List, Any, Union
 from geojson import Feature, FeatureCollection, Polygon, Point
 import json
 import logging
+import re
 import os
 import geopandas as gpd
 import ee
@@ -250,6 +251,75 @@ def _split_geometry_into_features(
     # are dropped, matching the historic whisp-app behavior.
 
 
+def check_external_id_column(
+    gdf, external_id_column: str, logger: logging.Logger = None
+):
+    """
+    Shared check for the user's external id column, run once the input is loaded.
+
+    Raises ValueError if the column is absent (most likely a misspelt name) and warns
+    with a count if some features have no value. Accepts the column under its original
+    name or already renamed to 'external_id'. plotId (1 to N) is always present, so rows
+    without an external id are still addressable.
+    """
+    if not external_id_column:
+        return
+    logger = logger or logging.getLogger("whisp")
+    if "external_id" in gdf.columns:
+        col = "external_id"
+    elif external_id_column in gdf.columns:
+        col = external_id_column
+    else:
+        geom_name = getattr(getattr(gdf, "geometry", None), "name", "geometry")
+        available_cols = [c for c in gdf.columns if c != geom_name]
+        raise ValueError(
+            f"Column '{external_id_column}' not found in GeoJSON properties. "
+            f"Available columns: {available_cols}"
+        )
+    null_count = int(gdf[col].isna().sum())
+    if null_count:
+        null_pct = (null_count / len(gdf)) * 100
+        logger.warning(
+            f"{null_count:,} of {len(gdf):,} features ({null_pct:.1f}%) have no value for "
+            f"'{external_id_column}'; their external_id is left empty in the output. "
+            "Use plotId (1 to N) to refer to those rows."
+        )
+
+
+def external_id_to_str(series):
+    """
+    Cast external ids to str while keeping missing values missing. A plain astype(str)
+    would turn None into the text 'None' and NaN into 'nan', which then look like real
+    ids in a CSV or a GIS join.
+    """
+    return series.map(lambda v: None if pd.isna(v) else str(v)).astype(object)
+
+
+_SPLIT_KEY = "whisp_split"
+
+
+def read_split_metadata(geojson_filepath):
+    """
+    Return the split counts split_multipart_geojson left on a GeoJSON file, or None.
+
+    The counts are a foreign member written at the top of the file, so only the first
+    few kilobytes are read; the file is not parsed. A file saved by other tools
+    drops the member and simply returns None.
+    """
+    try:
+        with open(geojson_filepath, "r", encoding="utf-8") as f:
+            head = f.read(4096)
+    except (OSError, TypeError, ValueError):
+        return None
+    m = re.search(r'"' + _SPLIT_KEY + r'"\s*:\s*(\{[^{}]*\})', head)
+    if not m:
+        return None
+    try:
+        return json.loads(m.group(1))
+    except json.JSONDecodeError:
+        return None
+
+
 def split_multipart_geojson(
     geojson_data: Union[str, Path, dict],
     logger: logging.Logger = None,
@@ -348,7 +418,18 @@ def split_multipart_geojson(
     else:
         logger.debug(f"{n_in:,} feature(s); no multipart geometries to split")
 
-    return {"type": "FeatureCollection", "features": out_features}
+    result = {"type": "FeatureCollection"}
+    if n_multipart or n_gc:
+        # Foreign member (allowed by GeoJSON, ignored by readers), kept at the top of the
+        # file so read_split_metadata can find it without parsing the features. Only
+        # written when something was actually split.
+        result[_SPLIT_KEY] = {
+            "features_received": n_in,
+            "multipart_features_split": n_multipart + n_gc,
+            "single_parts_produced": n_out,
+        }
+    result["features"] = out_features
+    return result
 
 
 def _create_ee_feature_collection(
