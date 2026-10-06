@@ -1,21 +1,99 @@
 import pandas as pd
 
 from .pd_schemas import data_lookup_type
-from .logger import StdoutLogger
+from .logger import StdoutLogger, get_whisp_logger
 
 
 from openforis_whisp.parameters.config_runtime import (
     geometry_area_column,
-    DEFAULT_LOOKUP_TABLE_PATH,
+    read_lookup_table,
     stats_unit_type_column,
 )
 
 from openforis_whisp.reformat import filter_lookup_by_country_codes
 
 # could embed this in each function below that uses lookup_gee_datasets_df.
-lookup_gee_datasets_df: data_lookup_type = pd.read_csv(DEFAULT_LOOKUP_TABLE_PATH)
+lookup_gee_datasets_df: data_lookup_type = read_lookup_table()
 
 logger = StdoutLogger(__name__)
+
+_METADATA_COLUMN = "whisp_processing_metadata"
+_RISK_FLAGS = ("use_for_risk_pcrop", "use_for_risk_acrop", "use_for_risk_timber")
+
+
+def risk_inputs_left_out(unavailable, lookup=None):
+    """
+    Of the datasets a stats run left out (the short names in unavailable_datasets), the ones that
+    feed a risk tree, each with the risk outputs it feeds, e.g. {"RADD_after_2020": ["pcrop", ...]}.
+    `lookup` defaults to the full lookup table; whisp_risk passes the one filtered by country.
+    """
+    from openforis_whisp.datasets import unavailable_dataset_names
+
+    lookup = lookup_gee_datasets_df if lookup is None else lookup
+    preps = lookup["corresponding_variable"].dropna().unique().tolist()
+    short_names = dict(zip(preps, unavailable_dataset_names(preps)))
+    affected = {}
+    for name in unavailable:
+        preps_for_name = [p for p, short in short_names.items() if short == name]
+        rows = lookup[lookup["corresponding_variable"].isin(preps_for_name)]
+        feeds = [
+            f.replace("use_for_risk_", "") for f in _RISK_FLAGS if (rows[f] == 1).any()
+        ]
+        if feeds:
+            affected[name] = feeds
+    return affected
+
+
+def _as_metadata(value):
+    """A whisp_processing_metadata value as a dict (it is a string if read back from a CSV)."""
+    if isinstance(value, str):
+        import ast
+
+        try:
+            value = ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _note_risk_inputs_left_out(df, lookup=None):
+    """
+    If whisp_processing_metadata lists unavailable_datasets that feed a risk tree, warn through
+    the whisp logger (which reaches API job messages) and add risk_inputs_unavailable to each row's
+    metadata, since risk is then worked out without them. Rows from different runs (e.g. results
+    joined together) are each checked.
+    """
+    if _METADATA_COLUMN not in df.columns or df.empty:
+        return df
+    metas = [_as_metadata(m) for m in df[_METADATA_COLUMN]]
+    # Always start from scratch: a rerun of whisp_risk (say with different national_codes) must
+    # replace the previous run's note, not keep it
+    had_note = any("risk_inputs_unavailable" in m for m in metas)
+    metas = [
+        {k: v for k, v in m.items() if k != "risk_inputs_unavailable"} for m in metas
+    ]
+    unavailable = sorted({n for m in metas for n in m.get("unavailable_datasets", [])})
+    affected = risk_inputs_left_out(unavailable, lookup) if unavailable else {}
+    if not affected and not had_note:
+        return df
+    if affected:
+        detail = "; ".join(f"{name} ({', '.join(f)})" for name, f in affected.items())
+        get_whisp_logger().warning(
+            f"Risk worked out without unavailable dataset(s) that feed it: {detail}"
+        )
+    df = df.copy()
+    df[_METADATA_COLUMN] = [
+        {
+            **m,
+            "risk_inputs_unavailable": [
+                n for n in m.get("unavailable_datasets", []) if n in affected
+            ],
+        }
+        if any(n in affected for n in m.get("unavailable_datasets", []))
+        else m
+        for m in metas
+    ]
+    return df
 
 
 # requires lookup_gee_datasets_df
@@ -84,7 +162,7 @@ def whisp_risk(
     df: data_lookup_type,  # CHECK THIS
     ind_1_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_2_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
-    ind_3_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
+    ind_3_pcent_threshold: float = 50,  # higher than the others: pre-2020 disturbance leads to a low risk outcome, so it must cover most of the plot
     ind_4_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_5_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_6_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
@@ -145,7 +223,7 @@ def whisp_risk(
         df (DataFrame): Input DataFrame.
         ind_1_pcent_threshold (float, optional): Percentage threshold for indicator 1 (treecover). Defaults to 10.
         ind_2_pcent_threshold (float, optional): Percentage threshold for indicator 2 (commodities). Defaults to 10.
-        ind_3_pcent_threshold (float, optional): Percentage threshold for indicator 3 (disturbance before 2020). Defaults to 10.
+        ind_3_pcent_threshold (float, optional): Percentage threshold for indicator 3 (disturbance before 2020). Defaults to 50, so pre-2020 disturbance only leads to a low risk outcome when it covers most of the plot.
         ind_4_pcent_threshold (float, optional): Percentage threshold for indicator 4 (disturbance after 2020). Defaults to 10.
         ind_5_pcent_threshold (float, optional): Percentage threshold for indicator 5 (primary forest 2020). Defaults to 10.
         ind_6_pcent_threshold (float, optional): Percentage threshold for indicator 6 (naturally regenerating forest 2020). Defaults to 10.
@@ -229,13 +307,21 @@ def whisp_risk(
         national_codes=national_codes,
     )
 
+    # Say so if the stats run left out a dataset that feeds a risk tree (national datasets only
+    # count when their country is included)
+    df = _note_risk_inputs_left_out(df, filtered_lookup_gee_datasets_df)
+
     # Get indicator columns (now includes custom bands)
     if ind_1_input_columns is None:
         ind_1_input_columns = get_cols_ind_01_treecover(filtered_lookup_gee_datasets_df)
     if ind_2_input_columns is None:
-        # Union of pcrop + acrop commodity datasets so Ind_02_commodities remains the
-        # combined signal (same behaviour as the old use_for_risk column). The per-decision-tree
-        # split is documented in the LUT and the getter accepts risk_col for future use.
+        # Union of pcrop + acrop commodity datasets. The two LUT columns are currently held
+        # identical (each equal to this union, i.e. the combined commodity signal that was the
+        # single use_for_risk column up to v3.0.0a14), so this union is decision-neutral and
+        # either column faithfully describes what its tree consumes. The perennial/annual split
+        # is NOT yet wired: both crop trees consume this same Ind_02. To implement it, repopulate
+        # use_for_risk_pcrop/acrop with distinct values and build a per-crop Ind_02 here; the
+        # getter already accepts risk_col for that.
         _pcrop_cols = get_cols_ind_02_commodities(
             filtered_lookup_gee_datasets_df, risk_col="use_for_risk_pcrop"
         )

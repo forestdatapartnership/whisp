@@ -7,7 +7,8 @@ URLs + palette (from ``timber_map`` or ``crop_map``), it returns one self-contai
 
 Features
 --------
-* decision-tree diagram (left);
+* decision-tree diagram (left); click a question node to map that indicator's pixels, an outcome node to
+  map the pixels on that pathway (``node_tiles`` from ``node_tiles_by_id``), click again to clear;
 * combined risk map (right) with a real Leaflet layer control (each layer an on/off checkbox) + a
   risk-opacity slider + Sentinel-2 background layers + a map/satellite base;
 * draw a polygon (Leaflet.draw) -> analyze through a same-origin ``/api`` (the notebook's local proxy /
@@ -62,6 +63,46 @@ def _indicators(spec):
     return out
 
 
+def node_tiles_by_id(spec, question_tiles=None, code_tiles=None, palette=None):
+    """Map each Mermaid node id to the tile url shown when the node is clicked.
+
+    ``question_tiles``: {question_name: xyz_url} (that question's presence pixels).
+    ``code_tiles``: {code: xyz_url} (pixels on that pathway). Nodes with no url are not clickable.
+    """
+    out = {}
+    anno = _dt.annotate(spec)
+    cc = (palette or {}).get("code_colour", {}) if palette else {}
+    cn = (palette or {}).get("code_names", {}) if palette else {}
+
+    def walk(node):
+        if "q" not in node:
+            code = node["code"]
+            url = (code_tiles or {}).get(code)
+            if url:
+                out[node["id"]] = {
+                    "url": url,
+                    "label": "%s (code %d)"
+                    % (cn.get(code, node.get("pathway", "")), code),
+                    "colour": "#" + cc.get(code, "888888"),
+                }
+            return
+        q = node["q"]
+        url = (question_tiles or {}).get(q)
+        if url:
+            out[node["id"]] = {
+                "url": url,
+                "label": re.sub(r"<[^>]+>", " ", node.get("label", q))
+                .replace("  ", " ")
+                .strip(),
+                "colour": "#2b6cb0",
+            }
+        walk(node["yes"])
+        walk(node["no"])
+
+    walk(anno)
+    return out
+
+
 def build_pathway_viewer_html(
     spec,
     tiles,
@@ -73,6 +114,7 @@ def build_pathway_viewer_html(
     risk_col="",
     center=(4, 12),
     zoom=3,
+    node_tiles=None,
 ):
     """Return a self-contained viewer HTML string. See the module docstring for the feature list."""
     outcome_leg, pathway_leg = _legend_rows(palette)
@@ -84,6 +126,7 @@ def build_pathway_viewer_html(
             "center": list(center),
             "zoom": zoom,
             "indicators": _indicators(spec),
+            "nodeTiles": node_tiles or {},
         },
         separators=(",", ":"),
     )
@@ -149,6 +192,11 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
   .note{font-size:.72rem;color:var(--ink2);padding:.3rem 1rem;background:#fbf4e6;border-top:1px solid var(--line)}
   .note b{color:var(--ink)}
   .leaflet-control-layers{font-size:12px}
+  #diagram g.node.clickable{cursor:pointer} #diagram g.node.clickable:hover rect,#diagram g.node.clickable:hover polygon,#diagram g.node.clickable:hover path{filter:brightness(0.93)}
+  #diagram g.node.active rect,#diagram g.node.active polygon,#diagram g.node.active path{stroke:#111!important;stroke-width:3.5px!important}
+  #nodeLeg{margin-top:.35rem;padding-top:.35rem;border-top:1px solid #ddd;font-size:11px;display:none}
+  #nodeLeg button{font:inherit;font-size:10px;margin-left:6px;cursor:pointer}
+  #clickHint{font-size:.72rem;color:var(--ink2);margin:0 0 .4rem}
 </style></head><body>
 <header>
   <h1>__TITLE__</h1><span class="sub">__SUBTITLE__</span>
@@ -159,6 +207,7 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
 </header>
 <main>
   <div id="tree">
+    <p id="clickHint">Click a question to map its pixels, an outcome to map its pathway; click again to clear.</p>
     <pre class="mermaid" id="diagram"></pre>
     <div id="result">
       <h3>Drawn plot</h3>
@@ -171,7 +220,7 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
   </div>
   <div id="splitter"></div>
   <div id="mapwrap"><div id="map"></div>
-    <div id="legend"><h4>Outcome</h4>__OUTCOME_LEG__<h4>Pathway code</h4>__PATHWAY_LEG__</div>
+    <div id="legend"><h4>Outcome</h4>__OUTCOME_LEG__<h4>Pathway code</h4>__PATHWAY_LEG__<div id="nodeLeg"></div></div>
   </div>
 </main>
 <div class="note"><b>Zoom in for realistic areas.</b> When zoomed out, a tile-pyramiding artefact inflates disturbance pixels, so some categories (e.g. high risk) appear to cover far larger areas than they actually do; zoom in for a truthful view. Draw a polygon (tools top-left of the map) to test a plot, then move the threshold sliders to see the impact. WHISP is a non-authoritative exploration tool: outcomes are signals, not a legal determination. Tile tokens expire; regenerate to refresh.</div>
@@ -187,14 +236,15 @@ let WHISP_API_BASE = "/api";
 // --- decision-tree diagram (textContent so <br/> in labels is not HTML-parsed away) ---
 const _diag = document.getElementById('diagram'); _diag.textContent = MERMAID_SRC;
 mermaid.initialize({ startOnLoad:false, flowchart:{ useMaxWidth:true, htmlLabels:true } });
-mermaid.run({ nodes:[_diag] });
+mermaid.run({ nodes:[_diag] }).then(attachNodeClicks).catch(e => console.warn('diagram', e));
+if(!Object.keys(CFG.nodeTiles||{}).length) document.getElementById('clickHint').style.display='none';
 
 // --- map + layers (native control => reliable on/off; z-index keeps risk over Sentinel-2 over base) ---
 const map = L.map('map', { center: CFG.center, zoom: CFG.zoom });
 // panes guarantee stacking regardless of toggle order: base(200) < Sentinel-2(250) < risk(350) < drawn polygon(overlayPane 400)
 map.createPane('s2bg'); map.getPane('s2bg').style.zIndex = 250;
 map.createPane('risk'); map.getPane('risk').style.zIndex = 350;
-const osm = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', { maxZoom:19, attribution:'&copy; OSM &copy; CARTO' });
+const osm = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { maxZoom:19, attribution:'&copy; Esri' });
 const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom:19, attribution:'Esri' });
 const riskLayers = {
   outcome: L.tileLayer(CFG.tiles.outcome, { pane:'risk', opacity:0.85 }),
@@ -211,9 +261,36 @@ const OpCtl = L.Control.extend({ options:{position:'topright'}, onAdd:function()
   const d=L.DomUtil.create('div','leaflet-bar'); d.style.cssText='background:#fff;padding:4px 7px;font:11px sans-serif';
   d.innerHTML='risk opacity <input type="range" min="0" max="100" value="85" style="width:88px;vertical-align:middle">';
   L.DomEvent.disableClickPropagation(d);
-  d.querySelector('input').addEventListener('input', e=>{ const o=e.target.value/100; riskLayers.outcome.setOpacity(o); riskLayers.pathway.setOpacity(o); });
+  d.querySelector('input').addEventListener('input', e=>{ const o=e.target.value/100; riskLayers.outcome.setOpacity(o); riskLayers.pathway.setOpacity(o); if(nodeLayer) nodeLayer.setOpacity(o); });
   return d; }});
 map.addControl(new OpCtl());
+// --- node clicks: show the pixels behind a question (indicator presence) or an outcome (pathway code) ---
+let nodeLayer=null, activeNode=null, activeEl=null, hiddenRisk=[];
+function clearNodeLayer(){
+  if(nodeLayer){ map.removeLayer(nodeLayer); nodeLayer=null; }
+  hiddenRisk.forEach(l => { if(!map.hasLayer(l)) l.addTo(map); }); hiddenRisk=[];
+  if(activeEl){ activeEl.classList.remove('active'); activeEl=null; }
+  activeNode=null; const nl=document.getElementById('nodeLeg'); nl.style.display='none'; nl.innerHTML='';
+}
+function showNodeLayer(nid, el){
+  const nt=(CFG.nodeTiles||{})[nid]; if(!nt) return;
+  if(activeNode===nid){ clearNodeLayer(); return; }
+  clearNodeLayer();
+  // hide the combined risk layers while a node layer is shown, so its pixels stand out; restored on clear
+  [riskLayers.outcome, riskLayers.pathway].forEach(l => { if(map.hasLayer(l)){ hiddenRisk.push(l); map.removeLayer(l); } });
+  nodeLayer=L.tileLayer(nt.url, { pane:'risk', opacity:0.9 }).addTo(map);
+  activeNode=nid; activeEl=el; el.classList.add('active');
+  const nl=document.getElementById('nodeLeg'); nl.style.display='block';
+  nl.innerHTML="<div class='row'><i style='background:"+nt.colour+"'></i><span>showing: "+nt.label+"</span><button id='nodeClear'>clear</button></div>";
+  document.getElementById('nodeClear').onclick=clearNodeLayer;
+}
+function attachNodeClicks(){
+  document.querySelectorAll('#diagram g.node').forEach(g => {
+    const m=/^flowchart-(.+?)-\d+$/.exec(g.id||''); if(!m) return;
+    const nid=m[1]; if(!(CFG.nodeTiles||{})[nid]) return;
+    g.classList.add('clickable'); g.addEventListener('click', ev => { ev.stopPropagation(); showNodeLayer(nid, g); });
+  });
+}
 const bm = document.getElementById('bm');
 CFG.bookmarks.forEach(([name,lat,lon,z]) => { const a=document.createElement('button'); a.textContent=name; a.onclick=()=>map.setView([lat,lon], z); bm.appendChild(a); });
 

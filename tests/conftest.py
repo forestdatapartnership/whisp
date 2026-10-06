@@ -33,4 +33,8 @@ def _setup_and_teardown_ee_session() -> None:
     # Use standard init_ee which handles project/credentials properly
     init_ee()
     yield
-    clear_ee_credentials()
+    # Opt in to deleting the local EE credentials file after the run (you sign in again in the
+    # browser next time). Off by default so running the tests does not sign contributors out of
+    # Earth Engine for their other projects. Set WHISP_CLEAR_EE_CREDS=1 in .env or the shell.
+    if os.environ.get("WHISP_CLEAR_EE_CREDS") == "1":
+        clear_ee_credentials()

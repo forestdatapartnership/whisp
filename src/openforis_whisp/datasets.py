@@ -13,6 +13,7 @@
 #   Editable mode runs the package locally and thus changes to any files are reflected immediately.
 
 import ee
+from openforis_whisp import control_flow
 
 # ee.Authenticate()
 # ee.Initialize()
@@ -32,6 +33,9 @@ CURRENT_YEAR = datetime.now().year
 CURRENT_YEAR_2DIGIT = CURRENT_YEAR % 100  # Last two digits for RADD datasets
 
 import inspect
+import os
+import time
+from concurrent.futures import ThreadPoolExecutor
 
 import logging
 
@@ -292,6 +296,85 @@ def g_jrc_tmf_plantation_prep():
     return plantation_2020.rename("TMF_plant").selfMask()
 
 
+# ForTy (Google Nature Trace + IIASA) forest typology 2020.
+# See https://eartharxiv.org/repository/view/13130. The product stores five class score bands (0-250),
+# band index 0=Primary, 1=NaturallyRegenerating, 2=Planted, 3=Plantation, 4=TreeCrops/Agroforestry,
+# with a residual "other" = 250 - sum. PlantedForest is the weakest class (F1 58.2%), so the
+# planted-vs-plantation split is real but uncertain.
+#
+# Each pixel is assigned its single highest-scoring class via argmax over the five score bands plus the
+# residual "other" (= 250 - sum), giving a mutually-exclusive, exhaustive 1=Primary..5=TreeCrops, 6=Other
+# label (ties resolve to the lowest index, matching the ForTy authors' >= expression). This is the
+# product's intended single-label form. It supersedes the earlier per-band >= 125 threshold: measured
+# over five regions (S Brazil, Amazon, Borneo, Iberia, Congo) the two agreed to 93-100% per class (IoU)
+# and the threshold was already >= 99.9% mutually exclusive, so argmax changes each forest class by only
+# a few percent (mostly the weak Plantation/Planted classes) while guaranteeing the single-label form.
+# See temp_dev_notes/forty_classes_assessment.md.
+#
+# These are PRESENT-BUT-UNUSED output bands: their lookup rows tick no risk pathway
+# (use_for_risk_pcrop/acrop/timber all 0), so they surface ForTy information in the
+# output without affecting any Ind_/risk_ column.
+
+
+def _forty_2020_mean():
+    return ee.ImageCollection(
+        "projects/nature-trace/assets/forest_typology/forest_typology_2020_v1_0_collection"
+    ).mean()
+
+
+def _forty_2020_class():
+    # Argmax over the five class scores plus the residual "other" (= 250 - sum). Returns 1=Primary,
+    # 2=NaturallyRegenerating, 3=Planted, 4=Plantation, 5=TreeCrops/Agroforestry, 6=Other. arrayArgmax
+    # returns the first maximum, so ties resolve to the lowest index (Primary wins), as in the authors'
+    # >= ternary.
+    scores = _forty_2020_mean().select([0, 1, 2, 3, 4])
+    other = scores.reduce(ee.Reducer.sum()).multiply(-1).add(250)
+    return scores.addBands(other).toArray().arrayArgmax().arrayGet([0]).add(1)
+
+
+def _forty_class_present(idx):
+    # idx 0=Primary, 1=NaturallyRegenerating, 2=Planted, 3=Plantation, 4=TreeCrops/Agroforestry;
+    # argmax class label = idx + 1.
+    return _forty_2020_class().eq(idx + 1).selfMask()
+
+
+def g_forty_primary_2020_prep():
+    return _forty_class_present(0).rename("ForTy_primary_2020")
+
+
+def g_forty_nat_reg_2020_prep():
+    return _forty_class_present(1).rename("ForTy_nat_reg_2020")
+
+
+def g_forty_planted_2020_prep():
+    return _forty_class_present(2).rename("ForTy_planted_2020")
+
+
+def g_forty_plantation_2020_prep():
+    return _forty_class_present(3).rename("ForTy_plantation_2020")
+
+
+def g_forty_tree_crops_2020_prep():
+    return _forty_class_present(4).rename("ForTy_tree_crops_2020")
+
+
+def g_forty_forest_2020_prep():
+    # Forest presence = argmax class is one of the four forest classes (1=Primary, 2=NaturallyRegenerating,
+    # 3=Planted, 4=Plantation), i.e. a forest class outscores TreeCrops and "other" at the pixel.
+    return _forty_2020_class().lte(4).selfMask().rename("ForTy_forest_2020")
+
+
+# SBTN_natural_2020
+def g_sbtn_natural_2020_prep():
+    return (
+        ee.Image("WRI/SBTN/naturalLands/v1_1/2020")
+        .select("natural")
+        .eq(1)
+        .rename("SBTN_natural_2020")
+        .selfMask()
+    )
+
+
 # # Oil_palm_Descals
 # NB updated to Descals et al 2024 paper (as opposed to Descals et al 2021 paper)
 def g_creaf_descals_palm_prep():
@@ -512,13 +595,20 @@ def g_fdap_tree_crops_2020_prep():
     return extent_2020.rename("FDaP_tree_crops_2020").selfMask()
 
 
-# Rubber_RBGE  - from Royal Botanical Gardens of Edinburgh (RBGE) NB for 2021
-def g_rbge_rubber_prep():
+# Rubber_RBGE_2020 - RBGE's 10m SEA rubber map (Ahrends et al. 2026), replacing the Wang et al. 2023
+# map Whisp carried as Rubber_RBGE, which its providers have marked superseded.
+# Called _2020 even though the imagery is 2021 for mainland SEA and 2019 for Indonesia: the authors
+# designate it as representing 2020, which works here because the map targets mature rubber, and rubber
+# takes about 7 years to reach tapping, so nothing planted after the cutoff can appear in it.
+# It under-maps rubber in Indonesia and Malaysia (cloud cover, weak phenological signal). Worth knowing,
+# because a commodity present in 2020 makes a plot low risk, so rubber this map misses costs plots that
+# low outcome rather than flagging them.
+# Two bands, "rubber" and "no_data"; selecting rubber then selfMask drops no_data as not-rubber.
+def g_rbge_rubber_2020_prep():
     return (
-        ee.Image(
-            "users/wangyxtina/MapRubberPaper/rRubber10m202122_perc1585DifESAdist5pxPF"
-        )
-        .rename("Rubber_RBGE")
+        ee.Image("projects/rubber-499107/assets/rubber_SEA_2020")
+        .select("rubber")
+        .rename("Rubber_RBGE_2020")
         .selfMask()
     )
 
@@ -808,10 +898,16 @@ def g_modis_fire_prep():
     modis_fire = ee.ImageCollection("MODIS/061/MCD64A1")
     start_year = 2000
 
-    # Determine the last available year by checking the latest image in the collection
-    last_image = modis_fire.sort("system:time_start", False).first()
-    last_date = ee.Date(last_image.get("system:time_start"))
-    end_year = last_date.get("year").getInfo()
+    # Years run to CURRENT_YEAR rather than asking EE for the latest image date, which cost a
+    # getInfo() round trip every time the whisp image was built (tried once in 1770c2c, reverted in
+    # 74039a5 because an unpublished year then broke the band). Early in the year MODIS has no images
+    # yet for the current year, and mosaic() of an empty collection has no BurnDate band to select.
+    # Merging in a fully masked BurnDate placeholder keeps the band there: an unpublished year comes
+    # out as all masked (same as no fire) and real images are unaffected. Same idea as _glad_l_conf.
+    end_year = CURRENT_YEAR
+    burn_date_placeholder = ee.ImageCollection(
+        [ee.Image(0).rename("BurnDate").selfMask()]
+    )
 
     img_stack = None
 
@@ -822,8 +918,9 @@ def g_modis_fire_prep():
         date_ed = f"{year}-12-31"
         modis_year = (
             modis_fire.filterDate(date_st, date_ed)
-            .mosaic()
             .select(["BurnDate"])
+            .merge(burn_date_placeholder)
+            .mosaic()
             .gte(0)
             .rename(band_name)
             .selfMask()
@@ -838,10 +935,9 @@ def g_esa_fire_prep():
     esa_fire = ee.ImageCollection("ESA/CCI/FireCCI/5_1")
     start_year = 2001
 
-    # Determine the last available year by checking the latest image in the collection
-    last_image = esa_fire.sort("system:time_start", False).first()
-    last_date = ee.Date(last_image.get("system:time_start"))
-    end_year = last_date.get("year").getInfo()
+    # FireCCI 5.1 is a finished product ending in 2020, so the end year is fixed rather than read
+    # from the collection with a getInfo() call on every image build.
+    end_year = 2020
 
     img_stack = None
 
@@ -913,100 +1009,100 @@ def g_radd_before_2020_prep():
 # DIST alerts are for all veg types so masked by EUFO forest 2020
 # NB alerts only for 2024 onwards (in GEE at least, available for 2023 ofrom the GLAD site)
 # for conistency using "...after_2020..." terminology.
-# def g_glad_dist_after_2020_prep():
-#
-#     # no need to filter by date as all dates are later than 2023
-#
-#     # Load the vegetation disturbance collections
-#     VEGDISTSTATUS = ee.ImageCollection(
-#         "projects/glad/HLSDIST/current/VEG-DIST-STATUS"
-#     ).mosaic()
-#
-#     # Key for high-confidence alerts (values 3, 6, 7, 8)
-#     high_conf_values = [3, 6, 7, 8]
-#
-#     # Create high-confidence mask
-#     dist_high_conf = VEGDISTSTATUS.remap(
-#         high_conf_values, [1] * len(high_conf_values), 0
-#     )
-#
-#     return dist_high_conf.updateMask(g_jrc_gfc_2020_prep()).rename(
-#         "DIST_after_2020"
-#     )  # Mask alerts to forest and rename band
+def g_glad_dist_after_2020_prep():
+
+    # no need to filter by date as all dates are later than 2023
+
+    # Load the vegetation disturbance collections
+    VEGDISTSTATUS = ee.ImageCollection(
+        "projects/glad/HLSDIST/current/VEG-DIST-STATUS"
+    ).mosaic()
+
+    # Key for high-confidence alerts (values 3, 6, 7, 8)
+    high_conf_values = [3, 6, 7, 8]
+
+    # Create high-confidence mask
+    dist_high_conf = VEGDISTSTATUS.remap(
+        high_conf_values, [1] * len(high_conf_values), 0
+    )
+
+    return dist_high_conf.updateMask(g_jrc_gfc_2020_prep()).rename(
+        "DIST_after_2020"
+    )  # Mask alerts to forest and rename band
 
 
-# # DIST_alert_2024 to DIST_alert_< current year >
-# # Notes:
-# # 1) so far only available for 2024 onwards in GEE
-# # 2) masked alerts (as dist alerts are for all vegetation) to JRC EUFO 2020 layer, as close to EUDR definition
+# DIST_alert_2024 to DIST_alert_< current year >
+# Notes:
+# 1) so far only available for 2024 onwards in GEE
+# 2) masked alerts (as dist alerts are for all vegetation) to JRC EUFO 2020 layer, as close to EUDR definition
 
 
-# def g_glad_dist_year_prep():
-#     """
-#     GLAD DIST alerts per year as multiband image.
-#     Each band is binary (1 = high-confidence disturbance alert).
-#     Uses VEG-DIST-DATE to filter by year, VEG-DIST-STATUS for confidence.
-#     Masked to EUFO 2020 forest.
-#     Note: Only available from 2024 onwards.
-#     Fully server-side using ee.List.iterate (no Python for loop).
-#     """
-#     # Load the vegetation disturbance collections
-#     #  Vegetation disturbance status (0-8, class flag, 8-bit)
-#     VEGDISTSTATUS = ee.ImageCollection(
-#         "projects/glad/HLSDIST/current/VEG-DIST-STATUS"
-#     ).mosaic()
-#     # Initial vegetation disturbance date (>0: days since 2020-12-31, 16-bit)
-#     VEGDISTDATE = ee.ImageCollection(
-#         "projects/glad/HLSDIST/current/VEG-DIST-DATE"
-#     ).mosaic()
-#
-#     # Key for high-confidence alerts (values 3, 6, 7, 8)
-#     # 3 = <50% loss, high confidence, ongoing
-#     # 6 = ≥50% loss, high confidence, ongoing
-#     # 7 = <50% loss, high confidence, finished
-#     # 8 = ≥50% loss, high confidence, finished
-#     high_conf_values = [3, 6, 7, 8]
-#     dist_high_conf = VEGDISTSTATUS.remap(
-#         high_conf_values, [1] * len(high_conf_values), 0
-#     )
-#
-#     # Year range: 2024 to current year
-#     start_year = 2024
-#     end_year = CURRENT_YEAR
-#
-#     # Reference date for day offset calculation (2020-12-31)
-#     ref_date = ee.Date("2020-12-31")
-#
-#     # Create first band (2024)
-#     first_year = ee.Number(start_year)
-#     first_start_days = ee.Date.fromYMD(first_year, 1, 1).difference(ref_date, "day")
-#     first_end_days = ee.Date.fromYMD(first_year.add(1), 1, 1).difference(
-#         ref_date, "day"
-#     )
-#     first_year_mask = VEGDISTDATE.gte(first_start_days).And(
-#         VEGDISTDATE.lt(first_end_days)
-#     )
-#     first_band_name = ee.String("DIST_year_").cat(first_year.format("%d"))
-#     first_band = (
-#         first_year_mask.updateMask(dist_high_conf).rename(first_band_name).selfMask()
-#     )
-#
-#     # Server-side iteration to add remaining years
-#     years = ee.List.sequence(start_year + 1, end_year)
-#
-#     def add_year_band(year, img_stack):
-#         year_num = ee.Number(year)
-#         start_days = ee.Date.fromYMD(year_num, 1, 1).difference(ref_date, "day")
-#         end_days = ee.Date.fromYMD(year_num.add(1), 1, 1).difference(ref_date, "day")
-#         year_mask = VEGDISTDATE.gte(start_days).And(VEGDISTDATE.lt(end_days))
-#         band_name = ee.String("DIST_year_").cat(year_num.format("%d"))
-#         year_band = year_mask.updateMask(dist_high_conf).rename(band_name).selfMask()
-#         return ee.Image(img_stack).addBands(year_band)
-#
-#     img_stack = ee.Image(years.iterate(add_year_band, first_band))
-#
-#     # Mask to EUFO 2020 forest
-#     return img_stack.updateMask(g_jrc_gfc_2020_prep())
+def g_glad_dist_year_prep():
+    """
+    GLAD DIST alerts per year as multiband image.
+    Each band is binary (1 = high-confidence disturbance alert).
+    Uses VEG-DIST-DATE to filter by year, VEG-DIST-STATUS for confidence.
+    Masked to EUFO 2020 forest.
+    Note: Only available from 2024 onwards.
+    Fully server-side using ee.List.iterate (no Python for loop).
+    """
+    # Load the vegetation disturbance collections
+    #  Vegetation disturbance status (0-8, class flag, 8-bit)
+    VEGDISTSTATUS = ee.ImageCollection(
+        "projects/glad/HLSDIST/current/VEG-DIST-STATUS"
+    ).mosaic()
+    # Initial vegetation disturbance date (>0: days since 2020-12-31, 16-bit)
+    VEGDISTDATE = ee.ImageCollection(
+        "projects/glad/HLSDIST/current/VEG-DIST-DATE"
+    ).mosaic()
+
+    # Key for high-confidence alerts (values 3, 6, 7, 8)
+    # 3 = <50% loss, high confidence, ongoing
+    # 6 = ≥50% loss, high confidence, ongoing
+    # 7 = <50% loss, high confidence, finished
+    # 8 = ≥50% loss, high confidence, finished
+    high_conf_values = [3, 6, 7, 8]
+    dist_high_conf = VEGDISTSTATUS.remap(
+        high_conf_values, [1] * len(high_conf_values), 0
+    )
+
+    # Year range: 2024 to current year
+    start_year = 2024
+    end_year = CURRENT_YEAR
+
+    # Reference date for day offset calculation (2020-12-31)
+    ref_date = ee.Date("2020-12-31")
+
+    # Create first band (2024)
+    first_year = ee.Number(start_year)
+    first_start_days = ee.Date.fromYMD(first_year, 1, 1).difference(ref_date, "day")
+    first_end_days = ee.Date.fromYMD(first_year.add(1), 1, 1).difference(
+        ref_date, "day"
+    )
+    first_year_mask = VEGDISTDATE.gte(first_start_days).And(
+        VEGDISTDATE.lt(first_end_days)
+    )
+    first_band_name = ee.String("DIST_year_").cat(first_year.format("%d"))
+    first_band = (
+        first_year_mask.updateMask(dist_high_conf).rename(first_band_name).selfMask()
+    )
+
+    # Server-side iteration to add remaining years
+    years = ee.List.sequence(start_year + 1, end_year)
+
+    def add_year_band(year, img_stack):
+        year_num = ee.Number(year)
+        start_days = ee.Date.fromYMD(year_num, 1, 1).difference(ref_date, "day")
+        end_days = ee.Date.fromYMD(year_num.add(1), 1, 1).difference(ref_date, "day")
+        year_mask = VEGDISTDATE.gte(start_days).And(VEGDISTDATE.lt(end_days))
+        band_name = ee.String("DIST_year_").cat(year_num.format("%d"))
+        year_band = year_mask.updateMask(dist_high_conf).rename(band_name).selfMask()
+        return ee.Image(img_stack).addBands(year_band)
+
+    img_stack = ee.Image(years.iterate(add_year_band, first_band))
+
+    # Mask to EUFO 2020 forest
+    return img_stack.updateMask(g_jrc_gfc_2020_prep())
 
 
 # GLAD-L (GLAD Landsat) Alerts
@@ -1097,7 +1193,7 @@ def g_glad_l_year_prep():
     GLAD Landsat confirmed alerts (confidence >= 2) as one binary band per year, 2017 to the current
     year. 2024 is included (GLAD placed conf24 in the 2023final asset). Coverage: tropics (30N-30S);
     2015/2016 assets do not exist in GEE. Each band uses the tolerant per-band mosaic (see _glad_l_conf).
-    Note: emitting a brand-new year also needs a matching GLAD-L_year_YYYY row in lookup_datasets.csv.
+    Lookup rows for new years are added automatically (YEAR_SERIES_TO_CURRENT_YEAR in config_runtime).
     """
     img_stack = None
     for yy in range(17, CURRENT_YEAR_2DIGIT + 1):  # 2017..current (includes 2024)
@@ -1286,7 +1382,9 @@ def g_modis_fire_after_2020_prep():
     modis_fire = ee.ImageCollection("MODIS/061/MCD64A1")
     start_year = 2021
     # Use pre-calculated current year (avoids repeated datetime calls)
-    end_year = CURRENT_YEAR - 1  # Use year - 1 to ensure data availability
+    # Runs to the current year like the per-year MODIS_fire bands; the filter simply finds no
+    # images for months not yet published
+    end_year = CURRENT_YEAR
     date_st = str(start_year) + "-01-01"
     date_ed = str(end_year) + "-12-31"
     return (
@@ -2157,28 +2255,35 @@ def combine_datasets(
     auto_recovery=False,
 ):
     """
-    Combines datasets into a single multiband image, with fallback if assets are missing.
+    Combines datasets into a single multiband image.
+
+    By default building the image makes no calls to Earth Engine, so a broken or missing asset only
+    shows up when the image is used. The stats functions catch that error, rebuild the image without
+    the broken dataset(s) using combine_datasets_without_broken(), and carry on.
+
+    If you build the image yourself and pass it in (e.g. to add custom bands), the stats functions
+    can't rebuild it for you, so use auto_recovery=True here: one quick check up front, and broken
+    datasets are left out before you add anything to the image.
 
     Parameters
     ----------
     national_codes : list, optional
         List of ISO2 country codes to include national datasets
     validate_bands : bool, optional
-        If True, validates band names with a slow .getInfo() call (default: False)
-        Only enable for debugging. Normal operation relies on exception handling.
+        Same as auto_recovery (default: False). Kept for existing calls.
     include_context_bands : bool, optional
-        If True (default), includes context bands (admin_code, water_flag) in the output.
+        If True (default), includes context bands (admin_code, In_waterbody) in the output.
         Set to False when using stats.py implementations that compile datasets differently.
     auto_recovery : bool, optional
-        If True (default), automatically enables validate_bands when an error is detected
-        during initial assembly. This allows graceful recovery from missing/broken datasets.
+        If True, make one quick Earth Engine call to check every dataset loads, and only if that
+        fails check each dataset (in parallel) and leave out the broken ones (default: False).
 
     Returns
     -------
     ee.Image
         Combined multiband image with all datasets (and optionally context bands)
     """
-    # Step 1: Combine all main dataset images
+    # Combine all main dataset images and convert to area per pixel
     all_images = [ee.Image(1).rename(geometry_area_column)]
     for func in list_functions(national_codes=national_codes):
         try:
@@ -2186,56 +2291,260 @@ def combine_datasets(
         except ee.EEException as e:
             print(f"Error loading image: {e}")
 
-    img_combined = ee.Image.cat(all_images)
+    img_combined = ee.Image.cat(all_images).multiply(ee.Image.pixelArea())
 
-    # Step 2: Determine if validation needed
-    should_validate = validate_bands
-    if auto_recovery and not validate_bands:
-        try:
-            # Fast error detection: batch check main + context bands in one call
-            bands_to_check = [img_combined.bandNames().get(0)]
-            if include_context_bands:
-                admin_image = g_gaul_admin_code()
-                water_mask = g_water_mask_prep()
-                bands_to_check.extend(
-                    [admin_image.bandNames().get(0), water_mask.bandNames().get(0)]
-                )
-            ee.List(bands_to_check).getInfo()  # trigger error if any band is invalid
-        except ee.EEException as e:
-            print(f"Error detected, enabling recovery mode: {str(e)[:80]}...")
-            should_validate = True
-
-    # Step 3: Validate and recover if needed
-    if should_validate:
-        try:
-            img_combined.bandNames().getInfo()  # check all bands
-        except ee.EEException as e:
-            print("Using valid datasets filter due to error in validation")
-            funcs = list_functions(national_codes=national_codes)
-            valid_imgs = keep_valid_images([(func.__name__, func()) for func in funcs])
-            all_images_retry = [ee.Image(1).rename(geometry_area_column)]
-            all_images_retry.extend(valid_imgs)
-            img_combined = ee.Image.cat(all_images_retry)
-
-    # Step 4: Multiply main datasets by pixel area
-    img_combined = img_combined.multiply(ee.Image.pixelArea())
-
-    # Step 5: Add context bands (admin_code only - water mask is now in prep functions)
+    # Add context bands (admin_code, In_waterbody), which are not converted to area
     if include_context_bands:
-        for band_func, band_name in [
-            (g_gaul_admin_code, "admin_code"),
-            (g_water_mask_prep, "In_waterbody"),
-        ]:
+        for band_func, band_name in _context_bands():
             try:
-                band_img = band_func()
-                if should_validate:
-                    band_img.bandNames().getInfo()
-                img_combined = img_combined.addBands(band_img)
+                img_combined = img_combined.addBands(band_func())
             except ee.EEException as e:
                 print(f"Warning: Could not add {band_name} band: {e}")
 
+    # Optional up-front check: one call that makes Earth Engine load every dataset. Only if it
+    # fails are the datasets checked one by one (in parallel) and the broken ones left out.
+    if auto_recovery or validate_bands:
+        try:
+            img_combined.bandNames().size().getInfo()
+        except ee.EEException as e:
+            if not is_dataset_error(e):
+                raise  # e.g. quota or connection trouble: not a reason to drop datasets
+            print(
+                f"Warning: a dataset failed to load, leaving out broken ones: {str(e)[:150]}"
+            )
+            img_combined, _ = combine_datasets_without_broken(
+                national_codes=national_codes,
+                include_context_bands=include_context_bands,
+            )
+            return img_combined
+
     print("Whisp multiband image compiled")
     return img_combined
+
+
+def _context_bands():
+    """Context band functions and their band names, added after the area conversion."""
+    return [(g_gaul_admin_code, "admin_code"), (g_water_mask_prep, "In_waterbody")]
+
+
+# Parts of Earth Engine error messages that mean a dataset itself is broken: asset missing, moved or
+# not shared, band renamed, a collection whose images no longer have matching bands, or a
+# collection that has gone empty (its mosaic "has no bands", how the DIST alerts broke, #182).
+# Anything else (quota, timeouts, memory, server trouble, wording we haven't seen) is left to the
+# normal retry handling rather than treated as a broken dataset.
+_DATASET_ERROR_SIGNS = (
+    "image.load",
+    "imagecollection.load",
+    "not found",
+    "does not exist",
+    "doesn't allow this operation",
+    "did not match any bands",
+    "homogeneous image collection",
+    "has no bands",
+)
+
+
+def is_dataset_error(exc):
+    """
+    True if exc is an Earth Engine error that says a dataset itself is broken (asset missing or
+    not shared, band renamed, mismatched bands in a collection). Only these trigger a rebuild of
+    the image without broken datasets; any other error keeps the normal retry handling.
+    """
+    if not isinstance(exc, ee.EEException):
+        return False
+    message = str(exc).lower()
+    return any(sign in message for sign in _DATASET_ERROR_SIGNS)
+
+
+def _find_broken_images(
+    named_images, probe=None, max_workers=8, skip_other_errors=False
+):
+    """
+    Names of the images that fail a check, run in parallel. By default the check asks for the
+    band names; `probe(img)` can give a heavier check (see _pixel_probe). Only a dataset error
+    counts as broken: any other error (e.g. rate limiting while checking) is tried once more and
+    then raised, or with skip_other_errors that one dataset is just treated as fine, so a healthy
+    dataset is never dropped by mistake and one flaky check doesn't sink the rest.
+    """
+    probe = probe or (lambda img: img.bandNames())
+
+    def _check(item):
+        name, img = item
+        for attempt in range(2):
+            try:
+                probe(img).getInfo()
+                return None
+            except control_flow.PROPAGATE:
+                raise
+            except Exception as e:
+                if isinstance(e, ee.EEException) and is_dataset_error(e):
+                    print(f"Invalid image ({name}): {e}")
+                    return name
+                if attempt == 1:
+                    if skip_other_errors:
+                        print(f"Warning: could not check {name}: {str(e)[:150]}")
+                        return None
+                    raise
+                time.sleep(2)
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        results = list(executor.map(_check, named_images))
+    return [name for name in results if name is not None]
+
+
+def _pixel_probe(region):
+    """
+    A check that makes Earth Engine compute pixels, for errors that only appear then (e.g. a
+    collection whose images no longer have matching bands, #248). Each dataset is reduced to one
+    pixel count summed over `region` (the polygons the run failed on) at the run's 10 m scale.
+    """
+
+    def probe(img):
+        count = img.reduce(ee.Reducer.count())
+        return count.reduceRegions(
+            collection=region, reducer=ee.Reducer.sum(), scale=10
+        ).aggregate_sum("sum")
+
+    return probe
+
+
+def combine_datasets_without_broken(
+    national_codes=None,
+    include_context_bands=True,
+    probe_region=None,
+    force_probe=False,
+):
+    """
+    Build the whisp image leaving out any dataset whose asset Earth Engine cannot load.
+
+    This is the slow path, used after processing has failed with a dataset error (or when
+    combine_datasets finds one with auto_recovery=True). Each dataset gets its own bandNames()
+    check, run in parallel, so it costs one round of requests rather than one per dataset in turn.
+
+    If that finds nothing and `probe_region` (the polygons the run failed on) is given, each
+    dataset is checked again by computing pixels there (#249), which catches errors a band check
+    can't, like the mismatched GLAD-L tiles in #248.
+
+    If more than half the datasets fail, that points to an access or connection problem rather
+    than broken datasets, so a RuntimeError is raised instead of dropping them.
+
+    Parameters
+    ----------
+    national_codes : list, optional
+        List of ISO2 country codes to include national datasets
+    include_context_bands : bool, optional
+        If True (default), includes context bands (admin_code, In_waterbody) in the output.
+    probe_region : ee.FeatureCollection, optional
+        Polygons to compute pixels over if the band check finds nothing broken.
+    force_probe : bool, optional
+        Compute pixels over probe_region even if the band check found something (used when a run
+        still fails after a first rebuild, e.g. a pixel-level error behind a dead asset).
+
+    Returns
+    -------
+    tuple of (ee.Image, list of str)
+        The combined image and the names of the prep functions that were left out.
+    """
+    dropped = []
+
+    main_images = []
+    for func in list_functions(national_codes=national_codes):
+        try:
+            main_images.append((func.__name__, func()))
+        except ee.EEException as e:
+            print(f"Invalid image ({func.__name__}): {e}")
+            dropped.append(func.__name__)
+
+    context_images = []
+    if include_context_bands:
+        for band_func, band_name in _context_bands():
+            try:
+                context_images.append((band_func.__name__, band_func()))
+            except ee.EEException as e:
+                print(f"Warning: Could not add {band_name} band: {e}")
+                dropped.append(band_func.__name__)
+
+    all_images = main_images + context_images
+    broken = set(_find_broken_images(all_images))
+    if probe_region is not None and (force_probe or not (broken or dropped)):
+        print("Checking each dataset's pixels where the run failed...")
+        survivors = [(name, img) for name, img in all_images if name not in broken]
+        # A timeout or memory limit while checking one dataset says nothing about it, so that
+        # dataset counts as fine (the caller raises the original error if nothing is found)
+        broken |= set(
+            _find_broken_images(
+                survivors, probe=_pixel_probe(probe_region), skip_other_errors=True
+            )
+        )
+    dropped.extend(name for name, _ in all_images if name in broken)
+
+    if len(dropped) > (len(all_images) + len(dropped) - len(broken)) / 2:
+        raise RuntimeError(
+            f"{len(dropped)} of the whisp datasets failed to load, which looks like an Earth Engine "
+            "access or connection problem rather than broken datasets, so none were dropped. "
+            "Check your Earth Engine login and project and try again."
+        )
+
+    img_combined = ee.Image.cat(
+        [ee.Image(1).rename(geometry_area_column)]
+        + [img for name, img in main_images if name not in broken]
+    ).multiply(ee.Image.pixelArea())
+    for name, img in context_images:
+        if name not in broken:
+            img_combined = img_combined.addBands(img)
+
+    if dropped:
+        print(f"Warning: left out broken dataset(s): {', '.join(dropped)}")
+    print("Whisp multiband image compiled")
+    return img_combined, dropped
+
+
+def unavailable_dataset_names(func_names):
+    """
+    Short names for dropped datasets, as they appear in the output columns: the shared column
+    prefix of each prep function's rows in the lookup table (g_esa_fire_prep -> "ESA_fire"). Falls
+    back to the function name without its g_/_prep parts if the lookup has no rows for it.
+    """
+    from openforis_whisp.parameters.config_runtime import read_lookup_table
+
+    lookup = read_lookup_table()[["name", "corresponding_variable"]]
+    context_names = {
+        "g_gaul_admin_code": "admin_code",
+        "g_water_mask_prep": "In_waterbody",
+    }
+    names = []
+    for func_name in func_names:
+        columns = lookup.loc[
+            lookup["corresponding_variable"] == func_name, "name"
+        ].tolist()
+        if func_name in context_names:
+            names.append(context_names[func_name])
+        elif len(columns) == 1:
+            names.append(columns[0])
+        else:
+            prefix = os.path.commonprefix(columns) if columns else ""
+            short = prefix[: max(prefix.rfind("_"), prefix.rfind("-"), 0)] or prefix
+            # columns with nothing in common (or none at all): use the function's name
+            names.append(short or func_name.removeprefix("g_").removesuffix("_prep"))
+    return names
+
+
+def supplied_image_error(error):
+    """
+    The error raised when a run on an image the caller passed in fails with a dataset error. Whisp
+    only rebuilds images it built itself, as it can't know what a passed-in image contains.
+    """
+    return RuntimeError(
+        "Earth Engine failed on the whisp_image you passed in, with what looks like a broken or "
+        f"missing dataset: {str(error)[:300]}\n"
+        "Whisp only rebuilds images it builds itself, as it can't know what a passed-in image "
+        "contains. Rebuild the image now with combine_datasets(national_codes=..., "
+        "auto_recovery=True), which leaves out broken datasets, add any custom bands again and "
+        "rerun, or leave out whisp_image so Whisp builds and recovers the image itself (do "
+        "this if a rebuilt image still fails, as some errors only show when pixels are "
+        "computed, which only Whisp's own recovery checks). If you keep the image between runs "
+        "(e.g. a cached copy), rebuild that copy too."
+    )
 
 
 ######helper functions to check images
@@ -2341,6 +2650,8 @@ def ee_image_checker(image):
             return True
     except ee.EEException as e:
         print(f"Image validation failed with EEException: {e}")
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         print(f"Image validation failed with exception: {e}")
     return False

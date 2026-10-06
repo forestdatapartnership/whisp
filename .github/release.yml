@@ -1,0 +1,23 @@
+# Groups the auto-generated release notes under the headings earlier releases used by hand.
+# Label each PR before merging (datasets / enhancement / bug / documentation / repo);
+# anything unlabelled lands under "Other changes" so nothing is lost.
+changelog:
+  categories:
+    - title: Datasets update
+      labels:
+        - datasets
+    - title: Features
+      labels:
+        - enhancement
+    - title: Fixes
+      labels:
+        - bug
+    - title: Docs
+      labels:
+        - documentation
+    - title: Repo
+      labels:
+        - repo
+    - title: Other changes
+      labels:
+        - "*"

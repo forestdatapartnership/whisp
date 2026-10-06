@@ -16,6 +16,7 @@ Key functions:
 """
 
 import os
+from openforis_whisp import control_flow
 import ee
 import json
 import pandas as pd
@@ -408,6 +409,8 @@ def download_geotiff_for_feature(
     try:
         feature_id = ee_feature.get(plot_id_column).getInfo()
         _whisp_logger.debug(f"Downloading GeoTIFF for feature {feature_id}")
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         _whisp_logger.error(f"Error getting {plot_id_column} from feature: {str(e)}")
         feature_id = f"unknown_{datetime.now().strftime('%Y%m%d%H%M%S')}"
@@ -597,6 +600,8 @@ def _download_single_tile(
             if retries < max_retries:
                 time.sleep(retry_delay)
 
+        except control_flow.PROPAGATE:
+            raise
         except Exception as e:
             _whisp_logger.error(f"Error downloading {feature_id}: {str(e)[:100]}")
             retries += 1
@@ -676,6 +681,8 @@ def download_geotiffs_for_feature_collection(
                 retry_delay=retry_delay,
                 num_bands=num_bands,
             )
+        except control_flow.PROPAGATE:
+            raise
         except Exception as e:
             _whisp_logger.error(
                 f"Error processing feature at index {index}: {str(e)}", exc_info=True
@@ -731,6 +738,8 @@ def download_geotiffs_for_feature_collection(
                             )
                             break
 
+                except control_flow.PROPAGATE:
+                    raise
                 except Exception as e:
                     completed += 1
                     failed_indexes.append(index + 1)  # 1-based for user display
@@ -1274,6 +1283,8 @@ def _process_chunk_df(chunk_gdf, rasters, ops, chunk_idx, num_chunks):
         )
         gc.collect()
         return chunk_results
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         _whisp_logger.error(
             f"Error processing chunk {chunk_idx+1}/{num_chunks}: {str(e)}"
@@ -1387,6 +1398,8 @@ def exact_extract_in_chunks_parallel(
                             )
                         break
 
+            except control_flow.PROPAGATE:
+                raise
             except Exception as e:
                 completed += 1
                 _whisp_logger.error(f"Exception in chunk: {str(e)}")
@@ -1506,7 +1519,13 @@ def whisp_stats_local(
     Returns:
         pandas.DataFrame: Formatted zonal statistics matching concurrent mode output
     """
-    from openforis_whisp.datasets import combine_datasets
+    from openforis_whisp.datasets import (
+        combine_datasets,
+        combine_datasets_without_broken,
+        is_dataset_error,
+        supplied_image_error,
+        unavailable_dataset_names,
+    )
 
     # Set up logger based on verbose flag
     logger = _whisp_logger
@@ -1529,7 +1548,7 @@ def whisp_stats_local(
         max_extract_workers = max(1, os.cpu_count() - 1)
 
     # Validate EE endpoint - local mode requires high-volume endpoint
-    validate_ee_endpoint("high-volume", raise_error=True)
+    validate_ee_endpoint("high-volume", raise_error=False)
 
     # Ensure output directory exists
     output_path = Path(output_dir)
@@ -1559,14 +1578,34 @@ def whisp_stats_local(
 
     # Step 2: Download GeoTIFFs in parallel
     _whisp_logger.debug("Downloading GeoTIFF data from Earth Engine...")
+    image_supplied = image is not None
     if image is None:
         image = combine_datasets(
             national_codes=national_codes,
             include_context_bands=include_context_bands,
         )
 
-    # Get band names from the EE image (single getInfo call for both naming and tile size calculation)
-    band_names = image.bandNames().getInfo()
+    # Get band names from the EE image (single getInfo call for both naming and tile size calculation).
+    # It is also the first call that loads every dataset, so a broken one shows up here: leave it out
+    # if Whisp built the image, otherwise stop with guidance (a passed-in image is never swapped).
+    try:
+        band_names = image.bandNames().getInfo()
+    except ee.EEException as e:
+        if not is_dataset_error(e):
+            raise
+        if image_supplied:
+            raise supplied_image_error(e) from e
+        _whisp_logger.warning(
+            f"A dataset failed to load, leaving out broken ones: {str(e)[:200]}"
+        )
+        image, dropped = combine_datasets_without_broken(
+            national_codes=national_codes,
+            include_context_bands=include_context_bands,
+        )
+        _whisp_logger.warning(
+            f"Dropped unavailable dataset(s): {', '.join(unavailable_dataset_names(dropped))}"
+        )
+        band_names = image.bandNames().getInfo()
     num_bands = len(band_names)
     _whisp_logger.debug(f"Image has {num_bands} bands")
 

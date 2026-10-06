@@ -30,9 +30,12 @@ jobs:
       - name: Collect metrics
         # GCP_SA_KEY is a service account JSON key (repo secret) used for BigQuery
         # country-level download stats. Without it, country data is simply skipped.
-        # PyPI and GitHub traffic stats work without it.
+        # PyPI stats work without any secret.
+        # GitHub clones/views come from the traffic API, which the built-in GITHUB_TOKEN
+        # cannot read (403). Add a repo secret TRAFFIC_TOKEN (a fine-grained PAT with
+        # Administration: read on this repo) to enable them; otherwise they are skipped.
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.TRAFFIC_TOKEN || secrets.GITHUB_TOKEN }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
         run: python .github/usage_metrics/collect_metrics.py
 
@@ -40,7 +43,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .github/usage_metrics/usage_metrics.csv .github/usage_metrics/github_traffic.csv .github/usage_metrics/country_downloads.csv .github/USAGE_STATS.md
+          # Add whatever the collector produced; github_traffic.csv only exists once TRAFFIC_TOKEN is set
+          git add .github/usage_metrics/ .github/USAGE_STATS.md
           # Only commit if there are changes
           git diff --cached --quiet || git commit -m "chore: weekly usage metrics snapshot [skip ci]"
           git push

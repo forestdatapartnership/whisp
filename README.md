@@ -33,7 +33,7 @@
   ***Whisp*** can currently be used directly or implemented in your own code through three different pathways:
 
 
-  1. The Whisp App with its simple interface can be accessed [here](https://whisp.openforis.org/) or called from other software by [API](https://whisp.openforis.org/documentation/api-guide). The Whisp App currently supports the processing of up to 5,000 geometries per job. The original JS & Python code behind the Whisp App and API can be found [here](https://github.com/forestdatapartnership/whisp-app).
+  1. The Whisp App with its simple interface can be accessed [here](https://whisp.openforis.org/) or called from other software by [API](https://whisp.openforis.org/api/docs). The Whisp App currently supports the processing of up to 5,000 geometries per job. The original JS & Python code behind the Whisp App and API can be found [here](https://github.com/forestdatapartnership/whisp-app).
 
   2. [Whisp in Earthmap](https://whisp.earthmap.org/?aoi=WHISP&boundary=plot1&layers=%7B%22CocoaETH%22%3A%7B%22opacity%22%3A1%7D%2C%22JRCForestMask%22%3A%7B%22opacity%22%3A1%7D%2C%22planet_rgb%22%3A%7B%22opacity%22%3A1%2C%22date%22%3A%222020-12%22%7D%7D&map=%7B%22center%22%3A%7B%22lat%22%3A7%2C%22lng%22%3A4%7D%2C%22zoom%22%3A3%2C%22mapType%22%3A%22satellite%22%7D&statisticsOpen=true) supports the visualization of geometries on actual maps with the possibility to toggle different relevant map products around tree cover, commodities and deforestation. It is practical for demonstration purposes and spot checks of single geometries but not recommended for larger datasets.
 
@@ -79,8 +79,12 @@ And specifically for the timber commodity, considering a harvesting date in 2025
   10) Were there commodity plantations or other agricultural uses in 2025?
   11) Is it part of a logging concession?
 
+  Each question is answered "yes" for a plot when any one of the relevant datasets covers more than a set share of the plot area. By default this share is 10% for all indicators except disturbances before 2020-12-31, where it is 50%: because pre-2020 disturbance lowers the risk category (see the perennial crops logic below), Whisp only counts it when it covers most of the plot rather than a small corner. For point locations any non-zero value counts. All thresholds can be changed via the `ind_N_pcent_threshold` arguments of `whisp_risk` in the python package.
+
   The Whisp algorithm outputs multiple statistical columns with disaggregated data from the input datasets, followed by aggregated indicator columns, and the final risk assessment columns.
-    All output columns from Whisp are described in [this excel file](https://github.com/forestdatapartnership/whisp/blob/main/whisp_columns.xlsx)
+    All output columns from Whisp are described in the [result fields reference](https://whisp.openforis.org/docs/reference/result-fields).
+
+  Occasionally a dataset can't be read from Earth Engine (an asset has moved or gone empty). Rather than failing the whole run, Whisp skips it and records its name in the `whisp_processing_metadata` column, under `unavailable_datasets`. If a skipped dataset is one the risk assessment uses, `whisp_risk` warns and also lists it under `risk_inputs_unavailable` in the same column, meaning the risk columns were worked out without that dataset.
 
 The **relevant risk assessment column depends on the commodity** in question:
 
@@ -126,7 +130,7 @@ The **relevant risk assessment column depends on the commodity** in question:
 
   If one or more treecover datasets indicate tree cover on a plot by the end of 2020, but a commodity dataset indicates agricultural use by the end of 2020, **Whisp will categorize the deforestation risk as low.**
 
-  If one or more treecover datasets indicate tree cover on a plot by the end of 2020, no commodity datasets indicate agricultural use, but a disturbance dataset indicates disturbances before the end of 2020, **Whisp will categorize the deforestation risk as <u>low</u>.** This approach accounts for the characteristics of some perennial crops, which can be established under significant canopy cover (e.g. coffee, cocoa); disturbances prior to 2020 are interpreted as potential evidence of crop establishment before the end of 2020, and thus not considered high risk.
+  If one or more treecover datasets indicate tree cover on a plot by the end of 2020, no commodity datasets indicate agricultural use, but a disturbance dataset indicates disturbances before the end of 2020, **Whisp will categorize the deforestation risk as <u>low</u>.** This approach accounts for the characteristics of some perennial crops, which can be established under significant canopy cover (e.g. coffee, cocoa); disturbances prior to 2020 are interpreted as potential evidence of crop establishment before the end of 2020, and thus not considered high risk. Because this step lowers the risk category, it uses a higher default threshold (50% of the plot area) than the other indicators (10%).
 
   Now, if the datasets under categories 1–3 indicate that there was tree cover, but no agriculture and no disturbances before or by the end of 2020, the Whisp algorithm checks whether degradation or deforestation have been reported in a disturbance dataset after 2020-12-31. If they have, **Whisp will categorize the deforestation risk as <u>high</u>.** <br>
   However, under the same circumstances but with <u>no</u> disturbances reported after 2020-12-31 there is insufficient evidence and the **Whisp output will be "More info needed".** Such can be the case for, e.g., cocoa or coffee grown under the shade of treecover or agroforestry.
@@ -168,7 +172,7 @@ The **relevant risk assessment column depends on the commodity** in question:
 
   For running locally on your machine (or in Sepal), see: [whisp_geojson_to_csv.ipynb](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/whisp_geojson_to_csv.ipynb) or if datasets are very large (e.g., >100,000 features), you could also try [whisp_ee_asset_to_drive.ipynb](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/whisp_ee_asset_to_drive.ipynb).
 
-  ### Requirements for running the package
+  ### Requirements for running the package <a name="whisp_requirements"></a>
 
   - A Google Earth Engine (GEE) account.
   - A registered cloud GEE project.
@@ -243,7 +247,30 @@ To add your own data directly you will need some coding experience as well as fa
 
 Contributions are welcome!
 - Fork the repo, make changes, and open a pull request.
-- For adding new datasets to the codebase and for project-specific coding standards see [.github/copilot-instructions.md](.github/copilot-instructions.md)
+- For adding new datasets to the codebase and for project-specific coding standards see [AGENTS.md](AGENTS.md)
+
+### Developer setup <a name="whisp_dev_setup"></a>
+
+You need a Google Earth Engine account and a registered cloud project (see [requirements](#whisp_requirements)). Then:
+
+```
+git clone https://github.com/forestdatapartnership/whisp.git
+cd whisp
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -e .
+pip install pytest pre-commit
+cp .env.template .env            # then set PROJECT to your Earth Engine cloud project
+earthengine authenticate         # one-off browser sign-in
+pre-commit install
+pytest
+```
+
+Notes:
+- `.env` is gitignored. Keep any keys or project names there or in environment variables, never in tracked files or notebook outputs.
+- The tests run real Earth Engine computations on a small fixture (about 50 plots), so they need the credentials and project above and take around a minute. The same tests run as a pre-commit hook on every commit.
+- If you want the tests to sign you out of Earth Engine afterwards (so every run starts with a fresh browser sign-in and no credentials stay on disk), set `WHISP_CLEAR_EE_CREDS=1` in `.env`. Off by default.
+- Formatting is done by the pinned `black` pre-commit hook; let it reformat your files rather than running a different `black` version by hand.
 
 ## Code of Conduct <a name="whisp_conduct"></a>
 

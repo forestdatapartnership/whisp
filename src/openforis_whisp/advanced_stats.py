@@ -6,8 +6,8 @@ with Whisp datasets using concurrent batching (for high-volume processing)
 and standard sequential processing.
 
 NOTE: This module is a transition state. The plan is to eventually merge these
-functions into stats.py and replace the standard functions there as the primary
-implementation, deprecating the legacy versions.
+functions into stats.py as the primary implementation; whisp_formatted_stats_ee_to_df
+there stays as the FeatureCollection-based path.
 
 Key features:
   - whisp_stats_geojson_to_df_concurrent
@@ -19,6 +19,7 @@ Key features:
 """
 
 import ee
+from openforis_whisp import control_flow
 import pandas as pd
 import geopandas as gpd
 import logging
@@ -72,7 +73,14 @@ from openforis_whisp.data_conversion import (
     convert_ee_to_df,
     convert_ee_to_geojson,
 )
-from openforis_whisp.datasets import combine_datasets
+from openforis_whisp.datasets import (
+    combine_datasets,
+    combine_datasets_without_broken,
+    is_dataset_error,
+    supplied_image_error,
+    unavailable_dataset_names,
+)
+
 from openforis_whisp.reformat import validate_dataframe_using_lookups_flexible
 from openforis_whisp.stats import (
     reformat_geometry_type,
@@ -462,16 +470,24 @@ def check_ee_endpoint(endpoint_type: str = "high-volume") -> bool:
     bool
         True if using expected endpoint, False otherwise
     """
-    try:
-        api_url = str(ee.data._cloud_api_base_url)
-    except AttributeError:
-        # EE 1.7+ removed _cloud_api_base_url; try alternative approaches
+    api_url = None
+    # earthengine-api 1.6.12+ keeps client state in ee._state; older versions on ee.data (#250)
+    for get_url in (
+        lambda: ee._state.get_state().cloud_api_base_url,
+        lambda: ee.data._cloud_api_base_url,
+        lambda: ee.data._api_base_url,
+    ):
         try:
-            api_url = str(ee.data._api_base_url)
-        except AttributeError:
-            # Cannot determine endpoint; assume correct and let EE handle errors
-            logging.debug("Cannot determine EE endpoint URL; skipping endpoint check.")
-            return True
+            api_url = get_url()
+        except Exception:
+            continue
+        if api_url:
+            break
+    if not api_url:
+        # Cannot determine endpoint; assume correct and let EE handle errors
+        logging.debug("Cannot determine EE endpoint URL; skipping endpoint check.")
+        return True
+    api_url = str(api_url)
 
     if endpoint_type == "high-volume":
         return "highvolume" in api_url.lower()
@@ -500,14 +516,14 @@ def validate_ee_endpoint(endpoint_type: str = "high-volume", raise_error: bool =
     if not check_ee_endpoint(endpoint_type):
         if endpoint_type == "high-volume":
             msg = (
-                "Concurrent/local mode requires the HIGH-VOLUME endpoint. To change endpoint run:\n"
+                "Concurrent/local mode works best on the HIGH-VOLUME endpoint. To change endpoint run:\n"
                 "ee.Reset()\n"
-                "ee.Initialize(project=gee_project_name, opt_url='https://earthengine-highvolume.googleapis.com')  # or ee.Initialize(opt_url='https://earthengine-highvolume.googleapis.com')\n"
+                "ee.Initialize(project=gee_project_name, url='https://earthengine-highvolume.googleapis.com')  # or whisp.initialize_ee(use_high_vol_endpoint=True)\n"
                 "# where gee_project_name is your GEE project (necessary in Colab)"
             )
         else:  # standard endpoint
             msg = (
-                "Sequential/legacy mode requires the STANDARD endpoint. To change endpoint run:\n"
+                "Sequential mode works best on the STANDARD endpoint. To change endpoint run:\n"
                 "ee.Reset()\n"
                 "ee.Initialize(project=gee_project_name)  # or ee.Initialize()\n"
                 "# where gee_project_name is your GEE project (necessary in Colab)"
@@ -515,8 +531,13 @@ def validate_ee_endpoint(endpoint_type: str = "high-volume", raise_error: bool =
 
         if raise_error:
             raise RuntimeError(msg)
-        else:
+        elif endpoint_type not in _endpoint_warned:
+            # Once per process: a long-running worker would otherwise repeat it on every job
+            _endpoint_warned.add(endpoint_type)
             logging.warning(msg)
+
+
+_endpoint_warned = set()
 
 
 # ============================================================================
@@ -842,6 +863,78 @@ def _add_geometry_audit_trail(
 # ============================================================================
 
 
+class _BatchSkipped(Exception):
+    """Raised by a batch that was not run because another batch hit a dataset error."""
+
+
+def _run_logging_output(logger, func, *args, **kwargs):
+    """
+    Run func with its printed output captured and passed on to logger: lines that look like
+    problems (invalid, error, warning, recovery) at warning level, the rest at debug level.
+    """
+    captured = io.StringIO()
+    try:
+        with redirect_stdout(captured):
+            return func(*args, **kwargs)
+    finally:
+        for line in captured.getvalue().strip().splitlines():
+            lowered = line.lower()
+            if any(w in lowered for w in ("invalid", "error", "warning", "recovery")):
+                logger.warning(line)
+            elif line:
+                logger.debug(line)
+
+
+def _rebuild_without_broken(
+    error,
+    national_codes,
+    image_supplied,
+    logger,
+    probe_region=None,
+    force_probe=False,
+    previous=None,
+):
+    """
+    Rebuild the whisp image without broken datasets after processing failed with a dataset error.
+    `probe_region` is the polygons the run failed on, used to find errors that only show up when
+    pixels are computed.
+
+    Returns (rebuilt image, short names of the datasets left out). Raises the original error again
+    if no dataset turns out to be broken (the failure has another cause). A passed-in image is
+    never rebuilt, as Whisp can't know what it contains: that raises with guidance instead.
+    """
+    if image_supplied:
+        raise supplied_image_error(error) from error
+
+    logger.warning(
+        f"Processing failed with a dataset error: {str(error)[:200]}. "
+        "Checking each dataset and rebuilding the image without any that are broken..."
+    )
+    image, dropped = _run_logging_output(
+        logger,
+        combine_datasets_without_broken,
+        national_codes=national_codes,
+        probe_region=probe_region,
+        force_probe=force_probe,
+    )
+    if not dropped:
+        logger.warning("No broken dataset found, so the error has another cause.")
+        raise error
+    if previous is not None and sorted(unavailable_dataset_names(dropped)) == sorted(
+        previous
+    ):
+        logger.warning(
+            "Checking again found nothing new, so the error has another cause."
+        )
+        raise error
+
+    unavailable = unavailable_dataset_names(dropped)
+    logger.warning(
+        f"Dropped unavailable dataset(s): {', '.join(unavailable)} ({', '.join(dropped)})"
+    )
+    return image, unavailable
+
+
 def process_ee_batch(
     fc: ee.FeatureCollection,
     whisp_image: ee.Image,
@@ -912,7 +1005,12 @@ def process_ee_batch(
         except ee.EEException as e:
             error_msg = str(e)
 
-            if "Quota" in error_msg or "limit" in error_msg.lower():
+            # A broken dataset fails the same way every time, so don't retry or wait: raise so the
+            # caller can rebuild the image without it.
+            if is_dataset_error(e):
+                raise
+
+            if any(w in error_msg.lower() for w in ("quota", "too many", "rate limit")):
                 if attempt < max_retries - 1:
                     wait_time = min(30, 2**attempt)
                     logger.warning(
@@ -920,7 +1018,9 @@ def process_ee_batch(
                     )
                     time.sleep(wait_time)
                 else:
-                    raise RuntimeError(f"Batch {batch_idx + 1}: Quota exhausted")
+                    raise RuntimeError(
+                        f"Batch {batch_idx + 1}: Quota exhausted: {error_msg}"
+                    )
 
             elif "timeout" in error_msg.lower():
                 if attempt < max_retries - 1:
@@ -939,6 +1039,8 @@ def process_ee_batch(
                 else:
                     raise
 
+        except control_flow.PROPAGATE:
+            raise
         except Exception as e:
             if attempt < max_retries - 1:
                 time.sleep(min(5, 2**attempt))
@@ -987,7 +1089,9 @@ def whisp_stats_geojson_to_df_concurrent(
     unit_type : str
         "ha" or "percent"
     whisp_image : ee.Image, optional
-        Pre-combined image (created with combine_datasets if None)
+        Pre-combined image. If None, Whisp builds it and leaves out any broken dataset if
+        processing fails. A passed-in image is never rebuilt, so build it with
+        combine_datasets(auto_recovery=True) to leave out broken datasets up front.
     custom_bands : Dict[str, Any], optional
         Custom band information
     batch_size : int
@@ -1023,7 +1127,9 @@ def whisp_stats_geojson_to_df_concurrent(
         logger.debug(f"Using decimal_places={decimal_places} from config")
 
     # Validate endpoint
-    validate_ee_endpoint("high-volume", raise_error=True)
+    # A warning, not an error: both endpoints work, and a worker (e.g. the Whisp API) runs
+    # sequential and concurrent jobs on whichever one it was started with
+    validate_ee_endpoint("high-volume", raise_error=False)
 
     # Load GeoJSON with output suppressed (external_id_column renamed to 'external_id' if provided)
     gdf = _load_and_prepare_geojson(
@@ -1077,35 +1183,14 @@ def whisp_stats_geojson_to_df_concurrent(
 
     logger.debug(f"Stripped GeoJSON to essential columns: {keep_cols}")
 
-    # Create image if not provided
+    # Create image if not provided. This makes no Earth Engine calls: a broken dataset is only
+    # found if processing fails, and is then dropped by _rebuild_without_broken.
+    image_supplied = whisp_image is not None
     if whisp_image is None:
         logger.debug("Creating Whisp image...")
-        # Capture print statements from combine_datasets and re-emit via logger
-        captured = io.StringIO()
-        with redirect_stdout(captured):
-            try:
-                # First try with auto_recovery (validates only if error detected)
-                whisp_image = combine_datasets(
-                    national_codes=national_codes, auto_recovery=True
-                )
-            except Exception as e:
-                logger.warning(
-                    f"First attempt failed: {str(e)[:100]}. Retrying with validate_bands=True..."
-                )
-                # Retry with full validation to catch and fix bad bands
-                whisp_image = combine_datasets(
-                    national_codes=national_codes, validate_bands=True
-                )
-        for line in captured.getvalue().strip().splitlines():
-            if (
-                "invalid" in line.lower()
-                or "error" in line.lower()
-                or "warning" in line.lower()
-                or "recovery" in line.lower()
-            ):
-                logger.warning(line)
-            elif line:
-                logger.debug(line)
+        whisp_image = _run_logging_output(
+            logger, combine_datasets, national_codes=national_codes
+        )
 
     # Create reducer
     reducer = ee.Reducer.sum().combine(ee.Reducer.median(), sharedInputs=True)
@@ -1126,13 +1211,14 @@ def whisp_stats_geojson_to_df_concurrent(
     shown_milestones = set()
     start_time = time.time()
 
-    results = []
-
     def process_batch(
         batch_idx: int, batch: gpd.GeoDataFrame
     ) -> Tuple[int, pd.DataFrame, pd.DataFrame]:
         """Process one batch: server EE work + client metadata."""
         with ee_semaphore:
+            # Another batch hit a dataset error: skip without calling EE (all batches are rerun)
+            if band_error_detected.is_set():
+                raise _BatchSkipped()
             # Server-side: convert to EE, optionally add metadata, reduce
             fc = convert_batch_to_ee(batch)
             if add_metadata_server:
@@ -1152,12 +1238,102 @@ def whisp_stats_geojson_to_df_concurrent(
 
     # Process batches with thread pool
     pool_workers = max(2 * max_concurrent, max_concurrent + 2)
+    batch_map = {i: batch for i, batch in enumerate(batches)}
 
-    # Track if we had errors that suggest bad bands
-    batch_errors = []
-
-    # Fail-fast flag for band errors - shared across threads
+    # Set when a batch hits a dataset error (e.g. a broken asset): the other batches stop, the
+    # image is rebuilt without the broken dataset(s) and all batches are rerun once
     band_error_detected = threading.Event()
+    failing_batch = {}  # the batch that hit the dataset error, for the pixel check
+    unavailable = []
+
+    def merge_batch(df_server, df_client):
+        """Merge one batch's EE statistics with its client-side metadata."""
+        if plot_id_column not in df_server.columns:
+            logger.warning(
+                f"Batch (concurrent merge): plotId DROPPED by EE. "
+                f"Regenerating. Columns from EE: {list(df_server.columns)}"
+            )
+            df_server[plot_id_column] = pd.array(
+                range(1, len(df_server) + 1), dtype="Int64"
+            )
+        else:
+            df_server[plot_id_column] = df_server[plot_id_column].astype(str)
+        if plot_id_column in df_client.columns:
+            df_client[plot_id_column] = df_client[plot_id_column].astype(str)
+
+        # Keep all EE statistics; external_id comes from the client side
+        df_server_clean = df_server.drop(columns=["external_id"], errors="ignore")
+
+        # Keep plot_id, external_id, geometry, geometry type and centroids from the client
+        keep = [plot_id_column]
+        if external_id_column and "external_id" in df_client.columns:
+            keep.append("external_id")
+        if "geometry" in df_client.columns:
+            keep.append("geometry")
+        if geometry_type_column in df_client.columns:
+            keep.append(geometry_type_column)
+        keep.extend(c for c in df_client.columns if c.startswith("Centroid_"))
+        df_client_clean = df_client[[c for c in keep if c in df_client.columns]]
+
+        return df_server_clean.merge(
+            df_client_clean, on=plot_id_column, how="left", suffixes=("_ee", "_client")
+        )
+
+    def run_batches():
+        """Run every batch once. Returns (results, batch_errors, dataset_error)."""
+        nonlocal completed_batches, shown_milestones, start_time
+        results, batch_errors, dataset_error = [], [], None
+        completed_batches, shown_milestones, start_time = 0, set(), time.time()
+
+        # Don't suppress stdout here - we want progress messages to show in Colab
+        executor = ThreadPoolExecutor(max_workers=pool_workers)
+        futures = {
+            executor.submit(process_batch, i, b): i for i, b in batch_map.items()
+        }
+        try:
+            for future in as_completed(futures):
+                batch_idx = futures[future]
+                try:
+                    _, df_server, df_client = future.result()
+                    results.append(merge_batch(df_server, df_client))
+                except _BatchSkipped:
+                    continue
+                except control_flow.PROPAGATE:
+                    raise
+                except Exception as e:
+                    error_msg = str(e)
+                    # A dataset error fails every batch the same way, so stop now: queued
+                    # batches are cancelled and running ones skip or finish their single EE call
+                    if is_dataset_error(e):
+                        band_error_detected.set()
+                        dataset_error = e
+                        failing_batch["idx"] = batch_idx
+                        logger.warning(
+                            f"Dataset error in batch {batch_idx}: {error_msg[:200]}. "
+                            "Stopping remaining batches..."
+                        )
+                        break
+                    logger.error(f"Batch {batch_idx} failed: {error_msg[:100]}")
+                    logger.debug(f"Full error: {error_msg}")
+                    batch_errors.append((batch_idx, batch_map[batch_idx], error_msg))
+                    continue
+
+                with progress_lock:
+                    completed_batches += 1
+                    _log_progress(
+                        completed_batches,
+                        len(batches),
+                        milestones,
+                        shown_milestones,
+                        start_time,
+                        logger,
+                    )
+        except BaseException:
+            # Interrupted, or stopped by a Celery time limit: drop queued batches and leave now
+            executor.shutdown(wait=False, cancel_futures=True)
+            raise
+        executor.shutdown(wait=True, cancel_futures=True)
+        return results, batch_errors, dataset_error
 
     # Suppress fiona logging during batch processing (threads create new loggers)
     fiona_logger = logging.getLogger("fiona")
@@ -1167,271 +1343,46 @@ def whisp_stats_geojson_to_df_concurrent(
     fiona_logger.setLevel(logging.CRITICAL)
     pyogrio_logger.setLevel(logging.CRITICAL)
 
-    # Keywords that indicate missing asset/band errors
-    BAND_ERROR_KEYWORDS = [
-        "image.load",
-        "asset",
-        "not found",
-        "does not exist",
-        "imagecollection.load",
-    ]
-
     try:
-        # Don't suppress stdout here - we want progress messages to show in Colab
-        with ThreadPoolExecutor(max_workers=pool_workers) as executor:
-            futures = {
-                executor.submit(process_batch, i, batch): i
-                for i, batch in enumerate(batches)
-            }
-
-            # Track which batches failed for retry
-            batch_map = {i: batch for i, batch in enumerate(batches)}
-            batch_futures = {future: i for future, i in futures.items()}
-
-            for future in as_completed(futures):
-                # Check if we should abort due to band error
-                if band_error_detected.is_set():
-                    # Cancel remaining futures and skip processing
-                    for f in futures:
-                        f.cancel()
-                    break
-
-                batch_idx = batch_futures[future]
-                try:
-                    batch_idx, df_server, df_client = future.result()
-
-                    # Merge server and client results
-                    if plot_id_column not in df_server.columns:
-                        logger.warning(
-                            f"Batch {batch_idx + 1} (concurrent merge): plotId DROPPED by EE. "
-                            f"Regenerating. Columns from EE: {list(df_server.columns)}"
-                        )
-                        df_server[plot_id_column] = pd.array(
-                            range(1, len(df_server) + 1), dtype="Int64"
-                        )
-                    else:
-                        df_server[plot_id_column] = df_server[plot_id_column].astype(
-                            str
-                        )
-
-                    # Ensure plotId is string in client data too
-                    if plot_id_column in df_client.columns:
-                        df_client[plot_id_column] = df_client[plot_id_column].astype(
-                            str
-                        )
-
-                    # Keep all EE statistics from server (all columns with _sum and _median suffixes)
-                    # These are the actual EE processing results
-                    df_server_clean = df_server.copy()
-
-                    # Drop external_id from df_server if it exists (already in df_client)
-                    if "external_id" in df_server_clean.columns:
-                        df_server_clean = df_server_clean.drop(columns=["external_id"])
-
-                    # Keep external metadata: plot_id, external_id, geometry, geometry type, and centroids from client
-                    # (formatted wrapper handles keep_external_columns parameter)
-                    keep_external_columns = [plot_id_column]
-                    if external_id_column and "external_id" in df_client.columns:
-                        keep_external_columns.append("external_id")
-                    if "geometry" in df_client.columns:
-                        keep_external_columns.append("geometry")
-                    # Keep geometry type column (Geometry_type)
-                    if geometry_type_column in df_client.columns:
-                        keep_external_columns.append(geometry_type_column)
-                    # Also keep centroid columns (Centroid_lon, Centroid_lat)
-                    centroid_cols = [
-                        c for c in df_client.columns if c.startswith("Centroid_")
-                    ]
-                    keep_external_columns.extend(centroid_cols)
-
-                    df_client_clean = df_client[
-                        [c for c in keep_external_columns if c in df_client.columns]
-                    ]
-                    # Don't drop duplicates - we need one row per feature (one per plot_id)
-                    # Each plot_id should have exactly one row with its metadata
-
-                    merged = df_server_clean.merge(
-                        df_client_clean,
-                        on=plot_id_column,
-                        how="left",
-                        suffixes=("_ee", "_client"),
-                    )
-                    results.append(merged)
-
-                    # Update progress
-                    with progress_lock:
-                        completed_batches += 1
-                        _log_progress(
-                            completed_batches,
-                            len(batches),
-                            milestones,
-                            shown_milestones,
-                            start_time,
-                            logger,
-                        )
-
-                except Exception as e:
-                    # Batch failed - check if it's a band error for fail-fast
-                    error_msg = str(e)
-                    error_msg_lower = error_msg.lower()
-
-                    # Check if this is a band/asset error - trigger fail-fast
-                    is_this_band_error = any(
-                        keyword in error_msg_lower for keyword in BAND_ERROR_KEYWORDS
-                    )
-
-                    if is_this_band_error and not band_error_detected.is_set():
-                        band_error_detected.set()
-                        logger.warning(
-                            f"Band/asset error detected in batch {batch_idx}. "
-                            f"Cancelling remaining batches for retry with validation..."
-                        )
-
-                    logger.error(f"Batch {batch_idx} failed: {error_msg[:100]}")
-                    logger.debug(f"Full error: {error_msg}")
-
-                    # Get original batch for error reporting
-                    original_batch = batch_map[batch_idx]
-
-                    # Add to batch errors for final reporting
-                    batch_errors.append((batch_idx, original_batch, error_msg))
-    except (KeyboardInterrupt, SystemExit) as interrupt:
+        results, batch_errors, dataset_error = run_batches()
+        # On a dataset error, rebuild without the broken dataset(s) and rerun every batch, so all
+        # rows come from the same image. A second round (always checking pixels where it failed)
+        # covers two different breakages at once. Raises if nothing is broken or the image was
+        # passed in.
+        for attempt in range(2):
+            if dataset_error is None:
+                break
+            logger.info(
+                f"Processing stopped early due to a dataset error after "
+                f"{completed_batches:,}/{len(batches):,} batches"
+            )
+            whisp_image, unavailable = _rebuild_without_broken(
+                dataset_error,
+                national_codes,
+                image_supplied,
+                logger,
+                probe_region=convert_batch_to_ee(batch_map[failing_batch["idx"]]),
+                force_probe=attempt > 0,
+                previous=unavailable if attempt > 0 else None,
+            )
+            band_error_detected.clear()
+            logger.info("Reprocessing all batches with the rebuilt image...")
+            results, batch_errors, dataset_error = run_batches()
+        if dataset_error is not None:
+            logger.error("Still a dataset error after rebuilding the image")
+            raise dataset_error
+    except KeyboardInterrupt:
         logger.warning("Processing interrupted by user")
-        raise interrupt
+        raise
     finally:
         # Restore logger levels
         fiona_logger.setLevel(old_fiona_level)
         pyogrio_logger.setLevel(old_pyogrio_level)
 
-    # Log completion
-    total_time = time.time() - start_time
-    time_str = _format_time(total_time)
-    if band_error_detected.is_set():
-        logger.info(
-            f"Processing stopped early due to band error after {completed_batches:,}/{len(batches):,} batches in {time_str}"
-        )
-    else:
-        logger.info(
-            f"Processing complete: {completed_batches:,}/{len(batches):,} batches in {time_str}"
-        )
-
-    # If band error was detected, retry immediately with validation (fail-fast path)
-    if band_error_detected.is_set():
-        logger.warning("Retrying all batches with validate_bands=True...")
-        try:
-            with redirect_stdout(io.StringIO()):
-                whisp_image = combine_datasets(
-                    national_codes=national_codes, validate_bands=True
-                )
-            logger.info("Image recreated with validation. Reprocessing all batches...")
-
-            # Clear state for full retry
-            results = []
-            batch_errors = []
-            completed_batches = 0
-            shown_milestones = set()
-            start_time = time.time()
-
-            # Suppress fiona logging during retry
-            fiona_logger.setLevel(logging.CRITICAL)
-            pyogrio_logger.setLevel(logging.CRITICAL)
-
-            try:
-                with ThreadPoolExecutor(max_workers=pool_workers) as executor:
-                    futures = {
-                        executor.submit(process_batch, i, batch): i
-                        for i, batch in enumerate(batches)
-                    }
-
-                    for future in as_completed(futures):
-                        batch_idx = futures[future]
-                        try:
-                            batch_idx, df_server, df_client = future.result()
-                            if plot_id_column not in df_server.columns:
-                                df_server[plot_id_column] = [
-                                    str(i) for i in range(1, len(df_server) + 1)
-                                ]
-                            else:
-                                df_server[plot_id_column] = df_server[
-                                    plot_id_column
-                                ].astype(str)
-                            if plot_id_column in df_client.columns:
-                                df_client[plot_id_column] = df_client[
-                                    plot_id_column
-                                ].astype(str)
-
-                            # Drop external_id from server if present
-                            df_server_clean = df_server.copy()
-                            if "external_id" in df_server_clean.columns:
-                                df_server_clean = df_server_clean.drop(
-                                    columns=["external_id"]
-                                )
-
-                            # Keep essential columns from client
-                            keep_external_columns = [plot_id_column]
-                            if (
-                                external_id_column
-                                and "external_id" in df_client.columns
-                            ):
-                                keep_external_columns.append("external_id")
-                            if "geometry" in df_client.columns:
-                                keep_external_columns.append("geometry")
-                            if geometry_type_column in df_client.columns:
-                                keep_external_columns.append(geometry_type_column)
-                            centroid_cols = [
-                                c
-                                for c in df_client.columns
-                                if c.startswith("Centroid_")
-                            ]
-                            keep_external_columns.extend(centroid_cols)
-
-                            df_client_clean = df_client[
-                                [
-                                    c
-                                    for c in keep_external_columns
-                                    if c in df_client.columns
-                                ]
-                            ]
-
-                            merged = df_server_clean.merge(
-                                df_client_clean,
-                                on=plot_id_column,
-                                how="left",
-                                suffixes=("_ee", "_client"),
-                            )
-                            results.append(merged)
-
-                            with progress_lock:
-                                completed_batches += 1
-                                _log_progress(
-                                    completed_batches,
-                                    len(batches),
-                                    milestones,
-                                    shown_milestones,
-                                    start_time,
-                                    logger,
-                                )
-
-                        except Exception as e:
-                            error_msg = str(e)
-                            logger.error(
-                                f"Retry batch {batch_idx} failed: {error_msg[:100]}"
-                            )
-                            original_batch = batch_map[batch_idx]
-                            batch_errors.append((batch_idx, original_batch, error_msg))
-            finally:
-                fiona_logger.setLevel(old_fiona_level)
-                pyogrio_logger.setLevel(old_pyogrio_level)
-
-            # Log retry completion
-            retry_time = time.time() - start_time
-            logger.info(
-                f"Retry complete: {completed_batches:,}/{len(batches):,} batches in {_format_time(retry_time)}"
-            )
-
-        except Exception as retry_error:
-            logger.error(f"Failed to recreate image with validation: {retry_error}")
-            # Fall through to error handling below
+    logger.info(
+        f"Processing complete: {completed_batches:,}/{len(batches):,} batches in "
+        f"{_format_time(time.time() - start_time)}"
+    )
 
     # If we have batch errors (either from initial run or retry), raise RuntimeError
     if batch_errors:
@@ -1557,153 +1508,13 @@ def whisp_stats_geojson_to_df_concurrent(
                 remove_columns=True,
                 convert_water_flag=True,
             )
+        except control_flow.PROPAGATE:
+            raise
         except Exception as e:
-            # If formatting fails, try recreating the image with validation
-            logger.warning(
-                f"Formatting failed: {str(e)[:100]}. Attempting to recreate image with band validation..."
-            )
-            try:
-                with redirect_stdout(io.StringIO()):
-                    whisp_image_validated = combine_datasets(
-                        national_codes=national_codes, validate_bands=True
-                    )
-
-                # Reprocess batches with validated image - create a local process function
-                logger.info("Reprocessing batches with validated image...")
-                results_validated = []
-
-                def process_batch_validated(
-                    batch_idx: int, batch: gpd.GeoDataFrame
-                ) -> Tuple[int, pd.DataFrame, pd.DataFrame]:
-                    """Process one batch with validated image."""
-                    with ee_semaphore:
-                        fc = convert_batch_to_ee(batch)
-                        if add_metadata_server:
-                            fc = extract_centroid_and_geomtype_server(fc)
-                        df_server = process_ee_batch(
-                            fc,
-                            whisp_image_validated,
-                            reducer,
-                            batch_idx,
-                            max_retries,
-                            logger,
-                        )
-                        df_client = extract_centroid_and_geomtype_client(
-                            batch,
-                            external_id_column=external_id_column,
-                            return_attributes_only=True,
-                        )
-                    return batch_idx, df_server, df_client
-
-                with ThreadPoolExecutor(max_workers=pool_workers) as executor:
-                    futures = {
-                        executor.submit(process_batch_validated, i, batch): i
-                        for i, batch in enumerate(batches)
-                    }
-
-                    for future in as_completed(futures):
-                        try:
-                            batch_idx, df_server, df_client = future.result()
-                            if plot_id_column not in df_server.columns:
-                                logger.warning(
-                                    f"Batch {batch_idx + 1} (retry): plotId DROPPED by EE. "
-                                    f"Regenerating. Columns from EE: {list(df_server.columns)}"
-                                )
-                                # Use 1-indexed range to match client-side assignment
-                                df_server[plot_id_column] = range(1, len(df_server) + 1)
-
-                            # Ensure plotId is string type (consistent with creation)
-                            if plot_id_column in df_server.columns:
-                                df_server[plot_id_column] = df_server[
-                                    plot_id_column
-                                ].astype(str)
-                            if plot_id_column in df_client.columns:
-                                df_client[plot_id_column] = df_client[
-                                    plot_id_column
-                                ].astype(str)
-
-                            # Drop external_id from df_server if it exists (already in df_client)
-                            if "external_id" in df_server.columns:
-                                df_server = df_server.drop(columns=["external_id"])
-
-                            merged = df_server.merge(
-                                df_client,
-                                on=plot_id_column,
-                                how="left",
-                                suffixes=("", "_client"),
-                            )
-                            results_validated.append(merged)
-                        except Exception as batch_e:
-                            logger.error(
-                                f"Batch reprocessing error: {str(batch_e)[:100]}"
-                            )
-
-                if results_validated:
-                    # Concatenate with explicit dtype handling to suppress FutureWarning
-                    combined = pd.concat(
-                        results_validated, ignore_index=True, sort=False
-                    )
-                    # Ensure all column names are strings (fixes pandas .str accessor issues later)
-                    combined.columns = combined.columns.astype(str)
-
-                    # Clean up duplicate external_id columns created by merges (if any exist)
-                    # external_id was already renamed during load, so we just need to handle duplicates
-                    if external_id_column and "external_id" in combined.columns:
-                        # Find merge duplicates like external_id_x, external_id_y, external_id_ee, external_id_client
-                        duplicate_variants = [
-                            col
-                            for col in combined.columns
-                            if col != "external_id" and col.startswith("external_id_")
-                        ]
-
-                        if duplicate_variants:
-                            logger.debug(
-                                f"Dropping duplicate external_id columns: {duplicate_variants}"
-                            )
-                            combined = combined.drop(
-                                columns=duplicate_variants, errors="ignore"
-                            )
-
-                    # plotId column is already present, just ensure it's at position 0
-                    if plot_id_column in combined.columns:
-                        combined = combined[
-                            [plot_id_column]
-                            + [col for col in combined.columns if col != plot_id_column]
-                        ]
-
-                    # Add admin context again
-                    try:
-                        from openforis_whisp.parameters.lookup_gaul1_admin import (
-                            lookup_dict,
-                        )
-
-                        combined = join_admin_codes(
-                            df=combined,
-                            lookup_dict=lookup_dict,
-                            id_col="admin_code_median",
-                        )
-                    except ImportError:
-                        logger.warning(
-                            "Could not import lookup dictionary - admin context not added"
-                        )
-
-                    # Try formatting again with validated data
-                    formatted = format_stats_dataframe(
-                        df=combined,
-                        area_col=f"{geometry_area_column}_sum",
-                        decimal_places=decimal_places,
-                        unit_type=unit_type,
-                        remove_columns=True,
-                        convert_water_flag=True,
-                    )
-                else:
-                    logger.error(" Reprocessing with validation produced no results")
-                    return pd.DataFrame()
-            except Exception as retry_e:
-                logger.error(
-                    f"Failed to recover from formatting error: {str(retry_e)[:100]}"
-                )
-                raise retry_e
+            # Broken datasets are dealt with per batch before this point, so a formatting
+            # error has another cause: report it rather than rerunning every batch
+            logger.error(f"Formatting failed: {e}")
+            raise
 
         # Ensure plot_id is present (should already be there from batch processing)
         if plot_id_column not in formatted.columns:
@@ -1713,6 +1524,7 @@ def whisp_stats_geojson_to_df_concurrent(
         # Note: Sorting is handled by format_stats_dataframe in the formatted wrapper functions
 
         logger.info(f"Processing complete: {len(formatted):,} features")
+        formatted.attrs["whisp_unavailable_datasets"] = unavailable
         return formatted
     else:
         logger.error(" No results produced")
@@ -1756,7 +1568,9 @@ def whisp_stats_geojson_to_df_sequential(
     unit_type : str
         "ha" or "percent"
     whisp_image : ee.Image, optional
-        Pre-combined image
+        Pre-combined image. If None, Whisp builds it and leaves out any broken dataset if
+        processing fails. A passed-in image is never rebuilt, so build it with
+        combine_datasets(auto_recovery=True) to leave out broken datasets up front.
     custom_bands : Dict[str, Any], optional
         Custom band information
     add_metadata_client_side : bool
@@ -1784,7 +1598,7 @@ def whisp_stats_geojson_to_df_sequential(
         logger.debug(f"Using decimal_places={decimal_places} from config")
 
     # Validate endpoint
-    validate_ee_endpoint("standard", raise_error=True)
+    validate_ee_endpoint("standard", raise_error=False)
 
     # Load GeoJSON with output suppressed (external_id_column renamed to 'external_id' if provided)
     gdf = _load_and_prepare_geojson(
@@ -1838,35 +1652,14 @@ def whisp_stats_geojson_to_df_sequential(
 
     logger.debug(f"Stripped GeoJSON to essential columns: {keep_cols}")
 
-    # Create image if not provided
+    # Create image if not provided. This makes no Earth Engine calls: a broken dataset is only
+    # found if processing fails, and is then dropped by _rebuild_without_broken.
+    image_supplied = whisp_image is not None
     if whisp_image is None:
         logger.debug("Creating Whisp image...")
-        # Capture print statements from combine_datasets and re-emit via logger
-        captured = io.StringIO()
-        with redirect_stdout(captured):
-            try:
-                # First try with auto_recovery (validates only if error detected)
-                whisp_image = combine_datasets(
-                    national_codes=national_codes, auto_recovery=True
-                )
-            except Exception as e:
-                logger.warning(
-                    f"First attempt failed: {str(e)[:100]}. Retrying with validate_bands=True..."
-                )
-                # Retry with full validation to catch and fix bad bands
-                whisp_image = combine_datasets(
-                    national_codes=national_codes, validate_bands=True
-                )
-        for line in captured.getvalue().strip().splitlines():
-            if (
-                "invalid" in line.lower()
-                or "error" in line.lower()
-                or "warning" in line.lower()
-                or "recovery" in line.lower()
-            ):
-                logger.warning(line)
-            elif line:
-                logger.debug(line)
+        whisp_image = _run_logging_output(
+            logger, combine_datasets, national_codes=national_codes
+        )
 
     # Drop external_id before sending to EE to enable caching
     # (external_id is preserved separately in gdf for client-side merging)
@@ -1889,36 +1682,32 @@ def whisp_stats_geojson_to_df_sequential(
     logger.info(
         f"Processing {len(gdf):,} features with Earth Engine (sequential mode)..."
     )
-    try:
-        results_fc = whisp_image.reduceRegions(collection=fc, reducer=reducer, scale=10)
-        df_server = convert_ee_to_df(results_fc)
-    except Exception as e:
-        # Check if this is a band error
-        error_msg = str(e)
-        is_band_error = any(
-            keyword in error_msg
-            for keyword in ["Image.load", "asset", "not found", "does not exist"]
-        )
-
-        if is_band_error and whisp_image is not None:
-            logger.warning(
-                f"Detected bad band error: {error_msg[:100]}. Retrying with validate_bands=True..."
+    unavailable = []
+    # On a broken dataset (e.g. a dead asset), rebuild the image without it and retry, at most
+    # twice; the second round always checks pixels where it failed. _rebuild_without_broken
+    # raises if nothing is broken or the image was passed in.
+    for attempt in range(3):
+        try:
+            results_fc = whisp_image.reduceRegions(
+                collection=fc, reducer=reducer, scale=10
             )
-            try:
-                with redirect_stdout(io.StringIO()):
-                    whisp_image = combine_datasets(
-                        national_codes=national_codes, validate_bands=True
-                    )
-                logger.info("Image recreated with validation. Retrying processing...")
-                results_fc = whisp_image.reduceRegions(
-                    collection=fc, reducer=reducer, scale=10
-                )
-                df_server = convert_ee_to_df(results_fc)
-            except Exception as retry_e:
-                logger.error(f"Retry failed: {str(retry_e)[:100]}")
-                raise
-        else:
+            df_server = convert_ee_to_df(results_fc)
+            break
+        except control_flow.PROPAGATE:
             raise
+        except Exception as e:
+            if not is_dataset_error(e) or attempt == 2:
+                raise
+            whisp_image, unavailable = _rebuild_without_broken(
+                e,
+                national_codes,
+                image_supplied,
+                logger,
+                probe_region=fc,
+                force_probe=attempt > 0,
+                previous=unavailable if attempt > 0 else None,
+            )
+            logger.info("Retrying processing with the rebuilt image...")
 
     logger.info("Server-side processing complete")
 
@@ -1984,6 +1773,7 @@ def whisp_stats_geojson_to_df_sequential(
 
     # external_id_column already renamed to 'external_id' during load - no action needed here
 
+    formatted.attrs["whisp_unavailable_datasets"] = unavailable
     return formatted
 
 
@@ -2032,7 +1822,9 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
     unit_type : str
         "ha" or "percent"
     whisp_image : ee.Image, optional
-        Pre-combined image
+        Pre-combined image. If None, Whisp builds it and leaves out any broken dataset if
+        processing fails. A passed-in image is never rebuilt, so build it with
+        combine_datasets(auto_recovery=True) to leave out broken datasets up front.
     custom_bands : Dict[str, Any], optional
         Custom band information
     batch_size : int
@@ -2105,6 +1897,7 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
         add_metadata_server=add_metadata_server,
         logger=logger,
     )
+    unavailable = df_raw.attrs.get("whisp_unavailable_datasets", [])
 
     # Step 2: Format the output
     logger.debug("Step 2/2: Formatting output...")
@@ -2165,6 +1958,9 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
             "%Y-%m-%d %H:%M:%S%z"
         ),
     }
+    # Only present when a dataset could not be loaded and was left out of this run
+    if unavailable:
+        metadata_dict["unavailable_datasets"] = unavailable
     metadata_series = pd.Series(
         [metadata_dict] * len(df_validated), name="whisp_processing_metadata"
     )
@@ -2210,7 +2006,9 @@ def whisp_formatted_stats_geojson_to_df_sequential(
     unit_type : str
         "ha" or "percent"
     whisp_image : ee.Image, optional
-        Pre-combined image
+        Pre-combined image. If None, Whisp builds it and leaves out any broken dataset if
+        processing fails. A passed-in image is never rebuilt, so build it with
+        combine_datasets(auto_recovery=True) to leave out broken datasets up front.
     custom_bands : Dict[str, Any], optional
         Custom band information
     add_metadata_client_side : bool
@@ -2271,6 +2069,7 @@ def whisp_formatted_stats_geojson_to_df_sequential(
         add_metadata_client_side=add_metadata_client_side,
         logger=logger,
     )
+    unavailable = df_raw.attrs.get("whisp_unavailable_datasets", [])
 
     # Step 2: Format the output
     logger.debug("Step 2/2: Formatting output...")
@@ -2331,6 +2130,9 @@ def whisp_formatted_stats_geojson_to_df_sequential(
             "%Y-%m-%d %H:%M:%S%z"
         ),
     }
+    # Only present when a dataset could not be loaded and was left out of this run
+    if unavailable:
+        metadata_dict["unavailable_datasets"] = unavailable
     metadata_series = pd.Series(
         [metadata_dict] * len(df_validated), name="whisp_processing_metadata"
     )
@@ -2386,7 +2188,9 @@ def whisp_formatted_stats_geojson_to_df_fast(
     unit_type : str
         "ha" or "percent"
     whisp_image : ee.Image, optional
-        Pre-combined image
+        Pre-combined image. If None, Whisp builds it and leaves out any broken dataset if
+        processing fails. A passed-in image is never rebuilt, so build it with
+        combine_datasets(auto_recovery=True) to leave out broken datasets up front.
     custom_bands : Dict[str, Any], optional
         Custom band information
     mode : str

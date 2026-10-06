@@ -2,17 +2,22 @@
 
 > Auto-updated weekly by [GitHub Actions](workflows/collect_usage_metrics.yml).
 
-#### Feb 2026 (2026-02)
+#### Oct 2026 (2026-10)
 
-**Local use** — Desktop installs: **28** · GitHub clones: **—**
+**Local use** — Desktop installs: **280** · GitHub clones: **—**
 
-**Wider use** — Colab/Linux: **213** · Countries: **32**
+**Wider use** — Colab/Linux: **3096** · Countries: **11**
 
 ### Monthly Breakdown
 
 | Month | PyPI: Desktop (Win+Mac) | PyPI: Colab/Linux | PyPI: Other/Unknown | PyPI: Countries | GitHub: Clones | GitHub: Stars | Release |
 |-------|------------------------:|------------------:|--------------------:|----------------:|---------------:|--------------:|---------|
-| 2026-03 | — | — | — | — | — | 30 | 3.0.0a12 |
+| 2026-10 | 280 | 3096 | 1386 | 11 | — | 38 |  |
+| 2026-09 | — | — | — | 31 | — |  | 3.0.0a18 |
+| 2026-08 | — | — | — | — | — |  | 3.0.0a17 |
+| 2026-07 | — | — | — | — | — |  | 3.0.0a16 |
+| 2026-05 | — | — | — | — | — |  | 3.0.0a14 |
+| 2026-03 | — | — | — | — | — |  | 3.0.0a13 |
 | 2026-02 | 28 | 213 | 420 | 32 | — |  | 3.0.0a11 |
 | 2026-01 | 7 | 196 | 211 | 18 | — |  | 3.0.0a8 |
 | 2025-12 | 8 | 196 | 233 | 24 | — |  | 3.0.0a7 |
@@ -26,40 +31,40 @@
 | 2025-04 | 12 | 51 | 529 | 21 | — |  | 1.0.0a1 |
 | 2025-03 | 115 | 108 | 1137 | 43 | — |  | 0.1.0a8 |
 
-### Top Countries — Feb 2026 (2026-02)
+### Top Countries — Oct 2026 (2026-10)
 
 | Country | Downloads |
 |---------|----------:|
-| US | 278 |
-| CN | 74 |
-| HK | 55 |
-| PE | 47 |
-| FR | 42 |
-| DE | 31 |
-| IT | 16 |
-| SG | 14 |
-| CH | 12 |
-| MX | 11 |
+| US | 107 |
+| DE | 4 |
+| FR | 4 |
+| HK | 2 |
+| HU | 2 |
+| KR | 2 |
+| IE | 1 |
+| NL | 1 |
+| PY | 1 |
+| SE | 1 |
 
 ### Top Countries — All Time
 
 | Country | Downloads |
 |---------|----------:|
-| US | 3,994 |
-| FR | 337 |
-| CN | 278 |
+| US | 5,072 |
+| FR | 347 |
+| CN | 281 |
+| HK | 272 |
 | PE | 270 |
-| HK | 260 |
-| SG | 231 |
-| DE | 227 |
-| IT | 196 |
-| RU | 130 |
-| GB | 99 |
-| CA | 96 |
-| NL | 70 |
-| SE | 57 |
-| CH | 55 |
-| JP | 42 |
+| DE | 256 |
+| SG | 246 |
+| IT | 197 |
+| RU | 131 |
+| GB | 106 |
+| CA | 98 |
+| NL | 83 |
+| SE | 63 |
+| CH | 56 |
+| FI | 47 |
 
 ---
 

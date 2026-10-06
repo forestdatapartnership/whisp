@@ -32,6 +32,10 @@ To view the layers in action, go to [https://whisp.earthmap.org/](https://whisp.
 <tr><td rowspan="3">Forest_FDaP</td><td rowspan="3">Forest persistence for 2020 based on combining multiple forest/ tree cover datasets. Threshold set for Whisp based on the intersection of recall and precision in charts for accuracy.</td><td rowspan="2">FDaP (2025). Forest Data Partnership https://developers.google.com/earth-engine/datasets/publisher/forestdatapartnership</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/community_forests/ForestPersistence_2020")</td></tr>
+    <tr><td colspan="3"><b>Natural lands:</b></td></tr>
+    <tr><td rowspan="3">SBTN_natural_2020</td><td rowspan="3">Binary "natural" band, where 1 is natural land (natural forests, mangroves, short vegetation, water, bare and snow, including their wet and peat variants) and 0 is non-natural. Emitted as an output column only; it feeds no Whisp indicator or risk column.</td><td rowspan="2">Mazur, E., Sims, M., Goldman, E., Schneider, M., Pirri, M. D., Beatty, C. R., Stolle, F., & Stevenson, M. (2025). <i>SBTN Natural Lands Map v1.1: Technical Documentation.</i> Science Based Targets Network. https://sciencebasedtargetsnetwork.org/wp-content/uploads/2025/02/Technical-Guidance-2025-Step3-Land-v1_1-Natural-Lands-Map.pdf</td></tr>
+    <tr></tr>
+    <tr><td>ee.Image("WRI/SBTN/naturalLands/v1_1/2020")</td></tr>
     <tr><td colspan="3"><b>Commodity datasets:</b></td></tr>
     <tr><td rowspan="3">TMF_plant</td><td rowspan="3">Classes representing any type of plantation from transition map (classes 81-85). Deforestation data after 2020 removed so remaining areas represent plantations at end of 2020.</td><td rowspan="2">Vancutsem, C., Achard, F., Pekel, J.-F., Vieilledent, G., Carboni, S., Simonetti, D., Gallego, J., Aragão, L. E. O. C., & Nasi, R. (2021). <i>Long-term (1990–2019) monitoring of forest cover changes in the humid tropics.</i> Science Advances, 7(10). https://doi.org/10.1126/sciadv.abe1603</td></tr>
     <tr></tr>
@@ -55,9 +59,9 @@ To view the layers in action, go to [https://whisp.earthmap.org/](https://whisp.
 Centre d'Information Géographique et du Numérique / Bureau National d'Études Techniques et de Developpement. Côte d'Ivoire, 2024. Data available online from: https://arcg.is/0uHOi90</td></tr>
     <tr></tr>
     <tr><td>ee.Image("projects/ee-bnetdcign2/assets/OCS_CI_2020vf")</td></tr>
-<tr><td rowspan="3">Rubber_RBGE</td><td rowspan="3">Binary layer for South East Asia.</td><td rowspan="2">Wang et al., (2024) Wang, Y., Hollingsworth, P.M., Zhai, D. et al. High-resolution maps show that rubber causes substantial deforestation. Nature 623, 340–346 (2023). https://doi.org/10.1038/s41586-023-06642-z</td></tr>
+<tr><td rowspan="3">Rubber_RBGE_2020</td><td rowspan="3">Binary layer for South East Asia, 10m, reference year 2020 (imagery 2021 for mainland SEA and 2019 for equatorial Indonesia, designated by the authors as broadly representative of 2020 given long rubber rotations; mature rubber takes ~7 years to reach tapping, so post-2020 planting cannot enter the baseline). Replaces the earlier RBGE map (Wang et al. 2023, previously Rubber_RBGE), which the providers have marked superseded. Deliberately conservative: continental SEA user's accuracy 0.95, producer's 0.78, with higher omission in insular SEA.</td><td rowspan="2">Ahrends, A., Harrison, S. B., Hollingsworth, P. M., Heath, J. D. J., Wang, Y., Xu, J. and Green, J. M. H. (2026). Rubber mapping reveals opportunities and current limitations of deforestation due-diligence. Preprint: https://www.biorxiv.org/content/10.64898/2026.07.25.740673v1 Data: https://zenodo.org/records/21439869</td></tr>
     <tr></tr>
-    <tr><td>ee.Image("users/wangyxtina/MapRubberPaper/rRubber10m202122_perc1585DifESAdist5pxPF")</td>
+    <tr><td>ee.Image("projects/rubber-499107/assets/rubber_SEA_2020")</td></tr>
     <tr><td rowspan="3">Rubber_FDaP</td><td rowspan="3">Rubber probability model. Filtered collection to 2020 data. Threshold set for Whisp based on the intersection of recall and precision in charts for accuracy.</td><td rowspan="2">FDaP (2025). Forest Data Partnership https://developers.google.com/earth-engine/datasets/publisher/forestdatapartnership</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/rubber/model_2025b")</td></tr>
@@ -92,11 +96,9 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr><td rowspan="3">RADD_after_2020</td><td rowspan="3">Binary mask of aggregate confirmed (i.e., class 3) alerts from 2021 onward.</td><td rowspan="2">Reiche, J., Mullissa, A., Slagter, B., Gou, Y., Tsendbazar, N.-E., Odongo-Braun, C., Vollrath, A., Weisse, M. J., Stolle, F., Pickens, A., Donchyts, G., Clinton, N., Gorelick, N., & Herold, M. (2021). <i>Forest disturbance alerts for the Congo Basin using Sentinel-1.</i> Environmental Research Letters, 16(2), 024005. https://doi.org/10.1088/1748-9326/abd0a8</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection('projects/radar-wur/raddalert/v1')</td></tr>
-    <!-- DIST datasets temporarily disabled
-    <tr><td rowspan="3">DIST_after_2020</td><td rowspan="3">Binary mask of high-confidence vegetation disturbance alerts (classes 3, 6, 7, 8) filtered by forest habitat (JRC GFC2020). Data only available from 2023 onwards.</td><td rowspan="2">Pickens, A.H., Hansen, M.C., Song, Z. et al. Rapid monitoring of global land change. Nat Commun 16, 8948 (2025). https://doi.org/10.1038/s41467-025-64014-9</td></tr>
+    <tr><td rowspan="3">DIST_after_2020</td><td rowspan="3">Binary mask of high-confidence vegetation disturbance alerts (classes 3, 6, 7, 8) filtered by forest habitat (JRC GFC2020). In Earth Engine the alerts start in 2024, so this is effectively disturbance from 2024 onwards.</td><td rowspan="2">Pickens, A.H., Hansen, M.C., Song, Z. et al. Rapid monitoring of global land change. Nat Commun 16, 8948 (2025). https://doi.org/10.1038/s41467-025-64014-9</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection('projects/glad/HLSDIST/current/VEG-DIST-STATUS')<br>Ancillary: ee.Image("JRC/GFC2020/V3")</td></tr>
-    -->
     <tr><td rowspan="3">GLAD-L_before_2020</td><td rowspan="3">Binary mask of aggregate confirmed GLAD Landsat forest alerts (confidence >= 2) from 2017 to 2020 inclusive. Note: although some areas have data for 2015 and 2016 the assets do not exist in GEE. Coverage: Tropics (30°N to 30°S).</td><td rowspan="2">Hansen, M.C., Krylov, A., Tyukavina, A., Potapov, P.V., Turubanova, S., Zutta, B., Ifo, S., Margono, B., Stolle, F., & Moore, R. (2016). <i>Humid tropical forest disturbance alerts using Landsat data.</i> Environmental Research Letters, 11(3), 034008. https://doi.org/10.1088/1748-9326/11/3/034008</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection('projects/glad/alert/2017final')<br>ee.ImageCollection('projects/glad/alert/2018final')<br>ee.ImageCollection('projects/glad/alert/2019final')<br>ee.ImageCollection('projects/glad/alert/2020final')</td></tr>
@@ -194,8 +196,8 @@ The sources listed in the table above are analyzed and disaggregated into ~200 d
 Overall, the output CSV from running Whisp zonal statistics processing for a geometry therefore holds:
 - 124 values from disaggregated layers;
 - 26 values from aggregate or stand-alone layers crucial to the risk analysis;
-- 29 (optional) national layers described in the whisp_columns.xlsx in the whisp_outputs_national tab.
-- the yes & no answers to the risk categories in the [decision tree](https://github.com/user-attachments/assets/007b5f50-3939-4707-95fa-98be4d56745f) and the final risk category ("low", "high", or "more info needed") for the perennial crops, annual crops and timber;
+- 29 (optional) national layers, described in the [result fields reference](https://whisp.openforis.org/docs/reference/result-fields).
+- the yes & no answers to the risk categories in the [decision tree](https://github.com/user-attachments/assets/007b5f50-3939-4707-95fa-98be4d56745f) and the final risk category ("low", "high", or "more info needed") for the perennial crops, annual crops, timber and livestock;
 - some additional metadata and geographic information, e.g. ID, geometry type, hectares, country, etc...
 
 *(Disclaimer: The number of layers is subject to changes. The number of ~200 layers mentioned might deviate slightly, but not fundamentally.)*

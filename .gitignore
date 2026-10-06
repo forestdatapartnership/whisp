@@ -23,3 +23,8 @@ credentials.json
 notebooks/timber_pathway_viewer.html
 config_gee.py
 dist/
+
+# Local secrets and generated files that can carry tokens
+.whisp_api_key
+ee_private_key.json
+notebooks/*.html
