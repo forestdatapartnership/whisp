@@ -5,6 +5,8 @@ from pathlib import Path
 from .datasets import combine_datasets, is_dataset_error, supplied_image_error
 import json
 import logging
+import re
+from datetime import datetime
 import country_converter as coco
 from openforis_whisp.parameters.config_runtime import (
     plot_id_column,
@@ -527,6 +529,8 @@ def whisp_stats_geojson_to_drive(
     national_codes=None,
     unit_type="ha",
     whisp_image=None,  # New parameter
+    file_name=None,
+    folder=None,
 ):
     """
     Export Whisp statistics for a GeoJSON file to Google Drive.
@@ -543,10 +547,16 @@ def whisp_stats_geojson_to_drive(
         Whether to use hectares ("ha") or percentage ("percent"), by default "ha".
     whisp_image : ee.Image, optional
         Pre-combined multiband Earth Engine Image containing all Whisp datasets.
+    file_name : str, optional
+        Name of the CSV in Google Drive (without .csv). Defaults to
+        'whisp_output_YYYYMMDD_HHMM' with the time the export starts.
+    folder : str, optional
+        Google Drive folder to export into, created if it does not exist. Defaults to the Drive root.
 
     Returns
     -------
-    Message showing location of file in Google Drive
+    ee.batch.Task
+        The started export task, or None if the export could not start.
     """
     try:
         input_geojson_filepath = Path(input_geojson_filepath)
@@ -561,6 +571,8 @@ def whisp_stats_geojson_to_drive(
             national_codes=national_codes,
             unit_type=unit_type,
             whisp_image=whisp_image,  # Pass through
+            file_name=file_name,
+            folder=folder,
         )
 
     except control_flow.PROPAGATE:
@@ -611,8 +623,19 @@ def whisp_stats_ee_to_ee(
                     feature_collection, external_id_column
                 )
 
-                if not validation_result["is_valid"]:
+                # Stop only if no feature has the column (likely a misspelt name). Features
+                # without a value (Earth Engine drops nulls) get "unknown" below.
+                if validation_result["features_with_column"] == 0:
                     raise ValueError(validation_result["error_message"])
+                if not validation_result["is_valid"]:
+                    missing_count = (
+                        validation_result["total_features"]
+                        - validation_result["features_with_column"]
+                    )
+                    print(
+                        f"Warning: {missing_count} of {validation_result['total_features']} features "
+                        f"have no value for '{external_id_column}'; their external_id is set to 'unknown'."
+                    )
 
             # First handle property selection, but preserve the external_id_column
             if keep_properties is not None:
@@ -898,6 +921,8 @@ def whisp_stats_ee_to_drive(
     national_codes=None,
     unit_type="ha",
     whisp_image=None,  # New parameter
+    file_name=None,
+    folder=None,
 ):
     """
      Export Whisp statistics for a feature collection to Google Drive.
@@ -914,10 +939,20 @@ def whisp_stats_ee_to_drive(
          Whether to use hectares ("ha") or percentage ("percent"), by default "ha".
     whisp_image : ee.Image, optional
          Pre-combined multiband Earth Engine Image containing all Whisp datasets.
+    file_name : str, optional
+         Name of the CSV in Google Drive (without .csv). Defaults to
+         'whisp_output_YYYYMMDD_HHMM' with the time the export starts.
+    folder : str, optional
+         Google Drive folder to export into, created if it does not exist. Defaults to the Drive root.
      Returns
      -------
-     None
+     ee.batch.Task
+         The started export task, or None if the export could not start.
     """
+    if file_name is None:
+        file_name = f"whisp_output_{datetime.now():%Y%m%d_%H%M}"
+    elif file_name.lower().endswith(".csv"):
+        file_name = file_name[:-4]
     try:
         task = ee.batch.Export.table.toDrive(
             collection=whisp_stats_ee_to_ee(
@@ -930,18 +965,45 @@ def whisp_stats_ee_to_drive(
                 # as nothing can recover once the task is running
                 validate_bands=whisp_image is None,
             ),
-            description="whisp_output_table",
-            # folder="whisp_results",
+            description=_export_task_description(file_name),
+            fileNamePrefix=file_name,
+            folder=folder,
             fileFormat="CSV",
         )
         task.start()
-        print(
-            "Exporting to Google Drive: 'whisp_output_table.csv'. To track progress: https://code.earthengine.google.com/tasks"
-        )
+        drive_path = f"{folder}/{file_name}.csv" if folder else f"{file_name}.csv"
+        project = _ee_project_in_use()
+        if project:
+            print(
+                f"Exporting to Google Drive: '{drive_path}' (Earth Engine project: {project}, task id: {task.id}). "
+                f"To track progress: https://console.cloud.google.com/earth-engine/tasks?project={project}"
+            )
+        else:
+            print(
+                f"Exporting to Google Drive: '{drive_path}' (task id: {task.id}). "
+                "To track progress: https://code.earthengine.google.com/tasks"
+            )
+        return task
     except control_flow.PROPAGATE:
         raise
     except Exception as e:
         print(f"An error occurred during the export: {e}")
+
+
+def _export_task_description(file_name):
+    """Earth Engine task names allow only letters, numbers, spaces and .,:;_- (max 100 characters)."""
+    return re.sub(r"[^A-Za-z0-9 .,:;_-]", "_", file_name)[:100]
+
+
+def _ee_project_in_use():
+    """The Cloud project Earth Engine is running under, if it can be read."""
+    try:
+        from ee import _state
+
+        project = _state.get_state().cloud_api_user_project
+    except Exception:  # earthengine-api before 1.6.12
+        project = getattr(ee.data, "_cloud_api_user_project", None)
+    return project or None
 
 
 #### main stats functions
