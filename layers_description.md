@@ -13,9 +13,9 @@ To view the layers in action, go to [https://whisp.earthmap.org/](https://whisp.
   </thead>
   <tbody>
     <tr><td colspan="3"><b>Tree cover datasets:</b></td></tr>
-    <tr><td rowspan="3">EUFO_2020</td><td rowspan="3">Binary values, where 1 is forest.</td><td rowspan="2">Bourgoin, C.; Verhegghen, A.; Carboni, S.; Ameztoy, I.; Degreve, L.; Fritz, S.; Herold, M.; Tsendbazar, N.; Lesiv, M.; Achard, F.; Colditz, R. (2025) <i> Global map of forest cover 2020 </i> version 3. European Commission, Joint Research Centre (JRC) PID: https://data.jrc.ec.europa.eu/dataset/8c561543-31df-4e1b-9994-e529afecaf54</td></tr>
+    <tr><td rowspan="3">EUFO_2020</td><td rowspan="3">Binary values, where 1 is forest.</td><td rowspan="2">Bourgoin, C.; Achard, F.; Beuchle, R.; Carboni, S.; Carreiras, J.; Marinelli, D.; Rotllan-Puig, X.; Simonetti, D.; Colditz, R. (2026) <i> Global map of forest cover 2020 </i> version 4. European Commission, Joint Research Centre (JRC) [Dataset]. doi: https://doi.org/10.2905/JRC.3KATEH8</td></tr>
     <tr></tr>
-    <tr><td>ee.Image(“JRC/GFC2020/V3”)</td></tr>
+    <tr><td>ee.Image("JRC/GFC2020/V4")</td></tr>
     <tr><td rowspan="3">GLAD_Primary</td><td rowspan="3">Binary input layer representing primary forest in 2001. Loss pixels 2001-2020 removed with ancillary dataset.</td><td rowspan="2">Turubanova, S., Potapov, P. V., Tyukavina, A., & Hansen, M. C. (2018). <i>Ongoing primary forest loss in Brazil, Democratic Republic of the Congo, and Indonesia.</i> Environmental Research Letters, 13(7), 074028. https://doi.org/10.1088/1748-9326/aacd1c</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection (‘UMD/GLAD/PRIMARY_HUMID_TROPICAL_FORESTS/v1’)<br>Ancillary: ee.Image("UMD/hansen/global_forest_change_2025_v1_13")</td></tr>
@@ -98,7 +98,7 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr><td>ee.ImageCollection('projects/radar-wur/raddalert/v1')</td></tr>
     <tr><td rowspan="3">DIST_after_2020</td><td rowspan="3">Binary mask of high-confidence vegetation disturbance alerts (classes 3, 6, 7, 8) filtered by forest habitat (JRC GFC2020). In Earth Engine the alerts start in 2024, so this is effectively disturbance from 2024 onwards.</td><td rowspan="2">Pickens, A.H., Hansen, M.C., Song, Z. et al. Rapid monitoring of global land change. Nat Commun 16, 8948 (2025). https://doi.org/10.1038/s41467-025-64014-9</td></tr>
     <tr></tr>
-    <tr><td>ee.ImageCollection('projects/glad/HLSDIST/current/VEG-DIST-STATUS')<br>Ancillary: ee.Image("JRC/GFC2020/V3")</td></tr>
+    <tr><td>ee.ImageCollection('projects/glad/HLSDIST/current/VEG-DIST-STATUS')<br>Ancillary: ee.Image("JRC/GFC2020/V4")</td></tr>
     <tr><td rowspan="3">GLAD-L_before_2020</td><td rowspan="3">Binary mask of aggregate confirmed GLAD Landsat forest alerts (confidence >= 2) from 2017 to 2020 inclusive. Note: although some areas have data for 2015 and 2016 the assets do not exist in GEE. Coverage: Tropics (30°N to 30°S).</td><td rowspan="2">Hansen, M.C., Krylov, A., Tyukavina, A., Potapov, P.V., Turubanova, S., Zutta, B., Ifo, S., Margono, B., Stolle, F., & Moore, R. (2016). <i>Humid tropical forest disturbance alerts using Landsat data.</i> Environmental Research Letters, 11(3), 034008. https://doi.org/10.1088/1748-9326/11/3/034008</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection('projects/glad/alert/2017final')<br>ee.ImageCollection('projects/glad/alert/2018final')<br>ee.ImageCollection('projects/glad/alert/2019final')<br>ee.ImageCollection('projects/glad/alert/2020final')</td></tr>
