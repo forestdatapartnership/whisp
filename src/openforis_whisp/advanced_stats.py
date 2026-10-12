@@ -33,7 +33,7 @@ import os
 from contextlib import redirect_stdout
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple, Union
-from importlib.metadata import version as get_version
+from importlib.metadata import version as get_version, PackageNotFoundError
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from openforis_whisp.logger import get_whisp_logger
@@ -100,16 +100,13 @@ def _suppress_verbose_output(max_concurrent: int = None):
     """
     Suppress verbose warnings and logging from dependencies.
 
-    Dynamically adjusts urllib3 logger level based on max_concurrent to prevent
-    "Connection pool is full" warnings during high-concurrency scenarios.
+    Sets the urllib3 loggers to CRITICAL to prevent "Connection pool is full"
+    warnings during high-concurrency scenarios.
 
     Parameters
     ----------
     max_concurrent : int, optional
-        Maximum concurrent workers. Adjusts urllib3 logging level:
-        - max_concurrent <= 20: WARNING (pool rarely full)
-        - max_concurrent 21-35: CRITICAL (suppress pool warnings)
-        - max_concurrent >= 36: CRITICAL (maximum suppression)
+        Not used (the levels are the same for any value).
     """
     warnings.filterwarnings("ignore", category=UserWarning)
     warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -179,8 +176,16 @@ def _load_and_prepare_geojson(
             gdf = gpd.read_file(filepath)
 
         # Rename external_id column early and convert to string
-        if external_id_column and external_id_column in gdf.columns:
+        if external_id_column:
+            if external_id_column not in gdf.columns:
+                available_cols = [c for c in gdf.columns if c != gdf.geometry.name]
+                raise ValueError(
+                    f"Column '{external_id_column}' not found in GeoJSON properties. "
+                    f"Available columns: {available_cols}"
+                )
             if external_id_column != "external_id":
+                # the requested column wins over an existing 'external_id' property
+                gdf = gdf.drop(columns=["external_id"], errors="ignore")
                 gdf = gdf.rename(
                     columns={external_id_column: "external_id"}
                 )  # hard coding here to avoid confusion later
@@ -313,7 +318,7 @@ def join_admin_codes(
 
         # Prepare data for join
         df = df.copy()
-        # Round to nearest integer (handles float values from EE reducers)
+        # Cast to integer (truncates; handles float values from EE reducers)
         df["admin_code_for_join"] = df[id_col].fillna(-9999).astype("int32")
         lookup_df["gaul1_code"] = lookup_df["gaul1_code"].astype("int32")
 
@@ -351,6 +356,8 @@ def join_admin_codes(
         )
         return df_joined
 
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         logger.warning(f"Error joining admin codes: {e}")
         return df
@@ -847,6 +854,8 @@ def _add_geometry_audit_trail(
         logger.info("Audit trail added: geo_original column")
         return df_result
 
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         logger.warning(f"Error adding audit trail: {e}")
         # Return original DataFrame if audit trail fails
@@ -988,17 +997,13 @@ def process_ee_batch(
             # Ensure plot_id_column is present for merging
             # It should come from the feature properties (added before EE processing)
             if plot_id_column not in df.columns:
-                logger.warning(
-                    f"Batch {batch_idx + 1}: plotId column DROPPED by EE. "
-                    f"Regenerating with 1-indexed range. "
-                    f"Columns from EE: {list(df.columns)}"
+                # Ids are global across batches, so they cannot be rebuilt from row order here
+                raise RuntimeError(
+                    f"plotId column dropped by EE. Columns from EE: {list(df.columns)}"
                 )
-                # Use 1-indexed range to match client-side assignment
-                df[plot_id_column] = [str(i) for i in range(1, len(df) + 1)]
 
             # Ensure plotId is string type (consistent with creation)
-            if plot_id_column in df.columns:
-                df[plot_id_column] = df[plot_id_column].astype(str)
+            df[plot_id_column] = df[plot_id_column].astype(str)
 
             # Ensure all column names are strings (fixes pandas .str accessor issues)
             df.columns = df.columns.astype(str)
@@ -1234,16 +1239,8 @@ def whisp_stats_geojson_to_df_concurrent(
 
     def merge_batch(df_server, df_client):
         """Merge one batch's EE statistics with its client-side metadata."""
-        if plot_id_column not in df_server.columns:
-            logger.warning(
-                f"Batch (concurrent merge): plotId DROPPED by EE. "
-                f"Regenerating. Columns from EE: {list(df_server.columns)}"
-            )
-            df_server[plot_id_column] = pd.array(
-                range(1, len(df_server) + 1), dtype="Int64"
-            )
-        else:
-            df_server[plot_id_column] = df_server[plot_id_column].astype(str)
+        # process_ee_batch raises if EE dropped plotId, so it is always present here
+        df_server[plot_id_column] = df_server[plot_id_column].astype(str)
         if plot_id_column in df_client.columns:
             df_client[plot_id_column] = df_client[plot_id_column].astype(str)
 
@@ -1797,9 +1794,9 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
     custom_bands : Dict[str, Any], optional
         Custom band information
     batch_size : int
-        Features per batch (default 25)
+        Features per batch (default 10)
     max_concurrent : int
-        Maximum concurrent EE calls (default 10)
+        Maximum concurrent EE calls (default 20)
     validate_geometries : bool
         Validate and clean geometries (default True)
     max_retries : int
@@ -1833,8 +1830,6 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
     """
     from openforis_whisp.reformat import format_stats_dataframe
     from datetime import datetime, timezone
-    import json
-    from shapely.geometry import mapping
 
     logger = logger or logging.getLogger("whisp")
 
@@ -1892,11 +1887,15 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
     # Step 2b: Reformat geometry and handle point areas
     try:
         df_formatted = reformat_geometry_type(df_formatted)
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         logger.warning(f"Error reformatting geometry type: {e}")
 
     try:
         df_formatted = set_point_geometry_area_to_zero(df_formatted)
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         logger.warning(f"Error setting point geometry area to zero: {e}")
 
@@ -1921,8 +1920,12 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
         )
 
     # Add processing metadata column using pd.concat to avoid fragmentation warning
+    try:
+        whisp_version = get_version("openforis-whisp")
+    except PackageNotFoundError:  # running from a source tree without an install
+        whisp_version = "unknown"
     metadata_dict = {
-        "whisp_version": get_version("openforis-whisp"),
+        "whisp_version": whisp_version,
         "processing_timestamp_utc": datetime.now(timezone.utc).strftime(
             "%Y-%m-%d %H:%M:%S%z"
         ),
@@ -2001,7 +2004,7 @@ def whisp_formatted_stats_geojson_to_df_sequential(
         Water flag ratio threshold (default 0.5)
     sort_column : str
         Column to sort by (default "plotId", None to skip)
-    geometry_audit_trail : bool, default True
+    geometry_audit_trail : bool, default False
         If True, includes original input geometry column:
         - geo_original: Original input geometry (before EE processing), stored as GeoJSON
         Enables geometry traceability for compliance and audit purposes.
@@ -2013,8 +2016,6 @@ def whisp_formatted_stats_geojson_to_df_sequential(
     """
     from openforis_whisp.reformat import format_stats_dataframe
     from datetime import datetime, timezone
-    import json
-    from shapely.geometry import mapping
 
     logger = logger or logging.getLogger("whisp")
 
@@ -2068,11 +2069,15 @@ def whisp_formatted_stats_geojson_to_df_sequential(
     # Step 2b: Reformat geometry and handle point areas
     try:
         df_formatted = reformat_geometry_type(df_formatted)
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         logger.warning(f"Error reformatting geometry type: {e}")
 
     try:
         df_formatted = set_point_geometry_area_to_zero(df_formatted)
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         logger.warning(f"Error setting point geometry area to zero: {e}")
 
@@ -2097,8 +2102,12 @@ def whisp_formatted_stats_geojson_to_df_sequential(
         )
 
     # Add processing metadata column using pd.concat to avoid fragmentation warning
+    try:
+        whisp_version = get_version("openforis-whisp")
+    except PackageNotFoundError:  # running from a source tree without an install
+        whisp_version = "unknown"
     metadata_dict = {
-        "whisp_version": get_version("openforis-whisp"),
+        "whisp_version": whisp_version,
         "processing_timestamp_utc": datetime.now(timezone.utc).strftime(
             "%Y-%m-%d %H:%M:%S%z"
         ),
