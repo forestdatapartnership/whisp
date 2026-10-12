@@ -272,7 +272,7 @@ def _normalize_keep_external_columns(
 
 
 def join_admin_codes(
-    df: pd.DataFrame, lookup_dict: Dict, id_col: str = "admin_code_median"
+    df: pd.DataFrame, lookup_dict: Dict, id_col: str = "admin_code_mode"
 ) -> pd.DataFrame:
     """
     Join admin codes to DataFrame using a lookup dictionary.
@@ -287,7 +287,7 @@ def join_admin_codes(
     lookup_dict : dict
         Dictionary mapping GAUL codes to admin info (iso3_code, iso2_code, gaul1_name)
     id_col : str
-        Name of the admin code column (default: "admin_code_median")
+        Name of the admin code column (default: "admin_code_mode")
 
     Returns
     -------
@@ -318,8 +318,8 @@ def join_admin_codes(
 
         # Prepare data for join
         df = df.copy()
-        # Cast to integer (truncates; handles float values from EE reducers)
-        df["admin_code_for_join"] = df[id_col].fillna(-9999).astype("int32")
+        # Round, then cast to integer (EE reducers return floats, and truncating 2183.99 gives 2183)
+        df["admin_code_for_join"] = df[id_col].fillna(-9999).round().astype("int32")
         lookup_df["gaul1_code"] = lookup_df["gaul1_code"].astype("int32")
 
         # Perform join
@@ -1183,8 +1183,12 @@ def whisp_stats_geojson_to_df_concurrent(
             logger, combine_datasets, national_codes=national_codes
         )
 
-    # Create reducer
-    reducer = ee.Reducer.sum().combine(ee.Reducer.median(), sharedInputs=True)
+    # Create reducer: sum for the area bands, mode for the categorical admin_code band.
+    # The most common code is used, not the median: for a plot across a border a median can
+    # land on a code between its neighbours' codes, which belongs to another region or country.
+    # maxBuckets and minBucketWidth keep one histogram bucket per integer code; with the
+    # defaults a large plot gets an approximate value such as 2183.99 for code 2184.
+    reducer = ee.Reducer.sum().combine(ee.Reducer.mode(65536, 1), sharedInputs=True)
 
     # Batch the data
     batches = batch_geodataframe(gdf_for_ee, batch_size)
@@ -1467,13 +1471,13 @@ def whisp_stats_geojson_to_df_concurrent(
             ]
 
         # Add admin context (Country, ProducerCountry, Admin_Level_1) from admin_code
-        # MUST be done BEFORE formatting (which removes _median columns)
+        # MUST be done BEFORE formatting (which removes _mode columns)
         logger.debug("Adding administrative context...")
         try:
             from openforis_whisp.parameters.lookup_gaul1_admin import lookup_dict
 
             combined = join_admin_codes(
-                df=combined, lookup_dict=lookup_dict, id_col="admin_code_median"
+                df=combined, lookup_dict=lookup_dict, id_col="admin_code_mode"
             )
         except ImportError:
             logger.warning(
@@ -1641,8 +1645,8 @@ def whisp_stats_geojson_to_df_sequential(
             gdf_for_ee_clean, enforce_wgs84=True, strip_z_coords=True
         )
 
-    # Create reducer
-    reducer = ee.Reducer.sum().combine(ee.Reducer.median(), sharedInputs=True)
+    # Create reducer: sum for the area bands, exact mode for admin_code (see concurrent mode)
+    reducer = ee.Reducer.sum().combine(ee.Reducer.mode(65536, 1), sharedInputs=True)
 
     # Process server-side with error handling for bad bands
     logger.info(
@@ -1707,13 +1711,13 @@ def whisp_stats_geojson_to_df_sequential(
 
     # Format the output
     # Add admin context (Country, ProducerCountry, Admin_Level_1) from admin_code
-    # MUST be done BEFORE formatting (which removes _median columns)
+    # MUST be done BEFORE formatting (which removes _mode columns)
     logger.debug("Adding administrative context...")
     try:
         from openforis_whisp.parameters.lookup_gaul1_admin import lookup_dict
 
         result = join_admin_codes(
-            df=result, lookup_dict=lookup_dict, id_col="admin_code_median"
+            df=result, lookup_dict=lookup_dict, id_col="admin_code_mode"
         )
     except ImportError:
         logger.warning("Could not import lookup dictionary - admin context not added")
@@ -1811,7 +1815,8 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
         - Percent columns: stats_percent_columns_formatting
         - Other columns: stats_area_columns_formatting
     remove_median_columns : bool
-        Remove '_median' columns (default True)
+        Remove the intermediate '_mode' columns (they were '_median' columns before the
+        admin code switched to the mode; the parameter keeps its name for compatibility) (default True)
     convert_water_flag : bool
         Convert water flag to boolean (default True)
     water_flag_threshold : float
@@ -1865,10 +1870,8 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
 
     # Step 2: Format the output
     logger.debug("Step 2/2: Formatting output...")
-    median_cols_before = [c for c in df_raw.columns if c.endswith("_median")]
-    logger.debug(
-        f"Columns ending with '_median' BEFORE formatting: {median_cols_before}"
-    )
+    mode_cols_before = [c for c in df_raw.columns if c.endswith("_mode")]
+    logger.debug(f"Columns ending with '_mode' BEFORE formatting: {mode_cols_before}")
 
     df_formatted = format_stats_dataframe(
         df=df_raw,
@@ -1881,8 +1884,8 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
         sort_column=sort_column,
     )
 
-    median_cols_after = [c for c in df_formatted.columns if c.endswith("_median")]
-    logger.debug(f"Columns ending with '_median' AFTER formatting: {median_cols_after}")
+    mode_cols_after = [c for c in df_formatted.columns if c.endswith("_mode")]
+    logger.debug(f"Columns ending with '_mode' AFTER formatting: {mode_cols_after}")
 
     # Step 2b: Reformat geometry and handle point areas
     try:
@@ -1997,7 +2000,8 @@ def whisp_formatted_stats_geojson_to_df_sequential(
         - Percent columns: stats_percent_columns_formatting
         - Other columns: stats_area_columns_formatting
     remove_median_columns : bool
-        Remove '_median' columns (default True)
+        Remove the intermediate '_mode' columns (they were '_median' columns before the
+        admin code switched to the mode; the parameter keeps its name for compatibility) (default True)
     convert_water_flag : bool
         Convert water flag to boolean (default True)
     water_flag_threshold : float
@@ -2047,10 +2051,8 @@ def whisp_formatted_stats_geojson_to_df_sequential(
 
     # Step 2: Format the output
     logger.debug("Step 2/2: Formatting output...")
-    median_cols_before = [c for c in df_raw.columns if c.endswith("_median")]
-    logger.debug(
-        f"Columns ending with '_median' BEFORE formatting: {median_cols_before}"
-    )
+    mode_cols_before = [c for c in df_raw.columns if c.endswith("_mode")]
+    logger.debug(f"Columns ending with '_mode' BEFORE formatting: {mode_cols_before}")
 
     df_formatted = format_stats_dataframe(
         df=df_raw,
@@ -2063,8 +2065,8 @@ def whisp_formatted_stats_geojson_to_df_sequential(
         sort_column=sort_column,
     )
 
-    median_cols_after = [c for c in df_formatted.columns if c.endswith("_median")]
-    logger.debug(f"Columns ending with '_median' AFTER formatting: {median_cols_after}")
+    mode_cols_after = [c for c in df_formatted.columns if c.endswith("_mode")]
+    logger.debug(f"Columns ending with '_mode' AFTER formatting: {mode_cols_after}")
 
     # Step 2b: Reformat geometry and handle point areas
     try:
@@ -2196,7 +2198,8 @@ def whisp_formatted_stats_geojson_to_df_fast(
     decimal_places : int, optional
         Decimal places for rounding. If None, auto-detects from config.
     remove_median_columns : bool
-        Remove '_median' columns
+        Remove the intermediate '_mode' columns (they were '_median' columns before the
+        admin code switched to the mode; the parameter keeps its name for compatibility)
     convert_water_flag : bool
         Convert water flag to boolean
     water_flag_threshold : float

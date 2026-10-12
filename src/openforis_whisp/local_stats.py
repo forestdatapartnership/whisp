@@ -1538,9 +1538,9 @@ def whisp_stats_local(
             values may trigger EE rate limits)
         max_extract_workers: Number of parallel extract processes (default: CPU count - 1)
         chunk_size: Features per chunk for parallel extraction
-        ops: Statistics operations for exactextract (default: ['sum', 'median'] to match
+        ops: Statistics operations for exactextract (default: ['sum', 'majority'] to match
             concurrent mode's combined reducer). The sum is used for area statistics,
-            while median is used for admin_code lookup.
+            while majority (the most common value) is used for admin_code lookup.
         cleanup_files: Whether to delete this run's GeoTIFFs/VRT (and its subfolder) after
             processing, also when the run fails. If False they stay in output_dir/whisp_run_*/
         include_context_bands: Whether to include context bands (admin_code, water_flag)
@@ -1550,7 +1550,8 @@ def whisp_stats_local(
         decimal_places: Decimal places for rounding (default: 3)
         external_id_column: Column name in input GeoJSON to preserve as external_id
         custom_bands: Custom band handling for validation (None=strict, list=preserve specified)
-        remove_median_columns: Whether to remove '_median' columns after processing (default: True)
+        remove_median_columns: Whether to remove the intermediate '_majority' columns after
+            processing (default: True; the name dates from when a median was used)
         convert_water_flag: Whether to convert water flag to boolean (default: True)
         water_flag_threshold: Threshold for water flag ratio (default: 0.5)
         sort_column: Column to sort output by (default: 'plotId', None to skip)
@@ -1581,11 +1582,12 @@ def whisp_stats_local(
         # Suppress GDAL/rasterio warnings (TIFF metadata issues are common but harmless)
         _suppress_gdal_warnings()
 
-        # Default to both sum and median operations to match concurrent mode
+        # Default to both sum and majority operations to match concurrent mode
         # sum: used for area statistics (converted to ha/percent)
-        # median: used for admin_code lookup (categorical band needs mode/median, not sum)
+        # majority: used for admin_code lookup. The band is categorical, so the most common
+        # code is taken; a median can land on a code that belongs to another region or country
         if ops is None:
-            ops = ["sum", "median"]
+            ops = ["sum", "majority"]
 
         if max_extract_workers is None:
             # cpu_count() can return None
@@ -1747,20 +1749,18 @@ def whisp_stats_local(
         ).values
 
         # Step 5e: Join admin codes using the lookup dictionary
-        # With ops=['sum', 'median'], admin_code_median exists (median is appropriate for categorical codes)
-        # Fall back to admin_code_sum if median wasn't computed
-        admin_col = (
-            "admin_code_median"
-            if "admin_code_median" in stats_df.columns
-            else "admin_code_sum"
+        # With ops=['sum', 'majority'], admin_code_majority exists (the most common code in the plot)
+        # Fall back to the median or the sum if a caller's ops left the majority out
+        admin_col = next(
+            (
+                c
+                for c in ("admin_code_majority", "admin_code_median", "admin_code_sum")
+                if c in stats_df.columns
+            ),
+            None,
         )
-        if admin_col in stats_df.columns:
-            if admin_col != "admin_code_median":
-                # Rename to match expected column name for join
-                stats_df["admin_code_median"] = stats_df[admin_col]
-            stats_df = join_admin_codes(
-                stats_df, gaul_lookup_dict, id_col="admin_code_median"
-            )
+        if admin_col is not None:
+            stats_df = join_admin_codes(stats_df, gaul_lookup_dict, id_col=admin_col)
 
         # Step 5f: Format stats (unit conversion, strip _sum suffix, convert water flag)
         area_col = f"{geometry_area_column}_sum"  # "Area_sum"
@@ -1770,6 +1770,7 @@ def whisp_stats_local(
             decimal_places=decimal_places,
             unit_type=unit_type,
             remove_columns=remove_median_columns,
+            remove_columns_suffix="_majority",
             convert_water_flag=convert_water_flag,
             water_flag_threshold=water_flag_threshold,
             sort_column=sort_column,

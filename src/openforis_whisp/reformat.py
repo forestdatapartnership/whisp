@@ -474,7 +474,7 @@ def format_stats_dataframe(
     stats_unit_type_column="Unit",
     strip_suffix="_sum",
     remove_columns=True,
-    remove_columns_suffix="_median",
+    remove_columns_suffix="_mode",
     convert_water_flag=True,
     water_flag_column="In_waterbody_sum",
     water_flag_threshold=0.5,
@@ -483,7 +483,7 @@ def format_stats_dataframe(
     """Flexible stats formatting for DataFrame columns.
 
     - Converts columns ending with `strip_suffix` (default '_sum') to hectares or percent.
-    - Removes columns ending with `remove_columns_suffix` (default '_median') if `remove_columns` is True.
+    - Removes columns ending with `remove_columns_suffix` (default '_mode') if `remove_columns` is True.
     - Optionally converts a water-flag stat into a boolean column based on the threshold compared to `area_col`.
     - Strips the `strip_suffix` from produced stat column names (so 'Cocoa_sum' -> 'Cocoa').
     - Fills `stats_unit_type_column` with `unit_type` for every row.
@@ -508,7 +508,7 @@ def format_stats_dataframe(
     remove_columns : bool
         Whether to remove columns with remove_columns_suffix (default True)
     remove_columns_suffix : str
-        Suffix for columns to remove (default '_median')
+        Suffix for columns to remove (default '_mode')
     convert_water_flag : bool
         Whether to convert water flag to boolean (default True)
     water_flag_column : str
@@ -588,7 +588,7 @@ def format_stats_dataframe(
     # 1) Work on a shallow copy to avoid mutating caller inplace accidentally
     df = df.copy()
 
-    # 2) Optionally drop median (or other) columns
+    # 2) Optionally drop mode (or other) columns
     if remove_columns and remove_columns_suffix:
         logger.debug(f"Dropping columns ending with '{remove_columns_suffix}'")
         logger.debug(
