@@ -428,6 +428,9 @@ def split_multipart_geojson(
             "multipart_features_split": n_multipart + n_gc,
             "single_parts_produced": n_out,
         }
+    # Keep a declared CRS so later steps can still reproject to WGS 84
+    if isinstance(geojson_data, dict) and geojson_data.get("crs"):
+        result["crs"] = geojson_data["crs"]
     result["features"] = out_features
     return result
 

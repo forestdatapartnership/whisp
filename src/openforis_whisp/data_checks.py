@@ -769,6 +769,13 @@ def check_geojson_limits(
             metrics_to_compute.append("crs")
         metrics = analyze_geojson(geojson_data, metrics=metrics_to_compute)
 
+    # analyze_geojson returns {} on any error, which must not pass as "within limits"
+    if not metrics or "count" not in metrics:
+        raise ValueError(
+            "GeoJSON limits check failed: input could not be analysed "
+            "(missing file, invalid GeoJSON or incomplete analysis_results)"
+        )
+
     # Build results dict with required keys
     results = {
         "count": metrics.get("count", 0),
