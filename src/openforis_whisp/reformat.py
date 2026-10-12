@@ -24,11 +24,6 @@ from openforis_whisp.parameters.config_runtime import (
 logger = StdoutLogger(__name__)
 
 
-# Dictionary to cache schema and modification times for multiple files
-cached_schema = None
-cached_file_mtimes = {}
-
-
 def validate_dataframe_using_lookups(
     df_stats: pd.DataFrame, file_paths: list = None, national_codes: list = None
 ) -> pd.DataFrame:
@@ -80,11 +75,9 @@ def load_schema_if_any_file_changed(file_paths=None, national_codes=None):
     current_cache_key = "|".join(cache_key_parts)
 
     # Check cache
-    if (
-        not hasattr(load_schema_if_any_file_changed, "_cached_schema")
-        or not hasattr(load_schema_if_any_file_changed, "_last_cache_key")
-        or load_schema_if_any_file_changed._last_cache_key != current_cache_key
-    ):
+    # Key and schema are kept as one tuple and read once, so a concurrent call cannot mix them up
+    cached = getattr(load_schema_if_any_file_changed, "_cache", None)
+    if cached is None or cached[0] != current_cache_key:
 
         # Suppress verbose output
         if logger.level <= logging.INFO:
@@ -105,8 +98,7 @@ def load_schema_if_any_file_changed(file_paths=None, national_codes=None):
         schema = create_schema_from_dataframe(filtered_lookup_df)
 
         # Cache the results
-        load_schema_if_any_file_changed._cached_schema = schema
-        load_schema_if_any_file_changed._last_cache_key = current_cache_key
+        load_schema_if_any_file_changed._cache = (current_cache_key, schema)
 
         return schema
     else:
@@ -114,7 +106,7 @@ def load_schema_if_any_file_changed(file_paths=None, national_codes=None):
         if logger.level <= logging.INFO:
             logger.debug(f"Using cached schema for national_codes: {national_codes}")
         # else: suppress entirely
-        return load_schema_if_any_file_changed._cached_schema
+        return cached[1]
 
 
 def validate_dataframe(
@@ -128,19 +120,17 @@ def validate_dataframe(
         required_false (bool): If True, sets all columns in the schema as optional (required=False).
 
     Returns:
-        pd.DataFrame: The validated DataFrame with columns ordered according to the schema, or None if validation fails.
+        pd.DataFrame: The validated DataFrame with columns ordered according to the schema.
+
+    Raises:
+        pa.errors.SchemaError: If the DataFrame does not match the schema.
     """
     _log_missing_columns(df_stats, schema)
 
     # df_stats = df_stats.reindex(schema.columns.keys(), axis=1)
 
-    # Try to automatically coerce the DataFrame to match the schema types
-    try:
-        validated_df = schema(df_stats)
-    except pa.errors.SchemaError as e:
-        print("Error during validation:", e)
-        # Return None or raise the error if validation fails
-        return None  # or raise e
+    # Automatically coerce the DataFrame to match the schema types (raises SchemaError if it can't)
+    validated_df = schema(df_stats)
 
     # Reorder the validated DataFrame to match the schema's column order
     validated_df = validated_df.reindex(schema.columns.keys(), axis=1)
@@ -249,17 +239,7 @@ def create_schema_from_dataframe(schema_df: pd.DataFrame) -> pa.DataFrameSchema:
     return schema
 
 
-# def setup_logger(name):
-#     # Create and configure logger
-#     logging.basicConfig(level=logging.INFO)
-#     logger = logging.getLogger(name)
-#     return logger
-
-
 def _log_missing_columns(df_stats: pd.DataFrame, template_schema: pa.DataFrameSchema):
-    # Initialize the logger
-    logger = setup_logger(__name__)
-
     # Extract the expected columns from the DataFrameSchema
     template_columns = template_schema.columns.keys()
     df_stats_columns = df_stats.columns
@@ -285,194 +265,6 @@ def _log_missing_columns(df_stats: pd.DataFrame, template_schema: pa.DataFrameSc
         )
     else:
         logger.info("All columns from the schema found in the results dataframe.")
-
-
-def setup_logger(name):
-    """
-    Set up a logger with a specific name to avoid duplicate logs.
-    """
-    logger = logging.getLogger(name)
-    if not logger.hasHandlers():
-        # Create handlers only if there are none
-        stdout_handler = logging.StreamHandler()
-        file_handler = logging.FileHandler("missing_columns.log")
-
-        # Set levels
-        stdout_handler.setLevel(logging.WARNING)
-        file_handler.setLevel(logging.WARNING)
-
-        # Create formatter and add it to the handlers
-        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-        stdout_handler.setFormatter(formatter)
-        file_handler.setFormatter(formatter)
-
-        # Add handlers to the logger
-        logger.addHandler(stdout_handler)
-        logger.addHandler(file_handler)
-
-    return logger
-
-
-def filter_lookup_by_country_codes(
-    lookup_df: pd.DataFrame, national_codes: list
-) -> pd.DataFrame:
-    """
-    Filter lookup DataFrame to include only:
-    1. Global columns (prefixed with 'g_')
-    2. General columns (not country-specific)
-    3. Country-specific columns matching the provided ISO2 codes
-
-    Args:
-        lookup_df (pd.DataFrame): The lookup DataFrame used to create the schema
-        national_codes (list): List of ISO2 country codes to include
-
-    Returns:
-        pd.DataFrame: Filtered lookup DataFrame
-    """
-    if not national_codes:
-        return lookup_df
-
-    # Normalize national_codes to lowercase for case-insensitive comparison
-    normalized_codes = [
-        code.lower() for code in national_codes if isinstance(code, str)
-    ]
-
-    # Keep track of rows to filter out
-    rows_to_remove = []
-
-    # Process each row in the lookup DataFrame
-    for idx, row in lookup_df.iterrows():
-        col_name = row["name"]
-
-        # Skip if not a column name entry
-        if pd.isna(col_name):
-            continue
-
-        # Always keep global columns (g_) and columns that aren't country-specific
-        if col_name.startswith("g_"):
-            continue
-
-        # Check if this is a country-specific column (nXX_)
-        is_country_column = False
-        matched_country = False
-
-        # Look for pattern nXX_ which would indicate a country-specific column
-        for i in range(len(col_name) - 3):
-            if (
-                col_name[i : i + 1].lower() == "n"
-                and len(col_name) > i + 3
-                and col_name[i + 3 : i + 4] == "_"
-            ):
-                country_code = col_name[i + 1 : i + 3].lower()
-                is_country_column = True
-                if country_code in normalized_codes:
-                    matched_country = True
-                break
-
-        # If it's a country column but doesn't match our list, flag for removal
-        if is_country_column and not matched_country:
-            rows_to_remove.append(idx)
-
-    # Filter out rows for countries not in our list
-    if rows_to_remove:
-        return lookup_df.drop(rows_to_remove)
-
-
-#     return lookup_df
-def filter_lookup_by_country_codes(
-    lookup_df: pd.DataFrame, national_codes: list = None
-) -> pd.DataFrame:
-    """
-    Filter lookup DataFrame to include only:
-    1. Global columns (prefixed with 'g_')
-    2. General columns (not country-specific)
-    3. Country-specific columns matching the provided ISO2 codes (if national_codes provided)
-
-    If no national_codes are provided, ALL country-specific columns are filtered out.
-
-    Args:
-        lookup_df (pd.DataFrame): The lookup DataFrame used to create the schema
-        national_codes (list, optional): List of ISO2 country codes to include.
-                                        If None, all country-specific columns are removed.
-
-    Returns:
-        pd.DataFrame: Filtered lookup DataFrame
-    """
-
-    # Normalize national_codes to lowercase for case-insensitive comparison
-    if national_codes:
-        normalized_codes = [
-            code.lower() for code in national_codes if isinstance(code, str)
-        ]
-    else:
-        normalized_codes = []
-
-    # Keep track of rows to remove
-    rows_to_remove = []
-
-    # Process each row in the lookup DataFrame
-    for idx, row in lookup_df.iterrows():
-        col_name = row["name"]
-
-        # Skip if not a column name entry
-        if pd.isna(col_name):
-            continue
-
-        # Always keep global columns (g_) and general columns
-        if col_name.startswith("g_"):
-            continue
-
-        # Check if this is a country-specific column (nXX_)
-        is_country_column = False
-        matched_country = False
-
-        # Look for pattern nXX_ which indicates a country-specific column
-        for i in range(len(col_name) - 3):
-            if (
-                col_name[i : i + 1].lower() == "n"
-                and len(col_name) > i + 3
-                and col_name[i + 3 : i + 4] == "_"
-            ):
-                country_code = col_name[i + 1 : i + 3].lower()
-                is_country_column = True
-
-                # Only match if we have national_codes AND this country is in the list
-                if national_codes and country_code in normalized_codes:
-                    matched_country = True
-                break
-
-        # Remove country-specific columns that don't match our criteria:
-        # - If no national_codes provided: remove ALL country columns
-        # - If national_codes provided: remove country columns NOT in the list
-        if is_country_column and not matched_country:
-            rows_to_remove.append(idx)
-
-    # Filter out flagged rows
-    if rows_to_remove:
-        print(
-            f"Filtering out {(rows_to_remove)} country-specific row(s) not matching criteria"
-        )
-        filtered_df = lookup_df.drop(rows_to_remove)
-
-        # Filter out flagged rows
-    #     if rows_to_remove:
-    #         # Create detailed debug info
-    #         removed_rows_info = []
-    #         for idx in rows_to_remove:
-    #             row_name = lookup_df.loc[idx, "name"]
-    #             removed_rows_info.append({
-    #                 'index': idx,
-    #                 'name': row_name
-    #             })
-
-    #         # Extract just the column names for easy viewing
-    #         removed_column_names = [info['name'] for info in removed_rows_info]
-
-    #         print(f"Filtered out {len(rows_to_remove)} country-specific row(s) not matching criteria")
-    #         print(f"Removed column names: {removed_column_names}")
-    #         return filtered_df
-
-    return lookup_df
 
 
 def filter_lookup_by_country_codes(
@@ -559,13 +351,7 @@ def validate_dataframe_using_lookups_flexible(
 
         # Validate schema columns if any exist
         if not df_schema_part.empty:
-            try:
-                validated_schema_part = validate_dataframe(df_schema_part, schema)
-            except Exception as e:
-                logger.error(f"Schema validation failed: {e}")
-                validated_schema_part = (
-                    df_schema_part  # Keep original if validation fails
-                )
+            validated_schema_part = validate_dataframe(df_schema_part, schema)
         else:
             validated_schema_part = pd.DataFrame()
 
@@ -774,7 +560,6 @@ def format_stats_dataframe(
             else:
                 # unknown unit type: just copy the raw sums
                 new[base] = df[col].round(decimal_places)
-        df[area_col] = (df[area_col] / 10000).round(decimal_places)
         return pd.DataFrame(new, index=df.index)
 
     # Helper: convert water flag stat (if present) into bool by thresholding water_area / total_area
@@ -834,6 +619,10 @@ def format_stats_dataframe(
         )
     else:
         converted_stats_df = pd.DataFrame(index=df.index)
+
+    # Area column from square meters to hectares (also when there are no stat columns)
+    if area_col in df.columns:
+        df[area_col] = (df[area_col] / 10000).round(decimal_places)
 
     # 5) Remove original stat columns (the ones with strip_suffix) from df (but keep area_col)
     df = df.loc[
