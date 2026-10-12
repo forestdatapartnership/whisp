@@ -4,15 +4,15 @@
 
 #### Oct 2026 (2026-10)
 
-**Local use** — Desktop installs: **280** · GitHub clones: **—**
+**Local use** — Desktop installs: **287** · GitHub clones: **—**
 
-**Wider use** — Colab/Linux: **3096** · Countries: **11**
+**Wider use** — Colab/Linux: **3363** · Countries: **11**
 
 ### Monthly Breakdown
 
 | Month | PyPI: Desktop (Win+Mac) | PyPI: Colab/Linux | PyPI: Other/Unknown | PyPI: Countries | GitHub: Clones | GitHub: Stars | Release |
 |-------|------------------------:|------------------:|--------------------:|----------------:|---------------:|--------------:|---------|
-| 2026-10 | 280 | 3096 | 1386 | 11 | — | 38 |  |
+| 2026-10 | 287 | 3363 | 1586 | 11 | — | 38 | 3.0.0a19 |
 | 2026-09 | — | — | — | 31 | — |  | 3.0.0a18 |
 | 2026-08 | — | — | — | — | — |  | 3.0.0a17 |
 | 2026-07 | — | — | — | — | — |  | 3.0.0a16 |
