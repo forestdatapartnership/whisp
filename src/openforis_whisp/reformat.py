@@ -413,12 +413,11 @@ def _process_custom_bands(df_extra: pd.DataFrame, custom_bands) -> pd.DataFrame:
         custom_band_cols = [col for col in custom_bands if col in df_extra.columns]
         if custom_band_cols:
             logger.info(f"Preserving custom bands as-is: {custom_band_cols}")
-            return df_extra[custom_band_cols]
         else:
             logger.warning(
                 f"None of the specified custom bands {custom_bands} found in DataFrame"
             )
-            return df_extra
+        return df_extra[custom_band_cols]
 
     elif isinstance(custom_bands, dict):
         # Apply type conversions

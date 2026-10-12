@@ -965,6 +965,7 @@ def convert_df_to_geojson(
             raise ValueError(f"Geo column '{geo_column}' not found in the DataFrame.")
 
         features = []
+        skipped = 0
 
         for index, row in df.iterrows():
             try:
@@ -975,15 +976,23 @@ def convert_df_to_geojson(
                 geometry = geojson.loads(geojson_str)
 
                 properties = row.drop(geo_column).to_dict()
+                # pd.notna on a list gives an array, so keep lists and dicts as they are
                 properties = {
-                    k: (v if pd.notna(v) else None) for k, v in properties.items()
+                    k: (v if isinstance(v, (list, dict)) or pd.notna(v) else None)
+                    for k, v in properties.items()
                 }
 
                 feature = geojson.Feature(geometry=geometry, properties=properties)
 
                 features.append(feature)
             except Exception as e:
+                skipped += 1
                 continue
+
+        if skipped:
+            logging.getLogger("whisp").warning(
+                f"{skipped} row(s) could not be converted to GeoJSON and were left out"
+            )
 
         feature_collection = geojson.FeatureCollection(features)
 

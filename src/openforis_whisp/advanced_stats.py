@@ -495,7 +495,9 @@ def check_ee_endpoint(endpoint_type: str = "high-volume") -> bool:
             break
     if not api_url:
         # Cannot determine endpoint; assume correct and let EE handle errors
-        logging.debug("Cannot determine EE endpoint URL; skipping endpoint check.")
+        logging.getLogger("whisp").debug(
+            "Cannot determine EE endpoint URL; skipping endpoint check."
+        )
         return True
     api_url = str(api_url)
 
@@ -544,7 +546,7 @@ def validate_ee_endpoint(endpoint_type: str = "high-volume", raise_error: bool =
         elif endpoint_type not in _endpoint_warned:
             # Once per process: a long-running worker would otherwise repeat it on every job
             _endpoint_warned.add(endpoint_type)
-            logging.warning(msg)
+            logging.getLogger("whisp").warning(msg)
 
 
 _endpoint_warned = set()
@@ -597,6 +599,10 @@ def extract_centroid_and_geomtype_client(
         warnings.filterwarnings("ignore", category=UserWarning)
         warnings.simplefilter("ignore", UserWarning)  # Additional suppression
         centroid_points = gdf.geometry.centroid
+
+    # Centroid columns are lon/lat: reproject if the input is in another CRS
+    if gdf.crs is not None and gdf.crs != "EPSG:4326":
+        centroid_points = centroid_points.to_crs("EPSG:4326")
 
     gdf[x_col] = centroid_points.x.round(6)
     gdf[y_col] = centroid_points.y.round(6)
@@ -840,12 +846,16 @@ def _add_geometry_audit_trail(
             gdf_original_geoms = _load_and_prepare_geojson(input_geojson_filepath)
 
         # Create DataFrame with plotId and geo_original
+        # plotId is assigned 1..N in input order, so rebuild it rather than rely on row order
+        plot_ids = pd.Series(range(1, len(gdf_original_geoms) + 1))
+        if not pd.api.types.is_numeric_dtype(df_validated["plotId"]):
+            plot_ids = plot_ids.astype(str)
         df_original_geom = pd.DataFrame(
             {
-                "plotId": df_validated["plotId"].values[: len(gdf_original_geoms)],
-                "geo_original": gdf_original_geoms["geometry"].apply(
-                    lambda g: json.dumps(mapping(g)) if g is not None else None
-                ),
+                "plotId": plot_ids.values,
+                "geo_original": gdf_original_geoms["geometry"]
+                .apply(lambda g: json.dumps(mapping(g)) if g is not None else None)
+                .values,
             }
         )
 
@@ -1125,6 +1135,10 @@ def whisp_stats_geojson_to_df_concurrent(
     from openforis_whisp.reformat import format_stats_dataframe
 
     logger = logger or logging.getLogger("whisp")
+
+    # A semaphore with no permits would block every batch forever
+    if max_concurrent < 1:
+        raise ValueError(f"max_concurrent must be at least 1, got {max_concurrent}")
 
     # Suppress verbose output from dependencies (dynamically adjust based on max_concurrent)
     _suppress_verbose_output(max_concurrent=max_concurrent)
@@ -1708,6 +1722,11 @@ def whisp_stats_geojson_to_df_sequential(
         )
     else:
         result = df_server
+        # external_id is dropped before EE, so restore it from the input
+        if external_id_column and "external_id" in gdf.columns:
+            result = result.drop(columns=["external_id"], errors="ignore").merge(
+                gdf[[plot_id_column, "external_id"]], on=plot_id_column, how="left"
+            )
 
     # Format the output
     # Add admin context (Country, ProducerCountry, Admin_Level_1) from admin_code
@@ -1816,11 +1835,12 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
         - Other columns: stats_area_columns_formatting
     remove_median_columns : bool
         Remove the intermediate '_mode' columns (they were '_median' columns before the
-        admin code switched to the mode; the parameter keeps its name for compatibility) (default True)
+        admin code switched to the mode; the parameter keeps its name for compatibility) (default True).
+        Currently has no effect: the columns are already removed when the stats are extracted.
     convert_water_flag : bool
-        Convert water flag to boolean (default True)
+        Convert water flag to boolean (default True). Currently has no effect.
     water_flag_threshold : float
-        Water flag ratio threshold (default 0.5)
+        Water flag ratio threshold (default 0.5). Currently has no effect.
     sort_column : str
         Column to sort by (default "plotId", None to skip)
     geometry_audit_trail : bool, default False
@@ -1865,6 +1885,7 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
         max_retries=max_retries,
         add_metadata_server=add_metadata_server,
         logger=logger,
+        decimal_places=decimal_places,
     )
     unavailable = df_raw.attrs.get("whisp_unavailable_datasets", [])
 
@@ -2001,11 +2022,12 @@ def whisp_formatted_stats_geojson_to_df_sequential(
         - Other columns: stats_area_columns_formatting
     remove_median_columns : bool
         Remove the intermediate '_mode' columns (they were '_median' columns before the
-        admin code switched to the mode; the parameter keeps its name for compatibility) (default True)
+        admin code switched to the mode; the parameter keeps its name for compatibility) (default True).
+        Currently has no effect: the columns are already removed when the stats are extracted.
     convert_water_flag : bool
-        Convert water flag to boolean (default True)
+        Convert water flag to boolean (default True). Currently has no effect.
     water_flag_threshold : float
-        Water flag ratio threshold (default 0.5)
+        Water flag ratio threshold (default 0.5). Currently has no effect.
     sort_column : str
         Column to sort by (default "plotId", None to skip)
     geometry_audit_trail : bool, default False
@@ -2046,6 +2068,7 @@ def whisp_formatted_stats_geojson_to_df_sequential(
         custom_bands=custom_bands,
         add_metadata_client_side=add_metadata_client_side,
         logger=logger,
+        decimal_places=decimal_places,
     )
     unavailable = df_raw.attrs.get("whisp_unavailable_datasets", [])
 

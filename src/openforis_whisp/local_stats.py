@@ -233,15 +233,15 @@ def calculate_max_tile_size_degrees(
     """
     Calculate the maximum tile size in degrees that stays within EE download limits.
 
-    Accounts for latitude: 1° longitude shrinks at higher latitudes, so we can
-    use larger degree values for longitude at higher latitudes.
+    Downloads use an EPSG:4326 grid, where a pixel is the same size in degrees on both
+    axes at every latitude, so the tile size in degrees does not depend on latitude.
 
     Args:
         num_bands: Number of bands in the image
         scale_meters: Resolution in meters (default 10m)
         bytes_per_band: Bytes per pixel per band. If None, uses empirically determined
             value (~5.02 bytes, accounts for GeoTIFF overhead).
-        latitude: Latitude in degrees for longitude adjustment (default 0 = equator)
+        latitude: Not used (kept for compatibility)
 
     Returns:
         Tuple of (max_lon_degrees, max_lat_degrees) for tile dimensions
@@ -258,13 +258,10 @@ def calculate_max_tile_size_degrees(
     max_meters = max_pixels_per_side * scale_meters
 
     # Convert meters to degrees
-    # 1° latitude = ~111km everywhere
-    # 1° longitude = ~111km * cos(latitude)
+    # Downloads use an EPSG:4326 grid, where a pixel is the same size in degrees
+    # on both axes at every latitude, so no longitude adjustment applies
     meters_per_degree_lat = 111_000
-    cos_lat = math.cos(math.radians(abs(latitude)))
-    # Clamp to avoid division by zero near poles
-    cos_lat = max(cos_lat, 0.1)
-    meters_per_degree_lon = 111_000 * cos_lat
+    meters_per_degree_lon = 111_000
 
     max_lat_degrees = max_meters / meters_per_degree_lat
     max_lon_degrees = max_meters / meters_per_degree_lon
@@ -487,7 +484,7 @@ def download_geotiff_for_feature(
     max_y = max(c[1] for c in coords)
     center_lat = (min_y + max_y) / 2
 
-    # Calculate max tile size (latitude-aware for optimal tile count)
+    # Calculate max tile size
     max_lon_deg, max_lat_deg = calculate_max_tile_size_degrees(
         num_bands, scale, latitude=center_lat
     )
@@ -1798,10 +1795,12 @@ def whisp_stats_local(
         if geometry_audit_trail:
             # Add original input geometry column for audit/compliance
             # Use pd.concat to avoid PerformanceWarning from DataFrame fragmentation
+            # plotId is the 1-based input position: look up by it, as the rows may be sorted
+            input_order = stats_df[plot_id_column].astype(int).values - 1
             geo_original_series = pd.Series(
-                geo_original.apply(
-                    lambda g: json.dumps(mapping(g)) if g else None
-                ).values,
+                geo_original.iloc[input_order]
+                .apply(lambda g: json.dumps(mapping(g)) if g else None)
+                .values,
                 name="geo_original",
             )
             stats_df = pd.concat([stats_df, geo_original_series], axis=1)
