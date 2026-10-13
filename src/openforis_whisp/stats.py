@@ -5,6 +5,7 @@ from pathlib import Path
 from .datasets import combine_datasets, is_dataset_error, supplied_image_error
 import json
 import logging
+from openforis_whisp.logger import get_whisp_logger
 import re
 from datetime import datetime
 import country_converter as coco
@@ -46,6 +47,9 @@ from .reformat import (
 
 _WATER_FLAG_IMAGE = None
 _admin_boundaries_FC = None
+
+
+_whisp_logger = get_whisp_logger()
 
 
 def get_water_flag_image():
@@ -624,7 +628,8 @@ def whisp_stats_ee_to_ee(
                 )
 
                 # Stop only if no feature has the column (likely a misspelt name). Features
-                # without a value (Earth Engine drops nulls) get "unknown" below.
+                # without a value (Earth Engine drops nulls) are left without an external_id
+                # below, which exports as an empty cell.
                 if validation_result["features_with_column"] == 0:
                     raise ValueError(validation_result["error_message"])
                 if not validation_result["is_valid"]:
@@ -632,9 +637,10 @@ def whisp_stats_ee_to_ee(
                         validation_result["total_features"]
                         - validation_result["features_with_column"]
                     )
-                    print(
-                        f"Warning: {missing_count} of {validation_result['total_features']} features "
-                        f"have no value for '{external_id_column}'; their external_id is set to 'unknown'."
+                    _whisp_logger.warning(
+                        f"{missing_count:,} of {validation_result['total_features']:,} features "
+                        f"have no value for '{external_id_column}'; their external_id is left empty "
+                        "in the output. Use plotId (1 to N) to refer to those rows."
                     )
 
             # First handle property selection, but preserve the external_id_column
@@ -652,18 +658,18 @@ def whisp_stats_ee_to_ee(
                         "keep_properties must be None, True, or a list of property names."
                     )
 
-            # Set the external_id with robust null handling
+            # Set the standardized "external_id" property (not the original column name).
+            # A feature with no value is left without the property, so it exports as an
+            # empty cell rather than a placeholder that would look like a real id in a join.
             def set_external_id_safely_and_clean(feature):
                 external_id_value = feature.get(external_id_column)
-                # Use server-side null checking and string conversion
-                external_id_value = ee.Algorithms.If(
-                    ee.Algorithms.IsEqual(external_id_value, None),
-                    "unknown",
-                    ee.String(external_id_value),
+                return ee.Feature(
+                    ee.Algorithms.If(
+                        ee.Algorithms.IsEqual(external_id_value, None),
+                        feature,
+                        feature.set("external_id", ee.String(external_id_value)),
+                    )
                 )
-                # Create a new feature with the standardized external_id column
-                # Note: we use "external_id" as the standardized column name, not the original external_id_column name
-                return ee.Feature(feature.set("external_id", external_id_value))
 
             feature_collection = feature_collection.map(
                 set_external_id_safely_and_clean
