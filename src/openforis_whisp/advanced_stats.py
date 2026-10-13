@@ -73,6 +73,7 @@ from openforis_whisp.data_conversion import (
     convert_ee_to_df,
     convert_ee_to_geojson,
     check_external_id_column,
+    check_geometries_usable,
     external_id_to_str,
     read_split_metadata,
 )
@@ -1162,6 +1163,9 @@ def whisp_stats_geojson_to_df_concurrent(
     # Shared check: raises if the column is absent, warns if some values are empty
     check_external_id_column(gdf, external_id_column, logger)
 
+    # Fail early, naming them, rather than drop features without a geometry later
+    check_geometries_usable(gdf, external_id_column)
+
     if validate_geometries:
         gdf = clean_geodataframe(
             gdf, remove_nulls=False, repair_geometries=False, logger=logger
@@ -1609,6 +1613,9 @@ def whisp_stats_geojson_to_df_sequential(
 
     # Shared check: raises if the column is absent, warns if some values are empty
     check_external_id_column(gdf, external_id_column, logger)
+
+    # Fail early, naming them, rather than drop features without a geometry later
+    check_geometries_usable(gdf, external_id_column)
 
     # Clean geometries (preserve both null and invalid geometries by default)
     gdf = clean_geodataframe(

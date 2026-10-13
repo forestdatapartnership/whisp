@@ -286,6 +286,38 @@ def check_external_id_column(
         )
 
 
+def check_geometries_usable(gdf, external_id_column: str = None, max_listed: int = 10):
+    """
+    Shared check that every feature has a geometry, run once the input is loaded.
+
+    Raises ValueError naming the features whose geometry is null or empty. Such features
+    would otherwise be dropped without a message when the input is converted for Earth
+    Engine, so the output would have fewer rows (or a batch of them would fail the run).
+    Features are named by plotId (1 to N, input order) and external_id when available.
+    """
+    bad = gdf.geometry.isna() | gdf.geometry.is_empty
+    if not bad.any():
+        return
+    positions = [i for i, b in enumerate(bad.tolist()) if b]
+    plot_ids = [str(i + 1) for i in positions]
+    names = ", ".join(plot_ids[:max_listed])
+    if len(plot_ids) > max_listed:
+        names += f" and {len(plot_ids) - max_listed} more"
+    msg = (
+        f"{len(plot_ids)} of {len(gdf)} features have no usable geometry (null or empty): "
+        f"plotId {names}"
+    )
+    id_col = None
+    if "external_id" in gdf.columns:
+        id_col = "external_id"
+    elif external_id_column and external_id_column in gdf.columns:
+        id_col = external_id_column
+    if id_col:
+        ext = gdf[id_col].iloc[positions[:max_listed]].astype(str).tolist()
+        msg += f" (external_id {', '.join(ext)})"
+    raise ValueError(msg + ". Fix or remove them and try again.")
+
+
 def external_id_to_str(series):
     """
     Cast external ids to str while keeping missing values missing. A plain astype(str)

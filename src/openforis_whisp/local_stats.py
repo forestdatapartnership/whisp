@@ -57,6 +57,7 @@ from openforis_whisp.data_conversion import (
     normalize_geojson_to_gdf,
     _ensure_wgs84_crs,
     check_external_id_column,
+    check_geometries_usable,
     external_id_to_str,
     read_split_metadata,
 )
@@ -1603,6 +1604,8 @@ def whisp_stats_local(
         # Load GeoJSON to get feature count for progress reporting
         gdf = gpd.read_file(input_geojson_filepath)
         num_features = len(gdf)
+        # Fail early, before any download, naming features without a geometry
+        check_geometries_usable(gdf, external_id_column)
         _whisp_logger.debug(f"Loaded {num_features} features")
 
         # Step 1: Create obscured bounding boxes
