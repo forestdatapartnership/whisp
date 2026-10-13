@@ -60,13 +60,14 @@ def test_pcrop_acrop_held_identical():
     assert _dedupe_keep_order(pcrop + acrop) == pcrop
 
 
-def test_ind_03_default_threshold_is_50():
-    # Ind_03_disturbance_before_2020 leads to a low risk outcome in the perennial crop tree,
-    # so it uses a higher bar than the other indicators: the disturbance must cover more than
-    # half the plot. Pin the defaults so neither drifts silently.
+def test_ind_02_and_ind_03_default_thresholds_are_50():
+    # Ind_02_commodities and Ind_03_disturbance_before_2020 lead to a low risk outcome, so they
+    # use a higher bar than the other indicators: the dataset must cover more than half the plot.
+    # Pin the defaults so neither drifts silently.
     defaults = inspect.signature(whisp_risk).parameters
-    assert defaults["ind_3_pcent_threshold"].default == 50
-    for i in (1, 2, 4):
+    for i in (2, 3):
+        assert defaults[f"ind_{i}_pcent_threshold"].default == 50
+    for i in (1, 4):
         assert defaults[f"ind_{i}_pcent_threshold"].default == 10
 
 
