@@ -1243,7 +1243,9 @@ def nbr_mapbiomasc9_f20_prep():
 def nbr_terraclass_amz20_silv_prep():
     tcamz20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_amz_2020")
     tcamz20_silviculture = tcamz20.eq(9)
-    return tcamz20_silviculture.rename("nBR_INPE_TCsilviculture_Amazon_2020").selfMask()
+    return tcamz20_silviculture.rename(
+        "nBR_INPE_TCsilviculture_Amazon_2020"  # pragma: allowlist secret
+    ).selfMask()
 
 
 # [Official NFMS dataset] INPE/EMBRAPA TerraClass land use/cover in the Cerrado biome, 2020
