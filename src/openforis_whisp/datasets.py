@@ -39,10 +39,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 import logging
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+# Keep INFO messages from the package's own loggers, without configuring the root logger
+if not logging.getLogger().handlers:
+    logging.getLogger("openforis_whisp").setLevel(logging.INFO)
 
 
 def get_logger(name):
@@ -75,7 +74,10 @@ def g_jrc_gfc_2020_prep():
 def g_glad_gfc_10pc_prep():
     gfc = ee.Image("UMD/hansen/global_forest_change_2025_v1_13")
     gfc_treecover2000 = gfc.select(["treecover2000"])
-    gfc_loss2001_2020 = gfc.select(["lossyear"]).lte(20)
+    # lossyear 0 means no loss, so only 1-20 count as loss in 2001-2020
+    gfc_loss2001_2020 = (
+        gfc.select(["lossyear"]).gt(0).And(gfc.select(["lossyear"]).lte(20))
+    )
     gfc_treecover2020 = gfc_treecover2000.where(gfc_loss2001_2020.eq(1), 0)
     return gfc_treecover2020.gt(10).rename("GFC_TC_2020").selfMask()
 
@@ -89,7 +91,10 @@ def g_glad_pht_prep():
         primary_ht_forests2001_raw.select("Primary_HT_forests").mosaic().selfMask()
     )
     gfc = ee.Image("UMD/hansen/global_forest_change_2025_v1_13")
-    gfc_loss2001_2020 = gfc.select(["lossyear"]).lte(20)
+    # lossyear 0 means no loss, so only 1-20 count as loss in 2001-2020
+    gfc_loss2001_2020 = (
+        gfc.select(["lossyear"]).gt(0).And(gfc.select(["lossyear"]).lte(20))
+    )
     return (
         primary_ht_forests2001.where(gfc_loss2001_2020.eq(1), 0)
         .rename("GLAD_Primary")
@@ -277,8 +282,8 @@ def g_creaf_descals_palm_prep():
         .select("minNBR_date")
     ).selfMask()
 
-    # Calculate the year of plantation and select all below and including 2020
-    oil_palm_plantation_year = img.divide(365).add(1970).floor().lte(2020)
+    # Calculate the year of plantation (band is days since 1970)
+    oil_palm_plantation_year = img.divide(365).add(1970).floor()
 
     # Create a mask for plantations in the year 2020 or earlier
     plantation_2020 = oil_palm_plantation_year.lte(2020)
@@ -484,22 +489,10 @@ def g_radd_year_prep():
     start_year = 19
     current_year = CURRENT_YEAR_2DIGIT
 
-    def make_band(year, img_stack):
-        start = year * 1000
-        end = year * 1000 + 365
-        radd_year = (
-            radd_date.updateMask(radd_date.gte(start))
-            .updateMask(radd_date.lte(end))
-            .gt(0)
-            .rename("RADD_year_" + "20" + str(year))
-            .selfMask()
-        )
-        return ee.Image(img_stack).addBands(radd_year)
-
     years = ee.List.sequence(start_year, current_year)
     first_year = ee.Number(years.get(0))
     start = first_year.multiply(1000)
-    end = first_year.multiply(1000).add(365)
+    end = first_year.multiply(1000).add(366)  # 366 so 31 Dec of a leap year is kept
     band_name = ee.String("RADD_year_").cat("20").cat(first_year.format("%02d"))
     first_band = (
         radd_date.updateMask(radd_date.gte(start))
@@ -512,7 +505,7 @@ def g_radd_year_prep():
     def make_band(year, img_stack):
         year_num = ee.Number(year)
         start = year_num.multiply(1000)
-        end = year_num.multiply(1000).add(365)
+        end = year_num.multiply(1000).add(366)
         band_name = ee.String("RADD_year_").cat("20").cat(year_num.format("%02d"))
         radd_year = (
             radd_date.updateMask(radd_date.gte(start))
@@ -662,7 +655,7 @@ def g_radd_after_2020_prep():
     # Use pre-calculated current year (avoids repeated datetime calls)
     current_year = CURRENT_YEAR_2DIGIT
     start = start_year * 1000
-    end = current_year * 1000 + 365
+    end = current_year * 1000 + 366  # 366 so 31 Dec of a leap year is kept
     return (
         radd_date.updateMask(radd_date.gte(start))
         .updateMask(radd_date.lte(end))
@@ -682,7 +675,7 @@ def g_radd_before_2020_prep():
     start_year = 19  ## (starts 2019 in Africa, then 2020 for S America and Asia: https://data.globalforestwatch.org/datasets/gfw::deforestation-alerts-radd/about)
 
     start = start_year * 1000
-    end = 20 * 1000 + 365
+    end = 20 * 1000 + 366  # 366 so 31 Dec 2020 (leap year) is kept
     return (
         radd_date.updateMask(radd_date.gte(start))
         .updateMask(radd_date.lte(end))
@@ -843,7 +836,8 @@ def _glad_l_conf(collection_id, yy):
 
 def _glad_l_alert(yy):
     """Binary confirmed-alert (confidence >= 2) presence for GLAD-L year 20YY."""
-    return _glad_l_conf(_glad_l_asset_for_year(yy), yy).gte(2)
+    # unmask so a year/tile with no data counts as "no alert" and does not mask the other years in .Or()
+    return _glad_l_conf(_glad_l_asset_for_year(yy), yy).gte(2).unmask(0, False)
 
 
 # GLAD-L_after_2020 (combined confirmed alerts from 2021 to the current year, incl. 2024)
@@ -1033,8 +1027,12 @@ def g_tmf_def_after_2020_prep():
 def g_glad_gfc_loss_before_2020_prep():
     # Load the Global Forest Change dataset
     gfc = ee.Image("UMD/hansen/global_forest_change_2025_v1_13")
+    # lossyear 0 means no loss, so only 1-20 count as loss in 2001-2020
     gfc_loss = (
-        gfc.select(["lossyear"]).lte(20).And(gfc.select(["treecover2000"]).gt(10))
+        gfc.select(["lossyear"])
+        .gt(0)
+        .And(gfc.select(["lossyear"]).lte(20))
+        .And(gfc.select(["treecover2000"]).gt(10))
     )
     return gfc_loss.rename("GFC_loss_before_2020").selfMask()
 
@@ -1245,7 +1243,9 @@ def nbr_mapbiomasc9_f20_prep():
 def nbr_terraclass_amz20_silv_prep():
     tcamz20 = ee.Image("projects/ee-whisp/assets/NBR/terraclass_amz_2020")
     tcamz20_silviculture = tcamz20.eq(9)
-    return tcamz20_silviculture.rename("nBR_INPE_TCsilviculture_Amazon_2020").selfMask()
+    return tcamz20_silviculture.rename(
+        "nBR_INPE_TCsilviculture_Amazon_2020"  # pragma: allowlist secret
+    ).selfMask()
 
 
 # [Official NFMS dataset] INPE/EMBRAPA TerraClass land use/cover in the Cerrado biome, 2020
@@ -1308,7 +1308,7 @@ def nbr_deter_amazon_before_2020_prep():
 
     deter_deg = deteramz.filter(
         ee.Filter.inList("CLASSNAME", degradation_classes)
-    ).filter(ee.Filter.lt("formatted_date", ee.Date("2020-12-31")))
+    ).filter(ee.Filter.lt("formatted_date", ee.Date("2021-01-01")))
 
     deter_deg_binary = ee.Image().paint(deter_deg, 1)
     return deter_deg_binary.rename(
@@ -1351,7 +1351,7 @@ def nbr_deter_amazon_after_2020_prep():
 
     deter_deg = deteramz.filter(
         ee.Filter.inList("CLASSNAME", degradation_classes)
-    ).filter(ee.Filter.gt("formatted_date", ee.Date("2021-01-01")))
+    ).filter(ee.Filter.gte("formatted_date", ee.Date("2021-01-01")))
 
     deter_deg_binary = ee.Image().paint(deter_deg, 1)
     return deter_deg_binary.rename(
@@ -1399,13 +1399,26 @@ def nbr_mapbiomasc9_po_prep():
 
 # [non-official dataset by MapBiomas multisector initiative]
 # land use/cover from 1985 up to 2023, collection 9
-# Subsetting criteria: 'classification_2020' = other perennial crops (DN=48)
+# Subsetting criteria: 'classification_2020' = citrus (DN=47) and other perennial crops (DN=48)
 # the resulting dataset shows citrus and perennial crops other than coffee and palm oil in 2020
+#
+# Why citrus and other perennials are here although they are not EUDR commodities:
+# this layer feeds the "commodities" indicator, which asks whether a plot was already under
+# agricultural use at the end of 2020 (see README), not whether the crop is regulated. Under the
+# EUDR a fruit tree plantation is agricultural use, not forest, so an orchard that shows up as tree
+# cover in 2020 must not be read as forest that was later cleared. The annual crops layer below
+# includes sugar cane, rice and cotton for the same reason.
+#
+# MapBiomas legend, perennial crop classes: 35 = palm oil, 46 = coffee, 47 = citrus,
+# 48 = other perennial crops. Palm oil and coffee have their own layers above
+# (nbr_mapbiomasc9_po_prep, nbr_mapbiomasc9_cof_prep), so they are left out here. Until October 2026
+# this function selected 35 and 46 by mistake, which duplicated those two layers and left citrus and
+# other perennials out of the indicator.
 def nbr_mapbiomasc9_pc_prep():
     mapbiomasc9_20 = ee.Image(
         "projects/mapbiomas-public/assets/brazil/lulc/collection9/mapbiomas_collection90_integration_v1"
     ).select("classification_2020")
-    mapbiomasc9_20_pc = mapbiomasc9_20.eq(35).Or(mapbiomasc9_20.eq(46))
+    mapbiomasc9_20_pc = mapbiomasc9_20.eq(47).Or(mapbiomasc9_20.eq(48))
     return mapbiomasc9_20_pc.rename("nBR_MapBiomas_col9_pc_2020").selfMask()
 
 
@@ -1548,12 +1561,12 @@ def g_gaul_admin_code():
     Returns
     -------
     ee.Image
-        Image with admin codes renamed to 'admin_code' (as int32)
+        Image with admin codes renamed to 'admin_code'
     """
     admin_image = ee.Image(
         "projects/ee-andyarnellgee/assets/gaul_2024_level_1_code_500m"
     )
-    # Cast to int32 to ensure integer GAUL codes, then rename
+    # Rename only (no cast: the band keeps the asset's own type)
     return admin_image.rename("admin_code")
 
 
@@ -1562,12 +1575,12 @@ def g_water_mask_prep():
     Water mask from JRC/USGS combined dataset.
     Used to identify water bodies for downstream filtering and context.
 
-    Multiplied by pixel area to get water area in hectares.
+    A context band: unlike the dataset bands it is not multiplied by pixel area.
 
     Returns
     -------
     ee.Image
-        Binary water mask image renamed to In_waterbody (will be multiplied by pixel area)
+        Binary water mask image renamed to In_waterbody (not converted to area)
     """
     from openforis_whisp.parameters.config_runtime import water_flag
 

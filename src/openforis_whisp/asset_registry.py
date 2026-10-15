@@ -25,6 +25,7 @@ import os
 import tempfile
 from pathlib import Path
 from typing import Union
+from urllib.parse import quote
 
 import requests
 
@@ -78,7 +79,10 @@ def _items_url(
 ) -> str:
     """Build the items endpoint URL for a collection."""
     base = base_url.rstrip("/")
-    return f"{base}/catalogs/{catalog_id}/collections/{collection_id}/items"
+    # Identifiers are URL-encoded so a "/" or "?" in one cannot change the path
+    catalog = quote(str(catalog_id), safe="")
+    collection = quote(str(collection_id), safe="")
+    return f"{base}/catalogs/{catalog}/collections/{collection}/items"
 
 
 # ---------------------------------------------------------------------------
@@ -123,7 +127,8 @@ def fetch_feature(
     """
     api_key = _resolve_api_key(api_key)
     headers = _build_headers(api_key)
-    url = f"{_items_url(base_url, catalog_id, collection_id)}/{item_id}"
+    items_base = _items_url(base_url, catalog_id, collection_id)
+    url = f"{items_base}/{quote(str(item_id), safe='')}"
     return _get_json(url, headers, timeout)
 
 
@@ -205,11 +210,16 @@ def fetch_collection_features(
             len(all_features),
         )
 
-        # If we received fewer features than requested, we've reached the end.
-        if len(features) < page_limit:
-            break
-
         current_offset += len(features)
+
+        # A short page is only the end if the server says so (it may cap the page size below `limit`)
+        number_matched = data.get("numberMatched")
+        has_next = any(link.get("rel") == "next" for link in data.get("links", []))
+        if number_matched is not None:
+            if current_offset >= number_matched:
+                break
+        elif len(features) < page_limit and not has_next:
+            break
 
     return {"type": "FeatureCollection", "features": all_features}
 
@@ -255,7 +265,7 @@ def fetch_features_by_ids(
 
     features = []
     for item_id in item_ids:
-        url = f"{items_base}/{item_id}"
+        url = f"{items_base}/{quote(str(item_id), safe='')}"
         feature = _get_json(url, headers, timeout)
         features.append(feature)
 
@@ -323,7 +333,7 @@ def fetch_to_dict(
     dict
         A GeoJSON FeatureCollection.
     """
-    if item_ids:
+    if item_ids is not None:
         return fetch_features_by_ids(
             catalog_id,
             collection_id,

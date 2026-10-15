@@ -29,6 +29,7 @@ import random
 import math
 import gc
 import uuid
+import tempfile
 import concurrent.futures
 from pathlib import Path
 from datetime import datetime, timezone
@@ -54,7 +55,9 @@ from openforis_whisp.stats import (
 )
 from openforis_whisp.data_conversion import (
     normalize_geojson_to_gdf,
+    _ensure_wgs84_crs,
     check_external_id_column,
+    check_geometries_usable,
     external_id_to_str,
     read_split_metadata,
 )
@@ -74,6 +77,9 @@ import warnings
 # Get the shared whisp logger (configured with auto-flush for Colab)
 _whisp_logger = get_whisp_logger()
 
+# Set once per process so repeated calls do not stack filters and GDAL error handlers
+_gdal_warnings_suppressed = False
+
 
 def _suppress_gdal_warnings():
     """
@@ -82,9 +88,13 @@ def _suppress_gdal_warnings():
     These warnings are benign - they occur because Earth Engine exports GeoTIFFs
     with many bands, which triggers TIFF metadata warnings about color channels.
     """
+    global _gdal_warnings_suppressed
+    if _gdal_warnings_suppressed:
+        return
+    _gdal_warnings_suppressed = True
+
     # Suppress GDAL warnings via environment variable
-    os.environ["CPL_LOG"] = "/dev/null"  # Unix
-    os.environ["CPL_LOG"] = "NUL"  # Windows
+    os.environ["CPL_LOG"] = os.devnull  # /dev/null on Unix, nul on Windows
     os.environ["GDAL_PAM_ENABLED"] = "NO"  # Disable aux.xml creation
 
     # Try to set GDAL error handler directly (most effective method)
@@ -224,15 +234,15 @@ def calculate_max_tile_size_degrees(
     """
     Calculate the maximum tile size in degrees that stays within EE download limits.
 
-    Accounts for latitude: 1° longitude shrinks at higher latitudes, so we can
-    use larger degree values for longitude at higher latitudes.
+    Downloads use an EPSG:4326 grid, where a pixel is the same size in degrees on both
+    axes at every latitude, so the tile size in degrees does not depend on latitude.
 
     Args:
         num_bands: Number of bands in the image
         scale_meters: Resolution in meters (default 10m)
         bytes_per_band: Bytes per pixel per band. If None, uses empirically determined
             value (~5.02 bytes, accounts for GeoTIFF overhead).
-        latitude: Latitude in degrees for longitude adjustment (default 0 = equator)
+        latitude: Not used (kept for compatibility)
 
     Returns:
         Tuple of (max_lon_degrees, max_lat_degrees) for tile dimensions
@@ -249,13 +259,10 @@ def calculate_max_tile_size_degrees(
     max_meters = max_pixels_per_side * scale_meters
 
     # Convert meters to degrees
-    # 1° latitude = ~111km everywhere
-    # 1° longitude = ~111km * cos(latitude)
+    # Downloads use an EPSG:4326 grid, where a pixel is the same size in degrees
+    # on both axes at every latitude, so no longitude adjustment applies
     meters_per_degree_lat = 111_000
-    cos_lat = math.cos(math.radians(abs(latitude)))
-    # Clamp to avoid division by zero near poles
-    cos_lat = max(cos_lat, 0.1)
-    meters_per_degree_lon = 111_000 * cos_lat
+    meters_per_degree_lon = 111_000
 
     max_lat_degrees = max_meters / meters_per_degree_lat
     max_lon_degrees = max_meters / meters_per_degree_lon
@@ -356,6 +363,8 @@ def _estimate_bbox_size_degrees(geometry) -> tuple:
         max_y = max(c[1] for c in coords)
         center_lat = (min_y + max_y) / 2
         return (max_x - min_x, max_y - min_y, center_lat)
+    except control_flow.PROPAGATE:
+        raise
     except Exception:
         return (0, 0, 0)
 
@@ -418,7 +427,8 @@ def download_geotiff_for_feature(
         raise
     except Exception as e:
         _whisp_logger.error(f"Error getting {plot_id_column} from feature: {str(e)}")
-        feature_id = f"unknown_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        # uuid, not a timestamp: parallel downloads in the same second must not collide
+        feature_id = f"unknown_{uuid.uuid4().hex}"
 
     # Ensure output directory exists
     output_dir = Path(output_dir)
@@ -475,7 +485,7 @@ def download_geotiff_for_feature(
     max_y = max(c[1] for c in coords)
     center_lat = (min_y + max_y) / 2
 
-    # Calculate max tile size (latitude-aware for optimal tile count)
+    # Calculate max tile size
     max_lon_deg, max_lat_deg = calculate_max_tile_size_degrees(
         num_bands, scale, latitude=center_lat
     )
@@ -972,13 +982,9 @@ def generate_random_box_geometries(gdf, max_distance, proportion=0.5, bbox_info=
         # Create Earth Engine Rectangle geometry
         ee_geometry = ee.Geometry.Rectangle([r_minx, r_miny, r_maxx, r_maxy])
 
-        # Create random properties (using plot_id_column for consistency)
-        properties = {
-            "random_feature": True,
-            plot_id_column: f"random_{i + 1000}",
-            "obscured": True,
-            "near_feature_id": random_feature_idx + 1,
-        }
+        # Only an id is sent to Earth Engine. The "random_" prefix is what keeps the
+        # decoy rasters out of the VRT (see create_vrt_from_folder)
+        properties = {plot_id_column: f"random_{i + 1000}"}
 
         # Create an Earth Engine feature
         ee_feature = ee.Feature(ee_geometry, properties)
@@ -1030,6 +1036,9 @@ def convert_geojson_to_ee_bbox_obscured(
     gdf = normalize_geojson_to_gdf(
         geojson_filepath, id_column=plot_id_column, enforce_wgs84=True, add_id=True
     )
+    # Internal download id (it becomes the GeoTIFF filename): always sequential, never
+    # a plotId already present in the input, which may be duplicated, empty or unsafe
+    gdf[plot_id_column] = range(1, len(gdf) + 1)
 
     if verbose:
         _whisp_logger.debug(f"Loaded {len(gdf)} features from GeoJSON")
@@ -1098,15 +1107,8 @@ def convert_geojson_to_ee_bbox_obscured(
             # Create an Earth Engine Rectangle geometry
             ee_geometry = ee.Geometry.Rectangle([minx, miny, maxx, maxy])
 
-            # Copy properties from the original feature
-            properties = {col: row[col] for col in gdf.columns if col != "geometry"}
-
-            # Convert numpy types to native Python types for proper serialization
-            for key, value in properties.items():
-                if hasattr(value, "item"):
-                    properties[key] = value.item()
-                elif pd.isna(value):
-                    properties[key] = None
+            # Only the internal id is sent to Earth Engine; other attributes stay local
+            properties = {plot_id_column: int(row[plot_id_column])}
 
             # Create an Earth Engine feature with the bbox geometry
             ee_feature = ee.Feature(ee_geometry, properties)
@@ -1354,6 +1356,19 @@ def exact_extract_in_chunks_parallel(
 
     start_time = time.time()
     gdf = gpd.read_file(vector_file)
+
+    # Vectors must be in the raster CRS (EPSG:4326 for Whisp downloads); a projected
+    # input would otherwise fall outside the rasters and look like "nothing found"
+    try:
+        import rasterio
+
+        with rasterio.open(rasters if isinstance(rasters, str) else rasters[0]) as src:
+            raster_crs = src.crs
+    except Exception:
+        raster_crs = None
+    if gdf.crs is not None and raster_crs and gdf.crs != raster_crs:
+        gdf = gdf.to_crs(raster_crs)
+
     total_features = len(gdf)
     num_chunks = (total_features + chunk_size - 1) // chunk_size
 
@@ -1373,17 +1388,24 @@ def exact_extract_in_chunks_parallel(
     shown_milestones = set()
     completed = 0
 
-    all_results = []
+    # Results are kept by chunk index: chunks finish in any order, but rows are matched
+    # to input features by position, so they must be combined in submission order
+    all_results = [None] * num_chunks
+    failed_chunks = []
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
-        futures = [
-            executor.submit(_process_chunk_df, chunk, rasters, ops, i, num_chunks)
+        future_to_chunk = {
+            executor.submit(_process_chunk_df, chunk, rasters, ops, i, num_chunks): i
             for i, chunk in enumerate(chunks)
-        ]
-        for future in concurrent.futures.as_completed(futures):
+        }
+        for future in concurrent.futures.as_completed(future_to_chunk):
+            chunk_idx = future_to_chunk[future]
             try:
                 result = future.result()
-                if result is not None and not result.empty:
-                    all_results.append(result)
+                # One row per feature is required, anything else counts as a failure
+                if result is not None and len(result) == len(chunks[chunk_idx]):
+                    all_results[chunk_idx] = result
+                else:
+                    failed_chunks.append(chunk_idx + 1)  # 1-based for user display
                 completed += 1
 
                 # Log progress at milestones
@@ -1407,11 +1429,21 @@ def exact_extract_in_chunks_parallel(
                 raise
             except Exception as e:
                 completed += 1
-                _whisp_logger.error(f"Exception in chunk: {str(e)}")
+                failed_chunks.append(chunk_idx + 1)  # 1-based for user display
+                _whisp_logger.error(
+                    f"Exception in chunk {chunk_idx+1}/{num_chunks}: {str(e)}"
+                )
 
     # Final progress only if 100% wasn't already shown
     if 100 not in shown_milestones and verbose:
         _log_progress(num_chunks, num_chunks, start_time, "batches", verbose=verbose)
+
+    # A missing batch would shift every later row onto the wrong feature
+    if failed_chunks:
+        raise RuntimeError(
+            f"Local zonal statistics failed for batch(es) {sorted(failed_chunks)} "
+            f"of {num_chunks}. No results returned, as rows could not be matched to features."
+        )
 
     gdf = None
     combined_df = pd.DataFrame()
@@ -1489,11 +1521,12 @@ def whisp_stats_local(
 
     Args:
         input_geojson_filepath: Path to input GeoJSON file with features to process
-        output_dir: Directory for downloaded GeoTIFFs and intermediate files
+        output_dir: Directory for downloaded GeoTIFFs and intermediate files. Each run
+            works in its own 'whisp_run_*' subfolder, so other files there are left alone
         image: Earth Engine image to use (default: combine_datasets())
         extension_range: Tuple of (min, max) degrees to extend bounding boxes
         shift_geometries: Whether to randomly shift bounding boxes
-        shift_proportion: Proportion of features to shift (0-1)
+        shift_proportion: How much of the extension can be used for shifting (0-0.95)
         pixel_length: Grid alignment in degrees (~10m at equator = 0.0001)
         add_random_features: Whether to add decoy features
         max_distance: Maximum distance for random decoy features (degrees)
@@ -1503,10 +1536,11 @@ def whisp_stats_local(
             values may trigger EE rate limits)
         max_extract_workers: Number of parallel extract processes (default: CPU count - 1)
         chunk_size: Features per chunk for parallel extraction
-        ops: Statistics operations for exactextract (default: ['sum', 'median'] to match
+        ops: Statistics operations for exactextract (default: ['sum', 'majority'] to match
             concurrent mode's combined reducer). The sum is used for area statistics,
-            while median is used for admin_code lookup.
-        cleanup_files: Whether to delete GeoTIFFs/VRT after processing
+            while majority (the most common value) is used for admin_code lookup.
+        cleanup_files: Whether to delete this run's GeoTIFFs/VRT (and its subfolder) after
+            processing, also when the run fails. If False they stay in output_dir/whisp_run_*/
         include_context_bands: Whether to include context bands (admin_code, water_flag)
             in the image (default: True)
         national_codes: List of ISO2 country codes to include national datasets
@@ -1514,7 +1548,8 @@ def whisp_stats_local(
         decimal_places: Decimal places for rounding (default: 3)
         external_id_column: Column name in input GeoJSON to preserve as external_id
         custom_bands: Custom band handling for validation (None=strict, list=preserve specified)
-        remove_median_columns: Whether to remove '_median' columns after processing (default: True)
+        remove_median_columns: Whether to remove the intermediate '_majority' columns after
+            processing (default: True; the name dates from when a median was used)
         convert_water_flag: Whether to convert water flag to boolean (default: True)
         water_flag_threshold: Threshold for water flag ratio (default: 0.5)
         sort_column: Column to sort output by (default: 'plotId', None to skip)
@@ -1534,242 +1569,271 @@ def whisp_stats_local(
 
     # Set up logger based on verbose flag
     logger = _whisp_logger
+    old_level = _whisp_logger.level  # restored on exit
     if not verbose:
         # Suppress output by setting level to WARNING (only errors/warnings shown)
         _whisp_logger.setLevel(logging.WARNING)
     else:
         _whisp_logger.setLevel(logging.INFO)
 
-    # Suppress GDAL/rasterio warnings (TIFF metadata issues are common but harmless)
-    _suppress_gdal_warnings()
+    try:
+        # Suppress GDAL/rasterio warnings (TIFF metadata issues are common but harmless)
+        _suppress_gdal_warnings()
 
-    # Default to both sum and median operations to match concurrent mode
-    # sum: used for area statistics (converted to ha/percent)
-    # median: used for admin_code lookup (categorical band needs mode/median, not sum)
-    if ops is None:
-        ops = ["sum", "median"]
+        # Default to both sum and majority operations to match concurrent mode
+        # sum: used for area statistics (converted to ha/percent)
+        # majority: used for admin_code lookup. The band is categorical, so the most common
+        # code is taken; a median can land on a code that belongs to another region or country
+        if ops is None:
+            ops = ["sum", "majority"]
 
-    if max_extract_workers is None:
-        max_extract_workers = max(1, os.cpu_count() - 1)
+        if max_extract_workers is None:
+            # cpu_count() can return None
+            max_extract_workers = max(1, (os.cpu_count() or 2) - 1)
 
-    # Validate EE endpoint - local mode requires high-volume endpoint
-    validate_ee_endpoint("high-volume", raise_error=False)
+        # Validate EE endpoint - local mode requires high-volume endpoint
+        validate_ee_endpoint("high-volume", raise_error=False)
 
-    # Ensure output directory exists
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
+        # Ensure output directory exists
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
 
-    _whisp_logger.info("Mode: local")
-    start_time = time.time()
+        _whisp_logger.info("Mode: local")
+        start_time = time.time()
 
-    # Load GeoJSON to get feature count for progress reporting
-    gdf = gpd.read_file(input_geojson_filepath)
-    num_features = len(gdf)
-    _whisp_logger.debug(f"Loaded {num_features} features")
+        # Load GeoJSON to get feature count for progress reporting
+        gdf = gpd.read_file(input_geojson_filepath)
+        num_features = len(gdf)
+        # Fail early, before any download, naming features without a geometry
+        check_geometries_usable(gdf, external_id_column)
+        _whisp_logger.debug(f"Loaded {num_features} features")
 
-    # Step 1: Create obscured bounding boxes
-    _whisp_logger.debug("Creating obscured bounding boxes...")
-    obscured_collection = convert_geojson_to_ee_bbox_obscured(
-        input_geojson_filepath,
-        extension_range=extension_range,
-        shift_geometries=shift_geometries,
-        shift_proportion=shift_proportion,
-        pixel_length=pixel_length,
-        add_random_features=add_random_features,
-        max_distance=max_distance,
-        random_proportion=random_proportion,
-        verbose=verbose,
-    )
+        # Step 1: Create obscured bounding boxes
+        _whisp_logger.debug("Creating obscured bounding boxes...")
+        obscured_collection = convert_geojson_to_ee_bbox_obscured(
+            input_geojson_filepath,
+            extension_range=extension_range,
+            shift_geometries=shift_geometries,
+            shift_proportion=shift_proportion,
+            pixel_length=pixel_length,
+            add_random_features=add_random_features,
+            max_distance=max_distance,
+            random_proportion=random_proportion,
+            verbose=verbose,
+        )
 
-    # Step 2: Download GeoTIFFs in parallel
-    _whisp_logger.debug("Downloading GeoTIFF data from Earth Engine...")
-    image_supplied = image is not None
-    if image is None:
-        image = combine_datasets(
+        # Step 2: Download GeoTIFFs in parallel
+        _whisp_logger.debug("Downloading GeoTIFF data from Earth Engine...")
+        image_supplied = image is not None
+        if image is None:
+            image = combine_datasets(
+                national_codes=national_codes,
+                include_context_bands=include_context_bands,
+            )
+
+        # Get band names from the EE image (single getInfo call for both naming and tile size calculation).
+        # It is also the first call that loads every dataset, so a broken one shows up here: leave it out
+        # if Whisp built the image, otherwise stop with guidance (a passed-in image is never swapped).
+        try:
+            band_names = image.bandNames().getInfo()
+        except ee.EEException as e:
+            if not is_dataset_error(e):
+                raise
+            if image_supplied:
+                raise supplied_image_error(e) from e
+            _whisp_logger.warning(
+                f"A dataset failed to load, leaving out broken ones: {str(e)[:200]}"
+            )
+            image, dropped = combine_datasets_without_broken(
+                national_codes=national_codes,
+                include_context_bands=include_context_bands,
+            )
+            _whisp_logger.warning(
+                f"Dropped unavailable dataset(s): {', '.join(unavailable_dataset_names(dropped))}"
+            )
+            band_names = image.bandNames().getInfo()
+        num_bands = len(band_names)
+        _whisp_logger.debug(f"Image has {num_bands} bands")
+
+        # Per-run subfolder: files from other runs are never reused, mosaicked or deleted
+        run_dir = tempfile.mkdtemp(prefix="whisp_run_", dir=output_path)
+
+        try:
+            geotiff_paths = download_geotiffs_for_feature_collection(
+                feature_collection=obscured_collection,
+                output_dir=run_dir,
+                image=image,
+                scale=scale,
+                max_workers=max_download_workers,
+                num_bands=num_bands,  # Pass for accurate tile size calculation
+            )
+
+            if not geotiff_paths:
+                raise RuntimeError("No GeoTIFF files were downloaded successfully")
+
+            _whisp_logger.debug(f"Downloaded {len(geotiff_paths)} GeoTIFF files")
+
+            # Step 3: Create VRT mosaic
+            _whisp_logger.debug("Creating VRT mosaic...")
+            vrt_path = create_vrt_from_folder(run_dir, verbose=verbose)
+            _whisp_logger.debug(f"VRT created: {vrt_path}")
+
+            # Step 4: Run parallel local zonal statistics
+            _whisp_logger.debug("Running local zonal statistics...")
+            stats_df = exact_extract_in_chunks_parallel(
+                rasters=vrt_path,
+                vector_file=input_geojson_filepath,
+                chunk_size=chunk_size,
+                ops=ops,
+                max_workers=max_extract_workers,
+                band_names=band_names,  # Pass band names for column renaming
+                verbose=verbose,
+            )
+        finally:
+            # Cleanup temporary files if requested (also when a step above failed)
+            if cleanup_files:
+                _whisp_logger.debug("Cleaning up temporary files...")
+                delete_all_files_in_folder(run_dir, "*.tif", verbose=verbose)
+                delete_all_files_in_folder(run_dir, "*.vrt", verbose=verbose)
+                try:
+                    os.rmdir(run_dir)
+                except OSError:
+                    pass
+
+        # ========================================================================
+        # Post-processing to match concurrent mode output format
+        # ========================================================================
+        _whisp_logger.debug("Formatting output...")
+
+        # plotId, metadata and geometry are attached by row position below
+        if len(stats_df) != num_features:
+            raise RuntimeError(
+                f"Local zonal statistics returned {len(stats_df)} rows for {num_features} features"
+            )
+
+        # Step 5a: Add plotId (1-indexed, same as concurrent mode)
+        stats_df[plot_id_column] = [str(i) for i in range(1, len(stats_df) + 1)]
+
+        # Step 5b: Extract centroid and geometry type from original GeoJSON (client-side)
+        # Reload gdf (fresh, without modifications from earlier in the function)
+        gdf = gpd.read_file(input_geojson_filepath)
+        geo_original = gdf.geometry  # as supplied, for the audit trail
+        # Same CRS as the downloads and the extraction (EPSG:4326)
+        gdf = _ensure_wgs84_crs(gdf)
+
+        # Same check as concurrent mode: raises if the column is absent, warns on empty values
+        check_external_id_column(gdf, external_id_column, _whisp_logger)
+
+        # Rename external_id column early (matching concurrent mode's _load_and_prepare_geojson)
+        if external_id_column and external_id_column in gdf.columns:
+            if external_id_column != "external_id":
+                gdf = gdf.rename(columns={external_id_column: "external_id"})
+            gdf["external_id"] = external_id_to_str(gdf["external_id"])
+
+        df_metadata = extract_centroid_and_geomtype_client(
+            gdf, external_id_column=external_id_column, return_attributes_only=True
+        )
+        # Add plotId to metadata for merging
+        df_metadata[plot_id_column] = [str(i) for i in range(1, len(df_metadata) + 1)]
+
+        # Merge centroid/geometry metadata on plotId (includes external_id if present)
+        stats_df = stats_df.merge(df_metadata, on=plot_id_column, how="left")
+
+        # Ensure external_id column exists even if not provided
+        if "external_id" not in stats_df.columns:
+            stats_df["external_id"] = None
+
+        # Step 5d: Add geometry column (GeoJSON string)
+        stats_df[geometry_column] = gdf.geometry.apply(
+            lambda g: json.dumps(mapping(g)) if g else None
+        ).values
+
+        # Step 5e: Join admin codes using the lookup dictionary
+        # With ops=['sum', 'majority'], admin_code_majority exists (the most common code in the plot)
+        # Fall back to the median or the sum if a caller's ops left the majority out
+        admin_col = next(
+            (
+                c
+                for c in ("admin_code_majority", "admin_code_median", "admin_code_sum")
+                if c in stats_df.columns
+            ),
+            None,
+        )
+        if admin_col is not None:
+            stats_df = join_admin_codes(stats_df, gaul_lookup_dict, id_col=admin_col)
+
+        # Step 5f: Format stats (unit conversion, strip _sum suffix, convert water flag)
+        area_col = f"{geometry_area_column}_sum"  # "Area_sum"
+        stats_df = format_stats_dataframe(
+            df=stats_df,
+            area_col=area_col,
+            decimal_places=decimal_places,
+            unit_type=unit_type,
+            remove_columns=remove_median_columns,
+            remove_columns_suffix="_majority",
+            convert_water_flag=convert_water_flag,
+            water_flag_threshold=water_flag_threshold,
+            sort_column=sort_column,
+        )
+
+        # Step 5f-2: Reformat geometry type (MultiPolygon -> Polygon) and handle point areas
+        try:
+            stats_df = reformat_geometry_type(stats_df)
+        except Exception as e:
+            _whisp_logger.warning(f"Error reformatting geometry type: {e}")
+
+        try:
+            stats_df = set_point_geometry_area_to_zero(stats_df)
+        except Exception as e:
+            _whisp_logger.warning(f"Error setting point geometry area to zero: {e}")
+
+        # Step 5g: Schema validation (reorder columns, type coercion)
+        stats_df = validate_dataframe_using_lookups_flexible(
+            df_stats=stats_df,
             national_codes=national_codes,
-            include_context_bands=include_context_bands,
+            custom_bands=custom_bands,
         )
 
-    # Get band names from the EE image (single getInfo call for both naming and tile size calculation).
-    # It is also the first call that loads every dataset, so a broken one shows up here: leave it out
-    # if Whisp built the image, otherwise stop with guidance (a passed-in image is never swapped).
-    try:
-        band_names = image.bandNames().getInfo()
-    except ee.EEException as e:
-        if not is_dataset_error(e):
-            raise
-        if image_supplied:
-            raise supplied_image_error(e) from e
-        _whisp_logger.warning(
-            f"A dataset failed to load, leaving out broken ones: {str(e)[:200]}"
+        # Step 5g-2: Add geometry audit trail if requested (AFTER validation to preserve columns)
+        if geometry_audit_trail:
+            # Add original input geometry column for audit/compliance
+            # Use pd.concat to avoid PerformanceWarning from DataFrame fragmentation
+            # plotId is the 1-based input position: look up by it, as the rows may be sorted
+            input_order = stats_df[plot_id_column].astype(int).values - 1
+            geo_original_series = pd.Series(
+                geo_original.iloc[input_order]
+                .apply(lambda g: json.dumps(mapping(g)) if g else None)
+                .values,
+                name="geo_original",
+            )
+            stats_df = pd.concat([stats_df, geo_original_series], axis=1)
+            logger.info("Audit trail added: geo_original column")
+
+        # Step 5h: Add processing metadata column (same format as concurrent mode)
+        metadata_dict = {
+            "whisp_version": get_version("openforis-whisp"),
+            "processing_timestamp_utc": datetime.now(timezone.utc).strftime(
+                "%Y-%m-%d %H:%M:%S%z"
+            ),
+        }
+        # Only present when the input went through split_multipart_geojson and parts were split
+        split_info = read_split_metadata(input_geojson_filepath)
+        if split_info:
+            metadata_dict["multipart_split"] = split_info
+        metadata_series = pd.Series(
+            [metadata_dict] * len(stats_df), name="whisp_processing_metadata"
         )
-        image, dropped = combine_datasets_without_broken(
-            national_codes=national_codes,
-            include_context_bands=include_context_bands,
-        )
-        _whisp_logger.warning(
-            f"Dropped unavailable dataset(s): {', '.join(unavailable_dataset_names(dropped))}"
-        )
-        band_names = image.bandNames().getInfo()
-    num_bands = len(band_names)
-    _whisp_logger.debug(f"Image has {num_bands} bands")
+        stats_df = pd.concat([stats_df, metadata_series], axis=1)
 
-    geotiff_paths = download_geotiffs_for_feature_collection(
-        feature_collection=obscured_collection,
-        output_dir=output_dir,
-        image=image,
-        scale=scale,
-        max_workers=max_download_workers,
-        num_bands=num_bands,  # Pass for accurate tile size calculation
-    )
-
-    if not geotiff_paths:
-        raise RuntimeError("No GeoTIFF files were downloaded successfully")
-
-    _whisp_logger.debug(f"Downloaded {len(geotiff_paths)} GeoTIFF files")
-
-    # Step 3: Create VRT mosaic
-    _whisp_logger.debug("Creating VRT mosaic...")
-    vrt_path = create_vrt_from_folder(output_dir, verbose=verbose)
-    _whisp_logger.debug(f"VRT created: {vrt_path}")
-
-    # Step 4: Run parallel local zonal statistics
-    _whisp_logger.debug("Running local zonal statistics...")
-    stats_df = exact_extract_in_chunks_parallel(
-        rasters=vrt_path,
-        vector_file=input_geojson_filepath,
-        chunk_size=chunk_size,
-        ops=ops,
-        max_workers=max_extract_workers,
-        band_names=band_names,  # Pass band names for column renaming
-        verbose=verbose,
-    )
-
-    # Cleanup temporary files if requested
-    if cleanup_files:
-        _whisp_logger.debug("Cleaning up temporary files...")
-        delete_all_files_in_folder(output_dir, "*.tif", verbose=verbose)
-        delete_all_files_in_folder(output_dir, "*.vrt", verbose=verbose)
-
-    # ========================================================================
-    # Post-processing to match concurrent mode output format
-    # ========================================================================
-    _whisp_logger.debug("Formatting output...")
-
-    # Step 5a: Add plotId (1-indexed, same as concurrent mode)
-    stats_df[plot_id_column] = [str(i) for i in range(1, len(stats_df) + 1)]
-
-    # Step 5b: Extract centroid and geometry type from original GeoJSON (client-side)
-    # Reload gdf (fresh, without modifications from earlier in the function)
-    gdf = gpd.read_file(input_geojson_filepath)
-
-    # Same check as concurrent mode: raises if the column is absent, warns on empty values
-    check_external_id_column(gdf, external_id_column, _whisp_logger)
-
-    # Rename external_id column early (matching concurrent mode's _load_and_prepare_geojson)
-    if external_id_column and external_id_column in gdf.columns:
-        if external_id_column != "external_id":
-            gdf = gdf.rename(columns={external_id_column: "external_id"})
-        gdf["external_id"] = external_id_to_str(gdf["external_id"])
-
-    df_metadata = extract_centroid_and_geomtype_client(
-        gdf, external_id_column=external_id_column, return_attributes_only=True
-    )
-    # Add plotId to metadata for merging
-    df_metadata[plot_id_column] = [str(i) for i in range(1, len(df_metadata) + 1)]
-
-    # Merge centroid/geometry metadata on plotId (includes external_id if present)
-    stats_df = stats_df.merge(df_metadata, on=plot_id_column, how="left")
-
-    # Ensure external_id column exists even if not provided
-    if "external_id" not in stats_df.columns:
-        stats_df["external_id"] = None
-
-    # Step 5d: Add geometry column (GeoJSON string)
-    stats_df[geometry_column] = gdf.geometry.apply(
-        lambda g: json.dumps(mapping(g)) if g else None
-    ).values
-
-    # Step 5e: Join admin codes using the lookup dictionary
-    # With ops=['sum', 'median'], admin_code_median exists (median is appropriate for categorical codes)
-    # Fall back to admin_code_sum if median wasn't computed
-    admin_col = (
-        "admin_code_median"
-        if "admin_code_median" in stats_df.columns
-        else "admin_code_sum"
-    )
-    if admin_col in stats_df.columns:
-        if admin_col != "admin_code_median":
-            # Rename to match expected column name for join
-            stats_df["admin_code_median"] = stats_df[admin_col]
-        stats_df = join_admin_codes(
-            stats_df, gaul_lookup_dict, id_col="admin_code_median"
+        total_time = time.time() - start_time
+        _whisp_logger.info(
+            f"Processing complete: {len(stats_df):,} features in {_format_time(total_time)}"
         )
 
-    # Step 5f: Format stats (unit conversion, strip _sum suffix, convert water flag)
-    area_col = f"{geometry_area_column}_sum"  # "Area_sum"
-    stats_df = format_stats_dataframe(
-        df=stats_df,
-        area_col=area_col,
-        decimal_places=decimal_places,
-        unit_type=unit_type,
-        remove_columns=remove_median_columns,
-        convert_water_flag=convert_water_flag,
-        water_flag_threshold=water_flag_threshold,
-        sort_column=sort_column,
-    )
-
-    # Step 5f-2: Reformat geometry type (MultiPolygon -> Polygon) and handle point areas
-    try:
-        stats_df = reformat_geometry_type(stats_df)
-    except Exception as e:
-        _whisp_logger.warning(f"Error reformatting geometry type: {e}")
-
-    try:
-        stats_df = set_point_geometry_area_to_zero(stats_df)
-    except Exception as e:
-        _whisp_logger.warning(f"Error setting point geometry area to zero: {e}")
-
-    # Step 5g: Schema validation (reorder columns, type coercion)
-    stats_df = validate_dataframe_using_lookups_flexible(
-        df_stats=stats_df,
-        national_codes=national_codes,
-        custom_bands=custom_bands,
-    )
-
-    # Step 5g-2: Add geometry audit trail if requested (AFTER validation to preserve columns)
-    if geometry_audit_trail:
-        # Add original input geometry column for audit/compliance
-        # Use pd.concat to avoid PerformanceWarning from DataFrame fragmentation
-        geo_original_series = pd.Series(
-            gdf.geometry.apply(lambda g: json.dumps(mapping(g)) if g else None).values,
-            name="geo_original",
-        )
-        stats_df = pd.concat([stats_df, geo_original_series], axis=1)
-        logger.info("Audit trail added: geo_original column")
-
-    # Step 5h: Add processing metadata column (same format as concurrent mode)
-    metadata_dict = {
-        "whisp_version": get_version("openforis-whisp"),
-        "processing_timestamp_utc": datetime.now(timezone.utc).strftime(
-            "%Y-%m-%d %H:%M:%S%z"
-        ),
-    }
-    # Only present when the input went through split_multipart_geojson and parts were split
-    split_info = read_split_metadata(input_geojson_filepath)
-    if split_info:
-        metadata_dict["multipart_split"] = split_info
-    metadata_series = pd.Series(
-        [metadata_dict] * len(stats_df), name="whisp_processing_metadata"
-    )
-    stats_df = pd.concat([stats_df, metadata_series], axis=1)
-
-    total_time = time.time() - start_time
-    _whisp_logger.info(
-        f"Processing complete: {len(stats_df):,} features in {_format_time(total_time)}"
-    )
-
-    return stats_df
+        return stats_df
+    finally:
+        # Leave the shared logger as the caller had it
+        _whisp_logger.setLevel(old_level)
 
 
 def reformat_geojson_properties(

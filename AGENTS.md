@@ -81,7 +81,7 @@ Decision tree checks in order:
 3. Disturbance before 2020-12-31? (Indicator 3)
 4. Disturbance after 2020-12-31? (Indicator 4)
 
-Output values: `"High"`, `"Low"`, `"More info needed"`
+Output values: `"high"`, `"low"`, `"more_info_needed"`
 
 ## Development Workflows
 

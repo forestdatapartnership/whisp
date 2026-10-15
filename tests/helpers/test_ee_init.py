@@ -103,9 +103,15 @@ def test_endpoint_check_reads_the_live_client_state():
 def test_wrong_endpoint_warns_once_instead_of_failing(monkeypatch, caplog):
     monkeypatch.setattr(advanced_stats, "check_ee_endpoint", lambda *a: False)
     monkeypatch.setattr(advanced_stats, "_endpoint_warned", set())
-    with caplog.at_level(logging.WARNING):
-        advanced_stats.validate_ee_endpoint("high-volume", raise_error=False)
-        advanced_stats.validate_ee_endpoint("high-volume", raise_error=False)
+    # The warning goes to the whisp logger, which doesn't propagate to root
+    whisp_logger = logging.getLogger("whisp")
+    whisp_logger.addHandler(caplog.handler)
+    try:
+        with caplog.at_level(logging.WARNING, logger="whisp"):
+            advanced_stats.validate_ee_endpoint("high-volume", raise_error=False)
+            advanced_stats.validate_ee_endpoint("high-volume", raise_error=False)
+    finally:
+        whisp_logger.removeHandler(caplog.handler)
     warnings = [r for r in caplog.records if "HIGH-VOLUME" in r.getMessage()]
     assert len(warnings) == 1
 
