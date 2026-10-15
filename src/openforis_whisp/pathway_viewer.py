@@ -14,7 +14,7 @@ Features
 * draw a polygon (Leaflet.draw) -> analyze through a same-origin ``/api`` (the notebook's local proxy /
   ``serve_viewer``); the drawn plot is coloured by its risk and a result panel shows a tick / cross per
   indicator and the outcome + pathway (following the timber viewer);
-* per-indicator THRESHOLD SLIDERS (default 10%) that RE-CLASSIFY the drawn plot live: the proxy caches the
+* per-indicator THRESHOLD SLIDERS (starting at whisp_risk's defaults) that RE-CLASSIFY the drawn plot live: the proxy caches the
   plot's stats once (the slow Earth Engine step) and re-runs the real ``whisp_risk`` with the new thresholds
   on each change (fast pandas, no Earth Engine), so the impact of changing thresholds is visible instantly.
 
@@ -24,6 +24,7 @@ not a legal determination (EUDR is one example framework it can inform, not the 
 
 from __future__ import annotations
 
+import inspect
 import json
 import re
 
@@ -47,8 +48,21 @@ def _legend_rows(palette):
     return outcome, pathway
 
 
+def _default_thresholds():
+    """whisp_risk's own default threshold for each indicator, so the viewer starts from the same values."""
+    from .risk import whisp_risk
+
+    return {
+        name: p.default
+        for name, p in inspect.signature(whisp_risk).parameters.items()
+        if re.fullmatch(r"ind_\d+_pcent_threshold", name)
+    }
+
+
 def _indicators(spec):
-    """Ordered unique [{label, param}] for the tree's indicators; param is the whisp_risk threshold arg."""
+    """Ordered unique [{label, param, default}] for the tree's indicators; param is the whisp_risk
+    threshold argument and default its default value in whisp_risk."""
+    defaults = _default_thresholds()
     seen, out = set(), []
     for cols in spec.q_to_columns.values():
         for c in cols:
@@ -57,8 +71,9 @@ def _indicators(spec):
             seen.add(c)
             m = re.match(r"Ind_0*(\d+)", c)
             if m:
+                param = "ind_%d_pcent_threshold" % int(m.group(1))
                 out.append(
-                    {"label": c, "param": "ind_%d_pcent_threshold" % int(m.group(1))}
+                    {"label": c, "param": param, "default": defaults.get(param, 10)}
                 )
     return out
 
@@ -377,7 +392,7 @@ function renderStats(feats){
 function buildSliders(){
   if(slidersBuilt) return; slidersBuilt=true;
   document.getElementById('sliderRows').innerHTML = CFG.indicators.map(ind =>
-    "<div class='sld'><code>"+ind.label+"</code><input type='range' min='0' max='100' value='10' data-param='"+ind.param+"'><span class='v' id='v_"+ind.param+"'>10</span></div>"
+    "<div class='sld'><code>"+ind.label+"</code><input type='range' min='0' max='100' value='"+ind.default+"' data-param='"+ind.param+"'><span class='v' id='v_"+ind.param+"'>"+ind.default+"</span></div>"
   ).join('');
   document.querySelectorAll('#sliderRows input').forEach(inp => {
     inp.addEventListener('input', e => { document.getElementById('v_'+e.target.dataset.param).textContent=e.target.value; scheduleReclassify(); });
