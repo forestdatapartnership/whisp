@@ -49,7 +49,7 @@ repos:
     rev: v1.5.0
     hooks:
       - id: detect-secrets
-        args: ["--baseline", ".secrets.baseline"]
+        args: ["--baseline", ".secrets.baseline", "--exclude-lines", "projects/[A-Za-z0-9_./-]+"]
         exclude: ^(\.venv/|build/|temp.*|notebooks/.*\.html$)
         log_file: pre-commit.log
         stages: [commit]

@@ -33,7 +33,7 @@ import os
 from contextlib import redirect_stdout
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple, Union
-from importlib.metadata import version as get_version
+from importlib.metadata import version as get_version, PackageNotFoundError
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from openforis_whisp.logger import get_whisp_logger
@@ -72,6 +72,10 @@ from openforis_whisp.data_conversion import (
     convert_geojson_to_ee,
     convert_ee_to_df,
     convert_ee_to_geojson,
+    check_external_id_column,
+    check_geometries_usable,
+    external_id_to_str,
+    read_split_metadata,
 )
 from openforis_whisp.datasets import (
     combine_datasets,
@@ -97,16 +101,13 @@ def _suppress_verbose_output(max_concurrent: int = None):
     """
     Suppress verbose warnings and logging from dependencies.
 
-    Dynamically adjusts urllib3 logger level based on max_concurrent to prevent
-    "Connection pool is full" warnings during high-concurrency scenarios.
+    Sets the urllib3 loggers to CRITICAL to prevent "Connection pool is full"
+    warnings during high-concurrency scenarios.
 
     Parameters
     ----------
     max_concurrent : int, optional
-        Maximum concurrent workers. Adjusts urllib3 logging level:
-        - max_concurrent <= 20: WARNING (pool rarely full)
-        - max_concurrent 21-35: CRITICAL (suppress pool warnings)
-        - max_concurrent >= 36: CRITICAL (maximum suppression)
+        Not used (the levels are the same for any value).
     """
     warnings.filterwarnings("ignore", category=UserWarning)
     warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -176,13 +177,21 @@ def _load_and_prepare_geojson(
             gdf = gpd.read_file(filepath)
 
         # Rename external_id column early and convert to string
-        if external_id_column and external_id_column in gdf.columns:
+        if external_id_column:
+            if external_id_column not in gdf.columns:
+                available_cols = [c for c in gdf.columns if c != gdf.geometry.name]
+                raise ValueError(
+                    f"Column '{external_id_column}' not found in GeoJSON properties. "
+                    f"Available columns: {available_cols}"
+                )
             if external_id_column != "external_id":
+                # the requested column wins over an existing 'external_id' property
+                gdf = gdf.drop(columns=["external_id"], errors="ignore")
                 gdf = gdf.rename(
                     columns={external_id_column: "external_id"}
                 )  # hard coding here to avoid confusion later
             # Convert to string to ensure consistent type throughout pipeline
-            gdf["external_id"] = gdf["external_id"].astype(str)
+            gdf["external_id"] = external_id_to_str(gdf["external_id"])
 
         return gdf
     finally:
@@ -264,7 +273,7 @@ def _normalize_keep_external_columns(
 
 
 def join_admin_codes(
-    df: pd.DataFrame, lookup_dict: Dict, id_col: str = "admin_code_median"
+    df: pd.DataFrame, lookup_dict: Dict, id_col: str = "admin_code_mode"
 ) -> pd.DataFrame:
     """
     Join admin codes to DataFrame using a lookup dictionary.
@@ -279,7 +288,7 @@ def join_admin_codes(
     lookup_dict : dict
         Dictionary mapping GAUL codes to admin info (iso3_code, iso2_code, gaul1_name)
     id_col : str
-        Name of the admin code column (default: "admin_code_median")
+        Name of the admin code column (default: "admin_code_mode")
 
     Returns
     -------
@@ -310,8 +319,8 @@ def join_admin_codes(
 
         # Prepare data for join
         df = df.copy()
-        # Round to nearest integer (handles float values from EE reducers)
-        df["admin_code_for_join"] = df[id_col].fillna(-9999).astype("int32")
+        # Round, then cast to integer (EE reducers return floats, and truncating 2183.99 gives 2183)
+        df["admin_code_for_join"] = df[id_col].fillna(-9999).round().astype("int32")
         lookup_df["gaul1_code"] = lookup_df["gaul1_code"].astype("int32")
 
         # Perform join
@@ -348,6 +357,8 @@ def join_admin_codes(
         )
         return df_joined
 
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         logger.warning(f"Error joining admin codes: {e}")
         return df
@@ -485,7 +496,9 @@ def check_ee_endpoint(endpoint_type: str = "high-volume") -> bool:
             break
     if not api_url:
         # Cannot determine endpoint; assume correct and let EE handle errors
-        logging.debug("Cannot determine EE endpoint URL; skipping endpoint check.")
+        logging.getLogger("whisp").debug(
+            "Cannot determine EE endpoint URL; skipping endpoint check."
+        )
         return True
     api_url = str(api_url)
 
@@ -534,7 +547,7 @@ def validate_ee_endpoint(endpoint_type: str = "high-volume", raise_error: bool =
         elif endpoint_type not in _endpoint_warned:
             # Once per process: a long-running worker would otherwise repeat it on every job
             _endpoint_warned.add(endpoint_type)
-            logging.warning(msg)
+            logging.getLogger("whisp").warning(msg)
 
 
 _endpoint_warned = set()
@@ -587,6 +600,10 @@ def extract_centroid_and_geomtype_client(
         warnings.filterwarnings("ignore", category=UserWarning)
         warnings.simplefilter("ignore", UserWarning)  # Additional suppression
         centroid_points = gdf.geometry.centroid
+
+    # Centroid columns are lon/lat: reproject if the input is in another CRS
+    if gdf.crs is not None and gdf.crs != "EPSG:4326":
+        centroid_points = centroid_points.to_crs("EPSG:4326")
 
     gdf[x_col] = centroid_points.x.round(6)
     gdf[y_col] = centroid_points.y.round(6)
@@ -830,12 +847,16 @@ def _add_geometry_audit_trail(
             gdf_original_geoms = _load_and_prepare_geojson(input_geojson_filepath)
 
         # Create DataFrame with plotId and geo_original
+        # plotId is assigned 1..N in input order, so rebuild it rather than rely on row order
+        plot_ids = pd.Series(range(1, len(gdf_original_geoms) + 1))
+        if not pd.api.types.is_numeric_dtype(df_validated["plotId"]):
+            plot_ids = plot_ids.astype(str)
         df_original_geom = pd.DataFrame(
             {
-                "plotId": df_validated["plotId"].values[: len(gdf_original_geoms)],
-                "geo_original": gdf_original_geoms["geometry"].apply(
-                    lambda g: json.dumps(mapping(g)) if g is not None else None
-                ),
+                "plotId": plot_ids.values,
+                "geo_original": gdf_original_geoms["geometry"]
+                .apply(lambda g: json.dumps(mapping(g)) if g is not None else None)
+                .values,
             }
         )
 
@@ -844,6 +865,8 @@ def _add_geometry_audit_trail(
         logger.info("Audit trail added: geo_original column")
         return df_result
 
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         logger.warning(f"Error adding audit trail: {e}")
         # Return original DataFrame if audit trail fails
@@ -985,17 +1008,13 @@ def process_ee_batch(
             # Ensure plot_id_column is present for merging
             # It should come from the feature properties (added before EE processing)
             if plot_id_column not in df.columns:
-                logger.warning(
-                    f"Batch {batch_idx + 1}: plotId column DROPPED by EE. "
-                    f"Regenerating with 1-indexed range. "
-                    f"Columns from EE: {list(df.columns)}"
+                # Ids are global across batches, so they cannot be rebuilt from row order here
+                raise RuntimeError(
+                    f"plotId column dropped by EE. Columns from EE: {list(df.columns)}"
                 )
-                # Use 1-indexed range to match client-side assignment
-                df[plot_id_column] = [str(i) for i in range(1, len(df) + 1)]
 
             # Ensure plotId is string type (consistent with creation)
-            if plot_id_column in df.columns:
-                df[plot_id_column] = df[plot_id_column].astype(str)
+            df[plot_id_column] = df[plot_id_column].astype(str)
 
             # Ensure all column names are strings (fixes pandas .str accessor issues)
             df.columns = df.columns.astype(str)
@@ -1118,6 +1137,10 @@ def whisp_stats_geojson_to_df_concurrent(
 
     logger = logger or logging.getLogger("whisp")
 
+    # A semaphore with no permits would block every batch forever
+    if max_concurrent < 1:
+        raise ValueError(f"max_concurrent must be at least 1, got {max_concurrent}")
+
     # Suppress verbose output from dependencies (dynamically adjust based on max_concurrent)
     _suppress_verbose_output(max_concurrent=max_concurrent)
 
@@ -1137,25 +1160,11 @@ def whisp_stats_geojson_to_df_concurrent(
     )
     logger.info(f"Loaded {len(gdf):,} features")
 
-    # Validate external_id if provided (lightweight client-side check)
-    # Note: external_id_column already renamed to 'external_id' during load
-    if external_id_column and "external_id" not in gdf.columns:
-        # Exclude geometry column from available columns list
-        available_cols = [c for c in gdf.columns if c != gdf.geometry.name]
-        raise ValueError(
-            f"Column '{external_id_column}' not found in GeoJSON properties. "
-            f"Available columns: {available_cols}"
-        )
+    # Shared check: raises if the column is absent, warns if some values are empty
+    check_external_id_column(gdf, external_id_column, logger)
 
-    # Check completeness of external_id (warn if nulls exist)
-    if external_id_column and "external_id" in gdf.columns:
-        null_count = gdf["external_id"].isna().sum()
-        if null_count > 0:
-            null_pct = (null_count / len(gdf)) * 100
-            logger.warning(
-                f"Column 'external_id' (from '{external_id_column}') has {null_count:,} null values ({null_pct:.1f}% of {len(gdf):,} features). "
-                f"These features may have missing external IDs in output."
-            )
+    # Fail early, naming them, rather than drop features without a geometry later
+    check_geometries_usable(gdf, external_id_column)
 
     if validate_geometries:
         gdf = clean_geodataframe(
@@ -1178,7 +1187,7 @@ def whisp_stats_geojson_to_df_concurrent(
 
     # CRITICAL: Convert external_id to string (both plotId and external_id are now strings)
     if external_id_column and "external_id" in gdf_for_ee.columns:
-        gdf_for_ee["external_id"] = gdf_for_ee["external_id"].astype(str)
+        gdf_for_ee["external_id"] = external_id_to_str(gdf_for_ee["external_id"])
         logger.debug(f"Converted external_id column to string type")
 
     logger.debug(f"Stripped GeoJSON to essential columns: {keep_cols}")
@@ -1192,8 +1201,12 @@ def whisp_stats_geojson_to_df_concurrent(
             logger, combine_datasets, national_codes=national_codes
         )
 
-    # Create reducer
-    reducer = ee.Reducer.sum().combine(ee.Reducer.median(), sharedInputs=True)
+    # Create reducer: sum for the area bands, mode for the categorical admin_code band.
+    # The most common code is used, not the median: for a plot across a border a median can
+    # land on a code between its neighbours' codes, which belongs to another region or country.
+    # maxBuckets and minBucketWidth keep one histogram bucket per integer code; with the
+    # defaults a large plot gets an approximate value such as 2183.99 for code 2184.
+    reducer = ee.Reducer.sum().combine(ee.Reducer.mode(65536, 1), sharedInputs=True)
 
     # Batch the data
     batches = batch_geodataframe(gdf_for_ee, batch_size)
@@ -1248,16 +1261,8 @@ def whisp_stats_geojson_to_df_concurrent(
 
     def merge_batch(df_server, df_client):
         """Merge one batch's EE statistics with its client-side metadata."""
-        if plot_id_column not in df_server.columns:
-            logger.warning(
-                f"Batch (concurrent merge): plotId DROPPED by EE. "
-                f"Regenerating. Columns from EE: {list(df_server.columns)}"
-            )
-            df_server[plot_id_column] = pd.array(
-                range(1, len(df_server) + 1), dtype="Int64"
-            )
-        else:
-            df_server[plot_id_column] = df_server[plot_id_column].astype(str)
+        # process_ee_batch raises if EE dropped plotId, so it is always present here
+        df_server[plot_id_column] = df_server[plot_id_column].astype(str)
         if plot_id_column in df_client.columns:
             df_client[plot_id_column] = df_client[plot_id_column].astype(str)
 
@@ -1484,13 +1489,13 @@ def whisp_stats_geojson_to_df_concurrent(
             ]
 
         # Add admin context (Country, ProducerCountry, Admin_Level_1) from admin_code
-        # MUST be done BEFORE formatting (which removes _median columns)
+        # MUST be done BEFORE formatting (which removes _mode columns)
         logger.debug("Adding administrative context...")
         try:
             from openforis_whisp.parameters.lookup_gaul1_admin import lookup_dict
 
             combined = join_admin_codes(
-                df=combined, lookup_dict=lookup_dict, id_col="admin_code_median"
+                df=combined, lookup_dict=lookup_dict, id_col="admin_code_mode"
             )
         except ImportError:
             logger.warning(
@@ -1606,25 +1611,11 @@ def whisp_stats_geojson_to_df_sequential(
     )
     logger.info(f"Loaded {len(gdf):,} features")
 
-    # Validate external_id if provided (lightweight client-side check)
-    # Note: external_id_column already renamed to 'external_id' during load
-    if external_id_column and "external_id" not in gdf.columns:
-        # Exclude geometry column from available columns list
-        available_cols = [c for c in gdf.columns if c != gdf.geometry.name]
-        raise ValueError(
-            f"Column '{external_id_column}' not found in GeoJSON properties. "
-            f"Available columns: {available_cols}"
-        )
+    # Shared check: raises if the column is absent, warns if some values are empty
+    check_external_id_column(gdf, external_id_column, logger)
 
-    # Check completeness of external_id (warn if nulls exist)
-    if external_id_column and "external_id" in gdf.columns:
-        null_count = gdf["external_id"].isna().sum()
-        if null_count > 0:
-            null_pct = (null_count / len(gdf)) * 100
-            logger.warning(
-                f"Column 'external_id' (from '{external_id_column}') has {null_count:,} null values ({null_pct:.1f}% of {len(gdf):,} features). "
-                f"These features may have missing external IDs in output."
-            )
+    # Fail early, naming them, rather than drop features without a geometry later
+    check_geometries_usable(gdf, external_id_column)
 
     # Clean geometries (preserve both null and invalid geometries by default)
     gdf = clean_geodataframe(
@@ -1647,7 +1638,7 @@ def whisp_stats_geojson_to_df_sequential(
 
     # CRITICAL: Convert external_id to string (both plotId and external_id are now strings)
     if external_id_column and "external_id" in gdf_for_ee.columns:
-        gdf_for_ee["external_id"] = gdf_for_ee["external_id"].astype(str)
+        gdf_for_ee["external_id"] = external_id_to_str(gdf_for_ee["external_id"])
         logger.debug(f"Converted external_id column to string type")
 
     logger.debug(f"Stripped GeoJSON to essential columns: {keep_cols}")
@@ -1675,8 +1666,8 @@ def whisp_stats_geojson_to_df_sequential(
             gdf_for_ee_clean, enforce_wgs84=True, strip_z_coords=True
         )
 
-    # Create reducer
-    reducer = ee.Reducer.sum().combine(ee.Reducer.median(), sharedInputs=True)
+    # Create reducer: sum for the area bands, exact mode for admin_code (see concurrent mode)
+    reducer = ee.Reducer.sum().combine(ee.Reducer.mode(65536, 1), sharedInputs=True)
 
     # Process server-side with error handling for bad bands
     logger.info(
@@ -1738,16 +1729,21 @@ def whisp_stats_geojson_to_df_sequential(
         )
     else:
         result = df_server
+        # external_id is dropped before EE, so restore it from the input
+        if external_id_column and "external_id" in gdf.columns:
+            result = result.drop(columns=["external_id"], errors="ignore").merge(
+                gdf[[plot_id_column, "external_id"]], on=plot_id_column, how="left"
+            )
 
     # Format the output
     # Add admin context (Country, ProducerCountry, Admin_Level_1) from admin_code
-    # MUST be done BEFORE formatting (which removes _median columns)
+    # MUST be done BEFORE formatting (which removes _mode columns)
     logger.debug("Adding administrative context...")
     try:
         from openforis_whisp.parameters.lookup_gaul1_admin import lookup_dict
 
         result = join_admin_codes(
-            df=result, lookup_dict=lookup_dict, id_col="admin_code_median"
+            df=result, lookup_dict=lookup_dict, id_col="admin_code_mode"
         )
     except ImportError:
         logger.warning("Could not import lookup dictionary - admin context not added")
@@ -1828,9 +1824,9 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
     custom_bands : Dict[str, Any], optional
         Custom band information
     batch_size : int
-        Features per batch (default 25)
+        Features per batch (default 10)
     max_concurrent : int
-        Maximum concurrent EE calls (default 10)
+        Maximum concurrent EE calls (default 20)
     validate_geometries : bool
         Validate and clean geometries (default True)
     max_retries : int
@@ -1845,11 +1841,13 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
         - Percent columns: stats_percent_columns_formatting
         - Other columns: stats_area_columns_formatting
     remove_median_columns : bool
-        Remove '_median' columns (default True)
+        Remove the intermediate '_mode' columns (they were '_median' columns before the
+        admin code switched to the mode; the parameter keeps its name for compatibility) (default True).
+        Currently has no effect: the columns are already removed when the stats are extracted.
     convert_water_flag : bool
-        Convert water flag to boolean (default True)
+        Convert water flag to boolean (default True). Currently has no effect.
     water_flag_threshold : float
-        Water flag ratio threshold (default 0.5)
+        Water flag ratio threshold (default 0.5). Currently has no effect.
     sort_column : str
         Column to sort by (default "plotId", None to skip)
     geometry_audit_trail : bool, default False
@@ -1864,8 +1862,6 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
     """
     from openforis_whisp.reformat import format_stats_dataframe
     from datetime import datetime, timezone
-    import json
-    from shapely.geometry import mapping
 
     logger = logger or logging.getLogger("whisp")
 
@@ -1896,15 +1892,14 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
         max_retries=max_retries,
         add_metadata_server=add_metadata_server,
         logger=logger,
+        decimal_places=decimal_places,
     )
     unavailable = df_raw.attrs.get("whisp_unavailable_datasets", [])
 
     # Step 2: Format the output
     logger.debug("Step 2/2: Formatting output...")
-    median_cols_before = [c for c in df_raw.columns if c.endswith("_median")]
-    logger.debug(
-        f"Columns ending with '_median' BEFORE formatting: {median_cols_before}"
-    )
+    mode_cols_before = [c for c in df_raw.columns if c.endswith("_mode")]
+    logger.debug(f"Columns ending with '_mode' BEFORE formatting: {mode_cols_before}")
 
     df_formatted = format_stats_dataframe(
         df=df_raw,
@@ -1917,17 +1912,21 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
         sort_column=sort_column,
     )
 
-    median_cols_after = [c for c in df_formatted.columns if c.endswith("_median")]
-    logger.debug(f"Columns ending with '_median' AFTER formatting: {median_cols_after}")
+    mode_cols_after = [c for c in df_formatted.columns if c.endswith("_mode")]
+    logger.debug(f"Columns ending with '_mode' AFTER formatting: {mode_cols_after}")
 
     # Step 2b: Reformat geometry and handle point areas
     try:
         df_formatted = reformat_geometry_type(df_formatted)
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         logger.warning(f"Error reformatting geometry type: {e}")
 
     try:
         df_formatted = set_point_geometry_area_to_zero(df_formatted)
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         logger.warning(f"Error setting point geometry area to zero: {e}")
 
@@ -1952,8 +1951,12 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
         )
 
     # Add processing metadata column using pd.concat to avoid fragmentation warning
+    try:
+        whisp_version = get_version("openforis-whisp")
+    except PackageNotFoundError:  # running from a source tree without an install
+        whisp_version = "unknown"
     metadata_dict = {
-        "whisp_version": get_version("openforis-whisp"),
+        "whisp_version": whisp_version,
         "processing_timestamp_utc": datetime.now(timezone.utc).strftime(
             "%Y-%m-%d %H:%M:%S%z"
         ),
@@ -1961,6 +1964,10 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
     # Only present when a dataset could not be loaded and was left out of this run
     if unavailable:
         metadata_dict["unavailable_datasets"] = unavailable
+    # Only present when the input went through split_multipart_geojson and parts were split
+    split_info = read_split_metadata(input_geojson_filepath)
+    if split_info:
+        metadata_dict["multipart_split"] = split_info
     metadata_series = pd.Series(
         [metadata_dict] * len(df_validated), name="whisp_processing_metadata"
     )
@@ -2021,14 +2028,16 @@ def whisp_formatted_stats_geojson_to_df_sequential(
         - Percent columns: stats_percent_columns_formatting
         - Other columns: stats_area_columns_formatting
     remove_median_columns : bool
-        Remove '_median' columns (default True)
+        Remove the intermediate '_mode' columns (they were '_median' columns before the
+        admin code switched to the mode; the parameter keeps its name for compatibility) (default True).
+        Currently has no effect: the columns are already removed when the stats are extracted.
     convert_water_flag : bool
-        Convert water flag to boolean (default True)
+        Convert water flag to boolean (default True). Currently has no effect.
     water_flag_threshold : float
-        Water flag ratio threshold (default 0.5)
+        Water flag ratio threshold (default 0.5). Currently has no effect.
     sort_column : str
         Column to sort by (default "plotId", None to skip)
-    geometry_audit_trail : bool, default True
+    geometry_audit_trail : bool, default False
         If True, includes original input geometry column:
         - geo_original: Original input geometry (before EE processing), stored as GeoJSON
         Enables geometry traceability for compliance and audit purposes.
@@ -2040,8 +2049,6 @@ def whisp_formatted_stats_geojson_to_df_sequential(
     """
     from openforis_whisp.reformat import format_stats_dataframe
     from datetime import datetime, timezone
-    import json
-    from shapely.geometry import mapping
 
     logger = logger or logging.getLogger("whisp")
 
@@ -2068,15 +2075,14 @@ def whisp_formatted_stats_geojson_to_df_sequential(
         custom_bands=custom_bands,
         add_metadata_client_side=add_metadata_client_side,
         logger=logger,
+        decimal_places=decimal_places,
     )
     unavailable = df_raw.attrs.get("whisp_unavailable_datasets", [])
 
     # Step 2: Format the output
     logger.debug("Step 2/2: Formatting output...")
-    median_cols_before = [c for c in df_raw.columns if c.endswith("_median")]
-    logger.debug(
-        f"Columns ending with '_median' BEFORE formatting: {median_cols_before}"
-    )
+    mode_cols_before = [c for c in df_raw.columns if c.endswith("_mode")]
+    logger.debug(f"Columns ending with '_mode' BEFORE formatting: {mode_cols_before}")
 
     df_formatted = format_stats_dataframe(
         df=df_raw,
@@ -2089,17 +2095,21 @@ def whisp_formatted_stats_geojson_to_df_sequential(
         sort_column=sort_column,
     )
 
-    median_cols_after = [c for c in df_formatted.columns if c.endswith("_median")]
-    logger.debug(f"Columns ending with '_median' AFTER formatting: {median_cols_after}")
+    mode_cols_after = [c for c in df_formatted.columns if c.endswith("_mode")]
+    logger.debug(f"Columns ending with '_mode' AFTER formatting: {mode_cols_after}")
 
     # Step 2b: Reformat geometry and handle point areas
     try:
         df_formatted = reformat_geometry_type(df_formatted)
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         logger.warning(f"Error reformatting geometry type: {e}")
 
     try:
         df_formatted = set_point_geometry_area_to_zero(df_formatted)
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         logger.warning(f"Error setting point geometry area to zero: {e}")
 
@@ -2124,8 +2134,12 @@ def whisp_formatted_stats_geojson_to_df_sequential(
         )
 
     # Add processing metadata column using pd.concat to avoid fragmentation warning
+    try:
+        whisp_version = get_version("openforis-whisp")
+    except PackageNotFoundError:  # running from a source tree without an install
+        whisp_version = "unknown"
     metadata_dict = {
-        "whisp_version": get_version("openforis-whisp"),
+        "whisp_version": whisp_version,
         "processing_timestamp_utc": datetime.now(timezone.utc).strftime(
             "%Y-%m-%d %H:%M:%S%z"
         ),
@@ -2133,6 +2147,10 @@ def whisp_formatted_stats_geojson_to_df_sequential(
     # Only present when a dataset could not be loaded and was left out of this run
     if unavailable:
         metadata_dict["unavailable_datasets"] = unavailable
+    # Only present when the input went through split_multipart_geojson and parts were split
+    split_info = read_split_metadata(input_geojson_filepath)
+    if split_info:
+        metadata_dict["multipart_split"] = split_info
     metadata_series = pd.Series(
         [metadata_dict] * len(df_validated), name="whisp_processing_metadata"
     )
@@ -2210,7 +2228,8 @@ def whisp_formatted_stats_geojson_to_df_fast(
     decimal_places : int, optional
         Decimal places for rounding. If None, auto-detects from config.
     remove_median_columns : bool
-        Remove '_median' columns
+        Remove the intermediate '_mode' columns (they were '_median' columns before the
+        admin code switched to the mode; the parameter keeps its name for compatibility)
     convert_water_flag : bool
         Convert water flag to boolean
     water_flag_threshold : float

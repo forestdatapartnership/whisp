@@ -9,6 +9,7 @@ from typing import List, Any, Union
 from geojson import Feature, FeatureCollection, Polygon, Point
 import json
 import logging
+import re
 import os
 import geopandas as gpd
 import ee
@@ -250,6 +251,107 @@ def _split_geometry_into_features(
     # are dropped, matching the historic whisp-app behavior.
 
 
+def check_external_id_column(
+    gdf, external_id_column: str, logger: logging.Logger = None
+):
+    """
+    Shared check for the user's external id column, run once the input is loaded.
+
+    Raises ValueError if the column is absent (most likely a misspelt name) and warns
+    with a count if some features have no value. Accepts the column under its original
+    name or already renamed to 'external_id'. plotId (1 to N) is always present, so rows
+    without an external id are still addressable.
+    """
+    if not external_id_column:
+        return
+    logger = logger or logging.getLogger("whisp")
+    if "external_id" in gdf.columns:
+        col = "external_id"
+    elif external_id_column in gdf.columns:
+        col = external_id_column
+    else:
+        geom_name = getattr(getattr(gdf, "geometry", None), "name", "geometry")
+        available_cols = [c for c in gdf.columns if c != geom_name]
+        raise ValueError(
+            f"Column '{external_id_column}' not found in GeoJSON properties. "
+            f"Available columns: {available_cols}"
+        )
+    null_count = int(gdf[col].isna().sum())
+    if null_count:
+        null_pct = (null_count / len(gdf)) * 100
+        logger.warning(
+            f"{null_count:,} of {len(gdf):,} features ({null_pct:.1f}%) have no value for "
+            f"'{external_id_column}'; their external_id is left empty in the output. "
+            "Use plotId (1 to N) to refer to those rows."
+        )
+
+
+def check_geometries_usable(gdf, external_id_column: str = None, max_listed: int = 10):
+    """
+    Shared check that every feature has a geometry, run once the input is loaded.
+
+    Raises ValueError naming the features whose geometry is null or empty. Such features
+    would otherwise be dropped without a message when the input is converted for Earth
+    Engine, so the output would have fewer rows (or a batch of them would fail the run).
+    Features are named by plotId (1 to N, input order) and external_id when available.
+    """
+    bad = gdf.geometry.isna() | gdf.geometry.is_empty
+    if not bad.any():
+        return
+    positions = [i for i, b in enumerate(bad.tolist()) if b]
+    plot_ids = [str(i + 1) for i in positions]
+    names = ", ".join(plot_ids[:max_listed])
+    if len(plot_ids) > max_listed:
+        names += f" and {len(plot_ids) - max_listed} more"
+    msg = (
+        f"{len(plot_ids)} of {len(gdf)} features have no usable geometry (null or empty): "
+        f"plotId {names}"
+    )
+    id_col = None
+    if "external_id" in gdf.columns:
+        id_col = "external_id"
+    elif external_id_column and external_id_column in gdf.columns:
+        id_col = external_id_column
+    if id_col:
+        ext = gdf[id_col].iloc[positions[:max_listed]].astype(str).tolist()
+        msg += f" (external_id {', '.join(ext)})"
+    raise ValueError(msg + ". Fix or remove them and try again.")
+
+
+def external_id_to_str(series):
+    """
+    Cast external ids to str while keeping missing values missing. A plain astype(str)
+    would turn None into the text 'None' and NaN into 'nan', which then look like real
+    ids in a CSV or a GIS join.
+    """
+    return series.map(lambda v: None if pd.isna(v) else str(v)).astype(object)
+
+
+_SPLIT_KEY = "whisp_split"
+
+
+def read_split_metadata(geojson_filepath):
+    """
+    Return the split counts split_multipart_geojson left on a GeoJSON file, or None.
+
+    The counts are a foreign member written at the top of the file, so only the first
+    few kilobytes are read; the file is not parsed. A file saved by other tools
+    drops the member and simply returns None.
+    """
+    try:
+        with open(geojson_filepath, "r", encoding="utf-8") as f:
+            head = f.read(4096)
+    except (OSError, TypeError, ValueError):
+        return None
+    m = re.search(r'"' + _SPLIT_KEY + r'"\s*:\s*(\{[^{}]*\})', head)
+    if not m:
+        return None
+    try:
+        return json.loads(m.group(1))
+    except json.JSONDecodeError:
+        return None
+
+
 def split_multipart_geojson(
     geojson_data: Union[str, Path, dict],
     logger: logging.Logger = None,
@@ -340,14 +442,29 @@ def split_multipart_geojson(
             )
         if n_gc:
             parts.append(f"{n_gc:,} GeometryCollection decomposed")
-        logger.info(
+        logger.warning(
             f"{n_in:,} feature(s) received; {'; '.join(parts)}; "
-            f"processing {n_out:,} single-part feature(s). external_id preserved on every part."
+            f"processing {n_out:,} single-part feature(s). Parts inherit all properties "
+            "of their input feature and have consecutive plotIds."
         )
     else:
         logger.debug(f"{n_in:,} feature(s); no multipart geometries to split")
 
-    return {"type": "FeatureCollection", "features": out_features}
+    result = {"type": "FeatureCollection"}
+    if n_multipart or n_gc:
+        # Foreign member (allowed by GeoJSON, ignored by readers), kept at the top of the
+        # file so read_split_metadata can find it without parsing the features. Only
+        # written when something was actually split.
+        result[_SPLIT_KEY] = {
+            "features_received": n_in,
+            "multipart_features_split": n_multipart + n_gc,
+            "single_parts_produced": n_out,
+        }
+    # Keep a declared CRS so later steps can still reproject to WGS 84
+    if isinstance(geojson_data, dict) and geojson_data.get("crs"):
+        result["crs"] = geojson_data["crs"]
+    result["features"] = out_features
+    return result
 
 
 def _create_ee_feature_collection(
@@ -880,6 +997,7 @@ def convert_df_to_geojson(
             raise ValueError(f"Geo column '{geo_column}' not found in the DataFrame.")
 
         features = []
+        skipped = 0
 
         for index, row in df.iterrows():
             try:
@@ -890,15 +1008,23 @@ def convert_df_to_geojson(
                 geometry = geojson.loads(geojson_str)
 
                 properties = row.drop(geo_column).to_dict()
+                # pd.notna on a list gives an array, so keep lists and dicts as they are
                 properties = {
-                    k: (v if pd.notna(v) else None) for k, v in properties.items()
+                    k: (v if isinstance(v, (list, dict)) or pd.notna(v) else None)
+                    for k, v in properties.items()
                 }
 
                 feature = geojson.Feature(geometry=geometry, properties=properties)
 
                 features.append(feature)
             except Exception as e:
+                skipped += 1
                 continue
+
+        if skipped:
+            logging.getLogger("whisp").warning(
+                f"{skipped} row(s) could not be converted to GeoJSON and were left out"
+            )
 
         feature_collection = geojson.FeatureCollection(features)
 

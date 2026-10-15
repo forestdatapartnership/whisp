@@ -52,7 +52,13 @@ def _as_metadata(value):
         try:
             value = ast.literal_eval(value)
         except (ValueError, SyntaxError):
-            return {}
+            # not a Python literal: try JSON (true/false/null)
+            import json
+
+            try:
+                value = json.loads(value)
+            except ValueError:
+                return {}
     return value if isinstance(value, dict) else {}
 
 
@@ -82,17 +88,17 @@ def _note_risk_inputs_left_out(df, lookup=None):
             f"Risk worked out without unavailable dataset(s) that feed it: {detail}"
         )
     df = df.copy()
-    df[_METADATA_COLUMN] = [
-        {
-            **m,
-            "risk_inputs_unavailable": [
-                n for n in m.get("unavailable_datasets", []) if n in affected
-            ],
-        }
-        if any(n in affected for n in m.get("unavailable_datasets", []))
-        else m
-        for m in metas
-    ]
+    # Only rewrite rows whose note changes; the others keep their original value
+    new_values = []
+    for original, m in zip(df[_METADATA_COLUMN], metas):
+        left_out = [n for n in m.get("unavailable_datasets", []) if n in affected]
+        if left_out:
+            new_values.append({**m, "risk_inputs_unavailable": left_out})
+        elif "risk_inputs_unavailable" in _as_metadata(original):
+            new_values.append(m)  # previous run's note removed
+        else:
+            new_values.append(original)
+    df[_METADATA_COLUMN] = new_values
     return df
 
 
@@ -133,6 +139,10 @@ def detect_unit_type(df, explicit_unit_type=None):
     # Get unique values from the column
     unit_types = df[stats_unit_type_column].unique()
 
+    # No rows: the unit makes no difference, and whisp_risk still adds its output columns
+    if len(unit_types) == 0:
+        return "ha"
+
     # Check for mixed unit types
     if len(unit_types) > 1:
         raise ValueError(
@@ -159,7 +169,7 @@ def _dedupe_keep_order(items: list) -> list:
 
 # Update whisp_risk to accept and pass the unit_type parameter
 def whisp_risk(
-    df: data_lookup_type,  # CHECK THIS
+    df: pd.DataFrame,
     ind_1_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_2_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_3_pcent_threshold: float = 50,  # higher than the others: pre-2020 disturbance leads to a low risk outcome, so it must cover most of the plot
@@ -215,7 +225,7 @@ def whisp_risk(
     national_codes: list[str] = None,  # List of ISO2 country codes to filter by
     custom_bands_info: dict = None,  # New parameter for custom band risk info
     drop_unused_columns: bool = False,  # Remove columns not used in risk calculations
-) -> data_lookup_type:
+) -> pd.DataFrame:
     """
     Adds the risk column to the DataFrame based on indicator values.
 
@@ -284,7 +294,7 @@ def whisp_risk(
             and final risk columns. Defaults to False (backward compatible).
 
     Returns:
-        data_lookup_type: DataFrame with added risk columns.
+        pd.DataFrame: DataFrame with added risk columns.
     """
     # Determine the unit type
     unit_type = detect_unit_type(df, explicit_unit_type)
@@ -459,7 +469,16 @@ def whisp_risk(
         ind_15_name,
         ind_16_name,
     ]
-    [check_range(threshold) for threshold in thresholds]
+
+    # Work on a copy, without the indicator and risk columns of an earlier whisp_risk run
+    previous_outputs = names + ["risk_pcrop", "risk_acrop", "risk_timber"]
+    df = df.drop(columns=[c for c in previous_outputs if c in df.columns])
+
+    missing = [c for cols in input_cols for c in cols if c not in df.columns]
+    if missing:
+        raise ValueError(
+            f"Columns needed for the risk indicators are missing: {_dedupe_keep_order(missing)}"
+        )
 
     df_w_indicators = add_indicators(
         df,
@@ -516,6 +535,8 @@ def whisp_risk(
         ind_2_name=ind_2_name,
         ind_3_name=ind_3_name,
         ind_4_name=ind_4_name,
+        low_name=low_name,
+        high_name=high_name,
     )
 
     add_risk_acrop_col(
@@ -523,6 +544,8 @@ def whisp_risk(
         ind_1_name=ind_1_name,
         ind_2_name=ind_2_name,
         ind_4_name=ind_4_name,
+        low_name=low_name,
+        high_name=high_name,
     )
 
     add_risk_timber_col(
@@ -541,6 +564,8 @@ def whisp_risk(
         ind_15_name=ind_15_name,
         ind_16_name=ind_16_name,
         primary_2025_name="primary_2025",
+        low_name=low_name,
+        high_name=high_name,
     )
 
     # Filter to risk-relevant columns if requested (after all columns added)
@@ -556,6 +581,8 @@ def add_risk_pcrop_col(
     ind_2_name: str,
     ind_3_name: str,
     ind_4_name: str,
+    low_name: str = "no",
+    high_name: str = "yes",
 ) -> data_lookup_type:
     """
     Adds the risk column to the DataFrame based on indicator values.
@@ -566,25 +593,30 @@ def add_risk_pcrop_col(
         ind_2_name (str, optional): Name of second indicator column. Defaults to "Ind_02_commodities".
         ind_3_name (str, optional): Name of third indicator column. Defaults to "Ind_03_disturbance_before_2020".
         ind_4_name (str, optional): Name of fourth indicator column. Defaults to "Ind_04_disturbance_after_2020".
+        low_name (str, optional): Indicator value for less than or equal to the threshold. Defaults to "no".
+        high_name (str, optional): Indicator value for more than the threshold. Defaults to "yes".
 
     Returns:
         DataFrame: DataFrame with added 'risk' column.
     """
 
-    for index, row in df.iterrows():
+    # collected in a list and assigned once, so rows sharing an index label each keep their own risk
+    risks = []
+    for _, row in df.iterrows():
         # If any of the first three indicators suggest low risk, set risk to "low"
         if (
-            row[ind_1_name] == "no"
-            or row[ind_2_name] == "yes"
-            or row[ind_3_name] == "yes"
+            row[ind_1_name] == low_name
+            or row[ind_2_name] == high_name
+            or row[ind_3_name] == high_name
         ):
-            df.at[index, "risk_pcrop"] = "low"
+            risks.append("low")
         # If none of the first three indicators suggest low risk and Indicator 4 suggests no risk, set risk to "more_info_needed"
-        elif row[ind_4_name] == "no":
-            df.at[index, "risk_pcrop"] = "more_info_needed"
+        elif row[ind_4_name] == low_name:
+            risks.append("more_info_needed")
         # If none of the above conditions are met, set risk to "high"
         else:
-            df.at[index, "risk_pcrop"] = "high"
+            risks.append("high")
+    df["risk_pcrop"] = risks
 
     return df
 
@@ -594,6 +626,8 @@ def add_risk_acrop_col(
     ind_1_name: str,
     ind_2_name: str,
     ind_4_name: str,
+    low_name: str = "no",
+    high_name: str = "yes",
 ) -> data_lookup_type:
     """
     Adds the risk column to the DataFrame based on indicator values.
@@ -603,22 +637,26 @@ def add_risk_acrop_col(
         ind_1_name (str, optional): Name of first indicator column. Defaults to "Ind_01_treecover".
         ind_2_name (str, optional): Name of second indicator column. Defaults to "Ind_02_commodities".
         ind_4_name (str, optional): Name of fourth indicator column. Defaults to "Ind_04_disturbance_after_2020".
+        low_name (str, optional): Indicator value for less than or equal to the threshold. Defaults to "no".
+        high_name (str, optional): Indicator value for more than the threshold. Defaults to "yes".
 
     Returns:
         DataFrame: DataFrame with added 'risk' column.
     """
 
     # soy risk
-    for index, row in df.iterrows():
+    risks = []
+    for _, row in df.iterrows():
         # If there is no tree cover in 2020, set risk_soy to "low"
-        if row[ind_1_name] == "no" or row[ind_2_name] == "yes":
-            df.at[index, "risk_acrop"] = "low"
+        if row[ind_1_name] == low_name or row[ind_2_name] == high_name:
+            risks.append("low")
         # If there is tree cover in 2020 and distrubances post 2020, set risk_soy to "high"
-        elif row[ind_1_name] == "yes" and row[ind_4_name] == "yes":
-            df.at[index, "risk_acrop"] = "high"
+        elif row[ind_1_name] == high_name and row[ind_4_name] == high_name:
+            risks.append("high")
         # If tree cover and no disturbances post 2020, set risk to "more_info_needed"
         else:
-            df.at[index, "risk_acrop"] = "more_info_needed"
+            risks.append("more_info_needed")
+    df["risk_acrop"] = risks
 
     return df
 
@@ -760,6 +798,8 @@ def add_risk_timber_col(
     ind_15_name: str = "Ind_15_agriculture_2020",
     ind_16_name: str = "Ind_16_plantation_presence_2025",
     ind_17_name: str = "Ind_17_disturbance_after_2020_timber",
+    low_name: str = "no",
+    high_name: str = "yes",
 ) -> data_lookup_type:
     """
     Adds the risk_timber column based on the WHISP timber decision tree, the elaborate FAO
@@ -817,18 +857,24 @@ def add_risk_timber_col(
       plantation HIGH (gain) and rule 3 stable-plantation LOW (presence) fire in Brazil and fall to MORE
       INFO NEEDED elsewhere until global layers are wired.
 
+    low_name / high_name: the indicator values for at or below / above the threshold (default "no" / "yes").
+
     Returns:
         DataFrame with risk_timber and risk_timber_pathway columns added.
     """
 
-    for index, row in df.iterrows():
-        primary_2020 = row[ind_5_name] == "yes"
+    # collected in lists and assigned once, so rows sharing an index label each keep their own outcome
+    risks, pathways = [], []
+    for _, row in df.iterrows():
+        primary_2020 = row[ind_5_name] == high_name
         # ROOT tree checks primary BEFORE regen, so the regen branch and the forest gate use plain
         # (Ind_06 OR Ind_07a) with NO "and not primary" carve-out: a primary+regen overlap resolves to
         # primary by ORDER, not exclusion.
-        regen_planted_2020 = row[ind_6_name] == "yes" or row[ind_7a_name] == "yes"
-        plantation_2020 = row[ind_7b_name] == "yes"
-        treecover_2020 = row[ind_1_name] == "yes"
+        regen_planted_2020 = (
+            row[ind_6_name] == high_name or row[ind_7a_name] == high_name
+        )
+        plantation_2020 = row[ind_7b_name] == high_name
+        treecover_2020 = row[ind_1_name] == high_name
         # "Forest in 2020?" root gate = UNION of treecover + the natural-forest classes (Ind_07b plantation
         # deliberately excluded: ~fully inside Ind_01 via silviculture, and keeping it here would make its
         # threshold dual-use). Any forest evidence routes the plot into the forest half so its
@@ -837,30 +883,32 @@ def add_risk_timber_col(
 
         yes_locals = {
             "forest_2020": forest_2020,
-            "other_land_2020": row[ind_12_name] == "yes",
-            "other_land_2025": row[ind_13_name] == "yes",
-            "agriculture_2020": (row[ind_2_name] == "yes")
-            or (row[ind_15_name] == "yes"),
-            "agriculture_2025": row[ind_10_name] == "yes",
+            "other_land_2020": row[ind_12_name] == high_name,
+            "other_land_2025": row[ind_13_name] == high_name,
+            "agriculture_2020": (row[ind_2_name] == high_name)
+            or (row[ind_15_name] == high_name),
+            "agriculture_2025": row[ind_10_name] == high_name,
             "plantation_2020": plantation_2020,
             # Ind_16 PRESENCE (stability) -> stable-plantation LOW, plantation-2020 branch only.
-            "plantation_presence_2025": row[ind_16_name] == "yes",
+            "plantation_presence_2025": row[ind_16_name] == high_name,
             "primary_2020": primary_2020,
             # primary_2025 derived upstream = Ind_05 AND NOT Ind_17.
-            "primary_2025": row[primary_2025_name] == "yes",
+            "primary_2025": row[primary_2025_name] == high_name,
             # Ind_09_treecover_after_2020 DROPPED from the tree (too broad: generic ESRI canopy; and
             # regionally uneven: TMF regrowth is tropics-only). The regen "stayed forest" leg now keys off the
             # DISTURBANCE flag instead: no disturbance -> stayed-forest LOW, disturbance -> more-info, mirroring
             # primary_2025 = Ind_05 AND NOT Ind_17. (ind_9_name is retained for signature stability but the
             # tree no longer consults Ind_09; it is still emitted as an output indicator by whisp_risk.)
-            "disturbance_2025": row[ind_17_name] == "yes",
+            "disturbance_2025": row[ind_17_name] == high_name,
             "regen_planted_2020": regen_planted_2020,
             # Ind_08b GAIN (new plantation) = degradation -> HIGH, checked FIRST in the primary/regen branches.
-            "plantation_2025": row[ind_8b_name] == "yes",
+            "plantation_2025": row[ind_8b_name] == high_name,
         }
         risk_timber, pathway = _eval_timber_tree(yes_locals)
-        df.at[index, "risk_timber"] = risk_timber
-        df.at[index, "risk_timber_pathway"] = pathway
+        risks.append(risk_timber)
+        pathways.append(pathway)
+    df["risk_timber"] = risks
+    df["risk_timber_pathway"] = pathways
 
     return df
 

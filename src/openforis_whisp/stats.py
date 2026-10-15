@@ -5,6 +5,9 @@ from pathlib import Path
 from .datasets import combine_datasets, is_dataset_error, supplied_image_error
 import json
 import logging
+import re
+import warnings
+from datetime import datetime
 import country_converter as coco
 from openforis_whisp.parameters.config_runtime import (
     plot_id_column,
@@ -121,7 +124,11 @@ def whisp_formatted_stats_geojson_to_df(
         The column in the GeoJSON containing external IDs to be preserved in the output DataFrame.
         This column must exist as a property in ALL features of the GeoJSON file.
         Use debug_feature_collection_properties() to inspect available properties if you encounter errors.
+    remove_geom : bool, optional
+        Not used by this function (kept for backward compatibility), by default False.
     national_codes : list, optional
+        List of ISO2 country codes to include national datasets.
+    unit_type : str, optional
         Whether to use hectares ("ha") or percentage ("percent"), by default "ha".
     whisp_image : ee.Image, optional
         Pre-combined multiband Earth Engine Image containing all Whisp datasets.
@@ -133,7 +140,7 @@ def whisp_formatted_stats_geojson_to_df(
         - Dict with types: {'Aa_test': 'float64', 'elevation': 'float32'}
         - None: preserves all extra columns automatically
     mode : str, optional
-        Processing mode, by default "concurrent":
+        Processing mode, by default "sequential":
         - "concurrent": Uses high-volume endpoint with concurrent batching (recommended for large files)
         - "sequential": Uses standard endpoint for sequential processing (more stable)
         - "local": Privacy-preserving mode that downloads data and processes locally with exactextract.
@@ -146,19 +153,14 @@ def whisp_formatted_stats_geojson_to_df(
     max_concurrent : int, optional
         Maximum concurrent EE calls for concurrent mode, by default 20.
         Only applicable for "concurrent" mode.
-    geometry_audit_trail : bool, default True
-        If True (default), includes audit trail columns:
-        - geo_original: Original input geometry
-        - geometry_type_original: Original geometry type
-        - geometry_type: Processed geometry type (from EE)
-        - geometry_type_changed: Boolean flag if geometry changed
-        - geometry_degradation_type: Description of how it changed
-
-        Processing metadata stored in df.attrs['processing_metadata'].
-        These columns enable full transparency for geometry modifications during processing.
+    geometry_audit_trail : bool, default False
+        If True, includes the original input geometry column:
+        - geo_original: Original input geometry (before EE processing), stored as GeoJSON
     output_dir : str, optional
         Directory for downloaded GeoTIFFs (local mode only). If not provided,
         uses a system temp directory which is automatically cleaned up.
+        Each run downloads into its own subfolder and removes it afterwards;
+        other files in a directory you provide are left in place.
 
     Returns
     -------
@@ -168,13 +170,13 @@ def whisp_formatted_stats_geojson_to_df(
 
     Examples
     --------
-    >>> # Use concurrent processing (default, recommended for large datasets)
+    >>> # Use sequential processing (default, more stable/predictable results)
     >>> df = whisp_formatted_stats_geojson_to_df("data.geojson")
 
-    >>> # Use sequential processing for more stable/predictable results
+    >>> # Use concurrent processing (recommended for large datasets)
     >>> df = whisp_formatted_stats_geojson_to_df(
     ...     "data.geojson",
-    ...     mode="sequential"
+    ...     mode="concurrent"
     ... )
 
     >>> # Adjust concurrency parameters
@@ -190,6 +192,12 @@ def whisp_formatted_stats_geojson_to_df(
     from openforis_whisp.advanced_stats import whisp_formatted_stats_geojson_to_df_fast
 
     logger = logging.getLogger("whisp")
+
+    if remove_geom:
+        warnings.warn(
+            "remove_geom is not used by whisp_formatted_stats_geojson_to_df and will be removed.",
+            FutureWarning,
+        )
 
     if mode in ("concurrent", "sequential"):
         # Log info if batch_size or max_concurrent are not used in sequential mode
@@ -220,27 +228,34 @@ def whisp_formatted_stats_geojson_to_df(
     elif mode == "local":
         # Import local_stats module
         from openforis_whisp.local_stats import whisp_stats_local
+        import shutil
         import tempfile
 
         # Use temp directory if not specified
-        if output_dir is None:
+        using_temp_dir = output_dir is None
+        if using_temp_dir:
             output_dir = tempfile.mkdtemp(prefix="whisp_local_")
 
         # Use defaults for privacy options - for advanced control use whisp_stats_local directly
-        return whisp_stats_local(
-            input_geojson_filepath=input_geojson_filepath,
-            output_dir=output_dir,
-            image=whisp_image,
-            national_codes=national_codes,
-            unit_type=unit_type,
-            external_id_column=external_id_column,
-            custom_bands=custom_bands,
-            geometry_audit_trail=geometry_audit_trail,
-            cleanup_files=True,  # Always cleanup when using temp dir
-            # Privacy defaults: add 5% decoy features
-            add_random_features=True,
-            random_proportion=0.05,
-        )
+        try:
+            return whisp_stats_local(
+                input_geojson_filepath=input_geojson_filepath,
+                output_dir=output_dir,
+                image=whisp_image,
+                national_codes=national_codes,
+                unit_type=unit_type,
+                external_id_column=external_id_column,
+                custom_bands=custom_bands,
+                geometry_audit_trail=geometry_audit_trail,
+                cleanup_files=True,  # only removes this run's own subfolder of output_dir
+                # Privacy defaults: add 5% decoy features
+                add_random_features=True,
+                random_proportion=0.05,
+            )
+        finally:
+            # Remove the temp directory itself, also when processing failed
+            if using_temp_dir:
+                shutil.rmtree(output_dir, ignore_errors=True)
     else:
         raise ValueError(
             f"Invalid mode '{mode}'. Must be 'concurrent', 'sequential' or 'local'."
@@ -411,8 +426,6 @@ def whisp_stats_geojson_to_df(
         The filepath to the GeoJSON of the ROI to analyze.
     external_id_column : str, optional
         The name of the external ID column, by default None.
-    remove_geom : bool, optional
-        Whether to remove the geometry column, by default False.
     national_codes : list, optional
         List of ISO2 country codes to include national datasets.
     unit_type : str, optional
@@ -527,6 +540,8 @@ def whisp_stats_geojson_to_drive(
     national_codes=None,
     unit_type="ha",
     whisp_image=None,  # New parameter
+    file_name=None,
+    folder=None,
 ):
     """
     Export Whisp statistics for a GeoJSON file to Google Drive.
@@ -543,10 +558,16 @@ def whisp_stats_geojson_to_drive(
         Whether to use hectares ("ha") or percentage ("percent"), by default "ha".
     whisp_image : ee.Image, optional
         Pre-combined multiband Earth Engine Image containing all Whisp datasets.
+    file_name : str, optional
+        Name of the CSV in Google Drive (without .csv). Defaults to
+        'whisp_output_YYYYMMDD_HHMM' with the time the export starts.
+    folder : str, optional
+        Google Drive folder to export into, created if it does not exist. Defaults to the Drive root.
 
     Returns
     -------
-    Message showing location of file in Google Drive
+    ee.batch.Task
+        The started export task, or None if the export could not start.
     """
     try:
         input_geojson_filepath = Path(input_geojson_filepath)
@@ -561,6 +582,8 @@ def whisp_stats_geojson_to_drive(
             national_codes=national_codes,
             unit_type=unit_type,
             whisp_image=whisp_image,  # Pass through
+            file_name=file_name,
+            folder=folder,
         )
 
     except control_flow.PROPAGATE:
@@ -611,8 +634,19 @@ def whisp_stats_ee_to_ee(
                     feature_collection, external_id_column
                 )
 
-                if not validation_result["is_valid"]:
+                # Stop only if no feature has the column (likely a misspelt name). Features
+                # without a value (Earth Engine drops nulls) get "unknown" below.
+                if validation_result["features_with_column"] == 0:
                     raise ValueError(validation_result["error_message"])
+                if not validation_result["is_valid"]:
+                    missing_count = (
+                        validation_result["total_features"]
+                        - validation_result["features_with_column"]
+                    )
+                    print(
+                        f"Warning: {missing_count} of {validation_result['total_features']} features "
+                        f"have no value for '{external_id_column}'; their external_id is set to 'unknown'."
+                    )
 
             # First handle property selection, but preserve the external_id_column
             if keep_properties is not None:
@@ -715,7 +749,7 @@ def whisp_stats_ee_to_df(
     external_id_column : str, optional
         The name of the external ID column, by default None.
     remove_geom : bool, optional
-        Whether to remove the geometry column, by default True.
+        Whether to remove the geometry column, by default False.
     national_codes : list, optional
         List of ISO2 country codes to include national datasets.
     unit_type : str, optional
@@ -798,13 +832,17 @@ def whisp_stats_ee_to_df(
             iso3_column=iso3_country_column,
             iso2_column=iso2_country_column,
         )
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         print(f"An error occurred during the ISO3 to ISO2 conversion: {e}")
-        return pd.DataFrame()  # Return an empty DataFrame in case of error
+        raise e
 
     # NEW: Set area to 0 for point geometries
     try:
         df_stats = set_point_geometry_area_to_zero(df_stats)
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         print(f"An error occurred during point geometry area adjustment: {e}")
         # Continue without the adjustment rather than failing completely
@@ -812,47 +850,13 @@ def whisp_stats_ee_to_df(
     # Reformat geometry types (MultiPolygon -> Polygon)
     try:
         df_stats = reformat_geometry_type(df_stats)
+    except control_flow.PROPAGATE:
+        raise
     except Exception as e:
         print(f"An error occurred during geometry type reformatting: {e}")
         # Continue without the adjustment rather than failing completely
 
     return df_stats
-
-
-def set_point_geometry_area_to_zero(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Set the geometry area column to 0 for features with Point geometry type.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        DataFrame containing geometry type and area columns
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame with area set to 0 for Point geometries
-    """
-    # Check if required columns exist
-    if geometry_type_column not in df.columns:
-        print(
-            f"Warning: {geometry_type_column} column not found. Skipping area adjustment for points."
-        )
-        return df
-
-    # Create a copy to avoid modifying the original
-    df_modified = df.copy()
-
-    # Set area to 0 where geometry type is Point
-    point_mask = df_modified[geometry_type_column] == "Point"
-    df_modified.loc[point_mask, geometry_area_column] = 0.0
-
-    # Log the changes
-    num_points = point_mask.sum()
-    if num_points > 0:
-        print(f"Set area to 0 for {num_points} Point geometries")
-
-    return df_modified
 
 
 def reformat_geometry_type(df: pd.DataFrame) -> pd.DataFrame:
@@ -898,6 +902,8 @@ def whisp_stats_ee_to_drive(
     national_codes=None,
     unit_type="ha",
     whisp_image=None,  # New parameter
+    file_name=None,
+    folder=None,
 ):
     """
      Export Whisp statistics for a feature collection to Google Drive.
@@ -914,10 +920,20 @@ def whisp_stats_ee_to_drive(
          Whether to use hectares ("ha") or percentage ("percent"), by default "ha".
     whisp_image : ee.Image, optional
          Pre-combined multiband Earth Engine Image containing all Whisp datasets.
+    file_name : str, optional
+         Name of the CSV in Google Drive (without .csv). Defaults to
+         'whisp_output_YYYYMMDD_HHMM' with the time the export starts.
+    folder : str, optional
+         Google Drive folder to export into, created if it does not exist. Defaults to the Drive root.
      Returns
      -------
-     None
+     ee.batch.Task
+         The started export task, or None if the export could not start.
     """
+    if file_name is None:
+        file_name = f"whisp_output_{datetime.now():%Y%m%d_%H%M}"
+    elif file_name.lower().endswith(".csv"):
+        file_name = file_name[:-4]
     try:
         task = ee.batch.Export.table.toDrive(
             collection=whisp_stats_ee_to_ee(
@@ -930,18 +946,45 @@ def whisp_stats_ee_to_drive(
                 # as nothing can recover once the task is running
                 validate_bands=whisp_image is None,
             ),
-            description="whisp_output_table",
-            # folder="whisp_results",
+            description=_export_task_description(file_name),
+            fileNamePrefix=file_name,
+            folder=folder,
             fileFormat="CSV",
         )
         task.start()
-        print(
-            "Exporting to Google Drive: 'whisp_output_table.csv'. To track progress: https://code.earthengine.google.com/tasks"
-        )
+        drive_path = f"{folder}/{file_name}.csv" if folder else f"{file_name}.csv"
+        project = _ee_project_in_use()
+        if project:
+            print(
+                f"Exporting to Google Drive: '{drive_path}' (Earth Engine project: {project}, task id: {task.id}). "
+                f"To track progress: https://console.cloud.google.com/earth-engine/tasks?project={project}"
+            )
+        else:
+            print(
+                f"Exporting to Google Drive: '{drive_path}' (task id: {task.id}). "
+                "To track progress: https://code.earthengine.google.com/tasks"
+            )
+        return task
     except control_flow.PROPAGATE:
         raise
     except Exception as e:
         print(f"An error occurred during the export: {e}")
+
+
+def _export_task_description(file_name):
+    """Earth Engine task names allow only letters, numbers, spaces and .,:;_- (max 100 characters)."""
+    return re.sub(r"[^A-Za-z0-9 .,:;_-]", "_", file_name)[:100]
+
+
+def _ee_project_in_use():
+    """The Cloud project Earth Engine is running under, if it can be read."""
+    try:
+        from ee import _state
+
+        project = _state.get_state().cloud_api_user_project
+    except Exception:  # earthengine-api before 1.6.12
+        project = getattr(ee.data, "_cloud_api_user_project", None)
+    return project or None
 
 
 #### main stats functions
@@ -1015,7 +1058,7 @@ def get_stats(
             img_combined=img_combined,  # Pass the image directly
         )
     else:
-        output = "Check inputs: not an ee.Feature or ee.FeatureCollection"
+        raise TypeError("Check inputs: not an ee.Feature or ee.FeatureCollection")
     return output
 
 
@@ -1192,10 +1235,6 @@ def get_type_and_location(feature, water_all=None, bounds_ADM1=None):
     admin_1 = ee.Dictionary(
         {admin_1_column: location.get("gaul1_name")}
     )  # Administrative level 1 (from GAUL 2024 L1)
-
-    # OPTIMIZATION: Use cached water flag image
-    if water_all is None:
-        water_all = get_water_flag_image()
 
     # OPTIMIZATION: Use cached water flag image
     if water_all is None:
@@ -1469,8 +1508,6 @@ def convert_iso3_to_iso2(df, iso3_column, iso2_column):
     Returns:
         pd.DataFrame: Updated DataFrame with the new ISO2 column.
     """
-    import country_converter as coco
-
     # Apply conversion from ISO3 to ISO2
     df[iso2_column] = df[iso3_column].apply(
         lambda x: (
