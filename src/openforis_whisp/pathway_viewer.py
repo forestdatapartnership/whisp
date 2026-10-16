@@ -389,6 +389,7 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
   #plotBox{display:flex;flex-wrap:wrap;align-items:center;gap:.3rem .6rem;border:1px solid #b9c6d8;background:#f4f7fb;border-radius:8px;padding:.35rem .65rem;font-size:.74rem;max-width:62rem}
   #plotBox>b{font-size:.8rem;color:var(--ink)} #plotBox .or{color:var(--ink2)}
   #plotBox #anaWhy,#plotBox #drawStatus{flex-basis:100%} #plotBox #anaWhy:empty,#plotBox #drawStatus:empty{display:none}
+  #clearBtn{background:#fff;border:1px solid #b9c6d8;border-radius:5px;padding:.15rem .5rem;cursor:pointer} #clearBtn:disabled{opacity:.4;cursor:default}
   #runBtn{font-weight:700;color:#fff;background:var(--accent);border:0;border-radius:5px;padding:.15rem .6rem;cursor:pointer} #runBtn:disabled{opacity:.4;cursor:default}
   #anaBox.off select{opacity:.5}
   #expMsg{background:#fef2f2;border:1px solid #dc2626;border-radius:6px;padding:6px 10px;font-size:12px;display:none}
@@ -406,6 +407,7 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
     <span class="or">or draw one on the map</span>
     <span id="anaBox">analyse with <select id="anaMode" disabled><option>checking&hellip;</option></select>
       <button id="runBtn" type="button" disabled title="analyse the plots on the map again with this option">Run</button>
+      <button id="clearBtn" type="button" disabled title="remove the plots and their results">Clear</button>
       <button id="keyBtn" type="button" title="paste a Whisp API key (kept in this browser only)" style="display:none">API key</button><input id="keyIn" type="password" placeholder="paste your Whisp API key, then Enter" autocomplete="off"></span>
     <div id="anaWhy"></div>
     <div id="drawStatus"></div>
@@ -683,8 +685,18 @@ map.on(L.Draw.Event.CREATED, function(e){
 });
 map.on(L.Draw.Event.DELETED, function(e){
   e.layers.eachLayer(l => { Object.keys(plotLayers).forEach(k => { if(plotLayers[k]===l) delete plotLayers[k]; }); });
-  updateRunBtn();
+  if(!Object.keys(plotLayers).length) clearPlots(); else updateRunBtn();
 });
+// Clear: remove every plot and its results (the result panel, comparison, stats and the route in the tree)
+function clearPlots(){
+  drawn.clearLayers(); Object.keys(plotLayers).forEach(k => delete plotLayers[k]);
+  curToken=null; lastApi=null; plotsColoured=false;
+  document.getElementById('result').style.display='none';
+  ['pathwayTxt','pkgInfo','indList','compare','stats'].forEach(id => { document.getElementById(id).innerHTML=''; });
+  if(!activeNode) clearNodeLayer();  // a box picked for the map stays; the plot's route goes
+  setStatus(''); updateLegend(); updateRunBtn();
+}
+document.getElementById('clearBtn').onclick=clearPlots;
 // Run: analyse every plot on the map again with the chosen option (drawing or uploading runs straight away)
 function plotsFC(){
   return { type:'FeatureCollection', features:Object.entries(plotLayers).map(([eid, l]) => {
@@ -692,7 +704,9 @@ function plotsFC(){
 }
 function updateRunBtn(){
   const mode=document.getElementById('anaMode').value;
-  document.getElementById('runBtn').disabled = analysing || !mode || (needsKey(mode) && !apiKey) || !Object.keys(plotLayers).length;
+  const none=!Object.keys(plotLayers).length;
+  document.getElementById('runBtn').disabled = analysing || !mode || (needsKey(mode) && !apiKey) || none;
+  document.getElementById('clearBtn').disabled = analysing || none;
 }
 document.getElementById('runBtn').onclick=() => analyzeFC(plotsFC());
 document.getElementById('anaMode').addEventListener('change', () => { updateKeyUi(); updateRunBtn(); });
