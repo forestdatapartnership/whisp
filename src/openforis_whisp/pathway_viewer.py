@@ -276,17 +276,24 @@ const s2layers = {};
 Object.entries(CFG.backgrounds || {}).forEach(([label,url]) => { s2layers[label] = L.tileLayer(url, { pane:'s2bg', maxZoom:19 }); });
 osm.addTo(map); riskLayers.outcome.addTo(map);
 // on-map messages: zoom in to see the layers; loading while their tiles arrive
-let _loading=0;
+let _loading=0, _slowTimer=null;
 function watchLoading(layer){
-  layer.on('tileloadstart', ()=>{ _loading++; document.getElementById('loadMsg').style.display='block'; });
-  const done=()=>{ _loading=Math.max(0,_loading-1); if(!_loading) document.getElementById('loadMsg').style.display='none'; };
+  layer.on('tileloadstart', ()=>{
+    _loading++; const lm=document.getElementById('loadMsg'); lm.textContent='Loading map layer…'; lm.style.display='block';
+    clearTimeout(_slowTimer); _slowTimer=setTimeout(()=>{ if(_loading) lm.textContent='Still loading… zooming in further usually helps'; }, 15000);
+  });
+  const done=()=>{ _loading=Math.max(0,_loading-1); if(!_loading){ clearTimeout(_slowTimer); document.getElementById('loadMsg').style.display='none'; } };
   layer.on('tileload', done); layer.on('tileerror', done); layer.on('remove', ()=>{ _loading=0; document.getElementById('loadMsg').style.display='none'; });
   return layer;
 }
 watchLoading(riskLayers.outcome); watchLoading(riskLayers.pathway);
 function updateZoomMsg(){
   const m=document.getElementById('zoomMsg'); const live=[riskLayers.outcome, riskLayers.pathway, nodeLayer].some(l => l && map.hasLayer(l));
-  if(live && map.getZoom() < LAYER_MIN_ZOOM){ m.textContent='Zoom in (or pick a bookmark) to see the map layers: they are computed live and only drawn from zoom level '+LAYER_MIN_ZOOM+'.'; m.style.display='block'; }
+  if(live && map.getZoom() < LAYER_MIN_ZOOM){
+    m.innerHTML='Zoom in to see the map layer <button id="zoomBtn">Zoom in</button>';
+    document.getElementById('zoomBtn').onclick=()=>map.setZoom(LAYER_MIN_ZOOM);
+    m.style.display='block';
+  }
   else m.style.display='none';
 }
 map.on('zoomend overlayadd overlayremove', updateZoomMsg);
@@ -318,6 +325,7 @@ function showNodeLayer(nid, el){
   // hide the combined risk layers while a node layer is shown, so its pixels stand out; restored on clear
   [riskLayers.outcome, riskLayers.pathway].forEach(l => { if(map.hasLayer(l)){ hiddenRisk.push(l); map.removeLayer(l); } });
   nodeLayer=watchLoading(L.tileLayer(nt.url, { pane:'risk', opacity:0.9, minZoom:LAYER_MIN_ZOOM })).addTo(map);
+  if(map.getZoom() < LAYER_MIN_ZOOM) map.setZoom(LAYER_MIN_ZOOM);  // so a click always shows something
   updateZoomMsg();
   activeNode=nid; activeEl=el; el.classList.add('active');
   const nl=document.getElementById('nodeLeg'); nl.style.display='block';
