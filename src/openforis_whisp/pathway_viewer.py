@@ -11,7 +11,8 @@ Features
   map the pixels on that pathway (``node_tiles`` from ``node_tiles_by_id``), click again or Esc to clear;
   the rest of the tree dims, an outcome's route lights up and a banner on the map names what is shown;
 * the input datasets behind each question, each its own on/off layer (``input_layers``), for looking only;
-* combined risk map (right) with a real Leaflet layer control (each layer an on/off checkbox) + a
+* combined risk map (right) with a real Leaflet layer control (each layer an on/off checkbox; outcome and
+  pathway either/or) + a legend of the one layer in view (bottom left, clear of the controls) + a
   risk-opacity slider + Sentinel-2 background layers + a map/satellite base;
 * draw a polygon (Leaflet.draw) -> analyze through a same-origin ``/api`` (the notebook's local proxy /
   ``serve_viewer``); the drawn plot is coloured by its risk and a result panel shows a tick / cross per
@@ -241,7 +242,10 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
   #stats{margin-top:.75rem;border-top:1px solid var(--line);padding-top:.55rem}
   .sld{display:grid;grid-template-columns:1fr 92px 3ch;gap:.4rem;align-items:center;font-size:.72rem;padding:.16rem 0}
   .sld code{font-family:var(--mono);font-size:.7rem} .sld input{accent-color:var(--accent);width:100%} .sld .v{font-family:var(--mono);text-align:right}
-  #legend{position:absolute;bottom:14px;right:12px;z-index:1000;background:#fff;border:1px solid #999;border-radius:6px;padding:7px 9px;font-size:11px;max-height:66%;overflow:auto}
+  /* bottom left: the layer list, opacity and input datasets stack top right, so the legend never covers them */
+  #legend{position:absolute;bottom:22px;left:12px;z-index:1000;background:#fff;border:1px solid #999;border-radius:6px;padding:7px 9px;font-size:11px;max-width:300px;max-height:45%;overflow:auto}
+  #legInputs{border-top:1px solid #e5e7eb;margin-top:.35rem;padding-top:.3rem;color:#4b5563}
+  #legInputs .strip{display:flex;flex-wrap:wrap;gap:2px;margin-bottom:2px} #legInputs .strip i{width:10px;height:10px;border:1px solid #777}
   #legend b{font-family:var(--mono);color:#555;min-width:1.3ch;display:inline-block}
   #legend .row{display:flex;align-items:center;gap:5px;padding:1px 0}
   #legend .row i{width:13px;height:13px;border-radius:3px;border:1px solid #777;flex:none}
@@ -268,7 +272,7 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
   .inbox .inhelp{color:#4b5563;margin:.1rem 0 .3rem;line-height:1.35}
   .inbox .inname{font-family:var(--mono);font-size:10px;color:#6b7280;padding-left:18px}
   .inbox label{display:flex;align-items:center;gap:4px;line-height:1.6;padding-left:14px;cursor:pointer}
-  .inbox label:hover{background:#f3f4f6}
+  .inbox label:hover{background:#f3f4f6} .inbox label:has(input:checked){font-weight:700}
   .inbox label i{width:10px;height:10px;border:1px solid #777;flex:none}
   .inbox label .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .inbox .iso{font-family:var(--mono);font-size:9px;color:#fff;background:#6b7280;border-radius:3px;padding:0 3px;flex:none}
@@ -418,14 +422,26 @@ function revealInputs(q){
 }
 
 // --- legend: only what is on the map now ---
+// one map layer at a time (the tree selection, else pathway, else outcome); input datasets as one short line,
+// since their names and colours are already beside their tick boxes in the Input datasets list
 function updateLegend(){
-  const show=(id,on) => { document.getElementById(id).style.display = on ? 'block' : 'none'; return on; };
-  const a=show('legOutcome', map.hasLayer(riskLayers.outcome)), b=show('legPathway', map.hasLayer(riskLayers.pathway)), c=show('nodeLeg', !!nodeLayer);
-  const on=inputsOn();
-  document.getElementById('legInputs').innerHTML = on.length ? "<h4>Input datasets</h4>"+on.map(n => "<div class='row'><i style='background:#"+esc(inputDefs[n].colour)+"'></i>"+esc(n)+"</div>").join('') : '';
-  show('legInputs', on.length>0);
-  document.getElementById('legend').style.display = (a||b||c||on.length) ? 'block' : 'none';
+  const main = nodeLayer ? 'nodeLeg' : map.hasLayer(riskLayers.pathway) ? 'legPathway' : map.hasLayer(riskLayers.outcome) ? 'legOutcome' : null;
+  ['legOutcome','legPathway','nodeLeg'].forEach(id => { document.getElementById(id).style.display = id===main ? 'block' : 'none'; });
+  const on=inputsOn(), li=document.getElementById('legInputs');
+  const sw=n => "<i style='background:#"+esc(inputDefs[n].colour)+"' title='"+esc(n)+"'></i>";
+  li.innerHTML = !on.length ? '' : on.length<=3
+    ? on.map(n => "<div class='row'>"+sw(n)+esc(n)+"</div>").join('')
+    : "<div class='strip'>"+on.map(sw).join('')+"</div>"+on.length+" input datasets on (named in the Input datasets list)";
+  li.style.display = on.length ? 'block' : 'none';
+  li.style.borderTop = main ? '' : '0';
+  document.getElementById('legend').style.display = (main || on.length) ? 'block' : 'none';
 }
+// outcome and pathway draw in the same place, so they are either/or: switching one on switches the other off
+// (deferred so the layer list has finished its own click and redraws its tick boxes)
+map.on('overlayadd', e => {
+  const other = e.layer===riskLayers.outcome ? riskLayers.pathway : e.layer===riskLayers.pathway ? riskLayers.outcome : null;
+  if(other) setTimeout(() => { if(map.hasLayer(other)) map.removeLayer(other); updateLegend(); }, 0);
+});
 map.on('overlayadd overlayremove', updateLegend);
 setTimeout(() => { updateZoomMsg(); updateLegend(); }, 0);
 // --- node clicks: show the pixels behind a question (indicator presence) or an outcome (pathway code) ---
