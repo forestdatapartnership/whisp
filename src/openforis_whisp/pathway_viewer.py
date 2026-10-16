@@ -385,6 +385,11 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
   #clickHint{font-size:.72rem;color:var(--ink2);margin:0 0 .4rem}
   #anaBox{font-size:.74rem;color:var(--ink2)} #anaBox select,#anaBox button,#anaBox input{font:inherit;font-size:.72rem}
   #keyIn{display:none;width:17em} #anaWhy{font-size:.72rem;color:#9a3412}
+  /* everything about plots (upload or draw, how to analyse, run, status) in one box, apart from the rest */
+  #plotBox{display:flex;flex-wrap:wrap;align-items:center;gap:.3rem .6rem;border:1px solid #b9c6d8;background:#f4f7fb;border-radius:8px;padding:.35rem .65rem;font-size:.74rem;max-width:62rem}
+  #plotBox>b{font-size:.8rem;color:var(--ink)} #plotBox .or{color:var(--ink2)}
+  #plotBox #anaWhy,#plotBox #drawStatus{flex-basis:100%} #plotBox #anaWhy:empty,#plotBox #drawStatus:empty{display:none}
+  #runBtn{font-weight:700;color:#fff;background:var(--accent);border:0;border-radius:5px;padding:.15rem .6rem;cursor:pointer} #runBtn:disabled{opacity:.4;cursor:default}
   #anaBox.off select{opacity:.5}
   #expMsg{background:#fef2f2;border:1px solid #dc2626;border-radius:6px;padding:6px 10px;font-size:12px;display:none}
   #compare{margin:.5rem 0;font-size:.74rem} #compare table{border-collapse:collapse;width:100%}
@@ -395,11 +400,16 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
 <header>
   <h1>__TITLE__</h1><span class="sub">__SUBTITLE__</span>
   <span class="grow"></span>
-  <label class="upl">upload GeoJSON<input type="file" id="geojsonFile" accept=".geojson,.json,application/geo+json"></label>
-  <span id="anaBox">analyse plots with <select id="anaMode" disabled><option>checking&hellip;</option></select>
-    <button id="keyBtn" type="button" title="paste a Whisp API key (kept in this browser only)" style="display:none">API key</button><input id="keyIn" type="password" placeholder="paste your Whisp API key, then Enter" autocomplete="off"></span>
-  <span id="anaWhy"></span>
-  <span id="drawStatus"></span>
+  <div id="plotBox">
+    <b>Plots</b>
+    <label class="upl">upload GeoJSON<input type="file" id="geojsonFile" accept=".geojson,.json,application/geo+json"></label>
+    <span class="or">or draw one on the map</span>
+    <span id="anaBox">analyse with <select id="anaMode" disabled><option>checking&hellip;</option></select>
+      <button id="runBtn" type="button" disabled title="analyse the plots on the map again with this option">Run</button>
+      <button id="keyBtn" type="button" title="paste a Whisp API key (kept in this browser only)" style="display:none">API key</button><input id="keyIn" type="password" placeholder="paste your Whisp API key, then Enter" autocomplete="off"></span>
+    <div id="anaWhy"></div>
+    <div id="drawStatus"></div>
+  </div>
   <span class="bm" id="bm">go to:</span>
 </header>
 <main>
@@ -671,6 +681,21 @@ map.on(L.Draw.Event.CREATED, function(e){
   plotLayers[eid]=e.layer; drawn.addLayer(e.layer);
   analyzeFC({ type:'FeatureCollection', features:[ft] });
 });
+map.on(L.Draw.Event.DELETED, function(e){
+  e.layers.eachLayer(l => { Object.keys(plotLayers).forEach(k => { if(plotLayers[k]===l) delete plotLayers[k]; }); });
+  updateRunBtn();
+});
+// Run: analyse every plot on the map again with the chosen option (drawing or uploading runs straight away)
+function plotsFC(){
+  return { type:'FeatureCollection', features:Object.entries(plotLayers).map(([eid, l]) => {
+    const ft=l.toGeoJSON(); ft.properties=Object.assign({}, ft.properties, { external_id:eid }); return ft; }) };
+}
+function updateRunBtn(){
+  const mode=document.getElementById('anaMode').value;
+  document.getElementById('runBtn').disabled = analysing || !mode || (needsKey(mode) && !apiKey) || !Object.keys(plotLayers).length;
+}
+document.getElementById('runBtn').onclick=() => analyzeFC(plotsFC());
+document.getElementById('anaMode').addEventListener('change', () => { updateKeyUi(); updateRunBtn(); });
 function featuresOf(result){
   if(!result) return [];
   if(result.type==='FeatureCollection' && result.features) return result.features;
@@ -766,25 +791,30 @@ async function checkApi(){
   try{
     const r=await fetch(base+'/config', { headers:{ 'x-api-key':apiKey || 'check' } });
     const c=await r.json().catch(() => ({}));
-    ana.api = apiKey ? { ok:true, reachable:true, base:base, version:c.openforisWhispVersion }
-      : { ok:false, reachable:true, why:'To analyse plots, paste a Whisp API key (API key button).' };
+    ana.api={ reachable:true, base:base, version:c.openforisWhispVersion };
   }catch(e){
-    ana.api={ ok:false, reachable:false, why:'Plot analysis is not available in this copy of the page: the Whisp API only accepts calls from whisp.openforis.org (or serve the page locally).' };
+    ana.api={ reachable:false, why:'Plot analysis is not available in this copy of the page: the Whisp API only accepts calls from whisp.openforis.org (or serve the page locally).' };
   }
 }
+function needsKey(mode){ return mode==='api' || mode==='both'; }
 function fillModes(){
-  const sel=document.getElementById('anaMode'), opts=[];
+  const sel=document.getElementById('anaMode'), opts=[], need=apiKey ? '' : ' (needs an API key)';
   if(ana.local.ok) opts.push(['local', 'local Python package ('+ana.local.pkg.version+(ana.local.pkg.commit ? ', '+ana.local.pkg.commit : '')+')']);
-  if(ana.api.ok) opts.push(['api', 'Whisp API'+(ana.api.version ? ' ('+ana.api.version+')' : '')]);
-  if(ana.local.ok && ana.api.ok) opts.push(['both', 'both, to compare']);
+  if(ana.api.reachable) opts.push(['api', 'Whisp API'+(ana.api.version ? ' ('+ana.api.version+')' : '')+need]);
+  if(ana.local.ok && ana.api.reachable) opts.push(['both', 'both, to compare'+need]);
   const prev=sel.value;
   sel.innerHTML = opts.length ? opts.map(([v,t]) => "<option value='"+v+"'>"+esc(t)+"</option>").join('') : "<option value=''>off</option>";
   if(opts.some(o => o[0]===prev)) sel.value=prev;
   sel.disabled = !opts.length; document.getElementById('anaBox').classList.toggle('off', !opts.length);
-  const kb=document.getElementById('keyBtn');
-  kb.textContent = apiKey ? 'API key ✓' : 'API key'; kb.style.display = ana.api.reachable ? '' : 'none';
-  // say why only when nothing works, or when the API cannot be reached although a key was given
-  document.getElementById('anaWhy').textContent = (!opts.length || (apiKey && !ana.api.reachable)) ? (ana.api.why || '') : '';
+  document.getElementById('anaWhy').textContent = opts.length ? '' : (ana.api.why || '');
+  updateKeyUi(); updateRunBtn();
+}
+// the key only matters for the API options: hidden for the local package; an empty box to paste into
+// while no key is set, then a small button to change it
+function updateKeyUi(){
+  const show=needsKey(document.getElementById('anaMode').value), kb=document.getElementById('keyBtn'), ki=document.getElementById('keyIn');
+  kb.textContent='API key ✓'; kb.style.display = show && apiKey ? '' : 'none';
+  if(!show) ki.style.display='none'; else if(!apiKey) ki.style.display='inline-block';
 }
 (async () => { await checkLocal(); await checkApi(); fillModes(); })();
 document.getElementById('keyBtn').onclick=() => { const k=document.getElementById('keyIn'); k.style.display = k.style.display==='inline-block' ? 'none' : 'inline-block'; if(k.style.display!=='none') k.focus(); };
@@ -814,9 +844,14 @@ async function apiAnalyse(fc){
   }
   return env.data;
 }
+let analysing=false;
 async function analyzeFC(fc){
   const mode=document.getElementById('anaMode').value;
+  updateRunBtn();
   if(!mode){ setStatus('Plot added. '+(document.getElementById('anaWhy').textContent || 'Plot analysis is off.')); return; }
+  if(!fc.features.length){ setStatus('No plots on the map to analyse.'); return; }
+  if(needsKey(mode) && !apiKey){ setStatus('Paste a Whisp API key in the box, then press Run.'); updateKeyUi(); return; }
+  analysing=true; updateRunBtn();
   const ids=fc.features.map(f => f.properties.external_id);
   setStatus('Analysing '+fc.features.length+' plot(s)'+({ api:' with the Whisp API', both:' with the local package and the Whisp API' }[mode] || '')+' (about 10 to 60 s)...');
   document.getElementById('compare').innerHTML=''; lastApi=null;
@@ -831,6 +866,7 @@ async function analyzeFC(fc){
       if(api) showCompare(feats[0] && feats[0].properties, api, false);
     }
   }catch(err){ setStatus('Analysis failed: '+err.message); }
+  analysing=false; updateRunBtn();
   // the sliders re-run the risk step on the local server, so they need the local package
   document.getElementById('sliders').classList.toggle('off', !curToken);
   document.querySelector('#sliders h4').textContent = curToken ? 'Indicator thresholds (%)' : 'Indicator thresholds (%), local Python package only';
