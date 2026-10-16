@@ -130,6 +130,7 @@ def build_pathway_viewer_html(
     center=(4, 12),
     zoom=3,
     node_tiles=None,
+    layer_min_zoom=8,
 ):
     """Return a self-contained viewer HTML string. See the module docstring for the feature list."""
     outcome_leg, pathway_leg = _legend_rows(palette)
@@ -142,6 +143,7 @@ def build_pathway_viewer_html(
             "zoom": zoom,
             "indicators": _indicators(spec),
             "nodeTiles": node_tiles or {},
+            "layerMinZoom": layer_min_zoom,
         },
         separators=(",", ":"),
     )
@@ -186,6 +188,8 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
   #tree{width:44%;min-width:270px;overflow:auto;border-right:1px solid var(--line);background:#fafbf9;padding:.8rem}
   #splitter{flex:0 0 5px;cursor:col-resize;background:#e5e7eb}
   #mapwrap{flex:1;position:relative} #map{position:absolute;inset:0}
+  #zoomMsg,#loadMsg{position:absolute;left:50%;transform:translateX(-50%);z-index:1000;background:#fffbe6;border:1px solid #c9a227;border-radius:6px;padding:6px 10px;font-size:12px;display:none}
+  #zoomMsg{top:12px} #loadMsg{bottom:14px;background:#eef5ff;border-color:#6b8fc7}
   .mermaid{font-size:13px}
   #result{display:none;margin-top:.8rem;border-top:1px solid var(--line);padding-top:.7rem}
   #result h3{margin:0 0 .4rem;font-size:.9rem}
@@ -234,7 +238,7 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
     </div>
   </div>
   <div id="splitter"></div>
-  <div id="mapwrap"><div id="map"></div>
+  <div id="mapwrap"><div id="map"></div><div id="zoomMsg"></div><div id="loadMsg">Loading map layer&hellip;</div>
     <div id="legend"><h4>Outcome</h4>__OUTCOME_LEG__<h4>Pathway code</h4>__PATHWAY_LEG__<div id="nodeLeg"></div></div>
   </div>
 </main>
@@ -261,13 +265,31 @@ map.createPane('s2bg'); map.getPane('s2bg').style.zIndex = 250;
 map.createPane('risk'); map.getPane('risk').style.zIndex = 350;
 const osm = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { maxZoom:19, attribution:'&copy; Esri' });
 const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom:19, attribution:'Esri' });
+// risk and node layers are computed by Earth Engine on request: zoomed out they take minutes per tile,
+// so they are only drawn from LAYER_MIN_ZOOM in, with a message saying so
+const LAYER_MIN_ZOOM = CFG.layerMinZoom || 8;
 const riskLayers = {
-  outcome: L.tileLayer(CFG.tiles.outcome, { pane:'risk', opacity:0.85 }),
-  pathway: L.tileLayer(CFG.tiles.pathway, { pane:'risk', opacity:0.85 })
+  outcome: L.tileLayer(CFG.tiles.outcome, { pane:'risk', opacity:0.85, minZoom:LAYER_MIN_ZOOM }),
+  pathway: L.tileLayer(CFG.tiles.pathway, { pane:'risk', opacity:0.85, minZoom:LAYER_MIN_ZOOM })
 };
 const s2layers = {};
 Object.entries(CFG.backgrounds || {}).forEach(([label,url]) => { s2layers[label] = L.tileLayer(url, { pane:'s2bg', maxZoom:19 }); });
 osm.addTo(map); riskLayers.outcome.addTo(map);
+// on-map messages: zoom in to see the layers; loading while their tiles arrive
+let _loading=0;
+function watchLoading(layer){
+  layer.on('tileloadstart', ()=>{ _loading++; document.getElementById('loadMsg').style.display='block'; });
+  const done=()=>{ _loading=Math.max(0,_loading-1); if(!_loading) document.getElementById('loadMsg').style.display='none'; };
+  layer.on('tileload', done); layer.on('tileerror', done); layer.on('remove', ()=>{ _loading=0; document.getElementById('loadMsg').style.display='none'; });
+  return layer;
+}
+watchLoading(riskLayers.outcome); watchLoading(riskLayers.pathway);
+function updateZoomMsg(){
+  const m=document.getElementById('zoomMsg'); const live=[riskLayers.outcome, riskLayers.pathway, nodeLayer].some(l => l && map.hasLayer(l));
+  if(live && map.getZoom() < LAYER_MIN_ZOOM){ m.textContent='Zoom in (or pick a bookmark) to see the map layers: they are computed live and only drawn from zoom level '+LAYER_MIN_ZOOM+'.'; m.style.display='block'; }
+  else m.style.display='none';
+}
+map.on('zoomend overlayadd overlayremove', updateZoomMsg);
 const overlays = { 'Risk – outcome': riskLayers.outcome, 'Risk – pathway': riskLayers.pathway };
 Object.keys(s2layers).forEach(label => { overlays['Sentinel-2 ' + label] = s2layers[label]; });
 L.control.layers({ 'Map': osm, 'Satellite': sat }, overlays, { collapsed:false, position:'topright' }).addTo(map);
@@ -279,6 +301,7 @@ const OpCtl = L.Control.extend({ options:{position:'topright'}, onAdd:function()
   d.querySelector('input').addEventListener('input', e=>{ const o=e.target.value/100; riskLayers.outcome.setOpacity(o); riskLayers.pathway.setOpacity(o); if(nodeLayer) nodeLayer.setOpacity(o); });
   return d; }});
 map.addControl(new OpCtl());
+setTimeout(updateZoomMsg, 0);
 // --- node clicks: show the pixels behind a question (indicator presence) or an outcome (pathway code) ---
 let nodeLayer=null, activeNode=null, activeEl=null, hiddenRisk=[];
 function clearNodeLayer(){
@@ -286,6 +309,7 @@ function clearNodeLayer(){
   hiddenRisk.forEach(l => { if(!map.hasLayer(l)) l.addTo(map); }); hiddenRisk=[];
   if(activeEl){ activeEl.classList.remove('active'); activeEl=null; }
   activeNode=null; const nl=document.getElementById('nodeLeg'); nl.style.display='none'; nl.innerHTML='';
+  updateZoomMsg();
 }
 function showNodeLayer(nid, el){
   const nt=(CFG.nodeTiles||{})[nid]; if(!nt) return;
@@ -293,7 +317,8 @@ function showNodeLayer(nid, el){
   clearNodeLayer();
   // hide the combined risk layers while a node layer is shown, so its pixels stand out; restored on clear
   [riskLayers.outcome, riskLayers.pathway].forEach(l => { if(map.hasLayer(l)){ hiddenRisk.push(l); map.removeLayer(l); } });
-  nodeLayer=L.tileLayer(nt.url, { pane:'risk', opacity:0.9 }).addTo(map);
+  nodeLayer=watchLoading(L.tileLayer(nt.url, { pane:'risk', opacity:0.9, minZoom:LAYER_MIN_ZOOM })).addTo(map);
+  updateZoomMsg();
   activeNode=nid; activeEl=el; el.classList.add('active');
   const nl=document.getElementById('nodeLeg'); nl.style.display='block';
   nl.innerHTML="<div class='row'><i style='background:"+nt.colour+"'></i><span>showing: "+nt.label+"</span><button id='nodeClear'>clear</button></div>";
