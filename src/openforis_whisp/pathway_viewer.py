@@ -397,7 +397,7 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
   <span class="grow"></span>
   <label class="upl">upload GeoJSON<input type="file" id="geojsonFile" accept=".geojson,.json,application/geo+json"></label>
   <span id="anaBox">analyse plots with <select id="anaMode" disabled><option>checking&hellip;</option></select>
-    <button id="keyBtn" type="button" title="paste a Whisp API key (kept in this browser only)">API key</button><input id="keyIn" type="password" placeholder="paste your Whisp API key, then Enter" autocomplete="off"></span>
+    <button id="keyBtn" type="button" title="paste a Whisp API key (kept in this browser only)" style="display:none">API key</button><input id="keyIn" type="password" placeholder="paste your Whisp API key, then Enter" autocomplete="off"></span>
   <span id="anaWhy"></span>
   <span id="drawStatus"></span>
   <span class="bm" id="bm">go to:</span>
@@ -422,7 +422,7 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
     <div id="legend"><div id="legOutcome"><h4>Outcome</h4>__OUTCOME_LEG__</div><div id="legPathway"><h4>Pathways</h4>__PATHWAY_LEG__</div><div id="nodeLeg"></div><div id="legInputs"></div></div>
   </div>
 </main>
-<div class="note"><b>Zoom in for realistic areas.</b> When zoomed out, a tile-pyramiding artefact inflates disturbance pixels, so some categories (e.g. high risk) appear to cover far larger areas than they actually do; zoom in for a truthful view. Draw a polygon (tools top-left of the map) to test a plot, then move the threshold sliders to see the impact. WHISP is a non-authoritative exploration tool: outcomes are signals, not a legal determination. <span id="builtNote"></span></div>
+<div class="note"><span id="zoomNote"><b>Zoom in for realistic areas.</b> When zoomed out, a tile-pyramiding artefact inflates disturbance pixels, so some categories (e.g. high risk) appear to cover far larger areas than they actually do; zoom in for a truthful view. </span>Draw a polygon (tools top-left of the map) to test a plot, then move the threshold sliders to see the impact. WHISP is a non-authoritative exploration tool: outcomes are signals, not a legal determination. <span id="builtNote"></span></div>
 <script>
 __JS_MODULE__
 const CFG = __CFG__;
@@ -759,14 +759,18 @@ async function checkLocal(){
   catch(e){ ana.local={ ok:false }; }
 }
 async function checkApi(){
-  if(!apiKey){ ana.api={ ok:false, why:'To analyse plots, paste a Whisp API key (API key button).' }; return; }
-  // served locally, the server relays to the API, so the browser's CORS rule does not apply
+  // served locally, the server relays to the API, so the browser's CORS rule does not apply. Otherwise the
+  // browser only lets the page call the API if the API accepts this site, which is checked with or without
+  // a key, so the key box is only offered where a key can work
   const base = ana.local.ok ? '/api/relay' : CFG.apiBase;
   try{
-    const r=await fetch(base+'/config', { headers:{ 'x-api-key':apiKey } });
+    const r=await fetch(base+'/config', { headers:{ 'x-api-key':apiKey || 'check' } });
     const c=await r.json().catch(() => ({}));
-    ana.api={ ok:true, base:base, version:c.openforisWhispVersion };
-  }catch(e){ ana.api={ ok:false, why:'Plot analysis off: the Whisp API does not yet accept calls from pages outside whisp.openforis.org.' }; }
+    ana.api = apiKey ? { ok:true, reachable:true, base:base, version:c.openforisWhispVersion }
+      : { ok:false, reachable:true, why:'To analyse plots, paste a Whisp API key (API key button).' };
+  }catch(e){
+    ana.api={ ok:false, reachable:false, why:'Plot analysis is not available in this copy of the page: the Whisp API only accepts calls from whisp.openforis.org (or serve the page locally).' };
+  }
 }
 function fillModes(){
   const sel=document.getElementById('anaMode'), opts=[];
@@ -777,9 +781,10 @@ function fillModes(){
   sel.innerHTML = opts.length ? opts.map(([v,t]) => "<option value='"+v+"'>"+esc(t)+"</option>").join('') : "<option value=''>off</option>";
   if(opts.some(o => o[0]===prev)) sel.value=prev;
   sel.disabled = !opts.length; document.getElementById('anaBox').classList.toggle('off', !opts.length);
-  document.getElementById('keyBtn').textContent = apiKey ? 'API key ✓' : 'API key';
-  // the API reason matters when nothing works, or when a key was given but the API cannot be reached
-  document.getElementById('anaWhy').textContent = (!opts.length || (apiKey && !ana.api.ok)) ? (ana.api.why || '') : '';
+  const kb=document.getElementById('keyBtn');
+  kb.textContent = apiKey ? 'API key ✓' : 'API key'; kb.style.display = ana.api.reachable ? '' : 'none';
+  // say why only when nothing works, or when the API cannot be reached although a key was given
+  document.getElementById('anaWhy').textContent = (!opts.length || (apiKey && !ana.api.reachable)) ? (ana.api.why || '') : '';
 }
 (async () => { await checkLocal(); await checkApi(); fillModes(); })();
 document.getElementById('keyBtn').onclick=() => { const k=document.getElementById('keyIn'); k.style.display = k.style.display==='inline-block' ? 'none' : 'inline-block'; if(k.style.display!=='none') k.focus(); };
@@ -867,6 +872,7 @@ function showCompare(localProps, api, rethresholded){
   let t='Built '+b.date+' with openforis-whisp '+b.version;
   if(b.commit) t+=' ('+b.branch+' @ '+b.commit+(b.changed ? ' + uncommitted changes' : '')+')';
   document.getElementById('builtNote').textContent = t + (CFG.tiles.outcome ? '; the map layers stop loading about a day after building.' : '; this page has no map layers.');
+  if(!CFG.tiles.outcome) document.getElementById('zoomNote').style.display='none';
 })();
 // draggable splitter
 (function(){ const sp=document.getElementById('splitter'), tree=document.getElementById('tree');
