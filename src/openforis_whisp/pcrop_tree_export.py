@@ -98,12 +98,12 @@ PATHWAY_TO_CODE = {
 }
 RETIRED_CODES: set = set()
 
-# Per-code display colour (hex, no '#'): ColorBrewer Greens for the LOW legs, an amber for MORE-INFO,
-# a red for HIGH (the same low/more/high families the timber palette uses).
+# Per-code display colour (hex, no '#'): a distinct hue per LOW route (shades of one green could not be told
+# apart from the outcome map), an amber for MORE-INFO, a red for HIGH. Shared by meaning with acrop.
 CODE_COLOUR = {
-    1: "c7e9c0",  # low  (light green)
-    2: "74c476",  # low  (medium green)
-    3: "238b45",  # low  (dark green)
+    1: "d8c99b",  # low: no tree cover 2020 (sand)
+    2: "9b72c8",  # low: commodity 2020 (lilac)
+    3: "4fa3c7",  # low: disturbance before 2020 (sky blue)
     4: "fe9929",  # more-info (amber)
     5: "e31a1c",  # high (red)
 }

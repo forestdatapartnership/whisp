@@ -72,7 +72,8 @@ def _s2_median(start, end):
 
 def build(which=("pcrop", "acrop")):
     ee.Initialize(project=EE_PROJECT)
-    land = ee.ImageCollection("ESA/WorldCover/v200").mosaic().gt(0)
+    # land only: WorldCover maps coastal sea and lakes as class 80 (permanent water), so leave that out too
+    land = ee.ImageCollection("ESA/WorldCover/v200").mosaic().neq(80)
     s2_vis = {"bands": ["B4", "B3", "B2"], "min": 0, "max": 3000}
     backgrounds = {
         "2020": cm.map_id_tile_url(_s2_median("2020-01-01", "2020-12-31"), s2_vis),

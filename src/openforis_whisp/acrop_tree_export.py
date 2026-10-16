@@ -92,12 +92,11 @@ PATHWAY_TO_CODE = {
 }
 RETIRED_CODES: set = set()
 
-# Per-code display colour (hex, no '#'): ColorBrewer Greens for the LOW legs, an amber for MORE-INFO,
-# a red for HIGH (the same low/more/high families the timber and pcrop palettes use; the shared LOW
-# greens keep the two crop legends visually consistent).
+# Per-code display colour (hex, no '#'): a distinct hue per LOW route, an amber for MORE-INFO, a red for
+# HIGH; the same colour for the same route as in pcrop, so the two crop legends read the same.
 CODE_COLOUR = {
-    1: "c7e9c0",  # low  (light green)
-    2: "74c476",  # low  (medium green)
+    1: "d8c99b",  # low: no tree cover 2020 (sand)
+    2: "9b72c8",  # low: commodity 2020 (lilac)
     3: "fe9929",  # more-info (amber)
     4: "e31a1c",  # high (red)
 }

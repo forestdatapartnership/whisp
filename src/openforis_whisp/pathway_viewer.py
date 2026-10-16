@@ -42,13 +42,43 @@ def _legend_rows(palette):
         % (oc[k], out_names[k])
         for k in (1, 2, 3)
     )
+    # pathways grouped under the outcome they lead to
     cn, cc = palette["code_names"], palette["code_colour"]
-    pathway = "".join(
-        "<div class='row'><i style='background:#%s'></i><b>%d</b> %s</div>"
-        % (cc[c], c, cn[c].split(": ", 1)[-1])
-        for c in sorted(cn)
-    )
+    pathway = ""
+    for cls, name in (("low", "Low"), ("more", "More info"), ("high", "High")):
+        codes = [c for c in palette["class_codes"][cls] if c in cn]
+        if codes:
+            pathway += "<div class='grp'>%s</div>" % name
+            pathway += "".join(
+                "<div class='row'><i style='background:#%s'></i><b>%d</b> %s</div>"
+                % (cc[c], c, cn[c].split(": ", 1)[-1])
+                for c in codes
+            )
     return outcome, pathway
+
+
+# outcome box outlines, as in the trees' low / more / high classDefs
+_OUTCOME_STROKE = {"low": "16a34a", "more": "c56f00", "high": "b91c1c"}
+
+
+def _route_styles(spec, palette):
+    """Mermaid lines filling each outcome box with its pathway's map colour, outlined in its outcome's
+    colour, so a box in the tree matches its colour on the pathway map. Declared after the trees' own
+    classDefs, so these win."""
+    lines = []
+    for node in _dt.iter_nodes(_dt.annotate(spec)):
+        if "q" in node or node["code"] not in palette["code_colour"]:
+            continue
+        fill = palette["code_colour"][node["code"]]
+        cls = next(k for k, v in palette["class_codes"].items() if node["code"] in v)
+        r, g, b = (int(fill[i : i + 2], 16) for i in (0, 2, 4))
+        text = "111" if 0.299 * r + 0.587 * g + 0.114 * b > 140 else "fff"
+        lines.append(
+            "  classDef route_%d fill:#%s,stroke:#%s,stroke-width:4px,color:#%s;"
+            % (node["code"], fill, _OUTCOME_STROKE[cls], text)
+        )
+        lines.append("  class %s route_%d" % (node["id"], node["code"]))
+    return "\n".join(lines) + "\n"
 
 
 def _default_thresholds():
@@ -186,7 +216,9 @@ def build_pathway_viewer_html(
         "__OUTCOME_LEG__": outcome_leg,
         "__PATHWAY_LEG__": pathway_leg,
         "__CFG__": cfg,
-        "__MERMAID_JSON__": json.dumps(_dt.to_mermaid(spec)),
+        "__MERMAID_JSON__": json.dumps(
+            _dt.to_mermaid(spec) + _route_styles(spec, palette)
+        ),
         "__JS_MODULE__": _dt.js_module_source(spec),
         "__STORY_FN__": spec.js_story_fn,
         "__RISK_COL__": risk_col,
@@ -250,6 +282,7 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
   #legend .row{display:flex;align-items:center;gap:5px;padding:1px 0}
   #legend .row i{width:13px;height:13px;border-radius:3px;border:1px solid #777;flex:none}
   #legend h4{margin:.3rem 0 .2rem;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#777;font-family:var(--mono)}
+  #legend .grp{font-weight:700;margin:.25rem 0 .05rem}
   .note{font-size:.72rem;color:var(--ink2);padding:.3rem 1rem;background:#fbf4e6;border-top:1px solid var(--line)}
   .note b{color:var(--ink)}
   .leaflet-control-layers{font-size:12px}
@@ -301,7 +334,7 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
   </div>
   <div id="splitter"></div>
   <div id="mapwrap"><div id="map"></div><div id="mapMsgs"><div id="selBanner"></div><div id="zoomMsg"></div></div><div id="loadMsg">Loading map layer&hellip;</div>
-    <div id="legend"><div id="legOutcome"><h4>Outcome</h4>__OUTCOME_LEG__</div><div id="legPathway"><h4>Pathway code</h4>__PATHWAY_LEG__</div><div id="nodeLeg"></div><div id="legInputs"></div></div>
+    <div id="legend"><div id="legOutcome"><h4>Outcome</h4>__OUTCOME_LEG__</div><div id="legPathway"><h4>Pathways</h4>__PATHWAY_LEG__</div><div id="nodeLeg"></div><div id="legInputs"></div></div>
   </div>
 </main>
 <div class="note"><b>Zoom in for realistic areas.</b> When zoomed out, a tile-pyramiding artefact inflates disturbance pixels, so some categories (e.g. high risk) appear to cover far larger areas than they actually do; zoom in for a truthful view. Draw a polygon (tools top-left of the map) to test a plot, then move the threshold sliders to see the impact. WHISP is a non-authoritative exploration tool: outcomes are signals, not a legal determination. Tile tokens expire; regenerate to refresh.</div>
