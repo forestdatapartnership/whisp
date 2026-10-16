@@ -123,6 +123,7 @@ def build(which=("pcrop", "acrop")):
             zoom=4,
             node_tiles=node_tiles,
             input_layers=input_layers,
+            national_codes=NATIONAL,
         )
         path = OUT_DIR / f"{name}_pathway_viewer.html"
         path.write_text(html, encoding="utf-8")

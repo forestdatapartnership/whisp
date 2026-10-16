@@ -189,11 +189,14 @@ def build_pathway_viewer_html(
     node_tiles=None,
     layer_min_zoom=8,
     input_layers=None,
+    national_codes=None,
 ):
     """Return a self-contained viewer HTML string. See the module docstring for the feature list.
 
     ``input_layers``: {indicator_column: [{"name", "iso2", "colour", "url"}]} (``crop_map.crop_input_layers``),
     shown as an on/off list of the datasets behind each question.
+    ``national_codes``: the national layers the map was built with; ``serve_viewer`` analyses drawn plots
+    with the same ones.
     """
     outcome_leg, pathway_leg = _legend_rows(palette)
     cfg = json.dumps(
@@ -207,6 +210,7 @@ def build_pathway_viewer_html(
             "nodeTiles": node_tiles or {},
             "layerMinZoom": layer_min_zoom,
             "inputGroups": _input_groups(spec, input_layers),
+            "nationalCodes": list(national_codes or []),
         },
         separators=(",", ":"),
     )
@@ -267,6 +271,7 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
   .badge{display:inline-block;font-family:var(--mono);font-size:.8rem;font-weight:700;color:#fff;border-radius:6px;padding:.2rem .55rem}
   .badge.low{background:var(--low)} .badge.more{background:var(--more)} .badge.high{background:var(--high)}
   #pathwayTxt{font-size:.8rem;color:var(--ink2);margin:.35rem 0 .5rem}
+  #pkgInfo{font-size:.7rem;color:var(--ink2);margin:-.2rem 0 .5rem;font-family:var(--mono)}
   .ind{display:flex;align-items:center;gap:.4rem;font-size:.78rem;padding:.12rem 0}
   .ind .mk{font-weight:700;width:1.1rem;text-align:center} .ind .mk.y{color:var(--low)} .ind .mk.n{color:#b7bdb4}
   .ind code{font-family:var(--mono);font-size:.74rem}
@@ -327,6 +332,7 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
       <h3>Drawn plot</h3>
       <div><span class="badge" id="riskBadge"></span></div>
       <div id="pathwayTxt"></div>
+      <div id="pkgInfo"></div>
       <div id="indList"></div>
       <div id="sliders"><h4>Indicator thresholds (%)</h4><div id="sliderRows"></div></div>
       <div id="stats"></div>
@@ -638,8 +644,15 @@ async function analyzeFC(fc){
   try{
     const resp=await fetch(WHISP_API_BASE+'/submit/geojson',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(fc)});
     if(!resp.ok) throw new Error('submit '+resp.status);
-    const env=await resp.json(); curToken=env.token||null; applyResults(env.data);
+    const env=await resp.json(); curToken=env.token||null; applyResults(env.data); showPackage(env.package);
   }catch(err){ setStatus('Draw/upload works; serve via the local proxy to analyze ('+err.message+').'); }
+}
+// which openforis_whisp code made the result (the local server's, which may be a branch, not a release)
+function showPackage(p){
+  const el=document.getElementById('pkgInfo'); if(!p){ el.textContent=''; return; }
+  let t='Analysed with openforis-whisp '+p.version;
+  if(p.commit) t+=', code from '+p.branch+' @ '+p.commit+(p.changed?' + uncommitted changes':'');
+  el.textContent=t+'; national layers: '+((p.national_codes||[]).map(c => c.toUpperCase()).join(', ')||'none');
 }
 // draggable splitter
 (function(){ const sp=document.getElementById('splitter'), tree=document.getElementById('tree');
