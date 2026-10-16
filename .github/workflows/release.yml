@@ -86,7 +86,9 @@ jobs:
             -f tag_name="$TAG" --jq .body > GENERATED.md
           # "Changes to results" and "Breaking changes" lines from the PR descriptions
           # (see .github/pull_request_template.md); empty if no PR has any
-          python .github/scripts/release_sections.py "$GITHUB_REPOSITORY" GENERATED.md > SECTIONS.md
+          # Runs after PyPI and the tag, so a failure here must not stop the release
+          python .github/scripts/release_sections.py "$GITHUB_REPOSITORY" GENERATED.md > SECTIONS.md \
+            || { echo "::warning::Could not collect sections from the PRs; release notes without them"; : > SECTIONS.md; }
 
           # The text shared by the release notes and the CHANGELOG.md entry
           : > TOP.md
