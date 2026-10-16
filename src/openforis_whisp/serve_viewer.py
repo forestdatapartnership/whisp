@@ -4,7 +4,9 @@ Generic local-serve proxy for the pathway viewers (timber / pcrop / acrop). It s
 ``/`` and runs WHISP on any polygon the viewer POSTs to ``/api/submit/geojson`` (same-origin, so no CORS
 and no API key: it runs the installed ``openforis_whisp`` package on your Earth Engine project). This is
 the same idea as the timber notebook's local-serve cell, generalized so any viewer can use it, and it is
-why a drawn plot can be analyzed (a plain file opened directly has no backend).
+why a drawn plot can be analyzed (a plain file opened directly has no backend). ``/api/info`` says which
+code that is, and ``/api/relay/...`` passes calls on to the live Whisp API with the key the page sends, so
+the page can also analyse with the API (or both, to compare) without the browser's CORS block.
 
 Usage (run in a SEPARATE terminal, not the one running other tools):
 
@@ -19,47 +21,31 @@ and colours the plot by its pathway via the single-source JS tree walk.
 from __future__ import annotations
 
 import json
-import pathlib
 import re
-import subprocess
 import sys
 import tempfile
+import urllib.error
+import urllib.request
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from .pathway_viewer import WHISP_API_BASE, package_info
 
-def package_info(whisp):
-    """Which openforis_whisp code is running: its version and, when run from a git checkout, the branch,
-    commit and whether src has uncommitted changes. The installed version number alone can be stale
-    (it is read from the install record, not from the code on the path)."""
-    src = pathlib.Path(whisp.__file__).resolve().parent
-    info = {"version": None, "branch": None, "commit": None, "changed": False}
-    pyproject = src.parent.parent / "pyproject.toml"
-    if pyproject.exists():
-        m = re.search(
-            r'^version\s*=\s*"([^"]+)"', pyproject.read_text(encoding="utf-8"), re.M
-        )
-        info["version"] = m.group(1) if m else None
 
-        def git(*args):
-            return subprocess.run(
-                ["git", "-C", str(src)] + list(args),
-                capture_output=True,
-                text=True,
-                timeout=10,
-            ).stdout.strip()
-
-        try:
-            info["branch"] = git("rev-parse", "--abbrev-ref", "HEAD") or None
-            info["commit"] = git("rev-parse", "--short", "HEAD") or None
-            info["changed"] = bool(git("status", "--porcelain", "--", str(src)))
-        except (OSError, subprocess.SubprocessError):
-            pass
-    if not info["version"]:
-        from importlib.metadata import version
-
-        info["version"] = version("openforis-whisp")
-    return info
+def _relay(method, path, body, api_key):
+    """Pass one call on to the live Whisp API (server to server, so the browser's CORS rule does not
+    apply) with the key the page sent; returns (status, response bytes)."""
+    req = urllib.request.Request(
+        WHISP_API_BASE + path,
+        data=body if method == "POST" else None,
+        method=method,
+        headers={"x-api-key": api_key or "", "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=600) as r:
+            return r.status, r.read()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read()
 
 
 def serve(html_path, port=8788, project="ee-andyarnellgee", national_codes=None):
@@ -77,7 +63,7 @@ def serve(html_path, port=8788, project="ee-andyarnellgee", national_codes=None)
         # analyse with the same national layers as the map, so a plot and the pixels under it agree
         m = re.search(r'"nationalCodes":(\[[^\]]*\])', html)
         national_codes = json.loads(m.group(1)) if m else None
-    package = package_info(whisp)
+    package = package_info()
     package["national_codes"] = national_codes or []
 
     _img_cache = (
@@ -160,6 +146,19 @@ def serve(html_path, port=8788, project="ee-andyarnellgee", national_codes=None)
             path = self.path.split("?", 1)[0]
             if path in ("/", "") or path.startswith("/index"):
                 self._send(200, html_bytes, "text/html; charset=utf-8")
+            elif (
+                path == "/api/info"
+            ):  # tells the page it is served here, and by which code
+                self._send(200, json.dumps(package))
+            elif path.startswith("/api/relay/"):
+                self._send(
+                    *_relay(
+                        "GET",
+                        path[len("/api/relay") :],
+                        None,
+                        self.headers.get("x-api-key"),
+                    )
+                )
             else:
                 self._send(404, b"{}")
 
@@ -168,7 +167,16 @@ def serve(html_path, port=8788, project="ee-andyarnellgee", national_codes=None)
             body = self.rfile.read(n) if n else b"{}"
             path = self.path.rstrip("/")
             try:
-                if path.endswith("/submit/geojson"):
+                if path.startswith("/api/relay/"):
+                    self._send(
+                        *_relay(
+                            "POST",
+                            path[len("/api/relay") :],
+                            body,
+                            self.headers.get("x-api-key"),
+                        )
+                    )
+                elif path.endswith("/submit/geojson"):
                     fc = json.loads(body or b"{}")
                     stats_df = _run_stats(fc)
                     token = _cache_stats(stats_df)

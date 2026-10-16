@@ -27,11 +27,68 @@ not a legal determination (EUDR is one example framework it can inform, not the 
 
 from __future__ import annotations
 
+import datetime
 import inspect
 import json
+import pathlib
 import re
+import subprocess
 
 from . import decision_tree as _dt
+
+# the live Whisp API; a page outside whisp.openforis.org can only call it from the browser once the API
+# allows that site (CORS), so when served locally the calls go through serve_viewer's relay instead
+WHISP_API_BASE = "https://whisp.openforis.org/api"
+
+
+def package_info():
+    """Which openforis_whisp code is running: its version and, when run from a git checkout, the branch,
+    commit and whether src has uncommitted changes. The installed version number alone can be stale
+    (it is read from the install record, not from the code on the path)."""
+    src = pathlib.Path(__file__).resolve().parent
+    info = {"version": None, "branch": None, "commit": None, "changed": False}
+    pyproject = src.parent.parent / "pyproject.toml"
+    if pyproject.exists():
+        m = re.search(
+            r'^version\s*=\s*"([^"]+)"', pyproject.read_text(encoding="utf-8"), re.M
+        )
+        info["version"] = m.group(1) if m else None
+
+        def git(*args):
+            return subprocess.run(
+                ["git", "-C", str(src)] + list(args),
+                capture_output=True,
+                text=True,
+                timeout=10,
+            ).stdout.strip()
+
+        try:
+            info["branch"] = git("rev-parse", "--abbrev-ref", "HEAD") or None
+            info["commit"] = git("rev-parse", "--short", "HEAD") or None
+            info["changed"] = bool(git("status", "--porcelain", "--", str(src)))
+        except (OSError, subprocess.SubprocessError):
+            pass
+    if not info["version"]:
+        from importlib.metadata import version
+
+        info["version"] = version("openforis-whisp")
+    return info
+
+
+def _routes(spec):
+    """Pathway code -> node ids from the top of the tree to its outcome box, to light up a plot's route."""
+    out = {}
+
+    def walk(node, route):
+        route = route + [node["id"]]
+        if "q" not in node:
+            out[node["code"]] = route
+            return
+        walk(node["yes"], route)
+        walk(node["no"], route)
+
+    walk(_dt.annotate(spec), [])
+    return out
 
 
 def _legend_rows(palette):
@@ -190,18 +247,28 @@ def build_pathway_viewer_html(
     layer_min_zoom=8,
     input_layers=None,
     national_codes=None,
+    api_key=None,
 ):
     """Return a self-contained viewer HTML string. See the module docstring for the feature list.
 
+    ``tiles``: {"outcome", "pathway"} tile urls, or None for a page without map layers (tree, base map and
+    plot analysis only, which never expires).
     ``input_layers``: {indicator_column: [{"name", "iso2", "colour", "url"}]} (``crop_map.crop_input_layers``),
     shown as an on/off list of the datasets behind each question.
-    ``national_codes``: the national layers the map was built with; ``serve_viewer`` analyses drawn plots
-    with the same ones.
+    ``national_codes``: the national layers the map was built with; plots are analysed with the same ones.
+    ``api_key``: a Whisp API key to build into the page. Anyone with the file can read it, so by default
+    leave it out and whoever opens the page pastes their own.
     """
     outcome_leg, pathway_leg = _legend_rows(palette)
+    built = package_info()
+    built["date"] = datetime.date.today().isoformat()
     cfg = json.dumps(
         {
-            "tiles": tiles,
+            "tiles": tiles or {},
+            "apiBase": WHISP_API_BASE,
+            "apiKey": api_key or "",
+            "builtWith": built,
+            "routes": _routes(spec),
             "backgrounds": backgrounds or {},
             "bookmarks": bookmarks or [],
             "center": list(center),
@@ -275,7 +342,7 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
   .ind{display:flex;align-items:center;gap:.4rem;font-size:.78rem;padding:.12rem 0}
   .ind .mk{font-weight:700;width:1.1rem;text-align:center} .ind .mk.y{color:var(--low)} .ind .mk.n{color:#b7bdb4}
   .ind code{font-family:var(--mono);font-size:.74rem}
-  #sliders{margin-top:.7rem} #sliders h4,#stats h4{margin:.2rem 0 .3rem;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);font-family:var(--mono)}
+  #sliders{margin-top:.7rem} #sliders h4,#stats h4,#compare h4{margin:.2rem 0 .3rem;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);font-family:var(--mono)}
   #stats{margin-top:.75rem;border-top:1px solid var(--line);padding-top:.55rem}
   .sld{display:grid;grid-template-columns:1fr 92px 3ch;gap:.4rem;align-items:center;font-size:.72rem;padding:.16rem 0}
   .sld code{font-family:var(--mono);font-size:.7rem} .sld input{accent-color:var(--accent);width:100%} .sld .v{font-family:var(--mono);text-align:right}
@@ -316,11 +383,22 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
   .inbox .iso{font-family:var(--mono);font-size:9px;color:#fff;background:#6b7280;border-radius:3px;padding:0 3px;flex:none}
   .inbox button{font:inherit;font-size:10px;cursor:pointer}
   #clickHint{font-size:.72rem;color:var(--ink2);margin:0 0 .4rem}
+  #anaBox{font-size:.74rem;color:var(--ink2)} #anaBox select,#anaBox button,#anaBox input{font:inherit;font-size:.72rem}
+  #keyIn{display:none;width:17em} #anaWhy{font-size:.72rem;color:#9a3412}
+  #anaBox.off select{opacity:.5}
+  #expMsg{background:#fef2f2;border:1px solid #dc2626;border-radius:6px;padding:6px 10px;font-size:12px;display:none}
+  #compare{margin:.5rem 0;font-size:.74rem} #compare table{border-collapse:collapse;width:100%}
+  #compare td,#compare th{border-bottom:1px solid var(--line);padding:2px 4px;text-align:left}
+  #compare tr.diff td{background:#fff3c4;font-weight:700} #compare .src{font-size:.68rem;color:var(--ink2)}
+  #sliders.off{opacity:.45;pointer-events:none}
 </style></head><body>
 <header>
   <h1>__TITLE__</h1><span class="sub">__SUBTITLE__</span>
   <span class="grow"></span>
   <label class="upl">upload GeoJSON<input type="file" id="geojsonFile" accept=".geojson,.json,application/geo+json"></label>
+  <span id="anaBox">analyse plots with <select id="anaMode" disabled><option>checking&hellip;</option></select>
+    <button id="keyBtn" type="button" title="paste a Whisp API key (kept in this browser only)">API key</button><input id="keyIn" type="password" placeholder="paste your Whisp API key, then Enter" autocomplete="off"></span>
+  <span id="anaWhy"></span>
   <span id="drawStatus"></span>
   <span class="bm" id="bm">go to:</span>
 </header>
@@ -334,16 +412,17 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
       <div id="pathwayTxt"></div>
       <div id="pkgInfo"></div>
       <div id="indList"></div>
+      <div id="compare"></div>
       <div id="sliders"><h4>Indicator thresholds (%)</h4><div id="sliderRows"></div></div>
       <div id="stats"></div>
     </div>
   </div>
   <div id="splitter"></div>
-  <div id="mapwrap"><div id="map"></div><div id="mapMsgs"><div id="selBanner"></div><div id="zoomMsg"></div></div><div id="loadMsg">Loading map layer&hellip;</div>
+  <div id="mapwrap"><div id="map"></div><div id="mapMsgs"><div id="selBanner"></div><div id="zoomMsg"></div><div id="expMsg"></div></div><div id="loadMsg">Loading map layer&hellip;</div>
     <div id="legend"><div id="legOutcome"><h4>Outcome</h4>__OUTCOME_LEG__</div><div id="legPathway"><h4>Pathways</h4>__PATHWAY_LEG__</div><div id="nodeLeg"></div><div id="legInputs"></div></div>
   </div>
 </main>
-<div class="note"><b>Zoom in for realistic areas.</b> When zoomed out, a tile-pyramiding artefact inflates disturbance pixels, so some categories (e.g. high risk) appear to cover far larger areas than they actually do; zoom in for a truthful view. Draw a polygon (tools top-left of the map) to test a plot, then move the threshold sliders to see the impact. WHISP is a non-authoritative exploration tool: outcomes are signals, not a legal determination. Tile tokens expire; regenerate to refresh.</div>
+<div class="note"><b>Zoom in for realistic areas.</b> When zoomed out, a tile-pyramiding artefact inflates disturbance pixels, so some categories (e.g. high risk) appear to cover far larger areas than they actually do; zoom in for a truthful view. Draw a polygon (tools top-left of the map) to test a plot, then move the threshold sliders to see the impact. WHISP is a non-authoritative exploration tool: outcomes are signals, not a legal determination. <span id="builtNote"></span></div>
 <script>
 __JS_MODULE__
 const CFG = __CFG__;
@@ -370,28 +449,40 @@ const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Wo
 // so they are only drawn from LAYER_MIN_ZOOM in, with a message saying so
 const LAYER_MIN_ZOOM = CFG.layerMinZoom || 8;
 let layerOpacity = 0.85;  // set by the opacity slider, used by every layer added later too
+let plotsColoured = false;  // set once a plot result has coloured a drawn plot by its pathway
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// a page built without Earth Engine has no map layers (tree, base map and plot analysis only)
 const riskLayers = {
-  outcome: L.tileLayer(CFG.tiles.outcome, { pane:'risk', opacity:layerOpacity, minZoom:LAYER_MIN_ZOOM }),
-  pathway: L.tileLayer(CFG.tiles.pathway, { pane:'risk', opacity:layerOpacity, minZoom:LAYER_MIN_ZOOM })
+  outcome: CFG.tiles.outcome ? L.tileLayer(CFG.tiles.outcome, { pane:'risk', opacity:layerOpacity, minZoom:LAYER_MIN_ZOOM }) : null,
+  pathway: CFG.tiles.pathway ? L.tileLayer(CFG.tiles.pathway, { pane:'risk', opacity:layerOpacity, minZoom:LAYER_MIN_ZOOM }) : null
 };
+function shown(l){ return !!l && map.hasLayer(l); }
 const s2layers = {};
-Object.entries(CFG.backgrounds || {}).forEach(([label,url]) => { s2layers[label] = L.tileLayer(url, { pane:'s2bg', maxZoom:19 }); });
-osm.addTo(map); riskLayers.outcome.addTo(map);
-// on-map messages: zoom in to see the layers; loading while their tiles arrive
-let _loading=0, _slowTimer=null;
+Object.entries(CFG.backgrounds || {}).forEach(([label,url]) => { s2layers[label] = watchLoading(L.tileLayer(url, { pane:'s2bg', maxZoom:19 })); });
+osm.addTo(map); if(riskLayers.outcome) riskLayers.outcome.addTo(map);
+// on-map messages: zoom in to see the layers; loading while their tiles arrive; expired once no tile loads
+let _loading=0, _slowTimer=null, _tilesOk=0, _tilesBad=0;
 function watchLoading(layer){
   layer.on('tileloadstart', ()=>{
     _loading++; const lm=document.getElementById('loadMsg'); lm.textContent='Loading map layer…'; lm.style.display='block';
     clearTimeout(_slowTimer); _slowTimer=setTimeout(()=>{ if(_loading) lm.textContent='Still loading… zooming in further usually helps'; }, 15000);
   });
   const done=()=>{ _loading=Math.max(0,_loading-1); if(!_loading){ clearTimeout(_slowTimer); document.getElementById('loadMsg').style.display='none'; } };
-  layer.on('tileload', done); layer.on('tileerror', done); layer.on('remove', ()=>{ _loading=0; document.getElementById('loadMsg').style.display='none'; });
+  layer.on('tileload', () => { _tilesOk++; done(); });
+  layer.on('tileerror', () => {
+    _tilesBad++; done();
+    // Earth Engine tile links stop working about a day after the page is built
+    if(_tilesBad>=4 && !_tilesOk){
+      const m=document.getElementById('expMsg'); m.style.display='block';
+      m.textContent='The map layers have expired (this page was built on '+CFG.builtWith.date+'). Ask for a rebuild; the tree and plot analysis still work.';
+    }
+  });
+  layer.on('remove', ()=>{ _loading=0; document.getElementById('loadMsg').style.display='none'; });
   return layer;
 }
-watchLoading(riskLayers.outcome); watchLoading(riskLayers.pathway);
+[riskLayers.outcome, riskLayers.pathway].forEach(l => { if(l) watchLoading(l); });
 function updateZoomMsg(){
-  const m=document.getElementById('zoomMsg'); const live=[riskLayers.outcome, riskLayers.pathway, nodeLayer].some(l => l && map.hasLayer(l));
+  const m=document.getElementById('zoomMsg'); const live=[riskLayers.outcome, riskLayers.pathway, nodeLayer].some(shown);
   if(live && map.getZoom() < LAYER_MIN_ZOOM){
     m.innerHTML='Zoom in to see the map layer <button id="zoomBtn">Zoom in</button>';
     document.getElementById('zoomBtn').onclick=()=>map.setZoom(LAYER_MIN_ZOOM);
@@ -400,7 +491,9 @@ function updateZoomMsg(){
   else m.style.display='none';
 }
 map.on('zoomend overlayadd overlayremove', updateZoomMsg);
-const overlays = { 'Risk – outcome': riskLayers.outcome, 'Risk – pathway': riskLayers.pathway };
+const overlays = {};
+if(riskLayers.outcome) overlays['Risk – outcome'] = riskLayers.outcome;
+if(riskLayers.pathway) overlays['Risk – pathway'] = riskLayers.pathway;
 Object.keys(s2layers).forEach(label => { overlays['Sentinel-2 ' + label] = s2layers[label]; });
 L.control.layers({ 'Map': osm, 'Satellite': sat }, overlays, { collapsed:false, position:'topright' }).addTo(map);
 // opacity slider for the risk, node and input layers (see Sentinel-2 / base through them)
@@ -411,7 +504,7 @@ const OpCtl = L.Control.extend({ options:{position:'topright'}, onAdd:function()
   d.querySelector('input').addEventListener('input', e=>{ layerOpacity=e.target.value/100;
     [riskLayers.outcome, riskLayers.pathway, nodeLayer].concat(Object.values(inputLayers)).forEach(l => { if(l) l.setOpacity(layerOpacity); }); });
   return d; }});
-map.addControl(new OpCtl());
+if(riskLayers.outcome) map.addControl(new OpCtl());
 
 // --- input datasets: every dataset the tree reads, each its own on/off layer (for looking only, never changes the outcome).
 // One dataset draws in a second or two at any zoom, so unlike the combined layers these have no zoom limit.
@@ -464,7 +557,8 @@ function revealInputs(q){
 // one map layer at a time (the tree selection, else pathway, else outcome); input datasets as one short line,
 // since their names and colours are already beside their tick boxes in the Input datasets list
 function updateLegend(){
-  const main = nodeLayer ? 'nodeLeg' : map.hasLayer(riskLayers.pathway) ? 'legPathway' : map.hasLayer(riskLayers.outcome) ? 'legOutcome' : null;
+  // with no map layer on, analysed plots are still coloured by pathway, so that legend explains them
+  const main = nodeLayer ? 'nodeLeg' : shown(riskLayers.pathway) ? 'legPathway' : shown(riskLayers.outcome) ? 'legOutcome' : plotsColoured ? 'legPathway' : null;
   ['legOutcome','legPathway','nodeLeg'].forEach(id => { document.getElementById(id).style.display = id===main ? 'block' : 'none'; });
   const on=inputsOn(), li=document.getElementById('legInputs');
   const sw=n => "<i style='background:#"+esc(inputDefs[n].colour)+"' title='"+esc(n)+"'></i>";
@@ -516,7 +610,7 @@ function showNodeLayer(nid, el){
   if(activeNode===nid){ clearNodeLayer(); return; }
   clearNodeLayer();
   // hide the combined risk layers while a node layer is shown, so its pixels stand out; restored on clear
-  [riskLayers.outcome, riskLayers.pathway].forEach(l => { if(map.hasLayer(l)){ hiddenRisk.push(l); map.removeLayer(l); } });
+  [riskLayers.outcome, riskLayers.pathway].forEach(l => { if(shown(l)){ hiddenRisk.push(l); map.removeLayer(l); } });
   nodeLayer=watchLoading(L.tileLayer(nt.url, { pane:'risk', opacity:layerOpacity, minZoom:LAYER_MIN_ZOOM })).addTo(map);
   if(map.getZoom() < LAYER_MIN_ZOOM) map.setZoom(LAYER_MIN_ZOOM);  // so a click always shows something
   activeNode=nid; activeEl=el; el.classList.add('active');
@@ -529,7 +623,7 @@ function showNodeLayer(nid, el){
   if(nt.kind==='question' && nt.q) revealInputs(nt.q);
   updateZoomMsg(); updateLegend();
 }
-document.addEventListener('keydown', e => { if(e.key==='Escape' && activeNode) clearNodeLayer(); });
+document.addEventListener('keydown', e => { if(e.key==='Escape' && activeEl) clearNodeLayer(); });
 function attachNodeClicks(){
   document.querySelectorAll('#diagram g.node').forEach(g => {
     const nid=nodeIdOf(g); if(!nid || !(CFG.nodeTiles||{})[nid]) return;
@@ -584,20 +678,33 @@ function featuresOf(result){
   if(result.features) return result.features;
   return [ { properties: result.properties || result } ];
 }
-function applyResults(result){
-  const feats = featuresOf(result); if(!feats.length){ setStatus('no result'); return; }
-  feats.forEach(ft => {
+function applyResults(result, ids){
+  const feats = featuresOf(result); if(!feats.length){ setStatus('no result'); return []; }
+  feats.forEach((ft,i) => {
     const props = ft.properties || {}; const s = storyOf(props);
     const colour = (s && CODE_COLOUR[s.code]) ? ('#'+CODE_COLOUR[s.code]) : '#888';
-    const lyr = plotLayers[props.external_id]; if(lyr && lyr.setStyle) lyr.setStyle({ color:colour, weight:2, fillColor:colour, fillOpacity:0.45 });
+    // the API may not echo our ids back, so fall back to the order the plots were sent in
+    const lyr = plotLayers[props.external_id] || plotLayers[(ids||[])[i]];
+    if(lyr && lyr.setStyle) lyr.setStyle({ color:colour, weight:2, fillColor:colour, fillOpacity:0.45 });
   });
+  plotsColoured=true;
   showResult(feats[0].properties || {});
   renderStats(feats);
+  updateLegend();
   const n = feats.length;
-  setStatus(n+' plot'+(n>1?'s':'')+' analyzed'+(n>1?' (panel shows first), ':', ')+RISK_COL+' = '+(feats[0].properties[RISK_COL]||'?'));
+  setStatus(n+' plot'+(n>1?'s':'')+' analysed'+(n>1?' (panel shows first), ':', ')+RISK_COL+' = '+(feats[0].properties[RISK_COL]||'?'));
+  return feats;
+}
+// light up the analysed plot's route in the tree, unless a box is already selected for the map
+function showPlotRoute(code){
+  const route=(CFG.routes||{})[code]; if(!route || activeNode) return;
+  clearNodeLayer(); markTree(route[route.length-1], route);
+  const g=Array.from(document.querySelectorAll('#diagram g.node')).find(g => nodeIdOf(g)===route[route.length-1]);
+  if(g){ g.classList.add('active'); activeEl=g; }
 }
 function showResult(props){
   const s = storyOf(props); const outcome = props[RISK_COL] || (s && s.result);
+  if(s) showPlotRoute(s.code);
   document.getElementById('result').style.display='block';
   const badge=document.getElementById('riskBadge'); badge.className='badge '+classOf(outcome); badge.textContent=(RISK_COL+' = '+(outcome||'?'));
   document.getElementById('pathwayTxt').textContent = s && s.pathway ? s.pathway : '';
@@ -636,24 +743,131 @@ async function reclassify(){
   try{
     const resp=await fetch(WHISP_API_BASE+'/reclassify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:curToken,thresholds:thresholds()})});
     if(!resp.ok) throw new Error('reclassify '+resp.status);
-    applyResults((await resp.json()).data); setStatus('Thresholds applied.');
+    const feats=applyResults((await resp.json()).data); setStatus('Thresholds applied.');
+    if(lastApi) showCompare(feats[0] && feats[0].properties, lastApi, true);
   }catch(err){ setStatus('Re-threshold needs the served proxy ('+err.message+').'); }
 }
-async function analyzeFC(fc){
-  setStatus('Analyzing '+fc.features.length+' plot(s) (Earth Engine, ~15-30s)...');
+
+// --- plot analysis: the local Python package (when this page is served by serve_viewer), the Whisp API
+// (with a key), or both to compare. Checked when the page opens, so a missing option is greyed out with why.
+let apiKey = CFG.apiKey || '';
+try{ apiKey = apiKey || localStorage.getItem('whispApiKey') || ''; }catch(e){}
+const ana = { local:{ ok:false }, api:{ ok:false } };
+async function checkLocal(){
+  if(location.protocol==='file:') return;  // opened as a file: no server behind it
+  try{ const r=await fetch('/api/info'); if(!r.ok) throw new Error(r.status); ana.local={ ok:true, pkg:await r.json() }; }
+  catch(e){ ana.local={ ok:false }; }
+}
+async function checkApi(){
+  if(!apiKey){ ana.api={ ok:false, why:'To analyse plots, paste a Whisp API key (API key button).' }; return; }
+  // served locally, the server relays to the API, so the browser's CORS rule does not apply
+  const base = ana.local.ok ? '/api/relay' : CFG.apiBase;
   try{
-    const resp=await fetch(WHISP_API_BASE+'/submit/geojson',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(fc)});
-    if(!resp.ok) throw new Error('submit '+resp.status);
-    const env=await resp.json(); curToken=env.token||null; applyResults(env.data); showPackage(env.package);
-  }catch(err){ setStatus('Draw/upload works; serve via the local proxy to analyze ('+err.message+').'); }
+    const r=await fetch(base+'/config', { headers:{ 'x-api-key':apiKey } });
+    const c=await r.json().catch(() => ({}));
+    ana.api={ ok:true, base:base, version:c.openforisWhispVersion };
+  }catch(e){ ana.api={ ok:false, why:'Plot analysis off: the Whisp API does not yet accept calls from pages outside whisp.openforis.org.' }; }
 }
-// which openforis_whisp code made the result (the local server's, which may be a branch, not a release)
-function showPackage(p){
-  const el=document.getElementById('pkgInfo'); if(!p){ el.textContent=''; return; }
-  let t='Analysed with openforis-whisp '+p.version;
-  if(p.commit) t+=', code from '+p.branch+' @ '+p.commit+(p.changed?' + uncommitted changes':'');
-  el.textContent=t+'; national layers: '+((p.national_codes||[]).map(c => c.toUpperCase()).join(', ')||'none');
+function fillModes(){
+  const sel=document.getElementById('anaMode'), opts=[];
+  if(ana.local.ok) opts.push(['local', 'local Python package ('+ana.local.pkg.version+(ana.local.pkg.commit ? ', '+ana.local.pkg.commit : '')+')']);
+  if(ana.api.ok) opts.push(['api', 'Whisp API'+(ana.api.version ? ' ('+ana.api.version+')' : '')]);
+  if(ana.local.ok && ana.api.ok) opts.push(['both', 'both, to compare']);
+  const prev=sel.value;
+  sel.innerHTML = opts.length ? opts.map(([v,t]) => "<option value='"+v+"'>"+esc(t)+"</option>").join('') : "<option value=''>off</option>";
+  if(opts.some(o => o[0]===prev)) sel.value=prev;
+  sel.disabled = !opts.length; document.getElementById('anaBox').classList.toggle('off', !opts.length);
+  document.getElementById('keyBtn').textContent = apiKey ? 'API key ✓' : 'API key';
+  // the API reason matters when nothing works, or when a key was given but the API cannot be reached
+  document.getElementById('anaWhy').textContent = (!opts.length || (apiKey && !ana.api.ok)) ? (ana.api.why || '') : '';
 }
+(async () => { await checkLocal(); await checkApi(); fillModes(); })();
+document.getElementById('keyBtn').onclick=() => { const k=document.getElementById('keyIn'); k.style.display = k.style.display==='inline-block' ? 'none' : 'inline-block'; if(k.style.display!=='none') k.focus(); };
+document.getElementById('keyIn').addEventListener('keydown', async e => {
+  if(e.key!=='Enter') return;
+  apiKey=e.target.value.trim(); e.target.value=''; e.target.style.display='none';
+  try{ if(apiKey) localStorage.setItem('whispApiKey', apiKey); else localStorage.removeItem('whispApiKey'); }catch(err){}
+  await checkApi(); fillModes();
+});
+async function localAnalyse(fc){
+  const resp=await fetch(WHISP_API_BASE+'/submit/geojson',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(fc)});
+  const env=await resp.json().catch(() => ({}));
+  if(!resp.ok) throw new Error('local package: '+(env.error || resp.status));
+  return env;
+}
+async function apiAnalyse(fc){
+  const hdr={ 'x-api-key':apiKey, 'Content-Type':'application/json' };
+  const body=Object.assign({}, fc, { analysisOptions:{ nationalCodes:CFG.nationalCodes||[], unitType:'ha', externalIdColumn:'external_id' } });
+  let env=await (await fetch(ana.api.base+'/submit/geojson', { method:'POST', headers:hdr, body:JSON.stringify(body) })).json();
+  const until=Date.now()+300000;
+  while(env.code!=='analysis_completed'){
+    const token=(env.data && env.data.token) || (env.context && env.context.token);
+    if(!token || !/queued|processing/.test(env.code||'')) throw new Error('Whisp API: '+(env.message || env.code || 'no result'));
+    if(Date.now()>until) throw new Error('Whisp API: no result after 5 minutes');
+    await new Promise(r => setTimeout(r, 3000));
+    env=await (await fetch(ana.api.base+'/status/'+token, { headers:hdr })).json();
+  }
+  return env.data;
+}
+async function analyzeFC(fc){
+  const mode=document.getElementById('anaMode').value;
+  if(!mode){ setStatus('Plot added. '+(document.getElementById('anaWhy').textContent || 'Plot analysis is off.')); return; }
+  const ids=fc.features.map(f => f.properties.external_id);
+  setStatus('Analysing '+fc.features.length+' plot(s)'+({ api:' with the Whisp API', both:' with the local package and the Whisp API' }[mode] || '')+' (about 10 to 60 s)...');
+  document.getElementById('compare').innerHTML=''; lastApi=null;
+  try{
+    if(mode==='api'){
+      curToken=null;
+      const feats=applyResults(await apiAnalyse(fc), ids); showSource('api', feats[0] && feats[0].properties);
+    } else {
+      const [loc, api]=await Promise.all([localAnalyse(fc), mode==='both' ? apiAnalyse(fc).catch(e => ({ error:e.message })) : null]);
+      curToken=loc.token || null;
+      const feats=applyResults(loc.data, ids); showSource('local', loc.package);
+      if(api) showCompare(feats[0] && feats[0].properties, api, false);
+    }
+  }catch(err){ setStatus('Analysis failed: '+err.message); }
+  // the sliders re-run the risk step on the local server, so they need the local package
+  document.getElementById('sliders').classList.toggle('off', !curToken);
+  document.querySelector('#sliders h4').textContent = curToken ? 'Indicator thresholds (%)' : 'Indicator thresholds (%), local Python package only';
+}
+// which code made the result: the local package (version, branch, commit) or the Whisp API (its version)
+function apiVersionOf(props){
+  let m=props && props.whisp_processing_metadata;
+  if(typeof m==='string'){ try{ m=JSON.parse(m); }catch(e){ m=null; } }
+  return (m && m.whisp_version) || ana.api.version || '';
+}
+function showSource(kind, p){
+  const el=document.getElementById('pkgInfo'), nat=(CFG.nationalCodes||[]).map(c => c.toUpperCase()).join(', ') || 'none';
+  if(kind==='api'){ el.textContent='Analysed by the Whisp API, openforis-whisp '+(apiVersionOf(p) || '?')+'; national layers: '+nat; return; }
+  if(!p){ el.textContent=''; return; }
+  let t='Analysed with the local Python package, openforis-whisp '+p.version;
+  if(p.commit) t+=', code from '+p.branch+' @ '+p.commit+(p.changed ? ' + uncommitted changes' : '');
+  el.textContent=t+'; national layers: '+((p.national_codes||[]).map(c => c.toUpperCase()).join(', ') || 'none');
+}
+// side by side: the outcome and each indicator from the local package and from the Whisp API
+let lastApi=null;
+function showCompare(localProps, api, rethresholded){
+  const el=document.getElementById('compare'); lastApi=api;
+  if(!localProps){ el.innerHTML=''; return; }
+  if(api.error){ el.innerHTML="<div class='src'>"+esc(api.error)+"</div>"; return; }
+  const apiProps=(featuresOf(api)[0] || {}).properties || {};
+  let nDiff=0;
+  const rows=[RISK_COL].concat(CFG.indicators.map(i => i.label)).map(k => {
+    const a=String(localProps[k]==null ? '' : localProps[k]), b=String(apiProps[k]==null ? '' : apiProps[k]);
+    const diff=a.toLowerCase()!==b.toLowerCase(); if(diff) nDiff++;
+    return "<tr class='"+(diff ? 'diff' : '')+"'><td><code>"+esc(k)+"</code></td><td>"+esc(a || '-')+"</td><td>"+esc(b || '-')+"</td></tr>";
+  }).join('');
+  el.innerHTML="<h4>Local package vs Whisp API</h4><table><tr><th></th><th>local</th><th>API "+esc(apiVersionOf(apiProps))+"</th></tr>"+rows+"</table>"
+    +"<div class='src'>"+(nDiff ? nDiff+" difference"+(nDiff>1 ? 's' : '')+" highlighted" : "Same outcome and indicators")
+    +(rethresholded ? "; local at your slider thresholds, API at its defaults" : "")+"</div>";
+}
+// what this page was built from, so a map and a plot result from different code can be told apart
+(function(){
+  const b=CFG.builtWith || {};
+  let t='Built '+b.date+' with openforis-whisp '+b.version;
+  if(b.commit) t+=' ('+b.branch+' @ '+b.commit+(b.changed ? ' + uncommitted changes' : '')+')';
+  document.getElementById('builtNote').textContent = t + (CFG.tiles.outcome ? '; the map layers stop loading about a day after building.' : '; this page has no map layers.');
+})();
 // draggable splitter
 (function(){ const sp=document.getElementById('splitter'), tree=document.getElementById('tree');
   let dragging=false; sp.addEventListener('mousedown',()=>{dragging=true;document.body.style.userSelect='none';});

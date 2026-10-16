@@ -268,3 +268,131 @@ def crop_input_layers(
         if layer is not None:
             out[ind_col].append(layer)
     return out
+
+
+# --------------------------------------------------------------------------------------------------
+# 7. The whole viewer page in one call (what the notebook and notebooks/build_crop_viewers.py run).
+# --------------------------------------------------------------------------------------------------
+BRAZIL_BOOKMARKS = [
+    ["Coffee (Minas Gerais)", -21.0, -46.0, 8],
+    ["Cocoa (southern Bahia)", -15.0, -39.3, 9],
+    ["Oil palm (Para)", -2.3, -48.6, 9],
+    ["Soy frontier (Mato Grosso)", -12.5, -55.5, 8],
+    ["Cocoa (Cote d Ivoire)", 6.7, -5.5, 9],
+]
+
+
+def _s2_median(start, end):
+    return (
+        ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+        .filterDate(start, end)
+        .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", 20))
+        .median()
+    )
+
+
+def build_crop_viewer(
+    tree="pcrop",
+    ee_project=None,
+    national_codes=None,
+    api_key=None,
+    input_datasets=True,
+    bookmarks=None,
+    center=(-12, -52),
+    zoom=4,
+):
+    """Build the crop pathway viewer page and return its HTML.
+
+    ``tree``: "pcrop" (perennial crops) or "acrop" (annual crops).
+    ``ee_project``: Earth Engine project for the map layers. None builds a page without map layers (the
+    tree, a base map and plot analysis), which never expires; with a project, the layers stop loading
+    about a day after building.
+    ``national_codes``: national datasets for the map and for analysing plots, e.g. ["br"].
+    ``api_key``: a Whisp API key to build into the page; anyone with the file can read it, so by default
+    leave it out and whoever opens the page pastes their own.
+    ``input_datasets``: include each input dataset as its own on/off layer (needs ``ee_project``).
+    """
+    from . import acrop_tree_export, pcrop_tree_export
+    from . import pathway_viewer as pv
+
+    spec, risk_use_col, risk_col, title = {
+        "pcrop": (
+            pcrop_tree_export.PCROP_SPEC,
+            "use_for_risk_pcrop",
+            "risk_pcrop",
+            "Perennial-crop pathway viewer",
+        ),
+        "acrop": (
+            acrop_tree_export.ACROP_SPEC,
+            "use_for_risk_acrop",
+            "risk_acrop",
+            "Annual-crop pathway viewer",
+        ),
+    }[tree]
+    national_codes = list(national_codes or [])
+    palette = crop_map_palette(spec)
+    tiles = node_tiles = input_layers = backgrounds = None
+    if ee_project:
+        try:
+            ee.Initialize(project=ee_project)
+        except Exception:  # noqa: BLE001 - not signed in yet on this machine
+            ee.Authenticate()
+            ee.Initialize(project=ee_project)
+        # land only: WorldCover maps coastal sea and lakes as class 80 (permanent water)
+        land = ee.ImageCollection("ESA/WorldCover/v200").mosaic().neq(80)
+        s2_vis = {"bands": ["B4", "B3", "B2"], "min": 0, "max": 3000}
+        backgrounds = {
+            "2020": map_id_tile_url(_s2_median("2020-01-01", "2020-12-31"), s2_vis),
+            "2025": map_id_tile_url(_s2_median("2025-01-01", "2025-12-31"), s2_vis),
+        }
+        qimg = build_crop_question_images(
+            spec, risk_use_col, national_codes=national_codes
+        )
+        pathway = _dt.eval_tree_ee(qimg, ee.Image, spec).updateMask(land)
+        outcome = collapse_to_outcome3(spec, pathway)
+        tiles = {
+            "outcome": map_id_tile_url(outcome, palette["outcome_vis"]),
+            "pathway": map_id_tile_url(pathway.selfMask(), palette["pathway_vis"]),
+        }
+        # one layer per tree box: a question's presence pixels, or an outcome's pixels
+        q_tiles = {
+            q: map_id_tile_url(
+                img.selfMask().updateMask(land),
+                {"min": 1, "max": 1, "palette": ["2b6cb0"]},
+            )
+            for q, img in qimg.items()
+        }
+        code_tiles = {
+            c: map_id_tile_url(
+                pathway.eq(c).selfMask(),
+                {"min": 1, "max": 1, "palette": [palette["code_colour"][c]]},
+            )
+            for c in palette["code_names"]
+        }
+        node_tiles = pv.node_tiles_by_id(spec, q_tiles, code_tiles, palette)
+        if input_datasets:
+            input_layers = crop_input_layers(
+                spec, risk_use_col, national_codes=national_codes
+            )
+    where = " + national layers (%s)" % ", ".join(national_codes).upper()
+    return pv.build_pathway_viewer_html(
+        spec,
+        tiles,
+        palette,
+        title,
+        subtitle="%s tree%s%s"
+        % (
+            risk_col,
+            " + combined risk map" if tiles else "",
+            where if national_codes else "",
+        ),
+        bookmarks=BRAZIL_BOOKMARKS if bookmarks is None else bookmarks,
+        backgrounds=backgrounds,
+        risk_col=risk_col,
+        center=center,
+        zoom=zoom,
+        node_tiles=node_tiles,
+        input_layers=input_layers,
+        national_codes=national_codes,
+        api_key=api_key,
+    )

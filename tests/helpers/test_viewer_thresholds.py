@@ -1,4 +1,6 @@
 import inspect
+import json
+import re
 from types import SimpleNamespace
 
 from openforis_whisp import pathway_viewer
@@ -36,3 +38,14 @@ def test_outcome_nodes_carry_their_route_and_questions_their_datasets():
             "layers": [{"name": "Cocoa_ETH"}],
         }
     ]
+
+
+def test_page_built_without_earth_engine_still_analyses_plots_and_shows_their_route():
+    from openforis_whisp import crop_map
+
+    html = crop_map.build_crop_viewer("acrop", national_codes=["br"])
+    cfg = json.loads(re.search(r"const CFG = (\{.*?\});\n", html).group(1))
+    assert cfg["tiles"] == {} and cfg["nodeTiles"] == {}
+    assert cfg["nationalCodes"] == ["br"] and cfg["apiKey"] == ""
+    assert cfg["routes"]["1"] == ["TC2020", "term_1"]
+    assert cfg["builtWith"]["version"] and cfg["builtWith"]["date"]
