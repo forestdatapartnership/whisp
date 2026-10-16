@@ -282,11 +282,9 @@ def g_creaf_descals_palm_prep():
         .select("minNBR_date")
     ).selfMask()
 
-    # Calculate the year of plantation (band is days since 1970)
-    oil_palm_plantation_year = img.divide(365).add(1970).floor()
-
-    # Create a mask for plantations in the year 2020 or earlier
-    plantation_2020 = oil_palm_plantation_year.lte(2020)
+    # Plantations dated 2020 or earlier. The band is days since 1970-01-01, compared directly
+    # (18628 = 2021-01-01): dividing by 365 drifts with leap days and read 19-31 Dec 2020 as 2021
+    plantation_2020 = img.lt(18628)
     return plantation_2020.rename("Oil_palm_Descals").selfMask()
 
 
@@ -896,9 +894,10 @@ def g_glad_s2_after_2020_prep():
     s2alert = ee.Image(col + "/alert")
     alert_date = ee.Image(col + "/alertDate")
 
-    # Date encoding: days since 2019-01-01
-    # 2020-12-31 = 730 days (end of 2020)
-    days_end_2020 = 730
+    # Date encoding: days counted from 2018-12-31. 0 means no alert (GLAD's example script, linked
+    # from https://glad.geog.umd.edu/dataset/glad-forest-alerts, masks it with selfMask), so
+    # 1 = 2019-01-01 and 731 = 2020-12-31. Alert dates match Sentinel-2 acquisition days on this reading.
+    days_end_2020 = 731
 
     # Filter alerts after 2020 with confidence >= 2
     #   - alert: confidence band (0-4, where 4 is highest confidence)
@@ -919,9 +918,10 @@ def g_glad_s2_before_2020_prep():
     s2alert = ee.Image(col + "/alert")
     alert_date = ee.Image(col + "/alertDate")
 
-    # Date encoding: days since 2019-01-01
-    # 2019-01-01 = 0, 2020-12-31 = 730 days
-    days_end_2020 = 730
+    # Date encoding: days counted from 2018-12-31. 0 means no alert (GLAD's example script, linked
+    # from https://glad.geog.umd.edu/dataset/glad-forest-alerts, masks it with selfMask), so
+    # 1 = 2019-01-01 and 731 = 2020-12-31. Alert dates match Sentinel-2 acquisition days on this reading.
+    days_end_2020 = 731
 
     # Filter alerts up to end of 2020 with confidence >= 2
     alerts_before_2020 = s2alert.gte(2).And(alert_date.lte(days_end_2020))
@@ -936,7 +936,7 @@ def g_glad_s2_year_prep():
     Each band is binary (1 = alert with confidence >= 2).
     Coverage: Primary humid tropical forest areas of South America
               from January 2019 to present.
-    Date encoding: days since 2019-01-01.
+    Date encoding: days counted from 2018-12-31 (1 = 2019-01-01; 0 = no alert).
     Includes years from 2019 onwards.
     """
     col = "projects/glad/S2alert"
@@ -946,11 +946,11 @@ def g_glad_s2_year_prep():
     # Confidence threshold for confirmed alerts
     confirmed = s2alert.gte(2)
 
-    # Date encoding: days since 2019-01-01
-    # Year boundaries (days since 2019-01-01):
-    # 2019-01-01 = 0, 2020-01-01 = 365, 2021-01-01 = 731, 2022-01-01 = 1096
-    # 2023-01-01 = 1461, 2024-01-01 = 1827, 2025-01-01 = 2192, 2026-01-01 = 2557
-    ref_date = ee.Date("2019-01-01")
+    # Date encoding: days counted from 2018-12-31. 0 means no alert (GLAD's example script, linked
+    # from https://glad.geog.umd.edu/dataset/glad-forest-alerts, masks it with selfMask), so
+    # 1 = 2019-01-01 and 731 = 2020-12-31. Alert dates match Sentinel-2 acquisition days on this reading.
+    # Year boundaries: 2019-01-01 = 1, 2020-01-01 = 366, 2021-01-01 = 732, 2022-01-01 = 1097
+    ref_date = ee.Date("2018-12-31")
 
     # Build multiband image with available years (data starts 2019)
     start_year = 2019
