@@ -107,6 +107,8 @@ def build(which=("pcrop", "acrop")):
             for c in palette["code_names"]
         }
         node_tiles = pv.node_tiles_by_id(spec, q_tiles, code_tiles, palette)
+        # each dataset behind the questions, as its own on/off layer
+        input_layers = cm.crop_input_layers(spec, risk_use_col, national_codes=NATIONAL)
         html = pv.build_pathway_viewer_html(
             spec,
             tiles,
@@ -119,6 +121,7 @@ def build(which=("pcrop", "acrop")):
             center=(-12, -52),
             zoom=4,
             node_tiles=node_tiles,
+            input_layers=input_layers,
         )
         path = OUT_DIR / f"{name}_pathway_viewer.html"
         path.write_text(html, encoding="utf-8")

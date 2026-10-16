@@ -23,6 +23,9 @@ is one example framework, not the focus).
 
 from __future__ import annotations
 
+import logging
+from concurrent.futures import ThreadPoolExecutor
+
 import ee
 
 from . import datasets
@@ -189,3 +192,79 @@ def build_crop_combined_map(
 def map_id_tile_url(image, vis_params: dict) -> str:
     """Resolve (image, vis) to a signed XYZ tile-template URL via getMapId (needs EE initialized)."""
     return ee.Image(image).getMapId(vis_params)["tile_fetcher"].url_format
+
+
+# --------------------------------------------------------------------------------------------------
+# 6. Input dataset layers: each dataset the tree reads, on its own, for switching on and off in the viewer.
+# --------------------------------------------------------------------------------------------------
+# Distinct within an indicator's group (the largest group, Ind_02_commodities with Brazil on, has 15),
+# starting away from the question layers' blue (2b6cb0).
+INPUT_COLOURS = [
+    "f0027f",
+    "33a02c",
+    "e31a1c",
+    "ff7f00",
+    "6a3d9a",
+    "b15928",
+    "a6cee3",
+    "b2df8a",
+    "fb9a99",
+    "fdbf6f",
+    "cab2d6",
+    "ffff99",
+    "17becf",
+    "bcbd22",
+    "8c564b",
+    "e377c2",
+]
+
+
+def crop_input_layers(
+    spec, risk_col, national_codes=None, lookup_df=None, max_workers=16
+):
+    """Tile layers for every dataset the crop ``spec``'s tree reads, to view the inputs one at a time.
+
+    Returns {indicator_column: [{"name", "iso2", "colour", "url"}]} in tree order, global datasets
+    first (iso2 is "" for those). The datasets come from the same getters as the question images. A
+    dataset whose tiles cannot be made (e.g. a broken asset) is left out with a warning. Needs Earth
+    Engine initialized.
+    """
+    lut = lookup_gee_datasets_df if lookup_df is None else lookup_df
+    lut = filter_lookup_by_country_codes(
+        lut, filter_col="ISO2_code", national_codes=national_codes
+    )
+    jobs = []
+    for ind_cols in spec.q_to_columns.values():
+        for ind_col in ind_cols:
+            if any(j[0] == ind_col for j in jobs):
+                continue
+            rows = lut[lut["name"].isin(_getter_names(ind_col, lut, risk_col))]
+            rows = rows.assign(iso2=rows["ISO2_code"].fillna("").astype(str))
+            rows = rows.sort_values("iso2", kind="stable")
+            for i, (_, row) in enumerate(rows.iterrows()):
+                jobs.append((ind_col, row, INPUT_COLOURS[i % len(INPUT_COLOURS)]))
+
+    def _resolve(job):
+        ind_col, row, colour = job
+        img = _band_image(row)
+        if img is None:
+            return None
+        try:
+            url = map_id_tile_url(
+                img.selfMask(), {"min": 1, "max": 1, "palette": [colour]}
+            )
+        except Exception as e:  # noqa: BLE001 - one broken dataset must not stop the others
+            logging.getLogger("whisp").warning(
+                "Input layer %s left out: %s", row["name"], e
+            )
+            return None
+        return {"name": row["name"], "iso2": row["iso2"], "colour": colour, "url": url}
+
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
+        resolved = list(ex.map(_resolve, jobs))
+    out = {}
+    for (ind_col, _, _), layer in zip(jobs, resolved):
+        out.setdefault(ind_col, [])
+        if layer is not None:
+            out[ind_col].append(layer)
+    return out
