@@ -82,21 +82,36 @@ jobs:
           TAG: ${{ steps.vars.outputs.tag }}
           VERSION: ${{ steps.vars.outputs.version }}
         run: |
-          if [ -n "$WHATS_NEW" ]; then
-            printf '%s\n\n' "$WHATS_NEW" > RELEASE_NOTES.md
-          else
-            : > RELEASE_NOTES.md
-          fi
+          gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+            -f tag_name="$TAG" --jq .body > GENERATED.md
+          # "Changes to results" and "Breaking changes" lines from the PR descriptions
+          # (see .github/pull_request_template.md); empty if no PR has any
+          # Runs after PyPI and the tag, so a failure here must not stop the release
+          python .github/scripts/release_sections.py "$GITHUB_REPOSITORY" GENERATED.md > SECTIONS.md \
+            || { echo "::warning::Could not collect sections from the PRs; release notes without them"; : > SECTIONS.md; }
+
+          # The text shared by the release notes and the CHANGELOG.md entry
+          : > TOP.md
+          if [ -n "$WHATS_NEW" ]; then printf '%s\n\n' "$WHATS_NEW" >> TOP.md; fi
+          if [ -s SECTIONS.md ]; then cat SECTIONS.md >> TOP.md; printf '\n' >> TOP.md; fi
+
+          cp TOP.md RELEASE_NOTES.md
           # House style from earlier hand-written releases: "- title in #N" (no author, it is
           # one person's repo), category headings in bold under "What's Changed", each
           # preceded by a blank line so markdown does not fold the heading into the list above
-          gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
-            -f tag_name="$TAG" --jq .body \
-            | sed -E -e 's, by @[A-Za-z0-9-]+ in https://github.com/[^ ]+/pull/([0-9]+), in #\1,' \
-                     -e 's,^\* ,- ,' \
-                     -e 's,^### (.+)$,\n**\1:**,' >> RELEASE_NOTES.md
+          sed -E -e 's, by @[A-Za-z0-9-]+ in https://github.com/[^ ]+/pull/([0-9]+), in #\1,' \
+                 -e 's,^\* ,- ,' \
+                 -e 's,^### (.+)$,\n**\1:**,' GENERATED.md >> RELEASE_NOTES.md
           printf '\n**PyPi Release**: [openforis-whisp](https://pypi.org/project/openforis-whisp/%s/)\n' \
             "$VERSION" >> RELEASE_NOTES.md
+
+          # CHANGELOG.md entry: version and date, the same top text, and the PRs it contains
+          PRS=$(grep -oE 'pull/[0-9]+' GENERATED.md | sed 's,pull/,#,' | awk '!seen[$0]++' | paste -sd, - | sed 's/,/, /g')
+          {
+            printf '## %s (%s)\n\n' "$TAG" "$(date -u +%F)"
+            cat TOP.md
+            if [ -n "$PRS" ]; then printf 'Pull requests: %s\n' "$PRS"; fi
+          } > CHANGELOG_ENTRY.md
 
       - name: Publish GitHub release
         env:
@@ -110,11 +125,16 @@ jobs:
         env:
           NEXT: ${{ github.event.inputs.next-version || 'prerelease' }}
         run: |
-          rm -f RELEASE_NOTES.md
+          # Newest release first, just below the marker line in CHANGELOG.md
+          awk 'FNR==NR { entry = entry $0 "\n"; next }
+               { print }
+               /^<!-- releases below -->$/ { printf "\n%s", entry }' \
+            CHANGELOG_ENTRY.md CHANGELOG.md > CHANGELOG.new && mv CHANGELOG.new CHANGELOG.md
+          rm -f RELEASE_NOTES.md GENERATED.md SECTIONS.md TOP.md CHANGELOG_ENTRY.md
           poetry version "$NEXT"
           NEW=$(poetry version -s)
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add pyproject.toml
-          git commit -m "Bump version to $NEW [skip ci]"
+          git add pyproject.toml CHANGELOG.md
+          git commit -m "Bump version to $NEW; add ${{ steps.vars.outputs.tag }} to CHANGELOG.md [skip ci]"
           git push origin HEAD:main

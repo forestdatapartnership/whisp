@@ -24,6 +24,13 @@ They are grouped by PR label (`.github/release.yml`): `datasets`, `enhancement`
 (Features), `bug` (Fixes), `documentation` (Docs), `repo`. Label each PR before
 merging; unlabelled ones fall under "Other changes".
 
+When a PR changes output values or needs users to act, fill in "Changes to results:"
+and "Breaking changes:" in its description (the PR template has both), one `- ` line
+each, in plain words. Check them before merging, also on PRs from forks. The workflow
+copies them above "What's Changed" in the release notes, and adds the same text, with
+the version, date and PR numbers, to `CHANGELOG.md` in the version bump commit. Anything
+typed into `whats-new` goes above them, in both places.
+
 The bump leaves `main` one version ahead of the newest tag.
 
 ## Release by hand
