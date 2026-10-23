@@ -184,7 +184,7 @@ def whisp_risk(
     ind_12_pcent_threshold: float = 10,
     ind_13_pcent_threshold: float = 10,
     ind_14_pcent_threshold: float = 10,
-    ind_15_pcent_threshold: float = 10,
+    ind_15_pcent_threshold: float = 50,  # like Ind_02: agriculture in 2020 leads to a low risk outcome on the timber tree, so it must cover most of the plot
     ind_16_pcent_threshold: float = 10,
     ind_17_pcent_threshold: float = 10,  # timber disturbance-after (Ind_17); own knob, no longer shares ind_4
     ind_18_pcent_threshold: float = 10,  # observed regenerating / planted forest in 2025 (Ind_18)
@@ -269,7 +269,7 @@ def whisp_risk(
         ind_13_name (str, optional): Name of indicator 13 column. Defaults to "Ind_13_other_land_after_2020".
         ind_9_name (str, optional): Name of indicator 9 column. Defaults to "Ind_09_treecover_after_2020".
         ind_10_name (str, optional): Name of indicator 10 column. Defaults to "Ind_10_agri_after_2020".
-        ind_15_pcent_threshold (float, optional): Percentage threshold for indicator 15 (timber agriculture 2020). Defaults to 10.
+        ind_15_pcent_threshold (float, optional): Percentage threshold for indicator 15 (timber agriculture 2020). Defaults to 50, matching Ind_02: a yes leads to a low outcome, so it must cover most of the plot.
         ind_15_input_columns (pd.Series, optional): Input columns for indicator 15. Defaults to pre-existing 2020 agriculture/commodity columns flagged for timber.
         ind_15_name (str, optional): Name of indicator 15 column. Defaults to "Ind_15_agriculture_2020".
         ind_16_pcent_threshold (float, optional): Percentage threshold for indicator 16 (multi-year plantation presence 2021-2024). Defaults to 10.
