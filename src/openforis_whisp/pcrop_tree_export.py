@@ -98,12 +98,13 @@ PATHWAY_TO_CODE = {
 }
 RETIRED_CODES: set = set()
 
-# Per-code display colour (hex, no '#'): a distinct hue per LOW route (shades of one green could not be told
-# apart from the outcome map), an amber for MORE-INFO, a red for HIGH. Shared by meaning with acrop.
+# Per-code display colour (hex, no '#'): the LOW routes stay in the green family but far enough apart to tell
+# from each other and from the outcome map's single green, an amber for MORE-INFO, a red for HIGH. Shared by
+# meaning with acrop.
 CODE_COLOUR = {
-    1: "d8c99b",  # low: no tree cover 2020 (sand)
-    2: "9b72c8",  # low: commodity 2020 (lilac)
-    3: "4fa3c7",  # low: disturbance before 2020 (sky blue)
+    1: "e5f5c0",  # low: no tree cover 2020 (pale lime)
+    2: "41b6c4",  # low: commodity 2020 (teal)
+    3: "1b7837",  # low: disturbance before 2020 (dark green)
     4: "fe9929",  # more-info (amber)
     5: "e31a1c",  # high (red)
 }

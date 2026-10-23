@@ -92,11 +92,11 @@ PATHWAY_TO_CODE = {
 }
 RETIRED_CODES: set = set()
 
-# Per-code display colour (hex, no '#'): a distinct hue per LOW route, an amber for MORE-INFO, a red for
+# Per-code display colour (hex, no '#'): distinct greens for the LOW routes, an amber for MORE-INFO, a red for
 # HIGH; the same colour for the same route as in pcrop, so the two crop legends read the same.
 CODE_COLOUR = {
-    1: "d8c99b",  # low: no tree cover 2020 (sand)
-    2: "9b72c8",  # low: commodity 2020 (lilac)
+    1: "e5f5c0",  # low: no tree cover 2020 (pale lime)
+    2: "41b6c4",  # low: commodity 2020 (teal)
     3: "fe9929",  # more-info (amber)
     4: "e31a1c",  # high (red)
 }
