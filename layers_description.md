@@ -185,6 +185,13 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     ee.FeatureCollection('projects/sat-io/open-datasets/shoreline/mainlands'); ee.FeatureCollection('projects/sat-io/open-datasets/shoreline/big_islands'); ee.FeatureCollection('projects/sat-io/open-datasets/shoreline/small_islands');
     </tr>
     </td>
+    <tr><td colspan="3"><b>Forest typology datasets (timber risk assessment, in development):</b></td></tr>
+    <tr><td rowspan="3">ForTy_primary_2020<br>ForTy_nat_reg_2020<br>ForTy_planted_2020<br>ForTy_plantation_2020<br>ForTy_tree_crops_2020<br>ForTy_forest_2020</td><td rowspan="3">ForTy (forest typology) version 1, 2020, 10 m. Five class score bands (0-250); each pixel takes its highest-scoring class (primary, naturally regenerating, planted, plantation, tree crops / agroforestry) or "other". One binary layer per class, plus forest = any forest class. Present-but-unused since the V2 time series (below) replaced it on the timber baselines.</td><td rowspan="2">Google Nature Trace and IIASA (2025). <i>ForTy: a global forest typology for 2020.</i> Preprint, https://eartharxiv.org/repository/view/13130</td></tr>
+    <tr></tr>
+    <tr><td>ee.ImageCollection("projects/nature-trace/assets/forest_typology/forest_typology_2020_v1_0_collection")</td></tr>
+    <tr><td rowspan="3">ForTy_v2_primary_2020<br>ForTy_v2_nat_reg_2020<br>ForTy_v2_planted_2020<br>ForTy_v2_plantation_2020<br>ForTy_v2_tree_crops_2020<br>ForTy_v2_forest_2020<br>ForTy_v2_other_land_2020<br>ForTy_v2_primary_2025<br>ForTy_v2_regen_planted_2025<br>ForTy_v2_plantation_2025<br>ForTy_v2_other_land_2025<br>ForTy_v2_plantation_gain_2020_2025<br>ForTy_v2_tree_crop_gain_2020_2025</td><td rowspan="3">ForTy version 2 beta time series, yearly 2017-2025, 10 m. Seven probability bands (primary mature, naturally regenerating, planted, plantation, tree crops / agroforestry, other land, primary regrowing); each pixel takes the highest band, with the two primary bands merged. One binary layer per class for 2020 and 2025 (regenerating and planted merged for 2025), plus gain layers = the class in 2025 but not in 2020. The timber tree reads the 2020 forest classes and the 2025 states (primary, regenerating / planted, plantation presence and gain); tree crops and other land are output only. Beta: assets and class definitions may change before release.</td><td rowspan="2">Google Nature Trace, ForTy V2 Beta Earth Engine app (2026). Contact naturalforests@google.com.</td></tr>
+    <tr></tr>
+    <tr><td>ee.ImageCollection("projects/nature-trace/assets/forest_typology/v2_beta/2020"); ee.ImageCollection("projects/nature-trace/assets/forest_typology/v2_beta/2025")</td></tr>
   </tbody>
 </table>
 

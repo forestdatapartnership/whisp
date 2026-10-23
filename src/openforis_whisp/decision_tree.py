@@ -68,6 +68,8 @@ class DecisionTreeSpec:
         questions below it are disambiguated per branch).
     q_to_layer : question name -> default drill-down map layer key(s) for its node.
     node_layer_override : node id -> layer key(s), for nodes whose question means different data per branch.
+    node_label_override : node id -> diagram label, for a repeated question whose wording differs per
+        branch (e.g. "Became other land" on the forest side vs "Still other land" on the non-forest side).
     mermaid_classdefs : the Mermaid ``classDef`` block (diagram styling for this tree's node kinds plus the
         shared risk classes).
     retired_codes : codes intentionally kept in the palette but no longer emitted by the tree (metadata
@@ -92,6 +94,7 @@ class DecisionTreeSpec:
     node_layer_override: dict
     mermaid_classdefs: str
     retired_codes: set = field(default_factory=set)
+    node_label_override: dict = field(default_factory=dict)
     default_branch_tag: str = "x"
     js_source_module: str = "openforis_whisp.decision_tree"
     js_tree_const: str = "TREE"
@@ -140,7 +143,7 @@ def annotate(spec: DecisionTreeSpec) -> dict:
         return {
             "id": nid,
             "q": q,
-            "label": spec.q_label[q],
+            "label": spec.node_label_override.get(nid, spec.q_label[q]),
             "kind": spec.q_kind[q],
             "is2025": q.endswith("2025"),
             "yes": walk(node["yes"], yes_branch),

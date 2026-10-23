@@ -1,7 +1,9 @@
-"""ForTy 2020 forest-typology bands: emitted as output columns, neutral for the CROP trees.
+"""ForTy forest-typology bands (V1 2020 and the V2 time series): emitted as output columns, neutral
+for the CROP trees.
 
 On main these bands are present-but-unused everywhere. On this branch the timber tree deliberately
-reads four of them (primary, naturally regenerating, planted, plantation) through theme_timber, so the
+reads the ForTy V2 2020 classes (primary, naturally regenerating, planted, plantation) and 2025 states
+(primary, regenerating / planted, plantation presence and gain) through theme_timber, so the
 timber-neutrality assertion from main is dropped here; the crop trees must still never see them.
 The tests are pure-Python (no Earth Engine): they check the shipped lookup table and the crop
 risk-column getters.
@@ -22,6 +24,33 @@ FORTY_EXPECTED = {
     "ForTy_plantation_2020": "g_forty_plantation_2020_prep",
     "ForTy_tree_crops_2020": "g_forty_tree_crops_2020_prep",
     "ForTy_forest_2020": "g_forty_forest_2020_prep",
+    # ForTy V2 Beta time series (2026-10-23): the timber 2020 baselines and observed 2025 states
+    "ForTy_v2_primary_2020": "g_forty_v2_primary_2020_prep",
+    "ForTy_v2_nat_reg_2020": "g_forty_v2_nat_reg_2020_prep",
+    "ForTy_v2_planted_2020": "g_forty_v2_planted_2020_prep",
+    "ForTy_v2_plantation_2020": "g_forty_v2_plantation_2020_prep",
+    "ForTy_v2_tree_crops_2020": "g_forty_v2_tree_crops_2020_prep",
+    "ForTy_v2_forest_2020": "g_forty_v2_forest_2020_prep",
+    "ForTy_v2_primary_2025": "g_forty_v2_primary_2025_prep",
+    "ForTy_v2_regen_planted_2025": "g_forty_v2_regen_planted_2025_prep",
+    "ForTy_v2_plantation_2025": "g_forty_v2_plantation_2025_prep",
+    "ForTy_v2_plantation_gain_2020_2025": "g_forty_v2_plantation_gain_2020_2025_prep",
+    "ForTy_v2_tree_crop_gain_2020_2025": "g_forty_v2_tree_crop_gain_2020_2025_prep",
+    "ForTy_v2_other_land_2020": "g_forty_v2_other_land_2020_prep",
+    "ForTy_v2_other_land_2025": "g_forty_v2_other_land_2025_prep",
+}
+
+# which ForTy rows the TIMBER tree reads (use_for_risk_timber=1): V2 only, same model version for the
+# 2020 and 2025 states it compares; the V1 2020 rows stay present-but-unused
+FORTY_TIMBER_ON = {
+    "ForTy_v2_primary_2020",
+    "ForTy_v2_nat_reg_2020",
+    "ForTy_v2_planted_2020",
+    "ForTy_v2_plantation_2020",
+    "ForTy_v2_primary_2025",
+    "ForTy_v2_regen_planted_2025",
+    "ForTy_v2_plantation_2025",
+    "ForTy_v2_plantation_gain_2020_2025",
 }
 
 
@@ -52,6 +81,19 @@ def test_forty_bands_excluded_from_crop_indicators():
         selected += get_cols_ind_02_commodities(df, risk_col=risk_col)
     forty = sorted(c for c in selected if str(c).startswith("ForTy_"))
     assert forty == [], f"ForTy bands must not feed a crop indicator, got: {forty}"
+
+
+def test_forty_timber_flags_match_the_v2_switch():
+    """Only the ForTy V2 rows feed the timber tree; every ForTy row is in the expected-name contract."""
+    rows = _forty_rows(lookup_gee_datasets_df)
+    on = set(rows.loc[rows["use_for_risk_timber"] == 1, "name"])
+    assert (
+        on == FORTY_TIMBER_ON
+    ), f"timber-flagged ForTy rows differ: {sorted(on ^ FORTY_TIMBER_ON)}"
+    unexpected = set(rows["name"]) - set(FORTY_EXPECTED)
+    assert (
+        not unexpected
+    ), f"ForTy lookup rows without an expected prep: {sorted(unexpected)}"
 
 
 def test_forty_prep_functions_present_and_named():

@@ -32,6 +32,8 @@ from .risk import TIMBER_ROOT_TREE
 #    map codes so the palette/legend and any committed maps keep their numbering.  Code 14 is retired
 #    (its old "<class> 2020 -> other land" meaning was split into 16/17/18).  Code 15 was the empty
 #    "regen matured to primary" slot, now reused for the new "primary -> regrowth" leg.  19 is new.
+#    20 (2026-10-23) is the "primary 2020 -> regenerating / planted 2025" low leaf from the 2026-07-29
+#    planned diagram, fed by the observed Ind_18_regen_planted_2025.
 # --------------------------------------------------------------------------------------------------
 PATHWAY_TO_CODE = {
     "low: agriculture 2020": 1,
@@ -55,11 +57,14 @@ PATHWAY_TO_CODE = {
     "low: regen 2020 -> other land": 17,
     "low: plantation 2020 -> other land": 18,
     "more-info: forest 2020, unclassified": 19,
+    # 20: primary leg, "became regenerating / planted forest in 2025?" = yes (observed Ind_18) -> low.
+    "low: primary 2020 -> regen/planted 2025": 20,
 }
 RETIRED_CODES = {15}
 
 # Per-code display colour (hex, no '#'). Preserves the historical palette for codes 1-18; 15 keeps its
-# old grey (now the primary->regrowth leg) and 19 is a new more-info purple-grey.
+# old grey (now the primary->regrowth leg) and 19 is a new more-info purple-grey; 20 is a mid green
+# between the still-primary (2) and stayed-forest (3) lows.
 CODE_COLOUR = {
     1: "c7e9c0",
     2: "238b45",
@@ -80,25 +85,34 @@ CODE_COLOUR = {
     17: "35978f",
     18: "01665e",
     19: "b3b3d1",
+    20: "74c476",
 }
 
 # --------------------------------------------------------------------------------------------------
 # 2. Per-question metadata (human label + node kind for the diagram; the drill-down layer wiring).
 #    These are the only hand-maintained semantics; they change only when a NEW question is introduced.
 # --------------------------------------------------------------------------------------------------
+# Wording follows the 2026-07-29 planned diagram (temp_dev_notes/decision_trees/timber_tree_dated.html).
+# The diagram's "*" (dated plantation data Brazil-only) is dropped: the ForTy V2 plantation gain
+# 2020 -> 2025 is global. "**" marks the 2025 forest states, which whisp_risk derives from the ForTy V2
+# time series where its rows are flagged (still primary also requires no post-2020 timber disturbance),
+# falling back to the 2020 state minus disturbance when no observed 2025 source is flagged; the viewer
+# footnote under the tree explains.
 Q_LABEL = {
     "forest_2020": "Forest in 2020?<br/><small>(treecover / primary / regen / planted)</small>",
-    "other_land_2020": "Other land use in 2020?<br/><small>(built / water / mining / bare)</small>",
-    "other_land_2025": "Became / still other land?<br/><small>(2025)</small>",
-    "agriculture_2020": "Agriculture or commodity in 2020?",
+    "other_land_2020": "Other land in 2020?<br/><small>(built / water / mining / bare)</small>",
+    # forest-side wording; the non-forest branch node (OL2025_nf) is overridden to "Still other land".
+    "other_land_2025": "Became other land in 2025?",
+    "agriculture_2020": "Agriculture in 2020?",
     "agriculture_2025": "Agriculture after 2020?<br/><small>(deforestation)</small>",
     "plantation_2020": "Plantation in 2020?",
     "plantation_presence_2025": "Still a plantation in 2025?<br/><small>(presence)</small>",
     "primary_2020": "Primary forest in 2020?",
-    "plantation_2025": "New plantation after 2020?<br/><small>(degradation)</small>",
-    "primary_2025": "Still primary in 2025?",
+    "plantation_2025": "Became a plantation in 2025?<br/><small>(degradation)</small>",
+    "primary_2025": "Still primary in 2025?**",
     "regen_planted_2020": "Regenerating / planted forest in 2020?",
-    "disturbance_2025": "Disturbance after 2020?<br/><small>(logging / loss / degradation)</small>",
+    "regen_planted_still_2025": "Still regenerating / planted forest in 2025?**",
+    "regen_planted_became_2025": "Became regenerating / planted forest in 2025?**",
 }
 Q_KIND = {
     "forest_2020": "forest",
@@ -112,7 +126,8 @@ Q_KIND = {
     "plantation_2025": "forest",
     "primary_2025": "forest",
     "regen_planted_2020": "forest",
-    "disturbance_2025": "forest",
+    "regen_planted_still_2025": "forest",
+    "regen_planted_became_2025": "forest",
 }
 
 # Short, stable id stems per question (for Mermaid node ids + the drill-down mapping).
@@ -128,7 +143,8 @@ _ABBREV = {
     "plantation_2025": "PL2025",
     "primary_2025": "PRstill2025",
     "regen_planted_2020": "RP2020",
-    "disturbance_2025": "DIST2025",
+    "regen_planted_still_2025": "RPstill2025",
+    "regen_planted_became_2025": "PRregen2025",
 }
 # Questions that appear more than once get a branch suffix so each occurrence is a distinct node.
 _REPEATED = {"other_land_2025", "plantation_2025"}
@@ -167,6 +183,8 @@ _Q_TO_LAYER = {
     "plantation_presence_2025": "gain_plantation_presence",
     "plantation_2025": "gain_plantation_gain",
     "primary_2025": "gain_still_primary_2025",
+    "regen_planted_still_2025": "gain_regen_stayed_2025",  # regen stayed forest (absence of disturbance)
+    "regen_planted_became_2025": "gain_regen_planted_2025",  # observed regen / planted 2025 (Ind_18)
 }
 # Per-node overrides where the same question means different data in different branches.
 _NODE_LAYER_OVERRIDE = {
@@ -174,7 +192,10 @@ _NODE_LAYER_OVERRIDE = {
     "OL2025_pl": "gain_other_land_gain",
     "OL2025_pr": "gain_other_land_gain",
     "OL2025_rp": "gain_other_land_gain",
-    "DIST2025": "gain_regen_stayed_2025",  # regen stayed forest (absence of disturbance)
+}
+# Per-node LABEL overrides: the same question worded for its branch (2026-07-29 planned diagram).
+_NODE_LABEL_OVERRIDE = {
+    "OL2025_nf": "Still other land in 2025?",  # non-forest branch: presence, not a change
 }
 
 # The per-question -> Whisp result column(s) mapping, mirroring risk.py add_risk_timber_col's yes_locals.
@@ -196,7 +217,10 @@ Q_TO_COLUMNS = {
     "plantation_2025": ["Ind_08b_plantation_after_2020"],
     "primary_2025": ["primary_2025"],
     "regen_planted_2020": ["Ind_06_nat_reg_forest_2020", "Ind_07a_planted_2020"],
-    "disturbance_2025": ["Ind_17_disturbance_after_2020_timber"],
+    # derived in whisp_risk: (Ind_06 OR Ind_07a) AND observed Ind_18 where flagged, else AND NOT Ind_17
+    "regen_planted_still_2025": ["regen_planted_still_2025"],
+    # observed 2025 forest type (theme_timber=regen_planted_2025: ForTy V2 2025 classes 2/3)
+    "regen_planted_became_2025": ["Ind_18_regen_planted_2025"],
 }
 
 # Mermaid classDef block: styling for the timber node kinds (forest / landuse) plus the shared risk
@@ -229,6 +253,7 @@ TIMBER_SPEC = DecisionTreeSpec(
     branch_on=_BRANCH_ON,
     q_to_layer=_Q_TO_LAYER,
     node_layer_override=_NODE_LAYER_OVERRIDE,
+    node_label_override=_NODE_LABEL_OVERRIDE,
     mermaid_classdefs=_CLASSDEFS,
     retired_codes=RETIRED_CODES,
     default_branch_tag=_DEFAULT_BRANCH_TAG,

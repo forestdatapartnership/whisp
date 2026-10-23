@@ -20,7 +20,7 @@ truth ``risk.TIMBER_ROOT_TREE`` (proven identical to the pandas ``risk._eval_tim
 question combinations), so the map's terminal ordering cannot drift from the tabular timber outcome and
 cannot re-introduce the old exoneration-before-deforestation bug.
 
-The step BEFORE the walk, assembling the 12 tree-question ``ee.Image`` layers (the ``qimg``), is what
+The step BEFORE the walk, assembling the 13 tree-question ``ee.Image`` layers (the ``qimg``), is what
 used to be hand-copied in the notebook viewer and four gitignored scripts. Here it is derived from the
 SAME ``risk.get_cols_ind_*`` getters that ``risk.add_risk_timber_col`` feeds its ``yes_locals`` from, so
 which datasets union into each indicator is chosen identically to the table. The three derived
@@ -85,9 +85,11 @@ from .risk import (
     get_cols_ind_10_agri_after_2020,
     get_cols_ind_12_other_land_2020,
     get_cols_ind_13_other_land_after_2020,
+    get_cols_ind_14_primary_2025,
     get_cols_ind_15_agriculture_2020,
     get_cols_ind_16_plantation_presence_2025,
     get_cols_ind_17_disturbance_after_2020_timber,
+    get_cols_ind_18_regen_planted_2025,
 )
 
 # 3-class outcome colours (green low / amber more-info / red high). A display choice carried over
@@ -253,7 +255,7 @@ def combine_bools(presence, cover=None, rule="any", k=2, prop=0.5):
 
 
 # --------------------------------------------------------------------------------------------------
-# 2. The qimg builder: the 12 tree-question ee.Images, assembled from the SAME get_cols_ind_* getters
+# 2. The qimg builder: the 13 tree-question ee.Images, assembled from the SAME get_cols_ind_* getters
 #    add_risk_timber_col uses, so the map's per-indicator pools are chosen identically to the table.
 #    The derived combinations mirror add_risk_timber_col's yes_locals line for line.
 # --------------------------------------------------------------------------------------------------
@@ -265,7 +267,7 @@ def build_timber_question_images(
     combine: dict | None = None,
     lookup_df=None,
 ):
-    """Build the dict of 12 tree-question ``ee.Image`` layers (the ``qimg``) consumed by the walker.
+    """Build the dict of 13 tree-question ``ee.Image`` layers (the ``qimg``) consumed by the walker.
 
     The keys are exactly the question names in ``risk.TIMBER_ROOT_TREE`` (and ``timber_tree_export``),
     and each value is the ``ee.Image`` analogue of the matching entry in ``add_risk_timber_col``'s
@@ -294,7 +296,7 @@ def build_timber_question_images(
     Returns
     -------
     dict
-        ``{question_name: ee.Image}`` for the 12 questions in ``risk.TIMBER_ROOT_TREE``.
+        ``{question_name: ee.Image}`` for the 13 questions in ``risk.TIMBER_ROOT_TREE``.
     """
     if not isinstance(k, int) or k < 1:
         raise ValueError("k must be an integer >= 1 (1 = OR-union, 2 = agreement).")
@@ -324,8 +326,13 @@ def build_timber_question_images(
     n_ind15 = get_cols_ind_15_agriculture_2020(lut)  # Ind_15_agriculture_2020
     # Ind_16_plantation_presence_2025 (multi-year silviculture PRESENCE = stability).
     n_ind16 = get_cols_ind_16_plantation_presence_2025(lut)
-    # Ind_17_disturbance_after_2020_timber (gates the derived primary_2025).
+    # Ind_17_disturbance_after_2020_timber (gates the derived primary_2025 and regen_planted_still_2025).
     n_ind17 = get_cols_ind_17_disturbance_after_2020_timber(lut)
+    # Ind_14_primary_2025 and Ind_18_regen_planted_2025: the OBSERVED 2025 forest states (ForTy V2 2025).
+    # Either pool can be empty when no lookup row is flagged (_union renders that as ee.Image(0)); the
+    # derived still-X questions below then fall back to 2020-minus-disturbance, mirroring whisp_risk.
+    n_ind14 = get_cols_ind_14_primary_2025(lut)
+    n_ind18 = get_cols_ind_18_regen_planted_2025(lut)
 
     # --- indicator ee.Images (unions), and the two COUNT pools that carry the k agreement knob --------
     tc20 = _union(lut, n_ind01)  # Ind_01_treecover
@@ -369,7 +376,18 @@ def build_timber_question_images(
     primary_2020 = _folded(n_ind05, "Ind_05", lambda: _count(lut, n_ind05).gte(k))
     agriculture_2025 = _folded(n_ind10, "Ind_10", lambda: _count(lut, n_ind10).gte(k))
 
-    # --- the 12 tree questions, mirroring add_risk_timber_col's yes_locals in ee.Image form ----------
+    # Derived 2025 forest states, mirroring whisp_risk: still primary = primary 2020 AND NOT disturbance
+    # AND (where flagged) the observed Ind_14; still regen / planted = regen 2020 AND the observed Ind_18
+    # where flagged, else AND NOT disturbance (regenerating forest tolerates disturbance).
+    still_primary_2025 = primary_2020.And(disturbance_2025.Not())
+    if len(n_ind14) > 0:
+        still_primary_2025 = still_primary_2025.And(_union(lut, n_ind14))
+    if len(n_ind18) > 0:
+        regen_planted_still_2025 = regen_planted_2020.And(_union(lut, n_ind18))
+    else:
+        regen_planted_still_2025 = regen_planted_2020.And(disturbance_2025.Not())
+
+    # --- the 13 tree questions, mirroring add_risk_timber_col's yes_locals in ee.Image form ----------
     qimg = {
         # forest_2020 = treecover(Ind_01) OR primary(Ind_05) OR regen/planted(Ind_06 or Ind_07a);
         # Ind_07b_plantation_2020 is deliberately excluded, matching risk.py.
@@ -383,9 +401,10 @@ def build_timber_question_images(
         "plantation_presence_2025": plantation_presence_2025,  # Ind_16 (stable-plantation PRESENCE)
         "primary_2020": primary_2020,  # Ind_05_primary_2020
         "plantation_2025": plantation_gain_2025,  # Ind_08b_plantation_after_2020 (GAIN = degradation)
-        # primary_2025 derived STRICT = Ind_05_primary_2020 AND NOT Ind_17_disturbance_after_2020_timber.
-        "primary_2025": primary_2020.And(disturbance_2025.Not()),
-        "disturbance_2025": disturbance_2025,  # Ind_17_disturbance_after_2020_timber
+        "primary_2025": still_primary_2025,  # Ind_05 AND NOT Ind_17 AND Ind_14 (observed, where flagged)
+        "regen_planted_still_2025": regen_planted_still_2025,  # (Ind_06 OR Ind_07a) AND Ind_18 (observed)
+        # regen_planted_became_2025 = the OBSERVED Ind_18 pool (theme_timber=regen_planted_2025).
+        "regen_planted_became_2025": _union(lut, n_ind18),
         # regen_planted_2020 = plain Ind_06 OR Ind_07a, NO "and not primary" carve-out: the tree checks
         # primary BEFORE regen, so ORDER (not exclusion) resolves a primary+regen overlap.
         "regen_planted_2020": regen_planted_2020,
@@ -407,7 +426,7 @@ def build_timber_pathway_image(
 ):
     """Return the per-pixel timber pathway-code ``ee.Image`` (codes per ``tx.PATHWAY_TO_CODE``).
 
-    The 12 tree-question images are assembled from the SAME ``get_cols_ind_*`` getters and derived
+    The 13 tree-question images are assembled from the SAME ``get_cols_ind_*`` getters and derived
     combinations as ``add_risk_timber_col``, then walked by ``timber_tree_export.eval_tree_ee``, so the
     per-pixel precedence IS ``risk.TIMBER_ROOT_TREE``'s precedence by construction.
 

@@ -40,6 +40,7 @@ EXPECTED_INDICATOR_COLS = [
     "Ind_15_agriculture_2020",
     "Ind_16_plantation_presence_2025",
     "Ind_17_disturbance_after_2020_timber",
+    "Ind_18_regen_planted_2025",
 ]
 
 
@@ -87,6 +88,8 @@ _IND_15 = "Ind_15_agriculture_2020"
 _IND_16 = "Ind_16_plantation_presence_2025"
 _IND_17 = "Ind_17_disturbance_after_2020_timber"
 _PRIMARY_2025 = "primary_2025"
+_IND_18 = "Ind_18_regen_planted_2025"
+_REGEN_STILL = "regen_planted_still_2025"
 
 _TIMBER_INPUT_COLS = [
     _IND_1,
@@ -104,6 +107,8 @@ _TIMBER_INPUT_COLS = [
     _IND_16,
     _IND_17,
     _PRIMARY_2025,
+    _IND_18,
+    _REGEN_STILL,
 ]
 
 
@@ -207,6 +212,14 @@ def test_timber_decision_tree_terminals() -> None:
             **{_IND_5: "yes", _PRIMARY_2025: "yes"},
         ),
         _timber_row(
+            # 2026-07-29 planned diagram, new leaf (code 20): primary knocked out of still-primary by
+            # disturbance but OBSERVED as regenerating / planted forest in 2025 (Ind_18) -> LOW.
+            "primary_became_regen_planted",
+            "low",
+            "low: primary 2020 -> regen/planted 2025",
+            **{_IND_5: "yes", _IND_18: "yes"},
+        ),
+        _timber_row(
             # Ind_09_treecover_after_2020 DROPPED from the primary branch: a primary plot showing only canopy
             # but knocked out of still-primary by disturbance is no longer rescued to LOW; it lands on
             # more-info unless it converted to other land.
@@ -235,12 +248,20 @@ def test_timber_decision_tree_terminals() -> None:
             **{_IND_6: "yes", _IND_8B: "yes"},
         ),
         _timber_row(
-            # no new plantation, no disturbance -> stayed-forest LOW. Ind_09 dropped, so a plain regen plot
-            # (nothing adverse detected) is now LOW by absence of disturbance, not by canopy presence.
+            # no new plantation and still regenerating / planted in 2025 (the derived column: regen 2020
+            # AND NOT Ind_17) -> stayed-forest LOW, by absence of disturbance, not by canopy presence.
             "regen_stayed_forest",
             "low",
             "low: regen stayed forest",
-            **{_IND_6: "yes"},
+            **{_IND_6: "yes", _REGEN_STILL: "yes"},
+        ),
+        _timber_row(
+            # 2026-07-29 planned diagram: the still-forest question comes BEFORE other land, so a regen plot
+            # that is still forest AND also flags other land 2025 reads stayed-forest (code 3), not 17.
+            "regen_still_forest_and_other_land",
+            "low",
+            "low: regen stayed forest",
+            **{_IND_6: "yes", _REGEN_STILL: "yes", _IND_13: "yes"},
         ),
         _timber_row(
             "regen_to_other_land",
@@ -307,6 +328,8 @@ def test_timber_decision_tree_terminals() -> None:
         ind_15_name=_IND_15,
         ind_16_name=_IND_16,
         primary_2025_name=_PRIMARY_2025,
+        ind_18_name=_IND_18,
+        regen_planted_still_2025_name=_REGEN_STILL,
     )
 
     print(

@@ -194,7 +194,11 @@ def g_iiasa_plantation_2020_prep():
 # over five regions (S Brazil, Amazon, Borneo, Iberia, Congo) the two agreed to 93-100% per class (IoU)
 # and the threshold was already >= 99.9% mutually exclusive, so argmax changes each forest class by only
 # a few percent (mostly the weak Plantation/Planted classes) while guaranteeing the single-label form.
-# See temp_dev_notes/forty_classes_assessment.md.
+# See temp_dev_notes/data_assessments/forty_classes_assessment.md.
+#
+# 2026-10-23: superseded by the ForTy V2 time series below for the timber 2020 baselines (the lookup now
+# flags the ForTy_v2_*_2020 rows and leaves these V1 rows present-but-unused), so that the 2020 and 2025
+# states the timber tree compares come from the same model version. Kept as emitted columns for comparison.
 
 
 def _forty_2020_mean():
@@ -207,7 +211,7 @@ def _forty_2020_class():
     # Argmax over the five class scores plus the residual "other" (= 250 - sum). Returns 1=Primary,
     # 2=NaturallyRegenerating, 3=Planted, 4=Plantation, 5=TreeCrops/Agroforestry, 6=Other. arrayArgmax
     # returns the first maximum, so ties resolve to the lowest index (Primary wins), as in the authors'
-    # >= ternary. Same recipe as the commented post-2020 helper below.
+    # >= ternary. Same recipe as the ForTy V2 helper below.
     scores = _forty_2020_mean().select([0, 1, 2, 3, 4])
     other = scores.reduce(ee.Reducer.sum()).multiply(-1).add(250)
     return scores.addBands(other).toArray().arrayArgmax().arrayGet([0]).add(1)
@@ -247,32 +251,99 @@ def g_forty_forest_2020_prep():
     return _forty_2020_class().lte(4).selfMask().rename("ForTy_forest_2020")
 
 
-# DEMO PROXY: stands in for "plantation after 2020" (Ind_08b) using the 2020 plantation extent
-# (ForTy plantation, index 3) so the diagram-A plantation-2025 nodes fire in demos: stable plantation
-# -> LOW, and primary/regen -> plantation -> HIGH (degradation). It is NOT a real post-2020 layer and
-# cannot tell a pre-existing plantation from a genuine post-2020 conversion, so the degradation HIGHs it
-# produces are proxy artefacts. To revert Ind_08b to dormant (those nodes back to MORE INFO NEEDED),
-# set use_for_risk_timber=0 on its lookup row or remove the row.
-def g_forty_plantation_2025_demo_prep():
-    return _forty_class_present(3).rename("ForTy_plantation_2025_demo")
+# ForTy V2 Beta (Google Nature Trace), yearly 2017-2025, 10 m. One ImageCollection per year at
+# projects/nature-trace/assets/forest_typology/v2_beta/<year>; mosaic it for a global image. Seven uint8
+# probability bands scaled 0-250: B0 primary (mature), B1 naturally regenerating, B2 planted,
+# B3 plantation, B4 tree crops / agroforestry, B5 other land (non-forest), B6 primary (regrowing). The
+# class of a pixel is the band with the highest value (argmax index + 1, so 1..7); the authors fold
+# "regrowing" (7) into "mature" (1) to get the V1 scheme. Beta: assets, band order and class definitions
+# may change before release (contact naturalforests@google.com).
+#
+# These are the 2020 and 2025 states the timber tree asks about (2026-07-29 planned diagram). The 2020
+# classes replace the ForTy V1 2020 rows on the timber baselines (Ind_05 / 06 / 07a / 07b); the 2025
+# classes fill the slots that were DERIVED from 2020-minus-disturbance until now (observed primary 2025 =
+# Ind_14, regenerating / planted 2025 = Ind_18, plantation presence 2025 = Ind_16) plus the plantation GAIN
+# 2020 -> 2025 (Ind_08b, the first global dated plantation layer). Tree crops (2020 and gain), forest extent
+# and other land are emitted present-but-unused (use_for_risk_* = 0): generic crop classes feeding
+# Ind_02 / Ind_10 is still an open question (#287) and ForTy "other land" is ALL non-forest, not the
+# built / water / mining sense of Ind_12 / Ind_13. Every row is a lookup switch.
+_FORTY_V2_ROOT = "projects/nature-trace/assets/forest_typology/v2_beta/"
 
 
-# PLACEHOLDER (coded out): planted/plantation AFTER 2020 via the forthcoming ForTy post-2020 release
-# (feeds Ind_08a / Ind_08b). Same argmax recipe as _forty_2020() but on the post-2020 asset. Kept
-# commented so it is NOT auto-discovered: until released, Ind_08a/08b have no dataset and stay "no" for
-# every plot. When the asset lands, uncomment, point it at the asset, and add the planted_after_2020 /
-# plantation_after_2020 LUT rows.
-#
-# def _forty_after_2020():
-#     c = ee.ImageCollection("<post-2020 ForTy asset - TBD on release>")
-#     other = c.mosaic().reduce(ee.Reducer.sum()).multiply(-1).add(250)
-#     return c.mean().addBands(other).toArray().arrayArgmax().arrayGet([0]).add(1)
-#
-# def g_forty_planted_after_2020_prep():
-#     return _forty_after_2020().eq(3).rename("ForTy_planted_after_2020").selfMask()
-#
-# def g_forty_plantation_after_2020_prep():
-#     return _forty_after_2020().eq(4).rename("ForTy_plantation_after_2020").selfMask()
+def _forty_v2_class(year):
+    # 1=primary mature, 2=naturally regenerating, 3=planted, 4=plantation, 5=tree crops, 6=other land,
+    # 7=primary regrowing. arrayArgmax returns the first maximum, so ties resolve to the lowest band.
+    raw = ee.ImageCollection(_FORTY_V2_ROOT + str(year)).mosaic()
+    return raw.toArray().arrayArgmax().arrayGet([0]).add(1)
+
+
+def _forty_v2_present(year, classes, name):
+    cls = _forty_v2_class(year)
+    present = cls.eq(classes[0])
+    for c in classes[1:]:
+        present = present.Or(cls.eq(c))
+    return present.selfMask().rename(name)
+
+
+def g_forty_v2_primary_2020_prep():
+    return _forty_v2_present(2020, [1, 7], "ForTy_v2_primary_2020")
+
+
+def g_forty_v2_nat_reg_2020_prep():
+    return _forty_v2_present(2020, [2], "ForTy_v2_nat_reg_2020")
+
+
+def g_forty_v2_planted_2020_prep():
+    return _forty_v2_present(2020, [3], "ForTy_v2_planted_2020")
+
+
+def g_forty_v2_plantation_2020_prep():
+    return _forty_v2_present(2020, [4], "ForTy_v2_plantation_2020")
+
+
+def g_forty_v2_tree_crops_2020_prep():
+    return _forty_v2_present(2020, [5], "ForTy_v2_tree_crops_2020")
+
+
+def g_forty_v2_forest_2020_prep():
+    # any forest class in 2020 (primary mature or regrowing, naturally regenerating, planted, plantation)
+    return _forty_v2_present(2020, [1, 2, 3, 4, 7], "ForTy_v2_forest_2020")
+
+
+def g_forty_v2_primary_2025_prep():
+    return _forty_v2_present(2025, [1, 7], "ForTy_v2_primary_2025")
+
+
+# Naturally regenerating OR planted forest in 2025 (classes 2 and 3): the observed "regenerating /
+# planted forest in 2025" state (Ind_18). Plantation (4) is deliberately NOT included: a primary or
+# regenerating forest that became a plantation is degradation, handled by the plantation-gain question.
+def g_forty_v2_regen_planted_2025_prep():
+    return _forty_v2_present(2025, [2, 3], "ForTy_v2_regen_planted_2025")
+
+
+def g_forty_v2_plantation_2025_prep():
+    return _forty_v2_present(2025, [4], "ForTy_v2_plantation_2025")
+
+
+# "Other land" (class 6) is everything that is not a forest class or tree crops, so it includes cropland
+# and pasture: NOT the built / water / mining / bare sense of Ind_12 / Ind_13. Emitted for comparison only.
+def g_forty_v2_other_land_2020_prep():
+    return _forty_v2_present(2020, [6], "ForTy_v2_other_land_2020")
+
+
+def g_forty_v2_other_land_2025_prep():
+    return _forty_v2_present(2025, [6], "ForTy_v2_other_land_2025")
+
+
+# GAIN layers: the class present in 2025 but NOT that class in 2020 (the Ind_08b / Ind_10 convention).
+def g_forty_v2_plantation_gain_2020_2025_prep():
+    gain = _forty_v2_class(2025).eq(4).And(_forty_v2_class(2020).neq(4))
+    return gain.selfMask().rename("ForTy_v2_plantation_gain_2020_2025")
+
+
+def g_forty_v2_tree_crop_gain_2020_2025_prep():
+    gain = _forty_v2_class(2025).eq(5).And(_forty_v2_class(2020).neq(5))
+    return gain.selfMask().rename("ForTy_v2_tree_crop_gain_2020_2025")
 
 
 #########################TMF regrowth in 2024
@@ -300,74 +371,6 @@ def g_jrc_tmf_plantation_prep():
         deforestation_year.gte(2021), 0
     )  # update from https://github.com/forestdatapartnership/whisp/issues/42
     return plantation_2020.rename("TMF_plant").selfMask()
-
-
-# ForTy (Google Nature Trace + IIASA) forest typology 2020.
-# See https://eartharxiv.org/repository/view/13130. The product stores five class score bands (0-250),
-# band index 0=Primary, 1=NaturallyRegenerating, 2=Planted, 3=Plantation, 4=TreeCrops/Agroforestry,
-# with a residual "other" = 250 - sum. PlantedForest is the weakest class (F1 58.2%), so the
-# planted-vs-plantation split is real but uncertain.
-#
-# Each pixel is assigned its single highest-scoring class via argmax over the five score bands plus the
-# residual "other" (= 250 - sum), giving a mutually-exclusive, exhaustive 1=Primary..5=TreeCrops, 6=Other
-# label (ties resolve to the lowest index, matching the ForTy authors' >= expression). This is the
-# product's intended single-label form. It supersedes the earlier per-band >= 125 threshold: measured
-# over five regions (S Brazil, Amazon, Borneo, Iberia, Congo) the two agreed to 93-100% per class (IoU)
-# and the threshold was already >= 99.9% mutually exclusive, so argmax changes each forest class by only
-# a few percent (mostly the weak Plantation/Planted classes) while guaranteeing the single-label form.
-# See temp_dev_notes/forty_classes_assessment.md.
-#
-# These are PRESENT-BUT-UNUSED output bands: their lookup rows tick no risk pathway
-# (use_for_risk_pcrop/acrop/timber all 0), so they surface ForTy information in the
-# output without affecting any Ind_/risk_ column.
-
-
-def _forty_2020_mean():
-    return ee.ImageCollection(
-        "projects/nature-trace/assets/forest_typology/forest_typology_2020_v1_0_collection"
-    ).mean()
-
-
-def _forty_2020_class():
-    # Argmax over the five class scores plus the residual "other" (= 250 - sum). Returns 1=Primary,
-    # 2=NaturallyRegenerating, 3=Planted, 4=Plantation, 5=TreeCrops/Agroforestry, 6=Other. arrayArgmax
-    # returns the first maximum, so ties resolve to the lowest index (Primary wins), as in the authors'
-    # >= ternary.
-    scores = _forty_2020_mean().select([0, 1, 2, 3, 4])
-    other = scores.reduce(ee.Reducer.sum()).multiply(-1).add(250)
-    return scores.addBands(other).toArray().arrayArgmax().arrayGet([0]).add(1)
-
-
-def _forty_class_present(idx):
-    # idx 0=Primary, 1=NaturallyRegenerating, 2=Planted, 3=Plantation, 4=TreeCrops/Agroforestry;
-    # argmax class label = idx + 1.
-    return _forty_2020_class().eq(idx + 1).selfMask()
-
-
-def g_forty_primary_2020_prep():
-    return _forty_class_present(0).rename("ForTy_primary_2020")
-
-
-def g_forty_nat_reg_2020_prep():
-    return _forty_class_present(1).rename("ForTy_nat_reg_2020")
-
-
-def g_forty_planted_2020_prep():
-    return _forty_class_present(2).rename("ForTy_planted_2020")
-
-
-def g_forty_plantation_2020_prep():
-    return _forty_class_present(3).rename("ForTy_plantation_2020")
-
-
-def g_forty_tree_crops_2020_prep():
-    return _forty_class_present(4).rename("ForTy_tree_crops_2020")
-
-
-def g_forty_forest_2020_prep():
-    # Forest presence = argmax class is one of the four forest classes (1=Primary, 2=NaturallyRegenerating,
-    # 3=Planted, 4=Plantation), i.e. a forest class outscores TreeCrops and "other" at the pixel.
-    return _forty_2020_class().lte(4).selfMask().rename("ForTy_forest_2020")
 
 
 # SBTN_natural_2020
