@@ -275,7 +275,7 @@ def whisp_risk(
         ind_16_pcent_threshold (float, optional): Percentage threshold for indicator 16 (multi-year plantation presence 2021-2024). Defaults to 10.
         ind_16_input_columns (pd.Series, optional): Input columns for indicator 16. Defaults to the multi-year silviculture-presence columns flagged for timber (theme_timber=plantation_presence_2025).
         ind_16_name (str, optional): Name of indicator 16 column. Defaults to "Ind_16_plantation_presence_2025".
-        ind_17_pcent_threshold (float, optional): Percentage threshold for indicator 17 (timber disturbance after 2020, feeds primary_2025). Defaults to 10.
+        ind_17_pcent_threshold (float, optional): Percentage threshold for indicator 17 (timber disturbance after 2020; gates the derived primary_2025 and is the fallback rule for regen_planted_still_2025 when no observed 2025 source is flagged). Defaults to 10.
         ind_18_pcent_threshold (float, optional): Percentage threshold for indicator 18 (observed regenerating / planted forest in 2025). Defaults to 10.
         ind_18_input_columns (pd.Series, optional): Input columns for indicator 18. Defaults to the 2025 regenerating / planted forest columns flagged for timber (theme_timber=regen_planted_2025); none are flagged until a 2025 forest-type product is wired, so Ind_18 is then always "no".
         ind_18_name (str, optional): Name of indicator 18 column. Defaults to "Ind_18_regen_planted_2025".
@@ -912,14 +912,14 @@ def add_risk_timber_col(
       pixel in Brazil (bare ground and grassland blur into agriculture, so they are excluded). Outside
       Brazil the non-forest set is still thin (ESRI built/water/snow only), so the negative gate (rule 2)
       can over-flag there until a global non-forest-2020 layer is wired.
-    - The 2020 forest classes are evaluated PLANTATION first, then regenerating-planted, then primary
-      (primary LAST), matching Diagram A. Order only matters for a plot overlapping several 2020 classes:
-      a plot known to be a plantation in 2020 is handled as a plantation, not mistaken for a degraded
-      primary.
-    - The plantation GAIN (Ind_08b) and the multi-year plantation PRESENCE (Ind_16) are both Brazil-only
-      (MapBiomas silviculture) with no global after-2020 layer yet, so rules 4/5 regen/primary ->
-      plantation HIGH (gain) and rule 3 stable-plantation LOW (presence) fire in Brazil and fall to MORE
-      INFO NEEDED elsewhere until global layers are wired.
+    - The 2020 forest classes are evaluated PRIMARY first, then regenerating-planted, then plantation
+      (plantation LAST; the 2026-07-28 reorder, caveat 28). Order only matters for a plot overlapping
+      several 2020 classes: a plantation-2020 commission over a genuine primary or regenerating plot still
+      reaches the degradation HIGH instead of reading as a stable plantation.
+    - The plantation GAIN (Ind_08b) and the plantation PRESENCE (Ind_16) are global since 2026-10-23
+      (ForTy V2 plantation gain 2020 -> 2025 and plantation 2025, beta), OR-ed with the MapBiomas
+      silviculture rows in Brazil. Before that they were Brazil-only and rules 4/5 (degradation HIGH) and
+      rule 3 (stable-plantation LOW) fell to MORE INFO NEEDED elsewhere.
 
     low_name / high_name: the indicator values for at or below / above the threshold (default "no" / "yes").
 
@@ -956,16 +956,16 @@ def add_risk_timber_col(
             # Ind_16 PRESENCE (stability) -> stable-plantation LOW, plantation-2020 branch only.
             "plantation_presence_2025": row[ind_16_name] == high_name,
             "primary_2020": primary_2020,
-            # primary_2025 derived upstream = Ind_05 AND NOT Ind_17.
+            # primary_2025 derived upstream = Ind_05 AND NOT Ind_17 AND observed Ind_14 (where flagged).
             "primary_2025": row[primary_2025_name] == high_name,
             # Ind_09_treecover_after_2020 stays DROPPED from the tree (too broad: generic ESRI canopy; and
             # regionally uneven: TMF regrowth is tropics-only). The two 2025 regen/planted questions are:
-            # still regenerating / planted forest in 2025 = DERIVED upstream as regen_planted_2020 AND NOT
-            # Ind_17 (mirrors primary_2025 = Ind_05 AND NOT Ind_17: LOW earned by the absence of the timber
-            # disturbance stack), and became regenerating / planted forest in 2025 = the OBSERVED Ind_18
-            # (lookup theme_timber=regen_planted_2025, e.g. ForTy 2025), "no" while no row is flagged.
+            # still regenerating / planted forest in 2025 = DERIVED upstream as regen_planted_2020 AND the
+            # OBSERVED Ind_18 where a source is flagged (else AND NOT Ind_17, the interim rule), and became
+            # regenerating / planted forest in 2025 = the OBSERVED Ind_18 (lookup theme_timber=
+            # regen_planted_2025: ForTy V2 2025), "no" while no row is flagged.
             # (ind_9_name and ind_17_name are retained for signature stability; Ind_17 is consumed through
-            # the two derived columns, and Ind_09 is still emitted as an output indicator by whisp_risk.)
+            # the derived primary_2025 and the fallbacks, and Ind_09 is still emitted by whisp_risk.)
             "regen_planted_still_2025": row[regen_planted_still_2025_name] == high_name,
             "regen_planted_became_2025": row[ind_18_name] == high_name,
             "regen_planted_2020": regen_planted_2020,
@@ -1168,9 +1168,10 @@ def get_cols_ind_18_regen_planted_2025(lookup_gee_datasets_df):
 def get_cols_ind_17_disturbance_after_2020_timber(lookup_gee_datasets_df):
     """
     Ind_17 = timber-specific disturbance-after-2020: theme_timber == 'disturbance_after' AND use_for_risk_timber == 1.
-    EMITTED as the Ind_17_disturbance_after_2020_timber output column, and feeds the DERIVED timber
-    primary_2025 mask (primary_2025 = Ind_05 AND NOT Ind_17), so the lookup's theme_timber column
-    controls exactly which products gate still-primary. The shared get_cols_ind_04_dist_after_2020
+    EMITTED as the Ind_17_disturbance_after_2020_timber output column, and gates the DERIVED timber
+    primary_2025 mask (primary_2025 = Ind_05 AND NOT Ind_17 AND observed Ind_14 where flagged; it is also
+    the fallback rule for regen_planted_still_2025 when no observed 2025 source is flagged), so the
+    lookup's theme_timber column controls exactly which products gate still-primary. The shared get_cols_ind_04_dist_after_2020
     (theme == 'disturbance_after' + use_for_risk_pcrop) is UNCHANGED for the pcrop/acrop trees; that pool
     includes alert-based layers (RADD/DIST/GLAD-L/S2/per-year bands) too noisy for the primary gate (they
     flag nearly every primary pixel as disturbed, emptying still-primary). Mirrors the viewer's _dist_timber_mask.
@@ -1494,8 +1495,9 @@ def filter_to_risk_columns(
     # Risk output columns (present in df if function called at end)
     risk_cols = ["risk_pcrop", "risk_acrop", "risk_timber", "risk_timber_pathway"]
 
-    # Derived indicator columns computed in whisp_risk and kept in the output. primary_2025 is pure-derived
-    # (Ind_05 AND NOT Ind_17) and regen_planted_still_2025 likewise (Ind_06 or Ind_07a, AND NOT Ind_17);
+    # Derived indicator columns computed in whisp_risk and kept in the output. primary_2025 is derived
+    # (Ind_05 AND NOT Ind_17 AND observed Ind_14 where flagged) and regen_planted_still_2025 likewise
+    # (Ind_06 or Ind_07a, AND observed Ind_18 where flagged, else AND NOT Ind_17);
     # Ind_17 is the emitted timber-disturbance indicator, built inline from the disturbance-after-2020
     # timber getter (not threaded via the names param), so it is listed here too.
     derived_cols = [
