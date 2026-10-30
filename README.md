@@ -1,6 +1,6 @@
   whisp
   =====
-  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/openforis/sepal/blob/master/license.txt)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
   [![Data Protection Policy](https://img.shields.io/badge/Data_Protection_and_Privacy-FAO-lightblue.svg)](https://www.fao.org/contact-us/data-protection-and-privacy/en/)
   [![DOI](https://img.shields.io/badge/DOI-10.4060%2Fcd0957en-brightgreen.svg)](https://doi.org/10.4060/cd0957en)
 
@@ -30,14 +30,18 @@
   <br>
 
   ## Whisp pathways <a name="whisp_pathways"></a>
-  ***Whisp*** can currently be used directly or implemented in your own code through three different pathways:
+  ***Whisp*** can currently be used directly or implemented in your own code through four different pathways:
 
 
-  1. The Whisp App with its simple interface can be accessed [here](https://whisp.openforis.org/) or called from other software by [API](https://whisp.openforis.org/api/docs). The Whisp App currently supports the processing of up to 5,000 geometries per job. The original JS & Python code behind the Whisp App and API can be found [here](https://github.com/forestdatapartnership/whisp-app).
+  1. The Whisp App with its simple interface can be accessed [here](https://whisp.openforis.org/) or called from other software by [API](https://whisp.openforis.org/api/docs). The Whisp App currently supports the processing of up to 10,000 geometries per job (see the [current limits](https://whisp.openforis.org/api/config)). The original JS & Python code behind the Whisp App and API can be found [here](https://github.com/forestdatapartnership/whisp-app). No Google Earth Engine account is needed. API use is governed by the [Terms of Service](https://www.openforis.org/whisp-terms/).
 
-  2. [Whisp in Earthmap](https://whisp.earthmap.org/?aoi=WHISP&boundary=plot1&layers=%7B%22CocoaETH%22%3A%7B%22opacity%22%3A1%7D%2C%22JRCForestMask%22%3A%7B%22opacity%22%3A1%7D%2C%22planet_rgb%22%3A%7B%22opacity%22%3A1%2C%22date%22%3A%222020-12%22%7D%7D&map=%7B%22center%22%3A%7B%22lat%22%3A7%2C%22lng%22%3A4%7D%2C%22zoom%22%3A3%2C%22mapType%22%3A%22satellite%22%7D&statisticsOpen=true) supports the visualization of geometries on actual maps with the possibility to toggle different relevant map products around tree cover, commodities and deforestation. It is practical for demonstration purposes and spot checks of single geometries but not recommended for larger datasets.
+  2. The [Whisp QGIS plugin](https://plugins.qgis.org/plugins/whisp_plugin/) analyzes geometries from within QGIS through the Whisp API.
 
-  3. Datasets of any size, especially when holding more than 5,000 geometries, can be analyzed with Whisp through the [python package on pip](https://pypi.org/project/openforis-whisp/). See example [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/Colab_whisp_geojson_to_csv.ipynb) for implementation with a geojson input. For further notebooks processing options see [Whisp notebooks](#whisp_notebooks).
+  3. [Whisp in Earthmap](https://whisp.earthmap.org/?aoi=WHISP&boundary=plot1&layers=%7B%22CocoaETH%22%3A%7B%22opacity%22%3A1%7D%2C%22JRCForestMask%22%3A%7B%22opacity%22%3A1%7D%2C%22planet_rgb%22%3A%7B%22opacity%22%3A1%2C%22date%22%3A%222020-12%22%7D%7D&map=%7B%22center%22%3A%7B%22lat%22%3A7%2C%22lng%22%3A4%7D%2C%22zoom%22%3A3%2C%22mapType%22%3A%22satellite%22%7D&statisticsOpen=true) supports the visualization of geometries on actual maps with the possibility to toggle different relevant map products around tree cover, commodities and deforestation. It is practical for demonstration purposes and spot checks of single geometries but not recommended for larger datasets.
+
+  4. Datasets of any size, especially when holding more than 10,000 geometries, can be analyzed with Whisp through the [python package on pip](https://pypi.org/project/openforis-whisp/). See example [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/Colab_whisp_geojson_to_csv.ipynb) for implementation with a geojson input. For further notebooks processing options see [Whisp notebooks](#whisp_notebooks).
+
+  Whisp is open source under the MIT License, which allows commercial use. Data layers come from third-party providers with their own terms (see the [layers description](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md)).
 
 
   ## Whisp datasets <a name="whisp_datasets"></a>
@@ -96,7 +100,7 @@ The **relevant risk assessment column depends on the commodity** in question:
   </tr>
   <tr>
     <td>Coffee</td>
-    <td rowspan="4">Risk_PCrop</td>
+    <td rowspan="4"><code>risk_pcrop</code></td>
     <td rowspan="4">Perennial crop deforestation risk</td>
   </tr>
   <tr><td>Cocoa</td></tr>
@@ -104,20 +108,22 @@ The **relevant risk assessment column depends on the commodity** in question:
   <tr><td>Oil palm</td></tr>
   <tr>
     <td>Soy</td>
-    <td>Risk_ACrop</td>
+    <td><code>risk_acrop</code></td>
     <td>Annual crop deforestation risk</td>
   </tr>
   <tr>
-    <td>Livestock</td>
-    <td>Risk_Livestock</td>
-    <td>Livestock driven deforestation risk (coming soon)</td>
+    <td>Cattle</td>
+    <td><code>risk_cattle</code></td>
+    <td>Cattle driven deforestation risk (coming soon)</td>
   </tr>
   <tr>
-    <td>Timber</td>
-    <td>Risk_Timber</td>
+    <td>Timber (wood)</td>
+    <td><code>risk_timber</code></td>
     <td>Timber extraction deforestation risk</td>
   </tr>
 </table>
+
+Each risk column holds one of the values `low`, `high` or `more_info_needed` (shown as "Low", "High" and "More info needed" in the Whisp App).
 
   **Note:** the specific datasets named in the diagrams below are examples only and may not all be reflected in the current codebase. For the datasets currently used, see the [layers description](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md).
 
@@ -297,6 +303,6 @@ Users can report violations of this Code of Conduct confidentially by contacting
 
 ## Feedback <a name="whisp_feedback"></a>
 - For issues or feature requests [open a GitHub issue](https://github.com/forestdatapartnership/whisp/issues).
-- For general questions, feedback or support, email [open-foris@fao.org](mailto:open-foris@fao.org).
+- For general questions, feedback or support, see the [Whisp FAQs](https://www.openforis.org/whisp-faqs/), ask on the [Open Foris forum](https://openforis.support/tags/whisp/) or email [open-foris@fao.org](mailto:open-foris@fao.org).
 
 We welcome all feedback and contributions!
