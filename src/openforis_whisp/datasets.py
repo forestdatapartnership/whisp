@@ -299,113 +299,111 @@ def g_eth_kalischek_cocoa_prep():
 
 # fdap datasets
 
-# Thresholds and model info here https://github.com/google/forest-data-partnership/tree/main/models/model_2025b
+# Thresholds and model info here:
+# https://github.com/google/forest-data-partnership/tree/main/models/model_2026a
+
 
 # Oil Palm FDaP
 def g_fdap_palm_prep():
-    fdap_palm2020_model_raw = ee.ImageCollection(
-        "projects/forestdatapartnership/assets/palm/model_2025b"
-    )
-    fdap_palm = (
-        fdap_palm2020_model_raw.filterDate("2020-01-01", "2020-12-31")
-        .mosaic()
-        .gt(0.66)  # Precision and recall ~81% at 0.66 threshold.
-    )
-    return fdap_palm.rename("Oil_palm_FDaP").selfMask()
+  fdap_palm2020_model_raw = ee.ImageCollection(
+      "projects/forestdatapartnership/assets/palm/model_2026a"
+  )
+  fdap_palm = (
+      fdap_palm2020_model_raw.filterDate("2020-01-01", "2020-12-31")
+      .mosaic()
+      .gt(0.47)
+  )
+  return fdap_palm.rename("Oil_palm_FDaP").selfMask()
 
 
 def g_fdap_palm_2024_prep():
-    fdap_palm2020_model_raw = ee.ImageCollection(
-        "projects/forestdatapartnership/assets/palm/model_2025b"
-    )
-    fdap_palm = (
-        fdap_palm2020_model_raw.filterDate("2024-01-01", "2024-12-31")
-        .mosaic()
-        .gt(0.66)  # recision and recall ~81% at 0.66 threshold.
-    )
-    return fdap_palm.rename("Oil_palm_2024_FDaP").selfMask()
+  fdap_palm2020_model_raw = ee.ImageCollection(
+      "projects/forestdatapartnership/assets/palm/model_2026a"
+  )
+  fdap_palm = (
+      fdap_palm2020_model_raw.filterDate("2024-01-01", "2024-12-31")
+      .mosaic()
+      .gt(0.47)
+  )
+  return fdap_palm.rename("Oil_palm_2024_FDaP").selfMask()
 
 
 # Cocoa FDaP
 def g_fdap_cocoa_prep():
-    fdap_cocoa2020_model_raw = ee.ImageCollection(
-        "projects/forestdatapartnership/assets/cocoa/model_2025b"
-    )
-    fdap_cocoa = (
-        fdap_cocoa2020_model_raw.filterDate("2020-01-01", "2020-12-31")
-        .mosaic()
-        .gt(0.5)  # Precision and recall ~94% 0.5 threshold (estimated).
-    )
-    return fdap_cocoa.rename("Cocoa_FDaP").selfMask()
+  fdap_cocoa2020_model_raw = ee.ImageCollection(
+      "projects/forestdatapartnership/assets/cocoa/model_2026a"
+  )
+  fdap_cocoa = (
+      fdap_cocoa2020_model_raw.filterDate("2020-01-01", "2020-12-31")
+      .mosaic()
+      .gt(0.54)
+  )
+  return fdap_cocoa.rename("Cocoa_FDaP").selfMask()
 
 
 def g_fdap_cocoa_2024_prep():
-    fdap_cocoa2020_model_raw = ee.ImageCollection(
-        "projects/forestdatapartnership/assets/cocoa/model_2025b"
-    )
-    fdap_cocoa = (
-        fdap_cocoa2020_model_raw.filterDate("2024-01-01", "2024-12-31")
-        .mosaic()
-        .gt(0.5)  # Precision and recall ~94% 0.5 threshold (estimated).
-    )
-    return fdap_cocoa.rename("Cocoa_2024_FDaP").selfMask()
+  fdap_cocoa2020_model_raw = ee.ImageCollection(
+      "projects/forestdatapartnership/assets/cocoa/model_2026a"
+  )
+  fdap_cocoa = (
+      fdap_cocoa2020_model_raw.filterDate("2024-01-01", "2024-12-31")
+      .mosaic()
+      .gt(0.54)
+  )
+  return fdap_cocoa.rename("Cocoa_2024_FDaP").selfMask()
 
 
 # Rubber FDaP
 def g_fdap_rubber_prep():
-    fdap_rubber2020_model_raw = ee.ImageCollection(
-        "projects/forestdatapartnership/assets/rubber/model_2025b"
-    )
-    fdap_rubber = (
-        fdap_rubber2020_model_raw.filterDate("2020-01-01", "2020-12-31")
-        .mosaic()
-        .gt(0.38)  # Precision and recall ~75% 0.38 threshold.
-    )
-    return fdap_rubber.rename("Rubber_FDaP").selfMask()
+  fdap_rubber2020_model_raw = ee.ImageCollection(
+      "projects/forestdatapartnership/assets/rubber/model_2026a"
+  )
+  fdap_rubber = (
+      fdap_rubber2020_model_raw.filterDate("2020-01-01", "2020-12-31")
+      .mosaic()
+      .gt(0.35)
+  )
+  return fdap_rubber.rename("Rubber_FDaP").selfMask()
 
 
 def g_fdap_rubber_2024_prep():
-    fdap_rubber2020_model_raw = ee.ImageCollection(
-        "projects/forestdatapartnership/assets/rubber/model_2025b"
-    )
-    fdap_rubber = (
-        fdap_rubber2020_model_raw.filterDate("2024-01-01", "2024-12-31")
-        .mosaic()
-        .gt(0.38)  # Precision and recall ~75% 0.38 threshold.
-    )
-    return fdap_rubber.rename("Rubber_2024_FDaP").selfMask()
+  fdap_rubber2020_model_raw = ee.ImageCollection(
+      "projects/forestdatapartnership/assets/rubber/model_2026a"
+  )
+  fdap_rubber = (
+      fdap_rubber2020_model_raw.filterDate("2024-01-01", "2024-12-31")
+      .mosaic()
+      .gt(0.35)
+  )
+  return fdap_rubber.rename("Rubber_2024_FDaP").selfMask()
 
 
 # # Coffee FDaP
 def g_fdap_coffee_2020_prep():
-    # Load the coffee model for 2020
-    collection = ee.ImageCollection(
-        "projects/forestdatapartnership/assets/coffee/model_2025b"
-    )
+  # Load the coffee model for 2020
+  collection = ee.ImageCollection(
+      "projects/forestdatapartnership/assets/coffee/model_2026a"
+  )
 
-    # Filter the collection for the year 2020 and create a binary mask
-    coffee_2020 = (
-        collection.filterDate("2020-01-01", "2020-12-31")
-        .mosaic()
-        .gt(0.28)  # Precision and recall ~70% 0.28 threshold.
-    )
+  # Filter the collection for the year 2020 and create a binary mask
+  coffee_2020 = (
+      collection.filterDate("2020-01-01", "2020-12-31").mosaic().gt(0.33)
+  )
 
-    return coffee_2020.rename("Coffee_FDaP").selfMask()
+  return coffee_2020.rename("Coffee_FDaP").selfMask()
 
 
 def g_fdap_coffee_2024_prep():
-    # Load the coffee model
-    collection = ee.ImageCollection(
-        "projects/forestdatapartnership/assets/coffee/model_2025b"
-    )
+  # Load the coffee model
+  collection = ee.ImageCollection(
+      "projects/forestdatapartnership/assets/coffee/model_2026a"
+  )
 
-    # Filter the collection for the year 2024 and create a binary mask
-    coffee_2024 = (
-        collection.filterDate("2024-01-01", "2024-12-31")
-        .mosaic()
-        .gt(0.28)  # Precision and recall ~70% 0.28 threshold.
-    )
-    return coffee_2024.rename("Coffee_FDaP_2024").selfMask()
+  # Filter the collection for the year 2024 and create a binary mask
+  coffee_2024 = (
+      collection.filterDate("2024-01-01", "2024-12-31").mosaic().gt(0.33)
+  )
+  return coffee_2024.rename("Coffee_FDaP_2024").selfMask()
 
 
 # Rubber_RBGE_2020 - RBGE's 10m SEA rubber map (Ahrends et al. 2026), replacing the Wang et al. 2023
