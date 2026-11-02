@@ -2,17 +2,18 @@
 
 > Auto-updated weekly by [GitHub Actions](workflows/collect_usage_metrics.yml).
 
-#### Oct 2026 (2026-10)
+#### Nov 2026 (2026-11)
 
-**Local use** — Desktop installs: **319** · GitHub clones: **—**
+**Local use** — Desktop installs: **324** · GitHub clones: **—**
 
-**Wider use** — Colab/Linux: **3853** · Countries: **11**
+**Wider use** — Colab/Linux: **4486** · Countries: **3**
 
 ### Monthly Breakdown
 
 | Month | PyPI: Desktop (Win+Mac) | PyPI: Colab/Linux | PyPI: Other/Unknown | PyPI: Countries | GitHub: Clones | GitHub: Stars | Release |
 |-------|------------------------:|------------------:|--------------------:|----------------:|---------------:|--------------:|---------|
-| 2026-10 | 319 | 3853 | 1956 | 11 | — | 40 | 3.0.0a22 |
+| 2026-11 | 324 | 4486 | 2070 | 3 | — | 42 |  |
+| 2026-10 | 319 | 3853 | 1956 | 39 | — |  | 3.0.0a22 |
 | 2026-09 | — | — | — | 31 | — |  | 3.0.0a18 |
 | 2026-08 | — | — | — | — | — |  | 3.0.0a17 |
 | 2026-07 | — | — | — | — | — |  | 3.0.0a16 |
@@ -31,40 +32,33 @@
 | 2025-04 | 12 | 51 | 529 | 21 | — |  | 1.0.0a1 |
 | 2025-03 | 115 | 108 | 1137 | 43 | — |  | 0.1.0a8 |
 
-### Top Countries — Oct 2026 (2026-10)
+### Top Countries — Nov 2026 (2026-11)
 
 | Country | Downloads |
 |---------|----------:|
-| US | 107 |
-| DE | 4 |
-| FR | 4 |
-| HK | 2 |
-| HU | 2 |
-| KR | 2 |
-| IE | 1 |
-| NL | 1 |
-| PY | 1 |
-| SE | 1 |
+| US | 146 |
+| KR | 8 |
+| CZ | 3 |
 
 ### Top Countries — All Time
 
 | Country | Downloads |
 |---------|----------:|
-| US | 5,072 |
-| FR | 347 |
-| CN | 281 |
-| HK | 272 |
+| US | 6,650 |
+| FR | 417 |
+| HK | 405 |
+| DE | 328 |
+| CN | 294 |
+| SG | 278 |
 | PE | 270 |
-| DE | 256 |
-| SG | 246 |
-| IT | 197 |
-| RU | 131 |
-| GB | 106 |
-| CA | 98 |
-| NL | 83 |
-| SE | 63 |
-| CH | 56 |
-| FI | 47 |
+| IT | 214 |
+| GB | 146 |
+| RU | 135 |
+| CA | 112 |
+| NL | 105 |
+| SE | 76 |
+| CH | 57 |
+| IE | 54 |
 
 ---
 
