@@ -33,7 +33,7 @@
   ***Whisp*** can currently be used directly or implemented in your own code through five different pathways:
 
 
-  1. The Whisp App with its simple interface can be accessed [here](https://whisp.openforis.org/) or called from other software by [API](https://whisp.openforis.org/api/docs). The Whisp App currently supports the processing of up to 10,000 geometries per job (see the [current limits](https://whisp.openforis.org/api/config)). The code for the Whisp App and API is in a separate repository, [whisp-app](https://github.com/forestdatapartnership/whisp-app). No Google Earth Engine account is needed. API use is governed by the [Terms of Service](https://www.openforis.org/whisp-terms/).
+  1. The [Whisp App](https://whisp.openforis.org/) has a simple interface for submitting plots, and its [API](https://whisp.openforis.org/api/docs) lets other software do the same. It handles up to 10,000 geometries per job ([current limits](https://whisp.openforis.org/api/config)) and needs no Google Earth Engine account, though the API can run on your own if you have one. API use is governed by the [Terms of Service](https://www.openforis.org/whisp-terms/). The code for the App and API is in a separate repository, [whisp-app](https://github.com/forestdatapartnership/whisp-app).
 
   2. The [Whisp QGIS plugin](https://plugins.qgis.org/plugins/whisp_plugin/) analyzes geometries from within QGIS through the Whisp API.
 
