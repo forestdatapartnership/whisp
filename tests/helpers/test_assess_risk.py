@@ -39,7 +39,6 @@ EXPECTED_INDICATOR_COLS = [
     "Ind_13_other_land_after_2020",
     "Ind_15_agriculture_2020",
     "Ind_16_plantation_presence_2025",
-    "Ind_17_disturbance_after_2020_timber",
     "Ind_18_regen_planted_2025",
     "Ind_19_primary_change_after_2020",
 ]
@@ -87,7 +86,7 @@ _IND_12 = "Ind_12_other_land_2020"
 _IND_13 = "Ind_13_other_land_after_2020"
 _IND_15 = "Ind_15_agriculture_2020"
 _IND_16 = "Ind_16_plantation_presence_2025"
-_IND_17 = "Ind_17_disturbance_after_2020_timber"
+_IND_4 = "Ind_04_disturbance_after_2020"
 _PRIMARY_2025 = "primary_2025"
 _IND_18 = "Ind_18_regen_planted_2025"
 _REGEN_STILL = "regen_planted_still_2025"
@@ -106,7 +105,7 @@ _TIMBER_INPUT_COLS = [
     _IND_13,
     _IND_15,
     _IND_16,
-    _IND_17,
+    _IND_4,
     _PRIMARY_2025,
     _IND_18,
     _REGEN_STILL,
@@ -212,42 +211,44 @@ def test_timber_decision_tree_terminals() -> None:
             "low: still primary",
             **{_IND_5: "yes", _PRIMARY_2025: "yes"},
         ),
-        # 2026-11-03: on the primary leg DISTURBANCE (Ind_17) is asked right after the plantation gain, and
-        # a disturbed primary plot is HIGH. The old LOW exits (became regenerating / planted, became other
-        # land) are gone: ForTy V2 still calls much cleared primary forest "primary" or "regenerating".
+        # 2026-11-03: on the primary leg DISTURBANCE after 2020 (Ind_04, the crop trees' set) is asked right
+        # after the plantation gain, and a disturbed primary plot is MORE INFO: disturbance is not itself a
+        # non-compliant end state, but it must never read still primary -> LOW. The old LOW exits (became
+        # regenerating / planted, became other land) are gone: ForTy V2 still calls much cleared primary
+        # forest "primary" or "regenerating". HIGH still needs agriculture or a plantation gain.
         _timber_row(
             "primary_disturbed",
-            "high",
-            "high: primary disturbed after 2020",
-            **{_IND_5: "yes", _IND_17: "yes"},
+            "more_info_needed",
+            "more-info: primary 2020, disturbed after 2020",
+            **{_IND_5: "yes", _IND_4: "yes"},
         ),
         _timber_row(
             # formerly LOW (code 20 / 16): disturbance now wins over a regen or other-land 2025 state
             "primary_disturbed_then_regen_or_other_land",
-            "high",
-            "high: primary disturbed after 2020",
-            **{_IND_5: "yes", _IND_17: "yes", _IND_18: "yes", _IND_13: "yes"},
+            "more_info_needed",
+            "more-info: primary 2020, disturbed after 2020",
+            **{_IND_5: "yes", _IND_4: "yes", _IND_18: "yes", _IND_13: "yes"},
         ),
         _timber_row(
             # the order inside the leg: a plantation gain is still read as degradation first
             "primary_disturbed_and_new_plantation",
             "high",
             "high: primary->plantation degradation",
-            **{_IND_5: "yes", _IND_17: "yes", _IND_8B: "yes"},
+            **{_IND_5: "yes", _IND_4: "yes", _IND_8B: "yes"},
         ),
         _timber_row(
             # agriculture after 2020 is asked before the forest classes, so this stays deforestation
             "primary_disturbed_and_agriculture",
             "high",
             "high: deforestation",
-            **{_IND_5: "yes", _IND_17: "yes", _IND_10: "yes"},
+            **{_IND_5: "yes", _IND_4: "yes", _IND_10: "yes"},
         ),
         _timber_row(
             # a disturbed plot can never read still primary: the tree asks disturbance before primary_2025
             "primary_disturbed_even_if_still_primary",
-            "high",
-            "high: primary disturbed after 2020",
-            **{_IND_5: "yes", _IND_17: "yes", _PRIMARY_2025: "yes"},
+            "more_info_needed",
+            "more-info: primary 2020, disturbed after 2020",
+            **{_IND_5: "yes", _IND_4: "yes", _PRIMARY_2025: "yes"},
         ),
         _timber_row(
             # ForTy shows a change (primary_2025 = no) but no disturbance layer backs it -> more-info,
@@ -286,7 +287,7 @@ def test_timber_decision_tree_terminals() -> None:
         ),
         _timber_row(
             # no new plantation and still regenerating / planted in 2025 (the derived column: regen 2020
-            # AND NOT Ind_17) -> stayed-forest LOW, by absence of disturbance, not by canopy presence.
+            # AND NOT Ind_04) -> stayed-forest LOW, by absence of disturbance, not by canopy presence.
             "regen_stayed_forest",
             "low",
             "low: regen stayed forest",
@@ -307,12 +308,12 @@ def test_timber_decision_tree_terminals() -> None:
             **{_IND_6: "yes", _IND_13: "yes"},
         ),
         _timber_row(
-            # regen + DISTURBANCE (Ind_17), no plantation-gain, no other-land -> more-info. This is now the
+            # regen + DISTURBANCE (Ind_04), no plantation-gain, no other-land -> more-info. This is now the
             # ONLY route to the regen more-info leg (a no-disturbance regen plot is LOW, above).
             "regen_disturbed",
             "more_info_needed",
             "more-info: regen 2020, no 2025 state",
-            **{_IND_6: "yes", _IND_17: "yes"},
+            **{_IND_6: "yes", _IND_4: "yes"},
         ),
         # forest-gate plot with no recognised class or change -> more info
         _timber_row(
@@ -400,7 +401,7 @@ def _synthetic_plot(**hectares):
 
 
 def test_timber_primary_leg_through_whisp_risk() -> None:
-    """The primary leg end to end through whisp_risk (no GEE): the lookup rows behind Ind_17 and Ind_19,
+    """The primary leg end to end through whisp_risk (no GEE): the lookup rows behind Ind_04 and Ind_19,
     the derived primary_2025 and the tree. Covers the case a ForTy-only "still primary" rule got wrong
     (cleared forest ForTy still calls primary) and the case a ForTy-only change rule got wrong (primary
     that only TMF calls primary, which ForTy never called primary, so nothing changed)."""
@@ -413,14 +414,14 @@ def test_timber_primary_leg_through_whisp_risk() -> None:
                 "ForTy_v2_primary_2025": 8.0,
                 "GFC_loss_after_2020": 2.0,
             },
-            "high",
-            "high: primary disturbed after 2020",
+            "more_info_needed",
+            "more-info: primary 2020, disturbed after 2020",
         ),
         (
             "disturbed_by_tmf",
             {"ForTy_v2_primary_2020": 8.0, "TMF_def_after_2020": 2.0},
-            "high",
-            "high: primary disturbed after 2020",
+            "more_info_needed",
+            "more-info: primary 2020, disturbed after 2020",
         ),
         (
             "forty_change_without_disturbance",
@@ -439,6 +440,13 @@ def test_timber_primary_leg_through_whisp_risk() -> None:
             {"TMF_undist": 8.0, "ForTy_v2_regen_planted_2025": 8.0},
             "low",
             "low: still primary",
+        ),
+        (
+            # an alert layer counts too: timber reads the same disturbance as the crop trees
+            "disturbed_by_radd_alert",
+            {"ForTy_v2_primary_2020": 8.0, "RADD_after_2020": 2.0},
+            "more_info_needed",
+            "more-info: primary 2020, disturbed after 2020",
         ),
         (
             # below the 10 % threshold: 0.5 ha of a 10 ha plot is not "disturbed"

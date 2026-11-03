@@ -33,8 +33,8 @@ from .risk import TIMBER_ROOT_TREE
 #    (its old "<class> 2020 -> other land" meaning was split into 16/17/18).  Code 15 was the empty
 #    "regen matured to primary" slot, now reused for the new "primary -> regrowth" leg.  19 is new.
 #    20 (2026-10-23) was the "primary 2020 -> regenerating / planted 2025" low leaf from the 2026-07-29
-#    planned diagram. 2026-11-03 the primary leg became "disturbed after 2020 -> high (21); still primary
-#    -> low (2); changed without disturbance -> more-info (22)", retiring 9, 16 and 20.
+#    planned diagram. 2026-11-03 the primary leg became "disturbed after 2020 -> more-info (21); still
+#    primary -> low (2); changed without disturbance -> more-info (22)", retiring 9, 16 and 20.
 # --------------------------------------------------------------------------------------------------
 PATHWAY_TO_CODE = {
     "low: agriculture 2020": 1,
@@ -60,7 +60,7 @@ PATHWAY_TO_CODE = {
     "more-info: forest 2020, unclassified": 19,
     # 20 retired (was "low: primary 2020 -> regen/planted 2025")
     # 21-22: the primary leg since 2026-11-03 (disturbance asked before the ForTy V2 2025 state).
-    "high: primary disturbed after 2020": 21,
+    "more-info: primary 2020, disturbed after 2020": 21,
     "more-info: primary 2020, changed without disturbance": 22,
 }
 RETIRED_CODES = {9, 15, 16, 20}
@@ -89,7 +89,7 @@ CODE_COLOUR = {
     18: "01665e",
     19: "b3b3d1",
     20: "74c476",
-    21: "a50f15",
+    21: "756bb1",
     22: "8856a7",
 }
 
@@ -115,7 +115,7 @@ Q_LABEL = {
     "plantation_presence_2025": "Still a plantation in 2025?<br/><small>(presence)</small>",
     "primary_2020": "Primary forest in 2020?",
     "plantation_2025": "Became a plantation in 2025?<br/><small>(degradation)</small>",
-    "disturbed_after_2020": "Disturbed after 2020?<br/><small>(TMF / GLAD-L / Hansen loss)</small>",
+    "disturbed_after_2020": "Disturbed after 2020?<br/><small>(as for crops: TMF, Hansen loss, alerts)</small>",
     "primary_2025": "Still primary in 2025?**",
     "regen_planted_2020": "Regenerating / planted forest in 2020?",
     "regen_planted_still_2025": "Still regenerating / planted forest in 2025?**",
@@ -188,7 +188,7 @@ _Q_TO_LAYER = {
     ],
     "plantation_presence_2025": "gain_plantation_presence",
     "plantation_2025": "gain_plantation_gain",
-    "disturbed_after_2020": "gain_disturbance_after_2020",  # timber disturbance after 2020 (Ind_17)
+    "disturbed_after_2020": "gain_disturbance_after_2020",  # disturbance after 2020 (Ind_04)
     "primary_2025": "gain_still_primary_2025",
     "regen_planted_still_2025": "gain_regen_stayed_2025",  # regen stayed forest (absence of disturbance)
 }
@@ -220,11 +220,11 @@ Q_TO_COLUMNS = {
     "plantation_presence_2025": ["Ind_16_plantation_presence_2025"],
     "primary_2020": ["Ind_05_primary_2020"],
     "plantation_2025": ["Ind_08b_plantation_after_2020"],
-    "disturbed_after_2020": ["Ind_17_disturbance_after_2020_timber"],
-    # derived in whisp_risk: Ind_05 AND NOT Ind_17 AND NOT Ind_19 (no change in ForTy's own primary class)
+    "disturbed_after_2020": ["Ind_04_disturbance_after_2020"],
+    # derived in whisp_risk: Ind_05 AND NOT Ind_04 AND NOT Ind_19 (no change in ForTy's own primary class)
     "primary_2025": ["primary_2025"],
     "regen_planted_2020": ["Ind_06_nat_reg_forest_2020", "Ind_07a_planted_2020"],
-    # derived in whisp_risk: (Ind_06 OR Ind_07a) AND observed Ind_18 where flagged, else AND NOT Ind_17
+    # derived in whisp_risk: (Ind_06 OR Ind_07a) AND observed Ind_18 where flagged, else AND NOT Ind_04
     "regen_planted_still_2025": ["regen_planted_still_2025"],
 }
 

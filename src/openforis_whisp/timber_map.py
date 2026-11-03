@@ -77,6 +77,7 @@ from .risk import (
     lookup_gee_datasets_df,
     get_cols_ind_01_treecover,
     get_cols_ind_02_commodities,
+    get_cols_ind_04_dist_after_2020,
     get_cols_ind_05_primary_2020,
     get_cols_ind_06_nat_reg_2020,
     get_cols_ind_07a_planted_2020,
@@ -87,7 +88,6 @@ from .risk import (
     get_cols_ind_13_other_land_after_2020,
     get_cols_ind_15_agriculture_2020,
     get_cols_ind_16_plantation_presence_2025,
-    get_cols_ind_17_disturbance_after_2020_timber,
     get_cols_ind_18_regen_planted_2025,
     get_cols_ind_19_primary_change_after_2020,
 )
@@ -326,9 +326,9 @@ def build_timber_question_images(
     n_ind15 = get_cols_ind_15_agriculture_2020(lut)  # Ind_15_agriculture_2020
     # Ind_16_plantation_presence_2025 (multi-year silviculture PRESENCE = stability).
     n_ind16 = get_cols_ind_16_plantation_presence_2025(lut)
-    # Ind_17_disturbance_after_2020_timber (asked on the primary leg; part of the derived primary_2025 and
-    # the regen_planted_still_2025 fallback).
-    n_ind17 = get_cols_ind_17_disturbance_after_2020_timber(lut)
+    # Ind_04_disturbance_after_2020, the crop trees' disturbance after 2020 (asked on the primary leg; part of
+    # the derived primary_2025 and the regen_planted_still_2025 fallback).
+    n_ind04 = get_cols_ind_04_dist_after_2020(lut)
     # Ind_18_regen_planted_2025 (observed regen / planted 2025, ForTy V2) and Ind_19_primary_change_after_2020
     # (ForTy V2 primary 2020 no longer primary in 2025). Either pool can be empty when no lookup row is
     # flagged (_union renders that as ee.Image(0)); the derived questions then fall back to
@@ -354,7 +354,7 @@ def build_timber_question_images(
     def _folded(names, key, default):
         """Per-indicator fold: apply the ``combine[key]`` rule if supplied, else the ``default`` callable.
 
-        ``combine`` maps an indicator id (e.g. ``"Ind_05"``, ``"Ind_10"``, ``"Ind_17"``) to a rule spec
+        ``combine`` maps an indicator id (e.g. ``"Ind_05"``, ``"Ind_10"``, ``"Ind_04"``) to a rule spec
         ``{"rule": "any"|"all"|"k"|"prop", "k": int, "prop": float}``. With ``combine`` empty this is a
         no-op and the historical behaviour is preserved exactly.
         """
@@ -369,8 +369,8 @@ def build_timber_question_images(
             prop=float(spec.get("prop", 0.5)),
         )
 
-    # Ind_17_disturbance_after_2020_timber (default OR-union; combine["Ind_17"] can require agreement).
-    disturbance_2025 = _folded(n_ind17, "Ind_17", lambda: _union(lut, n_ind17))
+    # Ind_04_disturbance_after_2020 (default OR-union; combine["Ind_04"] can require agreement).
+    disturbance_2025 = _folded(n_ind04, "Ind_04", lambda: _union(lut, n_ind04))
 
     # Primary-2020 and agriculture-after-2020 default to the per-source vote COUNT thresholded at k
     # (k = 1 -> any single source; k = 2 -> agreement), or the combine[...] rule when supplied. These two
@@ -403,8 +403,8 @@ def build_timber_question_images(
         "plantation_presence_2025": plantation_presence_2025,  # Ind_16 (stable-plantation PRESENCE)
         "primary_2020": primary_2020,  # Ind_05_primary_2020
         "plantation_2025": plantation_gain_2025,  # Ind_08b_plantation_after_2020 (GAIN = degradation)
-        "disturbed_after_2020": disturbance_2025,  # Ind_17 (primary leg: disturbed primary -> HIGH)
-        "primary_2025": still_primary_2025,  # Ind_05 AND NOT Ind_17 AND NOT Ind_19 (ForTy primary change)
+        "disturbed_after_2020": disturbance_2025,  # Ind_04 (primary leg: disturbed primary -> more-info)
+        "primary_2025": still_primary_2025,  # Ind_05 AND NOT Ind_04 AND NOT Ind_19 (ForTy primary change)
         "regen_planted_still_2025": regen_planted_still_2025,  # (Ind_06 OR Ind_07a) AND Ind_18 (observed)
         # regen_planted_2020 = plain Ind_06 OR Ind_07a, NO "and not primary" carve-out: the tree checks
         # primary BEFORE regen, so ORDER (not exclusion) resolves a primary+regen overlap.

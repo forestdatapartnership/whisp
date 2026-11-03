@@ -51,10 +51,9 @@ def test_risk_inputs_left_out_maps_short_names_to_the_risk_trees_they_feed():
     affected = risk.risk_inputs_left_out(
         ["ESA_fire", "RADD_after_2020", "admin_code", "dead"]
     )
-    # On this branch the timber tree reads disturbance after 2020 through its own
-    # Ind_17 getter (TMF, GLAD-L and the national layers), so RADD feeds only the
-    # crop trees here; on main it feeds all three.
-    assert affected == {"RADD_after_2020": ["pcrop", "acrop"]}
+    # The timber tree reads the same disturbance after 2020 (Ind_04) as the crop trees, so RADD
+    # feeds all three, as on main.
+    assert affected == {"RADD_after_2020": ["pcrop", "acrop", "timber"]}
 
 
 def test_rerunning_risk_replaces_a_stale_risk_inputs_unavailable_note():

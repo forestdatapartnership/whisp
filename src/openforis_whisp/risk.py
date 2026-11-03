@@ -185,7 +185,6 @@ def whisp_risk(
     ind_13_pcent_threshold: float = 10,
     ind_15_pcent_threshold: float = 50,  # like Ind_02: agriculture in 2020 leads to a low risk outcome on the timber tree, so it must cover most of the plot
     ind_16_pcent_threshold: float = 10,
-    ind_17_pcent_threshold: float = 10,  # timber disturbance-after (Ind_17); own knob, no longer shares ind_4
     ind_18_pcent_threshold: float = 10,  # observed regenerating / planted forest in 2025 (Ind_18)
     ind_19_pcent_threshold: float = 10,  # ForTy V2 primary 2020 no longer primary in 2025 (Ind_19)
     ind_1_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
@@ -275,7 +274,6 @@ def whisp_risk(
         ind_16_pcent_threshold (float, optional): Percentage threshold for indicator 16 (multi-year plantation presence 2021-2024). Defaults to 10.
         ind_16_input_columns (pd.Series, optional): Input columns for indicator 16. Defaults to the multi-year silviculture-presence columns flagged for timber (theme_timber=plantation_presence_2025).
         ind_16_name (str, optional): Name of indicator 16 column. Defaults to "Ind_16_plantation_presence_2025".
-        ind_17_pcent_threshold (float, optional): Percentage threshold for indicator 17 (timber disturbance after 2020; asked directly on the primary leg, where a disturbed primary plot is HIGH, and the fallback rule for regen_planted_still_2025 when no observed 2025 source is flagged). Defaults to 10.
         ind_18_pcent_threshold (float, optional): Percentage threshold for indicator 18 (observed regenerating / planted forest in 2025). Defaults to 10.
         ind_18_input_columns (pd.Series, optional): Input columns for indicator 18. Defaults to the 2025 regenerating / planted forest columns flagged for timber (theme_timber=regen_planted_2025); none are flagged until a 2025 forest-type product is wired, so Ind_18 is then always "no".
         ind_18_name (str, optional): Name of indicator 18 column. Defaults to "Ind_18_regen_planted_2025".
@@ -425,7 +423,6 @@ def whisp_risk(
     check_range(ind_13_pcent_threshold)
     check_range(ind_15_pcent_threshold)
     check_range(ind_16_pcent_threshold)
-    check_range(ind_17_pcent_threshold)
     check_range(ind_18_pcent_threshold)
     check_range(ind_19_pcent_threshold)
 
@@ -507,35 +504,15 @@ def whisp_risk(
         unit_type,  # Pass the unit type
     )
 
-    # Ind_17 = TIMBER-SPECIFIC disturbance-after-2020 (an EMITTED indicator, numbered Ind_17 = next after
-    # Ind_16 rather than "Ind_04b", so it reads as a first-class timber indicator and is not conflated with
-    # the shared Ind_04): theme_timber=='disturbance_after' AND use_for_risk_timber==1 (NOT the shared
-    # Ind_04, which is theme=='disturbance_after' + use_for_risk_pcrop). The shared Ind_04 pool pulls in
-    # alert-based layers (RADD, DIST, GLAD-L/S2, the per-year GFC/TMF bands) that flag nearly every primary
-    # pixel as disturbed, which emptied still-primary and pushed intact primary (e.g. the Amazon) to
-    # more-info. Restricting to the lookup's theme_timber=disturbance_after rows lets the curated set (e.g.
-    # GFC loss + TMF def/deg after 2020) gate still-primary. Mirrors the interactive viewer's `dist`. The
-    # shared Ind_04 is UNCHANGED for pcrop/acrop. Ind_17 is asked directly on the primary leg of the tree
-    # (disturbed primary -> HIGH, so a conversion that ForTy V2 still calls primary is not missed), feeds the
-    # derived primary_2025 below, and is the fallback for regen_planted_still_2025 when no observed 2025
-    # source is flagged.
-    df_w_indicators = add_indicator_column(
-        df=df_w_indicators,
-        input_columns=get_cols_ind_17_disturbance_after_2020_timber(
-            filtered_lookup_gee_datasets_df
-        ),
-        threshold=ind_17_pcent_threshold,
-        new_column_name="Ind_17_disturbance_after_2020_timber",
-        low_name=low_name,
-        high_name=high_name,
-        sum_comparison=False,
-        unit_type=unit_type,
-    )
+    # The timber tree reads the same disturbance-after-2020 evidence as the crop trees (Ind_04: TMF
+    # deforestation / degradation, Hansen loss, the RADD / GLAD / DIST alerts and, for Brazil, PRODES /
+    # DETER). A June 2026 pool that also held the per-year loss bands flagged nearly every primary pixel;
+    # today's Ind_04 adds little over Hansen + TMF at plot level, and on the primary leg it gives more-info,
+    # not HIGH, so an extra alert only asks for a closer look.
 
-    # "Still primary in 2025" for the timber tree: primary in 2020 (Ind_05), no post-2020 timber
-    # disturbance (Ind_17) and no change in ForTy V2's own 2020 -> 2025 primary class (Ind_19). The tree
-    # asks disturbance first (disturbed primary -> HIGH), so a ForTy change with no disturbance behind it
-    # lands on more-info, not LOW. Ind_19 is judged against ForTy's own 2020 class (primary only another
+    # "Still primary in 2025" for the timber tree: primary in 2020 (Ind_05), no disturbance after 2020
+    # (Ind_04) and no change in ForTy V2's own 2020 -> 2025 primary class (Ind_19). Either one sends the
+    # plot to more-info on the tree, not LOW. Ind_19 is judged against ForTy's own 2020 class (primary only another
     # layer calls primary is not a change), and a change share rather than a 2025 presence share, which at
     # 10 % of a plot would call a mostly cleared plot still primary. With no Ind_19 row flagged this is the
     # interim 2020-minus-disturbance rule.
@@ -544,7 +521,7 @@ def whisp_risk(
             high_name
             if (
                 row[ind_5_name] == high_name
-                and row["Ind_17_disturbance_after_2020_timber"] == low_name
+                and row[ind_4_name] == low_name
                 and row[ind_19_name] == low_name
             )
             else low_name
@@ -557,7 +534,7 @@ def whisp_risk(
     # disturbance (fire, windthrow, selective logging) and stays forest, and the two changes that count as
     # degradation for it (-> plantation, -> other land) are separate questions in the tree. Positive 2025
     # evidence replaces the interim absence-of-disturbance rule (caveat 27); with no Ind_18 source flagged
-    # the interim rule (NOT Ind_17) applies. Ind_09 canopy stays out of the tree.
+    # the interim rule (NOT Ind_04) applies. Ind_09 canopy stays out of the tree.
     observed_regen_planted_2025 = len(ind_18_input_columns) > 0
     for index, row in df_w_indicators.iterrows():
         regen_planted_2020 = (
@@ -566,7 +543,7 @@ def whisp_risk(
         if observed_regen_planted_2025:
             still_2025 = row[ind_18_name] == high_name
         else:
-            still_2025 = row["Ind_17_disturbance_after_2020_timber"] == low_name
+            still_2025 = row[ind_4_name] == low_name
         df_w_indicators.at[index, "regen_planted_still_2025"] = (
             high_name if (regen_planted_2020 and still_2025) else low_name
         )
@@ -606,6 +583,7 @@ def whisp_risk(
         ind_13_name=ind_13_name,
         ind_15_name=ind_15_name,
         ind_16_name=ind_16_name,
+        ind_4_name=ind_4_name,
         ind_18_name=ind_18_name,
         primary_2025_name="primary_2025",
         regen_planted_still_2025_name="regen_planted_still_2025",
@@ -745,13 +723,19 @@ TIMBER_ROOT_TREE = {
             "yes": {
                 "q": "plantation_2025",  # Ind_08b gain = degradation, checked FIRST
                 "yes": _timber_leaf("high", "high: primary->plantation degradation"),
-                # Then DISTURBANCE: any post-2020 timber disturbance on primary forest (Ind_17: TMF deforestation /
-                # degradation, GLAD-L and Hansen loss) -> HIGH. ForTy V2 still calls a third or more of cleared
-                # primary "primary" in some regions, so the 2025 state alone would miss conversions; natural
-                # disturbance (fire, windthrow) lands here too until a driver layer can separate it (#241).
+                # Then DISTURBANCE after 2020 (Ind_04) -> MORE INFO. Disturbance alone is not a non-compliant
+                # end state (in the EUDR transition table, as one example, primary forest that is logged or
+                # burnt and regrows naturally is deforestation- and degradation-free); HIGH needs evidence of
+                # the end state (agriculture above, plantation gain just before). But ForTy V2 still calls a
+                # third or more of cleared primary "primary" in some regions, so a disturbed plot must never
+                # read still primary -> LOW: it goes to more-info for a closer look. A driver layer could
+                # later separate natural disturbance (#241).
                 "no": {
                     "q": "disturbed_after_2020",
-                    "yes": _timber_leaf("high", "high: primary disturbed after 2020"),
+                    "yes": _timber_leaf(
+                        "more_info_needed",
+                        "more-info: primary 2020, disturbed after 2020",
+                    ),
                     # Undisturbed: still primary (no change in ForTy V2's own 2020 -> 2025 primary class) -> LOW;
                     # a ForTy change with no disturbance behind it -> more-info (a modelled change alone neither
                     # clears nor condemns the plot).
@@ -773,7 +757,7 @@ TIMBER_ROOT_TREE = {
                     # Per the 2026-07-29 planned diagram the 2025 state is asked FIRST, as a positive
                     # question: still regenerating / planted forest in 2025? Derived upstream as
                     # regen_planted_2020 AND the OBSERVED Ind_18 (ForTy V2 2025) where a source is flagged,
-                    # else AND NOT Ind_17_disturbance_after_2020_timber (the interim rule). Broad canopy
+                    # else AND NOT Ind_04_disturbance_after_2020 (the interim rule). Broad canopy
                     # (Ind_09) stays out. Only a plot that is no longer regen / planted forest goes on to the
                     # other-land question, then more-info.
                     "no": {
@@ -848,7 +832,7 @@ def add_risk_timber_col(
     primary_2025_name: str,
     ind_15_name: str = "Ind_15_agriculture_2020",
     ind_16_name: str = "Ind_16_plantation_presence_2025",
-    ind_17_name: str = "Ind_17_disturbance_after_2020_timber",
+    ind_4_name: str = "Ind_04_disturbance_after_2020",
     ind_18_name: str = "Ind_18_regen_planted_2025",
     regen_planted_still_2025_name: str = "regen_planted_still_2025",
     low_name: str = "no",
@@ -864,9 +848,10 @@ def add_risk_timber_col(
 
     2020 states: primary (Ind_05), regenerating-planted (Ind_06 or Ind_07a), plantation (Ind_07b).
     2025 states (derived in whisp_risk from the ForTy V2 time series where its rows are flagged):
-    primary_2025 = Ind_05 AND NOT Ind_17 AND NOT Ind_19 (no change in ForTy V2's own 2020 -> 2025 primary
-    class), disturbed_after_2020 = Ind_17, regen_planted_still_2025 = (Ind_06 OR Ind_07a) AND observed
-    Ind_18 (ForTy V2 regenerating / planted 2025; without a flagged source, AND NOT Ind_17), plantation_2025 = GAIN
+    primary_2025 = Ind_05 AND NOT Ind_04 AND NOT Ind_19 (no change in ForTy V2's own 2020 -> 2025 primary
+    class), disturbed_after_2020 = Ind_04 (the crop trees' disturbance after 2020), regen_planted_still_2025 =
+    (Ind_06 OR Ind_07a) AND observed Ind_18 (ForTy V2 regenerating / planted 2025; without a flagged source,
+    AND NOT Ind_04), plantation_2025 = GAIN
     (Ind_08b: ForTy V2 plantation gain 2020 -> 2025 plus MapBiomas silviculture gain in Brazil; degradation
     only), plantation_presence_2025 = PRESENCE (Ind_16: ForTy V2 plantation 2025 plus MapBiomas any-year;
     stability only), other land 2025 (Ind_13), agriculture 2025 (Ind_10).
@@ -888,10 +873,10 @@ def add_risk_timber_col(
        regenerating-planted in 2025 (regen_planted_still_2025: observed Ind_18 where flagged) -> LOW;
        -> other land 2025 (Ind_13) -> LOW; otherwise MORE INFO NEEDED.
     5. Primary 2020 -> NEW plantation 2025 (Ind_08b GAIN) = degradation -> HIGH (per the EUDR transition
-       matrix, Art 2(7)); -> disturbed after 2020 (Ind_17) -> HIGH; -> still primary (primary_2025: no
-       change in ForTy V2's own primary class) -> LOW; otherwise (ForTy shows a change that no disturbance
-       layer backs) -> MORE INFO NEEDED. Stricter than a literal reading of degradation, by design: a
-       logged or burnt primary forest that stays forest is HIGH, so conversions are not missed.
+       matrix, Art 2(7)); -> disturbed after 2020 (Ind_04) -> MORE INFO NEEDED (disturbance is not itself
+       a non-compliant end state, but a disturbed plot is never read as still primary); -> still primary
+       (primary_2025: no change in ForTy V2's own primary class) -> LOW; otherwise (ForTy shows a change that
+       no disturbance layer backs) -> MORE INFO NEEDED.
     6. Nothing recognised in 2020 -> MORE INFO NEEDED ("if we do not know the 2020 state, we do not
        know"; an unclassified plot is not assumed compliant).
 
@@ -949,14 +934,14 @@ def add_risk_timber_col(
             # Ind_16 PRESENCE (stability) -> stable-plantation LOW, plantation-2020 branch only.
             "plantation_presence_2025": row[ind_16_name] == high_name,
             "primary_2020": primary_2020,
-            # Ind_17 asked directly on the primary leg: disturbed primary -> HIGH.
-            "disturbed_after_2020": row[ind_17_name] == high_name,
-            # primary_2025 derived upstream = Ind_05 AND NOT Ind_17 AND NOT Ind_19 (ForTy change).
+            # Ind_04 asked directly on the primary leg: disturbed primary -> more-info.
+            "disturbed_after_2020": row[ind_4_name] == high_name,
+            # primary_2025 derived upstream = Ind_05 AND NOT Ind_04 AND NOT Ind_19 (ForTy change).
             "primary_2025": row[primary_2025_name] == high_name,
             # Ind_09_treecover_after_2020 stays DROPPED from the tree (too broad: generic ESRI canopy; and
             # regionally uneven: TMF regrowth is tropics-only). Still regenerating / planted forest in 2025 =
             # DERIVED upstream as regen_planted_2020 AND the OBSERVED Ind_18 where a source is flagged (else
-            # AND NOT Ind_17, the interim rule). (ind_9_name and ind_18_name are retained for signature
+            # AND NOT Ind_04, the interim rule). (ind_9_name and ind_18_name are retained for signature
             # stability; Ind_18 is consumed through the derived regen column, Ind_09 is still emitted.)
             "regen_planted_still_2025": row[regen_planted_still_2025_name] == high_name,
             "regen_planted_2020": regen_planted_2020,
@@ -1170,28 +1155,6 @@ def get_cols_ind_19_primary_change_after_2020(lookup_gee_datasets_df):
         lookup_gee_datasets_df["name"][
             (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
             & (lookup_gee_datasets_df["theme_timber"] == "primary_change_after_2020")
-        ]
-    )
-
-
-def get_cols_ind_17_disturbance_after_2020_timber(lookup_gee_datasets_df):
-    """
-    Ind_17 = timber-specific disturbance-after-2020: theme_timber == 'disturbance_after' AND use_for_risk_timber == 1.
-    EMITTED as the Ind_17_disturbance_after_2020_timber output column, asked directly on the timber
-    primary leg (disturbed primary -> HIGH) and part of the DERIVED primary_2025 (Ind_05 AND NOT Ind_17 AND
-    NOT Ind_19); it is also the fallback rule for regen_planted_still_2025 when no observed 2025 source is
-    flagged, so the lookup's theme_timber column controls exactly which products count as disturbance. The shared get_cols_ind_04_dist_after_2020
-    (theme == 'disturbance_after' + use_for_risk_pcrop) is UNCHANGED for the pcrop/acrop trees; that pool
-    includes alert-based layers (RADD/DIST/GLAD-L/S2/per-year bands) too noisy for the primary gate (they
-    flag nearly every primary pixel as disturbed, emptying still-primary). Mirrors the viewer's _dist_timber_mask.
-    """
-    lookup_gee_datasets_df = lookup_gee_datasets_df[
-        lookup_gee_datasets_df["exclude_from_output"] != 1
-    ]
-    return list(
-        lookup_gee_datasets_df["name"][
-            (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
-            & (lookup_gee_datasets_df["theme_timber"] == "disturbance_after")
         ]
     )
 
@@ -1484,15 +1447,12 @@ def filter_to_risk_columns(
     # Risk output columns (present in df if function called at end)
     risk_cols = ["risk_pcrop", "risk_acrop", "risk_timber", "risk_timber_pathway"]
 
-    # Derived indicator columns computed in whisp_risk and kept in the output. primary_2025 is derived
-    # (Ind_05 AND NOT Ind_17 AND NOT Ind_19) and regen_planted_still_2025 likewise (Ind_06 or Ind_07a,
-    # AND observed Ind_18 where flagged, else AND NOT Ind_17); Ind_17 is the emitted timber-disturbance
-    # indicator, built inline from the disturbance-after-2020 timber getter (not threaded via the names
-    # param), so it is listed here too.
+    # Derived columns computed in whisp_risk and kept in the output: primary_2025 (Ind_05 AND NOT Ind_04
+    # AND NOT Ind_19) and regen_planted_still_2025 (Ind_06 or Ind_07a, AND observed Ind_18 where flagged,
+    # else AND NOT Ind_04).
     derived_cols = [
         "primary_2025",
         "regen_planted_still_2025",
-        "Ind_17_disturbance_after_2020_timber",
     ]
 
     # Post-processing metadata columns (added after validation, not in schema CSV)
