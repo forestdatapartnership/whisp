@@ -70,10 +70,10 @@ Whisp supports both **hectares** and **percent** units:
 
 ### Risk Assessment Logic
 [`risk.py::whisp_risk()`](src/openforis_whisp/risk.py) implements commodity-specific decision trees:
-- **Perennial crops** (coffee, cocoa, rubber, palm): Uses `Risk_PCrop` output
-- **Annual crops** (soy): Uses `Risk_ACrop`
-- **Livestock**: Uses `Risk_Livestock` (NB still not integrated in Whisp main as of Jan 2026)
-- **Timber**: Uses `Risk_Timber` (includes additional categories like primary forests, logging concessions)
+- **Perennial crops** (coffee, cocoa, rubber, palm): Uses `risk_pcrop` output
+- **Annual crops** (soy): Uses `risk_acrop`
+- **Cattle**: `risk_cattle`, coming soon (placeholder on branch `feat/cattle-risk`, not on main)
+- **Timber**: Uses `risk_timber` (includes additional categories like primary forests, logging concessions)
 
 Decision tree checks in order:
 1. Treecover in 2020? (Indicator 1)
@@ -161,7 +161,7 @@ pre-commit install  # Set up hooks
 ### Column Name Dependencies
 Many column names are hardcoded in various parts of the codebase and external systems. Changing them can break functionality.
 Some critical columns:
-Indicator (e.g., `ind_1_treecover_2020`) and risk columns (e.g., `risk_pcrop`) are both hardcoded in [src/openforis_whisp/risk.py](src/openforis_whisp/risk.py).
+Indicator (e.g., `Ind_01_treecover`) and risk columns (e.g., `risk_pcrop`) are both hardcoded in [src/openforis_whisp/risk.py](src/openforis_whisp/risk.py).
 
 Further standard column names are defined in [src/openforis_whisp/parameters/lookup_datasets.csv](src/openforis_whisp/parameters/lookup_datasets.csv) (rows where `theme == context_and_metadata`). Two key columns are specifically named to help ensure compatibility with external systems (such as the EU TRACES platform for EUDR):
 - `Area` (geometry area in hectares), defined in [src/openforis_whisp/datasets.py](src/openforis_whisp/datasets.py#L23)
@@ -200,7 +200,7 @@ Note `advanced_stats.py` silences `DeprecationWarning` at import, so any package
 - [Full dataset list](layers_description.md): Detailed provenance for all 50+ datasets
 - [Example notebooks](notebooks/): End-to-end workflows for different use cases
 - [Output columns](https://whisp.openforis.org/docs/reference/result-fields): Describes all statistics and risk assessment columns
-- [API documentation](https://whisp.openforis.org/documentation/api-guide): For Whisp App integration
+- [API documentation](https://whisp.openforis.org/api/docs): For Whisp App integration
 
 ## Performance Considerations
 - **Batch processing**: Process features concurrently in multiple batches via `reduceRegions()` using the GEE high-volume endpoint. Implemented in [`advanced_stats.py::whisp_ee_stats_fc_to_df_concurrent()`](src/openforis_whisp/advanced_stats.py)

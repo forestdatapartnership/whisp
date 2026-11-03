@@ -1,6 +1,6 @@
   whisp
   =====
-  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/openforis/sepal/blob/master/license.txt)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
   [![Data Protection Policy](https://img.shields.io/badge/Data_Protection_and_Privacy-FAO-lightblue.svg)](https://www.fao.org/contact-us/data-protection-and-privacy/en/)
   [![DOI](https://img.shields.io/badge/DOI-10.4060%2Fcd0957en-brightgreen.svg)](https://doi.org/10.4060/cd0957en)
 
@@ -33,11 +33,15 @@
   ***Whisp*** can currently be used directly or implemented in your own code through three different pathways:
 
 
-  1. The Whisp App with its simple interface can be accessed [here](https://whisp.openforis.org/) or called from other software by [API](https://whisp.openforis.org/api/docs). The Whisp App currently supports the processing of up to 5,000 geometries per job. The original JS & Python code behind the Whisp App and API can be found [here](https://github.com/forestdatapartnership/whisp-app).
+  1. The [Whisp App](https://whisp.openforis.org/) has a simple interface for submitting plots, and its [API](https://whisp.openforis.org/api/docs) lets other software do the same. It handles up to 10,000 geometries per job ([current limits](https://whisp.openforis.org/api/config)) and needs no Google Earth Engine account, though the API can run on your own if you have one. API use is governed by the [Terms of Service](https://www.openforis.org/whisp-terms/). The code for the App and API is in a separate repository, [whisp-app](https://github.com/forestdatapartnership/whisp-app).
 
   2. [Whisp in Earthmap](https://whisp.earthmap.org/?aoi=WHISP&boundary=plot1&layers=%7B%22CocoaETH%22%3A%7B%22opacity%22%3A1%7D%2C%22JRCForestMask%22%3A%7B%22opacity%22%3A1%7D%2C%22planet_rgb%22%3A%7B%22opacity%22%3A1%2C%22date%22%3A%222020-12%22%7D%7D&map=%7B%22center%22%3A%7B%22lat%22%3A7%2C%22lng%22%3A4%7D%2C%22zoom%22%3A3%2C%22mapType%22%3A%22satellite%22%7D&statisticsOpen=true) supports the visualization of geometries on actual maps with the possibility to toggle different relevant map products around tree cover, commodities and deforestation. It is practical for demonstration purposes and spot checks of single geometries but not recommended for larger datasets.
 
-  3. Datasets of any size, especially when holding more than 5,000 geometries, can be analyzed with Whisp through the [python package on pip](https://pypi.org/project/openforis-whisp/). See example [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/Colab_whisp_geojson_to_csv.ipynb) for implementation with a geojson input. For further notebooks processing options see [Whisp notebooks](#whisp_notebooks).
+  3. The [Whisp python package](https://pypi.org/project/openforis-whisp/) is the code in this repository. It runs the analysis behind the Whisp App and API, described below, and can be used directly for datasets of any size, especially those with more than 10,000 geometries, or for [adding your own data layers](#whisp_add_data). The [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/Colab_whisp_geojson_to_csv.ipynb) shows an example with a geojson input, and [Whisp notebooks](#whisp_notebooks) has further options.
+
+  Other tools build on Whisp, such as the [QGIS plugin](https://plugins.qgis.org/plugins/whisp_plugin/), the [Open Foris Ground](https://www.openforis.org/ground/) mobile app and [dashboard templates](https://github.com/forestdatapartnership/whisp-dashboards); see the [Open Foris Whisp page](https://www.openforis.org/solutions/whisp/) for the full set.
+
+  Whisp is open source under the MIT License, which allows commercial use. Data layers come from third-party providers with their own terms (see the [layers description](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md)).
 
 
   ## Whisp datasets <a name="whisp_datasets"></a>
@@ -48,7 +52,7 @@
   3) Disturbances **before 2020** (i.e., degradation or deforestation until 2020-12-31);
   4) Disturbances **after 2020** (i.e., degradation or deforestation from 2021-01-01 onward).
 
-Additional categories are specific for the timber commodity, considering a harvesting date in 2024:
+Additional categories are specific for the timber (wood) commodity, considering a harvesting date in 2024:
 
   5) Primary forests in 2020;
   6) Naturally regenerating forests in 2020;
@@ -96,7 +100,7 @@ The **relevant risk assessment column depends on the commodity** in question:
   </tr>
   <tr>
     <td>Coffee</td>
-    <td rowspan="4">Risk_PCrop</td>
+    <td rowspan="4"><code>risk_pcrop</code></td>
     <td rowspan="4">Perennial crop deforestation risk</td>
   </tr>
   <tr><td>Cocoa</td></tr>
@@ -104,20 +108,22 @@ The **relevant risk assessment column depends on the commodity** in question:
   <tr><td>Oil palm</td></tr>
   <tr>
     <td>Soy</td>
-    <td>Risk_ACrop</td>
+    <td><code>risk_acrop</code></td>
     <td>Annual crop deforestation risk</td>
   </tr>
   <tr>
-    <td>Livestock</td>
-    <td>Risk_Livestock</td>
-    <td>Livestock driven deforestation risk (coming soon)</td>
+    <td>Cattle</td>
+    <td><code>risk_cattle</code></td>
+    <td>Cattle-driven deforestation risk (coming soon)</td>
   </tr>
   <tr>
     <td>Timber</td>
-    <td>Risk_Timber</td>
+    <td><code>risk_timber</code></td>
     <td>Timber extraction deforestation risk</td>
   </tr>
 </table>
+
+Each risk column holds one of the values `low`, `high` or `more_info_needed` (shown as "Low", "High" and "More info needed" in the Whisp App).
 
   **Note:** the specific datasets named in the diagrams below are examples only and may not all be reflected in the current codebase. For the datasets currently used, see the [layers description](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md).
 
@@ -130,7 +136,7 @@ The **relevant risk assessment column depends on the commodity** in question:
 
   If one or more treecover datasets indicate tree cover on a plot by the end of 2020, but a commodity dataset indicates agricultural use by the end of 2020, **Whisp will categorize the deforestation risk as low.**
 
-  If one or more treecover datasets indicate tree cover on a plot by the end of 2020, no commodity datasets indicate agricultural use, but a disturbance dataset indicates disturbances before the end of 2020, **Whisp will categorize the deforestation risk as <u>low</u>.** This approach accounts for the characteristics of some perennial crops, which can be established under significant canopy cover (e.g. coffee, cocoa); disturbances prior to 2020 are interpreted as potential evidence of crop establishment before the end of 2020, and thus not considered high risk. Because this step lowers the risk category, it uses a higher default threshold (50% of the plot area) than the other indicators (10%).
+  If one or more treecover datasets indicate tree cover on a plot by the end of 2020, no commodity datasets indicate agricultural use, but a disturbance dataset indicates disturbances before the end of 2020, **Whisp will categorize the deforestation risk as <u>low</u>.** This approach accounts for the characteristics of some perennial crops, which can be established under significant canopy cover (e.g. coffee, cocoa); disturbances prior to 2020 are interpreted as potential evidence of crop establishment before the end of 2020, and thus not considered high risk. Because this step lowers the risk category, it uses a higher default threshold (50% of the plot area) than most other indicators (10%).
 
   Now, if the datasets under categories 1–3 indicate that there was tree cover, but no agriculture and no disturbances before or by the end of 2020, the Whisp algorithm checks whether degradation or deforestation have been reported in a disturbance dataset after 2020-12-31. If they have, **Whisp will categorize the deforestation risk as <u>high</u>.** <br>
   However, under the same circumstances but with <u>no</u> disturbances reported after 2020-12-31 there is insufficient evidence and the **Whisp output will be "More info needed".** Such can be the case for, e.g., cocoa or coffee grown under the shade of treecover or agroforestry.
@@ -297,6 +303,6 @@ Users can report violations of this Code of Conduct confidentially by contacting
 
 ## Feedback <a name="whisp_feedback"></a>
 - For issues or feature requests [open a GitHub issue](https://github.com/forestdatapartnership/whisp/issues).
-- For general questions, feedback or support, email [open-foris@fao.org](mailto:open-foris@fao.org).
+- For general questions, feedback or support, see the [Whisp FAQs](https://www.openforis.org/whisp-faqs/), ask on the [Open Foris forum](https://openforis.support/tags/whisp/) or email [open-foris@fao.org](mailto:open-foris@fao.org).
 
 We welcome all feedback and contributions!
