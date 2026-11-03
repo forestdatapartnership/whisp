@@ -30,18 +30,16 @@
   <br>
 
   ## Whisp pathways <a name="whisp_pathways"></a>
-  ***Whisp*** can currently be used directly or implemented in your own code through five different pathways:
+  ***Whisp*** can currently be used directly or implemented in your own code through three different pathways:
 
 
   1. The [Whisp App](https://whisp.openforis.org/) has a simple interface for submitting plots, and its [API](https://whisp.openforis.org/api/docs) lets other software do the same. It handles up to 10,000 geometries per job ([current limits](https://whisp.openforis.org/api/config)) and needs no Google Earth Engine account, though the API can run on your own if you have one. API use is governed by the [Terms of Service](https://www.openforis.org/whisp-terms/). The code for the App and API is in a separate repository, [whisp-app](https://github.com/forestdatapartnership/whisp-app).
 
-  2. The [Whisp QGIS plugin](https://plugins.qgis.org/plugins/whisp_plugin/) analyzes geometries from within QGIS through the Whisp API.
+  2. [Whisp in Earthmap](https://whisp.earthmap.org/?aoi=WHISP&boundary=plot1&layers=%7B%22CocoaETH%22%3A%7B%22opacity%22%3A1%7D%2C%22JRCForestMask%22%3A%7B%22opacity%22%3A1%7D%2C%22planet_rgb%22%3A%7B%22opacity%22%3A1%2C%22date%22%3A%222020-12%22%7D%7D&map=%7B%22center%22%3A%7B%22lat%22%3A7%2C%22lng%22%3A4%7D%2C%22zoom%22%3A3%2C%22mapType%22%3A%22satellite%22%7D&statisticsOpen=true) supports the visualization of geometries on actual maps with the possibility to toggle different relevant map products around tree cover, commodities and deforestation. It is practical for demonstration purposes and spot checks of single geometries but not recommended for larger datasets.
 
-  3. Mobile apps that collect field geometries can integrate with Whisp. The [Open Foris Ground](https://www.openforis.org/ground/) mobile app for collecting field geometries has Whisp built in.
+  3. The [Whisp python package](https://pypi.org/project/openforis-whisp/) is the code in this repository. It runs the analysis behind the Whisp App and API, described below, and can be used directly for datasets of any size, especially those with more than 10,000 geometries, or for [adding your own data layers](#whisp_add_data). The [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/Colab_whisp_geojson_to_csv.ipynb) shows an example with a geojson input, and [Whisp notebooks](#whisp_notebooks) has further options.
 
-  4. [Whisp in Earthmap](https://whisp.earthmap.org/?aoi=WHISP&boundary=plot1&layers=%7B%22CocoaETH%22%3A%7B%22opacity%22%3A1%7D%2C%22JRCForestMask%22%3A%7B%22opacity%22%3A1%7D%2C%22planet_rgb%22%3A%7B%22opacity%22%3A1%2C%22date%22%3A%222020-12%22%7D%7D&map=%7B%22center%22%3A%7B%22lat%22%3A7%2C%22lng%22%3A4%7D%2C%22zoom%22%3A3%2C%22mapType%22%3A%22satellite%22%7D&statisticsOpen=true) supports the visualization of geometries on actual maps with the possibility to toggle different relevant map products around tree cover, commodities and deforestation. It is practical for demonstration purposes and spot checks of single geometries but not recommended for larger datasets.
-
-  5. The [Whisp python package](https://pypi.org/project/openforis-whisp/) is the code in this repository. It runs the analysis behind the Whisp App and API, described below, and can be used directly for datasets of any size, especially those with more than 10,000 geometries, or for [adding your own data layers](#whisp_add_data). The [Colab Notebook](https://github.com/forestdatapartnership/whisp/blob/main/notebooks/Colab_whisp_geojson_to_csv.ipynb) shows an example with a geojson input, and [Whisp notebooks](#whisp_notebooks) has further options.
+  Other tools build on Whisp, such as the [QGIS plugin](https://plugins.qgis.org/plugins/whisp_plugin/), the [Open Foris Ground](https://www.openforis.org/ground/) mobile app and [dashboard templates](https://github.com/forestdatapartnership/whisp-dashboards); see the [Open Foris Whisp page](https://www.openforis.org/solutions/whisp/) for the full set.
 
   Whisp is open source under the MIT License, which allows commercial use. Data layers come from third-party providers with their own terms (see the [layers description](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md)).
 
