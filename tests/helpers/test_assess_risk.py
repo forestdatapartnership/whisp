@@ -37,12 +37,11 @@ EXPECTED_INDICATOR_COLS = [
     "Ind_10_agri_after_2020",
     "Ind_12_other_land_2020",
     "Ind_13_other_land_after_2020",
-    "Ind_14_primary_2025",
     "Ind_15_agriculture_2020",
     "Ind_16_plantation_presence_2025",
     "Ind_17_disturbance_after_2020_timber",
     "Ind_18_regen_planted_2025",
-    "Ind_19_primary_change_2025",
+    "Ind_19_primary_change_after_2020",
 ]
 
 
@@ -454,7 +453,7 @@ def test_timber_primary_leg_through_whisp_risk() -> None:
     for i, (label, _, risk, pathway) in enumerate(cases):
         got = (out["risk_timber"].iloc[i], out["risk_timber_pathway"].iloc[i])
         assert got == (risk, pathway), f"{label}: got {got}, expected {(risk, pathway)}"
-    assert "Ind_19_primary_change_2025" in out.columns
+    assert "Ind_19_primary_change_after_2020" in out.columns
 
 
 # Crop indicator column names read by the flat crop-risk rules and their decision-tree mirrors.

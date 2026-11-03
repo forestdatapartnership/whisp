@@ -89,7 +89,7 @@ from .risk import (
     get_cols_ind_16_plantation_presence_2025,
     get_cols_ind_17_disturbance_after_2020_timber,
     get_cols_ind_18_regen_planted_2025,
-    get_cols_ind_19_primary_change_2025,
+    get_cols_ind_19_primary_change_after_2020,
 )
 
 # 3-class outcome colours (green low / amber more-info / red high). A display choice carried over
@@ -329,12 +329,12 @@ def build_timber_question_images(
     # Ind_17_disturbance_after_2020_timber (asked on the primary leg; part of the derived primary_2025 and
     # the regen_planted_still_2025 fallback).
     n_ind17 = get_cols_ind_17_disturbance_after_2020_timber(lut)
-    # Ind_18_regen_planted_2025 (observed regen / planted 2025, ForTy V2) and Ind_19_primary_change_2025
+    # Ind_18_regen_planted_2025 (observed regen / planted 2025, ForTy V2) and Ind_19_primary_change_after_2020
     # (ForTy V2 primary 2020 no longer primary in 2025). Either pool can be empty when no lookup row is
     # flagged (_union renders that as ee.Image(0)); the derived questions then fall back to
     # 2020-minus-disturbance, mirroring whisp_risk.
     n_ind18 = get_cols_ind_18_regen_planted_2025(lut)
-    n_ind19 = get_cols_ind_19_primary_change_2025(lut)
+    n_ind19 = get_cols_ind_19_primary_change_after_2020(lut)
 
     # --- indicator ee.Images (unions), and the two COUNT pools that carry the k agreement knob --------
     tc20 = _union(lut, n_ind01)  # Ind_01_treecover

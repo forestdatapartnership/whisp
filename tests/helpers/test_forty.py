@@ -50,7 +50,6 @@ FORTY_TIMBER_ON = {
     "ForTy_v2_nat_reg_2020",
     "ForTy_v2_planted_2020",
     "ForTy_v2_plantation_2020",
-    "ForTy_v2_primary_2025",
     "ForTy_v2_regen_planted_2025",
     "ForTy_v2_plantation_2025",
     "ForTy_v2_plantation_gain_2020_2025",

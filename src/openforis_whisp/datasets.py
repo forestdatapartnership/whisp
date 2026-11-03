@@ -262,8 +262,8 @@ def g_forty_forest_2020_prep():
 # These are the 2020 and 2025 states the timber tree asks about (2026-07-29 planned diagram). The 2020
 # classes replace the ForTy V1 2020 rows on the timber baselines (Ind_05 / 06 / 07a / 07b); the 2025
 # classes fill the slots that were DERIVED from 2020-minus-disturbance until now (primary 2020 -> not
-# primary 2025 = Ind_19, regenerating / planted 2025 = Ind_18, plantation presence 2025 = Ind_16; primary
-# 2025 = Ind_14 is emitted for information) plus the plantation GAIN 2020 -> 2025 (Ind_08b, the first global
+# primary 2025 = Ind_19, regenerating / planted 2025 = Ind_18, plantation presence 2025 = Ind_16; the
+# primary 2025 class itself is emitted for information only) plus the plantation GAIN 2020 -> 2025 (Ind_08b, the first global
 # dated plantation layer). Tree crops (2020 and gain), forest extent
 # and other land are emitted present-but-unused (use_for_risk_* = 0): generic crop classes feeding
 # Ind_02 / Ind_10 is still an open question (#287) and ForTy "other land" is ALL non-forest, not the
@@ -1829,7 +1829,7 @@ def g_global_mining_after_2020_prep():
 # This is a "stable mature native forest / no detected anthropogenic clearing-and-regrowth since the
 # 1985 baseline" proxy, NOT a true primary class. It cannot see pre-1985 disturbance. It is an
 # independent latest-year observation (not anchored to the 2020 primary layer), which is what a
-# "matured to primary" path would need. It was wired into Ind_14 (primary_2025) but is now DISABLED
+# "matured to primary" path would need. It was wired into Ind_14 (primary_2025, since removed) and is DISABLED
 # (use_for_risk_timber=0). It formerly over-counted savanna (in a Cerrado test box ~76% of the proxy was
 # Savanna Formation, class 4); class 4 is now excluded (above), which addresses most of that. It stays off
 # pending a true-primary replacement (TerraClass 2024 upload, tracked in #233); if re-enabled as a STRICT
