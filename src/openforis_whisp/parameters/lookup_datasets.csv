@@ -14,7 +14,7 @@ Coffee_FDaP,100,,commodities,,0,0,0,0,float32,1,0,g_fdap_coffee_2020_prep
 Cocoa_FDaP,110,,commodities,,0,0,0,0,float32,1,0,g_fdap_cocoa_prep
 Rubber_FDaP,130,,commodities,,0,0,0,0,float32,1,0,g_fdap_rubber_prep
 Rubber_RBGE_2020,140,,commodities,,1,1,1,0,float32,1,0,g_rbge_rubber_2020_prep
-FDaP_tree_crops_2020,135,,commodities,,0,0,1,0,float32,1,0,g_fdap_tree_crops_2020_prep
+FDaP_tree_crops_2020,135,,commodities,,0,0,0,0,float32,1,0,g_fdap_tree_crops_2020_prep
 ForTy_tree_crops_2020,1859,,commodities,,0,0,0,0,float32,1,0,g_forty_tree_crops_2020_prep
 GLAD_cropland_2020,2250,,commodities,,0,0,1,0,float32,1,0,g_glad_cropland_2020_prep
 GLAD_cropland_2024,2260,,commodities,,0,0,0,0,float32,1,0,g_glad_cropland_2024_prep

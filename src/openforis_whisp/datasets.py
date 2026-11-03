@@ -529,77 +529,55 @@ def g_fdap_coffee_2024_prep():
     return coffee_2024.rename("Coffee_FDaP_2024").selfMask()
 
 
-# FDaP tree-crop GAIN after 2020 (palm, cocoa, rubber, coffee). POOL the four crops into one "any tree
-# crop" layer per year FIRST, then difference (after AND NOT 2020). The per-crop models confuse one crop
-# for another (palm <-> rubber <-> cocoa), so per-crop change is inflated by relabeling, but a relabel is
-# still a tree crop in both years, so on the pooled aggregate it is NOT a gain. palm and cocoa add light
-# PERSISTENCE (present in >=2 of 2022/2023/2024, k=2-of-3) to drop single-year detection blips without
-# discarding genuine recent plantings: a 3-of-3 rule killed ~1444 km2 of 2-year (e.g. 2023-onset) gains in
-# a Sumatra test and is harsher than the multi-year assessment recommends. rubber and coffee only exist at
-# 2020 and 2024 so they use 2024 presence. Each crop at its own threshold.
-# Tree crops are agricultural commodities, so forest -> tree-crop is the deforestation pathway (Ind_10).
+# FDaP model_2026a has one image per crop for 2018, 2020, 2022 and 2024 only. Thresholds are the README's
+# (Table 6, where precision = recall on FDaP's model selection set), as for the single-crop layers.
+FDAP_TREE_CROP_THRESHOLDS = {
+    "palm": 0.47,
+    "cocoa": 0.54,
+    "rubber": 0.35,
+    "coffee": 0.33,
+}
+
+
+# Any of the four FDaP tree crops in one year, POOLED before any comparison between years: the per-crop
+# models confuse one crop for another (palm <-> rubber <-> cocoa), and a relabel is still a tree crop.
+def _fdap_any_tree_crop(year):
+    any_crop = None
+    for crop, thr in FDAP_TREE_CROP_THRESHOLDS.items():
+        present = (
+            ee.ImageCollection(
+                "projects/forestdatapartnership/assets/%s/model_2026a" % crop
+            )
+            .filterDate("%d-01-01" % year, "%d-12-31" % year)
+            .mosaic()
+            .gt(thr)
+            .unmask(0)
+        )
+        any_crop = present if any_crop is None else any_crop.Or(present)
+    return any_crop
+
+
+# FDaP tree-crop GAIN after 2020 (palm, cocoa, rubber, coffee), the deforestation pathway (Ind_10):
+# no tree crop in 2018 or 2020, then a tree crop in both 2022 and 2024. FDaP gives a probability per
+# year with no checks between years, and a plain 2024-and-not-2020 difference was 14-48% flicker
+# (plantations missed in 2020 only) in four test regions, so the gain has to hold on both sides.
+# It still counts young plantations that only became visible after 2020 on land cleared before it
+# (detection lag), so treat it as a weak signal.
 # NB tree crops (especially rubber and oil palm) can be confused with timber plantations (Ind_07b/08b
 # silviculture); this layer is the commodity-crop reading, the plantation layers carry the silviculture
 # reading, and the tree's branch order resolves any pixel that fires both.
 def g_fdap_tree_crop_gain_prep():
-    def yr(crop, year, thr):
-        return (
-            ee.ImageCollection(
-                "projects/forestdatapartnership/assets/%s/model_2025b" % crop
-            )
-            .filterDate("%d-01-01" % year, "%d-12-31" % year)
-            .mosaic()
-            .gt(thr)
-            .unmask(0)
-        )
-
-    # AFTER, pooled across crops. palm/cocoa: present in >=2 of 2022/2023/2024 (k=2-of-3); rubber/coffee:
-    # 2024 presence (only 2020 and 2024 exist for them).
-    def k2of3(crop, thr):
-        return (
-            yr(crop, 2022, thr).add(yr(crop, 2023, thr)).add(yr(crop, 2024, thr)).gte(2)
-        )
-
-    after = (
-        k2of3("palm", 0.66)
-        .Or(k2of3("cocoa", 0.5))
-        .Or(yr("rubber", 2024, 0.38))
-        .Or(yr("coffee", 2024, 0.28))
-    )
-    # BEFORE, pooled "any tree crop" in 2020
-    before = (
-        yr("palm", 2020, 0.66)
-        .Or(yr("cocoa", 2020, 0.5))
-        .Or(yr("rubber", 2020, 0.38))
-        .Or(yr("coffee", 2020, 0.28))
-    )
+    before = _fdap_any_tree_crop(2018).Or(_fdap_any_tree_crop(2020))
+    after = _fdap_any_tree_crop(2022).And(_fdap_any_tree_crop(2024))
     gain = after.And(before.Not())
     return gain.rename("FDaP_tree_crop_gain_2020_2024").selfMask()
 
 
-# Combined FDaP tree-crop EXTENT in 2020 , the union of palm/cocoa/rubber/coffee in 2020, using the same
-# products + thresholds as the BEFORE side of g_fdap_tree_crop_gain_prep. DORMANT background layer (all
-# use_for_risk_* = 0 in the lookup): available to switch on later, e.g. as the FDaP before-twin to pair the
-# FDaP tree-crop gain's before/after for Rule-1 exoneration (cf. the GLAD/ESRI 2020 baselines).
+# Combined FDaP tree-crop EXTENT in 2020, the union of palm/cocoa/rubber/coffee in 2020. DORMANT
+# background layer (all use_for_risk_* = 0 in the lookup): a single modelled year in the direction
+# that lowers outcomes, so it stays off, as ForTy's tree crops 2020 does.
 def g_fdap_tree_crops_2020_prep():
-    def yr(crop, year, thr):
-        return (
-            ee.ImageCollection(
-                "projects/forestdatapartnership/assets/%s/model_2025b" % crop
-            )
-            .filterDate("%d-01-01" % year, "%d-12-31" % year)
-            .mosaic()
-            .gt(thr)
-            .unmask(0)
-        )
-
-    extent_2020 = (
-        yr("palm", 2020, 0.66)
-        .Or(yr("cocoa", 2020, 0.5))
-        .Or(yr("rubber", 2020, 0.38))
-        .Or(yr("coffee", 2020, 0.28))
-    )
-    return extent_2020.rename("FDaP_tree_crops_2020").selfMask()
+    return _fdap_any_tree_crop(2020).rename("FDaP_tree_crops_2020").selfMask()
 
 
 # Rubber_RBGE_2020 - RBGE's 10m SEA rubber map (Ahrends et al. 2026), replacing the Wang et al. 2023
