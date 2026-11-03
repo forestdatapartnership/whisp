@@ -7,6 +7,7 @@ from openforis_whisp.risk import (
     add_risk_timber_col,
     add_risk_pcrop_col,
     add_risk_acrop_col,
+    lookup_gee_datasets_df,
 )
 from openforis_whisp import decision_tree as _decision_tree
 from openforis_whisp import pcrop_tree_export as _pcrop
@@ -41,6 +42,7 @@ EXPECTED_INDICATOR_COLS = [
     "Ind_16_plantation_presence_2025",
     "Ind_17_disturbance_after_2020_timber",
     "Ind_18_regen_planted_2025",
+    "Ind_19_primary_change_2025",
 ]
 
 
@@ -211,33 +213,69 @@ def test_timber_decision_tree_terminals() -> None:
             "low: still primary",
             **{_IND_5: "yes", _PRIMARY_2025: "yes"},
         ),
+        # 2026-11-03: on the primary leg DISTURBANCE (Ind_17) is asked right after the plantation gain, and
+        # a disturbed primary plot is HIGH. The old LOW exits (became regenerating / planted, became other
+        # land) are gone: ForTy V2 still calls much cleared primary forest "primary" or "regenerating".
         _timber_row(
-            # 2026-07-29 planned diagram, new leaf (code 20): primary knocked out of still-primary by
-            # disturbance but OBSERVED as regenerating / planted forest in 2025 (Ind_18) -> LOW.
-            "primary_became_regen_planted",
-            "low",
-            "low: primary 2020 -> regen/planted 2025",
+            "primary_disturbed",
+            "high",
+            "high: primary disturbed after 2020",
+            **{_IND_5: "yes", _IND_17: "yes"},
+        ),
+        _timber_row(
+            # formerly LOW (code 20 / 16): disturbance now wins over a regen or other-land 2025 state
+            "primary_disturbed_then_regen_or_other_land",
+            "high",
+            "high: primary disturbed after 2020",
+            **{_IND_5: "yes", _IND_17: "yes", _IND_18: "yes", _IND_13: "yes"},
+        ),
+        _timber_row(
+            # the order inside the leg: a plantation gain is still read as degradation first
+            "primary_disturbed_and_new_plantation",
+            "high",
+            "high: primary->plantation degradation",
+            **{_IND_5: "yes", _IND_17: "yes", _IND_8B: "yes"},
+        ),
+        _timber_row(
+            # agriculture after 2020 is asked before the forest classes, so this stays deforestation
+            "primary_disturbed_and_agriculture",
+            "high",
+            "high: deforestation",
+            **{_IND_5: "yes", _IND_17: "yes", _IND_10: "yes"},
+        ),
+        _timber_row(
+            # a disturbed plot can never read still primary: the tree asks disturbance before primary_2025
+            "primary_disturbed_even_if_still_primary",
+            "high",
+            "high: primary disturbed after 2020",
+            **{_IND_5: "yes", _IND_17: "yes", _PRIMARY_2025: "yes"},
+        ),
+        _timber_row(
+            # ForTy shows a change (primary_2025 = no) but no disturbance layer backs it -> more-info,
+            # where the regenerating / planted 2025 state (code 20) used to give LOW
+            "primary_changed_to_regen_without_disturbance",
+            "more_info_needed",
+            "more-info: primary 2020, changed without disturbance",
             **{_IND_5: "yes", _IND_18: "yes"},
         ),
         _timber_row(
-            # Ind_09_treecover_after_2020 DROPPED from the primary branch: a primary plot showing only canopy
-            # but knocked out of still-primary by disturbance is no longer rescued to LOW; it lands on
-            # more-info unless it converted to other land.
-            "primary_disturbed_canopy_only",
+            # other land 2025 is no longer asked on the primary leg (was LOW, code 16)
+            "primary_changed_to_other_land_without_disturbance",
             "more_info_needed",
-            "more-info: primary 2020, no 2025 state",
-            **{_IND_5: "yes", _IND_9: "yes"},
+            "more-info: primary 2020, changed without disturbance",
+            **{_IND_5: "yes", _IND_13: "yes"},
         ),
         _timber_row(
-            "primary_to_other_land",
-            "low",
-            "low: primary 2020 -> other land",
-            **{_IND_5: "yes", _IND_13: "yes"},
+            # Ind_09_treecover_after_2020 stays out of the primary branch: canopy alone rescues nothing
+            "primary_changed_canopy_only",
+            "more_info_needed",
+            "more-info: primary 2020, changed without disturbance",
+            **{_IND_5: "yes", _IND_9: "yes"},
         ),
         _timber_row(
             "primary_more_info",
             "more_info_needed",
-            "more-info: primary 2020, no 2025 state",
+            "more-info: primary 2020, changed without disturbance",
             **{_IND_5: "yes"},
         ),
         # regen-2020 branch (plantation-2025 GAIN checked FIRST)
@@ -346,6 +384,77 @@ def test_timber_decision_tree_terminals() -> None:
             f"{row['_case']}: risk_timber_pathway={row['risk_timber_pathway']!r} "
             f"expected {row['_expected_pathway']!r}"
         )
+
+
+def _synthetic_plot(**hectares):
+    """One 10 ha plot with every global dataset column at 0 ha except the ones given."""
+    lut = lookup_gee_datasets_df
+    names = lut[
+        (lut["exclude_from_output"] != 1)
+        & lut["ISO2_code"].isna()
+        & (lut["theme"] != "context_and_metadata")
+    ]["name"]
+    row = {name: 0.0 for name in names}
+    row.update({"Area": 10.0, "Unit": "ha"})
+    row.update(hectares)
+    return row
+
+
+def test_timber_primary_leg_through_whisp_risk() -> None:
+    """The primary leg end to end through whisp_risk (no GEE): the lookup rows behind Ind_17 and Ind_19,
+    the derived primary_2025 and the tree. Covers the case a ForTy-only "still primary" rule got wrong
+    (cleared forest ForTy still calls primary) and the case a ForTy-only change rule got wrong (primary
+    that only TMF calls primary, which ForTy never called primary, so nothing changed)."""
+    cases = [
+        # (label, hectares, risk_timber, pathway)
+        (
+            "disturbed_by_hansen_loss",
+            {
+                "ForTy_v2_primary_2020": 8.0,
+                "ForTy_v2_primary_2025": 8.0,
+                "GFC_loss_after_2020": 2.0,
+            },
+            "high",
+            "high: primary disturbed after 2020",
+        ),
+        (
+            "disturbed_by_tmf",
+            {"ForTy_v2_primary_2020": 8.0, "TMF_def_after_2020": 2.0},
+            "high",
+            "high: primary disturbed after 2020",
+        ),
+        (
+            "forty_change_without_disturbance",
+            {"ForTy_v2_primary_2020": 8.0, "ForTy_v2_primary_change_2020_2025": 3.0},
+            "more_info_needed",
+            "more-info: primary 2020, changed without disturbance",
+        ),
+        (
+            "still_primary",
+            {"ForTy_v2_primary_2020": 8.0, "ForTy_v2_primary_2025": 8.0},
+            "low",
+            "low: still primary",
+        ),
+        (
+            "primary_only_per_tmf",
+            {"TMF_undist": 8.0, "ForTy_v2_regen_planted_2025": 8.0},
+            "low",
+            "low: still primary",
+        ),
+        (
+            # below the 10 % threshold: 0.5 ha of a 10 ha plot is not "disturbed"
+            "small_disturbance",
+            {"ForTy_v2_primary_2020": 8.0, "GFC_loss_after_2020": 0.5},
+            "low",
+            "low: still primary",
+        ),
+    ]
+    df = pd.DataFrame([_synthetic_plot(**ha) for _, ha, _, _ in cases])
+    out = whisp_risk(df)
+    for i, (label, _, risk, pathway) in enumerate(cases):
+        got = (out["risk_timber"].iloc[i], out["risk_timber_pathway"].iloc[i])
+        assert got == (risk, pathway), f"{label}: got {got}, expected {(risk, pathway)}"
+    assert "Ind_19_primary_change_2025" in out.columns
 
 
 # Crop indicator column names read by the flat crop-risk rules and their decision-tree mirrors.

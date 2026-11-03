@@ -85,11 +85,11 @@ from .risk import (
     get_cols_ind_10_agri_after_2020,
     get_cols_ind_12_other_land_2020,
     get_cols_ind_13_other_land_after_2020,
-    get_cols_ind_14_primary_2025,
     get_cols_ind_15_agriculture_2020,
     get_cols_ind_16_plantation_presence_2025,
     get_cols_ind_17_disturbance_after_2020_timber,
     get_cols_ind_18_regen_planted_2025,
+    get_cols_ind_19_primary_change_2025,
 )
 
 # 3-class outcome colours (green low / amber more-info / red high). A display choice carried over
@@ -326,13 +326,15 @@ def build_timber_question_images(
     n_ind15 = get_cols_ind_15_agriculture_2020(lut)  # Ind_15_agriculture_2020
     # Ind_16_plantation_presence_2025 (multi-year silviculture PRESENCE = stability).
     n_ind16 = get_cols_ind_16_plantation_presence_2025(lut)
-    # Ind_17_disturbance_after_2020_timber (gates the derived primary_2025 and regen_planted_still_2025).
+    # Ind_17_disturbance_after_2020_timber (asked on the primary leg; part of the derived primary_2025 and
+    # the regen_planted_still_2025 fallback).
     n_ind17 = get_cols_ind_17_disturbance_after_2020_timber(lut)
-    # Ind_14_primary_2025 and Ind_18_regen_planted_2025: the OBSERVED 2025 forest states (ForTy V2 2025).
-    # Either pool can be empty when no lookup row is flagged (_union renders that as ee.Image(0)); the
-    # derived still-X questions below then fall back to 2020-minus-disturbance, mirroring whisp_risk.
-    n_ind14 = get_cols_ind_14_primary_2025(lut)
+    # Ind_18_regen_planted_2025 (observed regen / planted 2025, ForTy V2) and Ind_19_primary_change_2025
+    # (ForTy V2 primary 2020 no longer primary in 2025). Either pool can be empty when no lookup row is
+    # flagged (_union renders that as ee.Image(0)); the derived questions then fall back to
+    # 2020-minus-disturbance, mirroring whisp_risk.
     n_ind18 = get_cols_ind_18_regen_planted_2025(lut)
+    n_ind19 = get_cols_ind_19_primary_change_2025(lut)
 
     # --- indicator ee.Images (unions), and the two COUNT pools that carry the k agreement knob --------
     tc20 = _union(lut, n_ind01)  # Ind_01_treecover
@@ -377,11 +379,11 @@ def build_timber_question_images(
     agriculture_2025 = _folded(n_ind10, "Ind_10", lambda: _count(lut, n_ind10).gte(k))
 
     # Derived 2025 forest states, mirroring whisp_risk: still primary = primary 2020 AND NOT disturbance
-    # AND (where flagged) the observed Ind_14; still regen / planted = regen 2020 AND the observed Ind_18
-    # where flagged, else AND NOT disturbance (regenerating forest tolerates disturbance).
-    still_primary_2025 = primary_2020.And(disturbance_2025.Not())
-    if len(n_ind14) > 0:
-        still_primary_2025 = still_primary_2025.And(_union(lut, n_ind14))
+    # AND NOT a change in ForTy V2's own primary class (Ind_19); still regen / planted = regen 2020 AND the
+    # observed Ind_18 where flagged, else AND NOT disturbance (regenerating forest tolerates disturbance).
+    still_primary_2025 = primary_2020.And(disturbance_2025.Not()).And(
+        _union(lut, n_ind19).Not()
+    )
     if len(n_ind18) > 0:
         regen_planted_still_2025 = regen_planted_2020.And(_union(lut, n_ind18))
     else:
@@ -401,10 +403,9 @@ def build_timber_question_images(
         "plantation_presence_2025": plantation_presence_2025,  # Ind_16 (stable-plantation PRESENCE)
         "primary_2020": primary_2020,  # Ind_05_primary_2020
         "plantation_2025": plantation_gain_2025,  # Ind_08b_plantation_after_2020 (GAIN = degradation)
-        "primary_2025": still_primary_2025,  # Ind_05 AND NOT Ind_17 AND Ind_14 (observed, where flagged)
+        "disturbed_after_2020": disturbance_2025,  # Ind_17 (primary leg: disturbed primary -> HIGH)
+        "primary_2025": still_primary_2025,  # Ind_05 AND NOT Ind_17 AND NOT Ind_19 (ForTy primary change)
         "regen_planted_still_2025": regen_planted_still_2025,  # (Ind_06 OR Ind_07a) AND Ind_18 (observed)
-        # regen_planted_became_2025 = the OBSERVED Ind_18 pool (theme_timber=regen_planted_2025).
-        "regen_planted_became_2025": _union(lut, n_ind18),
         # regen_planted_2020 = plain Ind_06 OR Ind_07a, NO "and not primary" carve-out: the tree checks
         # primary BEFORE regen, so ORDER (not exclusion) resolves a primary+regen overlap.
         "regen_planted_2020": regen_planted_2020,
