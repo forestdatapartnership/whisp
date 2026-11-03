@@ -52,7 +52,7 @@
   3) Disturbances **before 2020** (i.e., degradation or deforestation until 2020-12-31);
   4) Disturbances **after 2020** (i.e., degradation or deforestation from 2021-01-01 onward).
 
-Additional categories are specific for the timber commodity, considering a harvesting date in 2024:
+Additional categories are specific for the timber (wood) commodity, considering a harvesting date in 2024:
 
   5) Primary forests in 2020;
   6) Naturally regenerating forests in 2020;
@@ -117,7 +117,7 @@ The **relevant risk assessment column depends on the commodity** in question:
     <td>Cattle-driven deforestation risk (coming soon)</td>
   </tr>
   <tr>
-    <td>Timber (wood)</td>
+    <td>Timber</td>
     <td><code>risk_timber</code></td>
     <td>Timber extraction deforestation risk</td>
   </tr>
