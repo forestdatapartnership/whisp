@@ -29,12 +29,10 @@ from .risk import TIMBER_ROOT_TREE
 
 # --------------------------------------------------------------------------------------------------
 # 1. The STABLE code table.  Codes are intentionally NOT in DFS order: they preserve the historical
-#    map codes so the palette/legend and any committed maps keep their numbering.  Code 14 is retired
-#    (its old "<class> 2020 -> other land" meaning was split into 16/17/18).  Code 15 was the empty
-#    "regen matured to primary" slot, now reused for the new "primary -> regrowth" leg.  19 is new.
-#    20 (2026-10-23) was the "primary 2020 -> regenerating / planted 2025" low leaf from the 2026-07-29
-#    planned diagram. 2026-11-03 the primary leg became "disturbed after 2020 -> more-info (21); still
-#    primary -> low (2); changed without disturbance -> more-info (22)", retiring 9, 16 and 20.
+#    map codes so the palette/legend and any committed maps keep their numbering.  Retired codes are
+#    listed in RETIRED_CODES and noted inline where they were (14 was retired, then revived; see its
+#    line).  2026-11-03 the primary leg became "disturbed after 2020 -> more-info (21); still primary
+#    -> low (2); changed without disturbance -> more-info (22)", retiring 9, 16 and 20.
 # --------------------------------------------------------------------------------------------------
 PATHWAY_TO_CODE = {
     "low: agriculture 2020": 1,
