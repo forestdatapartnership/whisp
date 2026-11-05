@@ -1534,8 +1534,8 @@ def nco_ideam_eufo_commission_2020_prep():
 def nci_bnetd_forest_2020_prep():
     lc = ee.Image("BNETD/land_cover/v1/2020").select("classification")
     return (
-        lc.gte(1).And(lc.lte(7)).rename("nCI_Forest_bnetd")
-    ).selfMask()  # forest land classes 1-7 from national land cover map for Côte d'Ivoire
+        lc.gte(1).And(lc.lte(7)).Or(lc.eq(16)).rename("nCI_Forest_bnetd")
+    ).selfMask()  # forest land classes 1-7 and tree savannah 16 (FAO forest) from national land cover map for Côte d'Ivoire
 
 
 # Cocoa_bnetd
