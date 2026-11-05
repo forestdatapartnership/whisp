@@ -173,7 +173,7 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr></tr>
     <tr><td>ee.Image("projects/ee-whisp/assets/admin_bounds/gaul_2024_level_1_code_500m")</td></tr>
     <tr><td rowspan="4">In_waterbody</td><td rowspan="4">
- Binary mask for permanent water. Used to detect potential plot location errors based on pixel value for the plot centroid. JRC's Global Surface Water data for inland water bodies (classes 1, 2, or 7 from the transitions layer); areas outside USGS Global Shoreline Vector (GSV) boundaries for marine. </td><td>Pekel, JF., Cottam, A., Gorelick, N., Belward, A.S. (2016) High-resolution mapping of global surface water and its long-term changes. <i> Nature </i> 540, 418-422. (doi:10.1038/nature20584)</td></tr>
+ True when more than half of the plot is in permanent water (for a point, when the point falls on water), as a sign the plot may be in the wrong place. It does not change the risk outcome. JRC's Global Surface Water data for inland water bodies (classes 1, 2, or 7 from the transitions layer); areas outside USGS Global Shoreline Vector (GSV) boundaries for marine; combined in the asset projects/ee-andyarnellgee/assets/water_mask_jrc_usgs. </td><td>Pekel, JF., Cottam, A., Gorelick, N., Belward, A.S. (2016) High-resolution mapping of global surface water and its long-term changes. <i> Nature </i> 540, 418-422. (doi:10.1038/nature20584)</td></tr>
     <tr><td>
  ee.Image("JRC/GSW1_4/GlobalSurfaceWater")
  </td></tr>

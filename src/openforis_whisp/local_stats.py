@@ -35,7 +35,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from importlib.metadata import version as get_version
 
-from shapely.geometry import Polygon, mapping
+from shapely.geometry import Polygon, box, mapping
 from shapely.validation import make_valid
 from rio_vrt import build_vrt
 
@@ -1301,6 +1301,33 @@ def _process_chunk_df(chunk_gdf, rasters, ops, chunk_idx, num_chunks):
         gc.collect()
 
 
+def _points_to_raster_cells(gdf, raster_path):
+    """Replace each Point geometry with the raster cell it falls in.
+
+    exactextract weights each pixel by how much of it a geometry covers, so a point (no area) gets 0
+    for every band. Its raster cell gives the value under the point instead, as Earth Engine does for a
+    point in the other processing modes.
+    """
+    is_point = gdf.geometry.geom_type == "Point"
+    if not is_point.any():
+        return gdf
+    import rasterio
+
+    with rasterio.open(raster_path) as src:
+        transform = src.transform
+
+    def _cell(point):
+        col, row = ~transform * (point.x, point.y)
+        col, row = math.floor(col), math.floor(row)
+        x0, y0 = transform * (col, row)
+        x1, y1 = transform * (col + 1, row + 1)
+        return box(min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1))
+
+    gdf = gdf.copy()
+    gdf.loc[is_point, "geometry"] = gdf.loc[is_point, "geometry"].apply(_cell)
+    return gdf
+
+
 def exact_extract_in_chunks_parallel(
     rasters,
     vector_file,
@@ -1368,6 +1395,11 @@ def exact_extract_in_chunks_parallel(
         raster_crs = None
     if gdf.crs is not None and raster_crs and gdf.crs != raster_crs:
         gdf = gdf.to_crs(raster_crs)
+
+    # A point covers no pixel area, so exactextract gives it 0 for every band: use its raster cell
+    gdf = _points_to_raster_cells(
+        gdf, rasters if isinstance(rasters, str) else rasters[0]
+    )
 
     total_features = len(gdf)
     num_chunks = (total_features + chunk_size - 1) // chunk_size
@@ -1551,7 +1583,8 @@ def whisp_stats_local(
         remove_median_columns: Whether to remove the intermediate '_majority' columns after
             processing (default: True; the name dates from when a median was used)
         convert_water_flag: Whether to convert water flag to boolean (default: True)
-        water_flag_threshold: Threshold for water flag ratio (default: 0.5)
+        water_flag_threshold: Share of the plot in permanent water above which In_waterbody is True
+            (default: 0.5, more than half; a point is True when it falls on water)
         sort_column: Column to sort output by (default: 'plotId', None to skip)
         geometry_audit_trail: If True, includes geo_original column with input geometry (default: False)
         verbose: If True, print progress messages (default: True). Set to False for quiet mode.

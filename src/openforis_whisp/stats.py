@@ -2,7 +2,12 @@ import ee
 from openforis_whisp import control_flow
 import pandas as pd
 from pathlib import Path
-from .datasets import combine_datasets, is_dataset_error, supplied_image_error
+from .datasets import (
+    combine_datasets,
+    g_water_mask_prep,
+    is_dataset_error,
+    supplied_image_error,
+)
 import json
 import logging
 from openforis_whisp.logger import get_whisp_logger
@@ -61,6 +66,9 @@ def get_water_flag_image():
     This avoids recreating ocean/water datasets for every feature (previously
     called in get_type_and_location for each feature).
 
+    The same water mask as the main processing modes (``g_water_mask_prep``), as 1 for water
+    and 0 elsewhere, so every mode flags the same plots.
+
     Returns
     -------
     ee.Image
@@ -68,7 +76,7 @@ def get_water_flag_image():
     """
     global _WATER_FLAG_IMAGE
     if _WATER_FLAG_IMAGE is None:
-        _WATER_FLAG_IMAGE = water_flag_all_prep()
+        _WATER_FLAG_IMAGE = g_water_mask_prep().unmask(0).gt(0).rename(water_flag)
     return _WATER_FLAG_IMAGE
 
 
@@ -1246,9 +1254,16 @@ def get_type_and_location(feature, water_all=None, bounds_ADM1=None):
     if water_all is None:
         water_all = get_water_flag_image()
 
-    # Prepare the water flag information
-    water_flag_dict = value_at_point_flag(
-        point=centroid, image=water_all, band_name=water_flag, output_name=water_flag
+    # Water flag: more than half of the plot in permanent water (for a point, the point is in water),
+    # as in the main processing modes; the share is the mean of the 0/1 water image over the plot
+    water_share = water_all.reduceRegion(
+        reducer=ee.Reducer.mean(),
+        geometry=feature.geometry(),
+        scale=10,
+        maxPixels=1e13,
+    ).get(water_flag)
+    water_flag_dict = ee.Dictionary(
+        {water_flag: ee.Number(ee.Algorithms.If(water_share, water_share, 0)).gt(0.5)}
     )
 
     # Get the geometry type of the feature
