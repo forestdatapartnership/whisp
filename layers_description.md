@@ -32,6 +32,9 @@ To view the layers in action, go to [https://whisp.earthmap.org/](https://whisp.
 <tr><td rowspan="3">Forest_FDaP</td><td rowspan="3">Forest persistence for 2020 based on combining multiple forest/ tree cover datasets. Threshold set for Whisp based on the intersection of recall and precision in charts for accuracy.</td><td rowspan="2">FDaP (2025). Forest Data Partnership https://developers.google.com/earth-engine/datasets/publisher/forestdatapartnership</td></tr>
     <tr></tr>
     <tr><td>ee.ImageCollection("projects/forestdatapartnership/assets/community_forests/ForestPersistence_2020")</td></tr>
+    <tr><td rowspan="3">nCI_Forest_bnetd</td><td rowspan="3">Forest land classes for 2020 (i.e., classes 1-7: dense, open, gallery, secondary/degraded, mangrove, forest plantation/reforestation and swamp forest), each above 30% tree cover as in the national forest definition (0.1 ha, 30% crown cover, 5 m). Minimum mapping unit 0.5 ha. Tree savannah (class 16, 10-30% cover) meets the FAO thresholds but not the national one, and is not included. For Côte d'Ivoire only.</td><td rowspan="2">BNETD-CIGN (2024). <i>Occupation des sols de la Côte d'Ivoire en 2020</i>. Centre d'Information Géographique et du Numérique / Bureau National d'Études Techniques et de Developpement, Côte d'Ivoire, with support from the European Union. Data available online from: https://developers.google.com/earth-engine/datasets/catalog/BNETD_land_cover_v1. Methodology (French): https://africageoportal.maps.arcgis.com/sharing/rest/content/items/76dc18767b89472eb89e8aa54e08a6c9/data. Forest definition and validation: https://africageoportal.maps.arcgis.com/sharing/rest/content/items/26a717d4c13f4f3db2c6056f7e5c0bab/data</td></tr>
+    <tr></tr>
+    <tr><td>ee.Image("BNETD/land_cover/v1/2020")</td></tr>
     <tr><td colspan="3"><b>Natural lands:</b></td></tr>
     <tr><td rowspan="3">SBTN_natural_2020</td><td rowspan="3">Binary "natural" band, where 1 is natural land (natural forests, mangroves, short vegetation, water, bare and snow, including their wet and peat variants) and 0 is non-natural. Emitted as an output column only; it feeds no Whisp indicator or risk column.</td><td rowspan="2">Mazur, E., Sims, M., Goldman, E., Schneider, M., Pirri, M. D., Beatty, C. R., Stolle, F., & Stevenson, M. (2025). <i>SBTN Natural Lands Map v1.1: Technical Documentation.</i> Science Based Targets Network. https://sciencebasedtargetsnetwork.org/wp-content/uploads/2025/02/Technical-Guidance-2025-Step3-Land-v1_1-Natural-Lands-Map.pdf</td></tr>
     <tr></tr>
@@ -196,7 +199,7 @@ The sources listed in the table above are analyzed and disaggregated into ~200 d
 Overall, the output CSV from running Whisp zonal statistics processing for a geometry therefore holds:
 - 124 values from disaggregated layers;
 - 26 values from aggregate or stand-alone layers crucial to the risk analysis;
-- 29 (optional) national layers, described in the [result fields reference](https://whisp.openforis.org/docs/reference/result-fields).
+- 30 (optional) national layers, described in the [result fields reference](https://whisp.openforis.org/docs/reference/result-fields).
 - the yes & no answers to the risk categories in the [decision tree](https://github.com/user-attachments/assets/007b5f50-3939-4707-95fa-98be4d56745f) and the final risk category ("low", "high", or "more info needed") for the perennial crops, annual crops, timber and livestock;
 - some additional metadata and geographic information, e.g. ID, geometry type, hectares, country, etc...
 
