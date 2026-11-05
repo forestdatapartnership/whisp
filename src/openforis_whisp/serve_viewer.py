@@ -11,7 +11,9 @@ the page can also analyse with the API (or both, to compare) without the browser
 Usage (run in a SEPARATE terminal, not the one running other tools):
 
     source .venv/Scripts/activate
-    python -m openforis_whisp.serve_viewer C:/tmp/pcrop_pathway_viewer.html 8788
+    python -m openforis_whisp.serve_viewer pcrop_pathway_viewer.html 8788 [ee_project]
+
+(without ``ee_project``: EE_PROJECT or PROJECT from the environment, else your Earth Engine default)
 
 then open  http://127.0.0.1:8788/  in Chrome or Edge (use 127.0.0.1, NOT the VS Code preview). Draw a
 polygon and it is analyzed; the viewer reads its own risk column (risk_pcrop / risk_acrop / risk_timber)
@@ -48,15 +50,29 @@ def _relay(method, path, body, api_key):
         return e.code, e.read()
 
 
-def serve(html_path, port=8788, project="ee-andyarnellgee", national_codes=None):
+def serve(html_path, port=8788, project=None, national_codes=None):
     """Serve ``html_path`` at http://127.0.0.1:port/ and analyze drawn polygons with the WHISP package.
 
+    ``project``: the Earth Engine project to run on; by default EE_PROJECT or PROJECT from the
+    environment, else your Earth Engine default project.
     ``national_codes``: national datasets to include; by default the ones the page's map was built with.
     """
+    import os
+
     import ee
     import openforis_whisp as whisp
 
-    ee.Initialize(project=project)
+    project = project or os.environ.get("EE_PROJECT") or os.environ.get("PROJECT")
+    try:
+        if project:
+            ee.Initialize(project=project)
+        else:
+            ee.Initialize()
+    except ee.EEException as e:
+        raise SystemExit(
+            "Earth Engine needs a project: add it after the port (python -m openforis_whisp.serve_viewer "
+            "page.html 8788 your-ee-project) or set EE_PROJECT. (%s)" % e
+        )
     html = open(html_path, encoding="utf-8").read()
     html_bytes = html.encode("utf-8")
     if national_codes is None:
@@ -224,7 +240,10 @@ def serve(html_path, port=8788, project="ee-andyarnellgee", national_codes=None)
 
 
 if __name__ == "__main__":
-    html = sys.argv[1] if len(sys.argv) > 1 else "C:/tmp/pcrop_pathway_viewer.html"
+    if len(sys.argv) < 2:
+        sys.exit(
+            "usage: python -m openforis_whisp.serve_viewer <page.html> [port] [ee_project]"
+        )
     port_arg = int(sys.argv[2]) if len(sys.argv) > 2 else 8788
-    project_arg = sys.argv[3] if len(sys.argv) > 3 else "ee-andyarnellgee"
-    serve(html, port_arg, project=project_arg)
+    project_arg = sys.argv[3] if len(sys.argv) > 3 else None
+    serve(sys.argv[1], port_arg, project=project_arg)

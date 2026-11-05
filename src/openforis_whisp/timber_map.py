@@ -71,7 +71,13 @@ from __future__ import annotations
 import ee
 
 from . import datasets
+from . import map_layers as _ml
 from . import timber_tree_export as tx
+from .map_layers import (  # noqa: F401 - kept as names of this module too
+    OUTCOME_COLOUR,
+    OUTCOME_NAMES,
+    map_id_tile_url,
+)
 from .reformat import filter_lookup_by_country_codes
 from .risk import (
     lookup_gee_datasets_df,
@@ -92,69 +98,46 @@ from .risk import (
     get_cols_ind_19_primary_change_after_2020,
 )
 
-# 3-class outcome colours (green low / amber more-info / red high). A display choice carried over
-# unchanged from the notebook viewer's _verdict3 palette; hex with no leading '#', matching the
-# Earth-Engine palette convention used throughout timber_tree_export.CODE_COLOUR.
-OUTCOME_COLOUR = {1: "41ab5d", 2: "f08c00", 3: "e31a1c"}
-OUTCOME_NAMES = {1: "low", 2: "more_info_needed", 3: "high"}
-
-
 # --------------------------------------------------------------------------------------------------
-# 1. Lookup-name -> ee.Image resolvers.  These are the notebook / gitignored-script band_img / union /
-#    count helpers, promoted into the package verbatim in behaviour.  A lookup row becomes a 0/1
-#    presence image by reading its corresponding_variable and calling the matching datasets.py *_prep
-#    getter, with a global 0-fill (unmask(0, False)) so a limited-footprint member does not mask the
-#    union.  Kept private: callers work with whole indicator images, not single dataset rows.
+# 1. Lookup-name -> ee.Image resolvers: one copy in map_layers, shared with crop_map. A lookup row becomes
+#    a 0/1 presence image (its datasets.py *_prep getter, band 0, > 0, 0-filled globally so a national
+#    dataset does not mask a union outside its country); a pool is their OR-union or per-pixel count.
 # --------------------------------------------------------------------------------------------------
-def _band_image(row):
-    """Return a lookup row's dataset as a 0/1 presence ``ee.Image`` (global 0-fill), or None.
-
-    Mirrors the ``band_img`` helper in ``notebooks/timber_pathway_viewer.ipynb`` and the
-    ``temp_dev_notes/risk_maps/`` scripts: resolve ``corresponding_variable`` to a ``datasets.py``
-    ``*_prep`` function, select band 0, threshold ``> 0``, and 0-fill globally so a national-only member
-    does not mask the union outside its footprint.
-    """
-    fn = getattr(datasets, str(row["corresponding_variable"]), None)
-    if fn is None:
-        return None
-    try:
-        # select by INDEX (not name) so a renamed band still resolves;
-        # unmask(0, False) 0-fills globally.
-        return ee.Image(fn()).select(0).gt(0).unmask(0, False)
-    except Exception:  # noqa: BLE001 - one unbuildable dataset must not abort the union
-        return None
+_band_image = _ml.band_image
+_row_images = _ml.row_images
+_union = _ml.union
+_count = _ml.count
 
 
-def _row_images(lookup_df, names):
-    """The 0/1 presence images for every lookup row whose ``name`` is in ``names`` (lookup order)."""
-    name_set = list(names)
-    rows = lookup_df[lookup_df["name"].isin(name_set)]
-    imgs = []
-    for _, row in rows.iterrows():
-        img = _band_image(row)
-        if img is not None:
-            imgs.append(img)
-    return imgs
-
-
-def _union(lookup_df, names):
-    """OR-union of the presence images for ``names`` (``ee.Image(0)`` if the pool is empty)."""
-    imgs = _row_images(lookup_df, names)
-    if not imgs:
-        return ee.Image(0)
-    out = imgs[0]
-    for img in imgs[1:]:
-        out = out.Or(img)
-    return out
-
-
-def _count(lookup_df, names):
-    """Per-pixel COUNT (sum of 0/1 presence images) over ``names``; each source contributes one vote."""
-    imgs = _row_images(lookup_df, names)
-    out = ee.Image(0)
-    for img in imgs:
-        out = out.add(img)
-    return out
+def _indicator_names(lut):
+    """{indicator column: dataset names} for every indicator the timber tree reads, from the SAME getters
+    ``add_risk_timber_col`` feeds its ``yes_locals`` from. The question images and the viewer's input
+    dataset list both read this, so they cannot drift apart."""
+    return {
+        # treecover gate: the pcrop pool, mirroring risk.py's gate
+        "Ind_01_treecover": get_cols_ind_01_treecover(lut),
+        # the pcrop pool; pcrop and acrop commodity sets are held identical on main
+        "Ind_02_commodities": get_cols_ind_02_commodities(
+            lut, risk_col="use_for_risk_pcrop"
+        ),
+        "Ind_04_disturbance_after_2020": get_cols_ind_04_dist_after_2020(lut),
+        "Ind_05_primary_2020": get_cols_ind_05_primary_2020(lut),
+        "Ind_06_nat_reg_forest_2020": get_cols_ind_06_nat_reg_2020(lut),
+        "Ind_07a_planted_2020": get_cols_ind_07a_planted_2020(lut),
+        "Ind_07b_plantation_2020": get_cols_ind_07b_plantation_2020(lut),
+        "Ind_08b_plantation_after_2020": get_cols_ind_08b_plantation_after_2020(lut),
+        "Ind_10_agri_after_2020": get_cols_ind_10_agri_after_2020(lut),
+        "Ind_12_other_land_2020": get_cols_ind_12_other_land_2020(lut),
+        "Ind_13_other_land_after_2020": get_cols_ind_13_other_land_after_2020(lut),
+        "Ind_15_agriculture_2020": get_cols_ind_15_agriculture_2020(lut),
+        "Ind_16_plantation_presence_2025": get_cols_ind_16_plantation_presence_2025(
+            lut
+        ),
+        "Ind_18_regen_planted_2025": get_cols_ind_18_regen_planted_2025(lut),
+        "Ind_19_primary_change_after_2020": get_cols_ind_19_primary_change_after_2020(
+            lut
+        ),
+    }
 
 
 # --------------------------------------------------------------------------------------------------
@@ -309,32 +292,29 @@ def build_timber_question_images(
     )
 
     # --- per-indicator dataset-name pools, from the SAME getters add_risk_timber_col feeds -----------
-    # Ind_01_treecover (treecover gate; pcrop pool, mirroring risk.py's gate).
-    n_ind01 = get_cols_ind_01_treecover(lut)
-    # Ind_02_commodities uses the pcrop pool, matching the notebook viewer / scripts. pcrop and acrop
-    # commodity sets are held identical on main, so this equals the pcrop+acrop union whisp_risk forms.
-    n_ind02 = get_cols_ind_02_commodities(lut, risk_col="use_for_risk_pcrop")
-    n_ind05 = get_cols_ind_05_primary_2020(lut)  # Ind_05_primary_2020
-    n_ind06 = get_cols_ind_06_nat_reg_2020(lut)  # Ind_06_nat_reg_forest_2020
-    n_ind07a = get_cols_ind_07a_planted_2020(lut)  # Ind_07a_planted_2020
-    n_ind07b = get_cols_ind_07b_plantation_2020(lut)  # Ind_07b_plantation_2020
-    # Ind_08b_plantation_after_2020 (plantation GAIN = degradation).
-    n_ind08b = get_cols_ind_08b_plantation_after_2020(lut)
-    n_ind10 = get_cols_ind_10_agri_after_2020(lut)  # Ind_10_agri_after_2020
-    n_ind12 = get_cols_ind_12_other_land_2020(lut)  # Ind_12_other_land_2020
-    n_ind13 = get_cols_ind_13_other_land_after_2020(lut)  # Ind_13_other_land_after_2020
-    n_ind15 = get_cols_ind_15_agriculture_2020(lut)  # Ind_15_agriculture_2020
-    # Ind_16_plantation_presence_2025 (multi-year silviculture PRESENCE = stability).
-    n_ind16 = get_cols_ind_16_plantation_presence_2025(lut)
-    # Ind_04_disturbance_after_2020, the crop trees' disturbance after 2020 (asked on the primary leg; part of
-    # the derived primary_2025 and the regen_planted_still_2025 fallback).
-    n_ind04 = get_cols_ind_04_dist_after_2020(lut)
-    # Ind_18_regen_planted_2025 (observed regen / planted 2025, ForTy V2) and Ind_19_primary_change_after_2020
-    # (ForTy V2 primary 2020 no longer primary in 2025). Either pool can be empty when no lookup row is
-    # flagged (_union renders that as ee.Image(0)); the derived questions then fall back to
-    # 2020-minus-disturbance, mirroring whisp_risk.
-    n_ind18 = get_cols_ind_18_regen_planted_2025(lut)
-    n_ind19 = get_cols_ind_19_primary_change_after_2020(lut)
+    names = _indicator_names(lut)
+    n_ind01 = names["Ind_01_treecover"]
+    n_ind02 = names["Ind_02_commodities"]
+    n_ind05 = names["Ind_05_primary_2020"]
+    n_ind06 = names["Ind_06_nat_reg_forest_2020"]
+    n_ind07a = names["Ind_07a_planted_2020"]
+    n_ind07b = names["Ind_07b_plantation_2020"]
+    # plantation GAIN = degradation
+    n_ind08b = names["Ind_08b_plantation_after_2020"]
+    n_ind10 = names["Ind_10_agri_after_2020"]
+    n_ind12 = names["Ind_12_other_land_2020"]
+    n_ind13 = names["Ind_13_other_land_after_2020"]
+    n_ind15 = names["Ind_15_agriculture_2020"]
+    # multi-year silviculture PRESENCE = stability
+    n_ind16 = names["Ind_16_plantation_presence_2025"]
+    # the crop trees' disturbance after 2020 (asked on the primary leg; part of the derived primary_2025
+    # and the regen_planted_still_2025 fallback)
+    n_ind04 = names["Ind_04_disturbance_after_2020"]
+    # observed regen / planted 2025 (ForTy V2) and ForTy V2 primary 2020 no longer primary in 2025. Either
+    # pool can be empty when no lookup row is flagged (_union renders that as ee.Image(0)); the derived
+    # questions then fall back to 2020-minus-disturbance, mirroring whisp_risk.
+    n_ind18 = names["Ind_18_regen_planted_2025"]
+    n_ind19 = names["Ind_19_primary_change_after_2020"]
 
     # --- indicator ee.Images (unions), and the two COUNT pools that carry the k agreement knob --------
     tc20 = _union(lut, n_ind01)  # Ind_01_treecover
@@ -457,27 +437,10 @@ def build_timber_pathway_image(
 def collapse_to_outcome3(pathway_image):
     """Collapse a pathway-code image to 1 = low / 2 = more-info-needed / 3 = high (``selfMask``'d).
 
-    The low / more / high code sets come from ``timber_tree_export.class_codes()`` (derived from
-    ``risk.TIMBER_ROOT_TREE``), so this stays in step with the tree automatically. Pixels reaching no
-    coded terminal are masked out. Copies the notebook viewer's ``_verdict3`` logic exactly.
+    The low / more / high code sets come from the tree (``risk.TIMBER_ROOT_TREE``), so this stays in step
+    with it automatically; one copy shared with the crop maps (``map_layers.outcome3``).
     """
-    class_codes = tx.class_codes()  # {"low": [...], "more": [...], "high": [...]}
-
-    def _codes_mask(image, codes):
-        mask = ee.Image(0)
-        for code in codes:
-            mask = mask.Or(image.eq(code))
-        return mask
-
-    low = _codes_mask(pathway_image, class_codes["low"])
-    more = _codes_mask(pathway_image, class_codes["more"])
-    high = _codes_mask(pathway_image, class_codes["high"])
-
-    out = ee.Image(0)
-    out = out.where(low, 1)
-    out = out.where(more, 2)
-    out = out.where(high, 3)
-    return out.selfMask()
+    return _ml.outcome3(tx.TIMBER_SPEC, pathway_image)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -497,29 +460,10 @@ def timber_map_palette():
         ``outcome_names``  : {1: "low", 2: "more_info_needed", 3: "high"}.
         ``outcome_colour`` : {1/2/3: hex} for the 3-class outcome image (no '#').
         ``outcome_vis``    : {"min": 1, "max": 3, "palette": [...]} for the outcome image.
-    """
-    code_names = tx.code_names()  # {code: label}, only codes the tree actually reaches
-    emitted = sorted(code_names)
-    min_code, max_code = emitted[0], emitted[-1]
-    # Contiguous palette over every integer min..max so a single addLayer(min, max, palette) is correct.
-    # tx.CODE_COLOUR carries a swatch for every integer in that span (including retired codes), so no gaps.
-    pathway_palette = [
-        tx.CODE_COLOUR.get(c, "000000") for c in range(min_code, max_code + 1)
-    ]
 
-    return {
-        "code_names": dict(code_names),
-        "code_colour": {c: tx.CODE_COLOUR[c] for c in emitted},
-        "pathway_vis": {"min": min_code, "max": max_code, "palette": pathway_palette},
-        "class_codes": tx.class_codes(),
-        "outcome_names": dict(OUTCOME_NAMES),
-        "outcome_colour": dict(OUTCOME_COLOUR),
-        "outcome_vis": {
-            "min": 1,
-            "max": 3,
-            "palette": [OUTCOME_COLOUR[1], OUTCOME_COLOUR[2], OUTCOME_COLOUR[3]],
-        },
-    }
+    One copy shared with the crop maps (``map_layers.palette``).
+    """
+    return _ml.palette(tx.TIMBER_SPEC)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -564,15 +508,114 @@ def build_timber_combined_map(
 
 
 # --------------------------------------------------------------------------------------------------
-# 7. Optional convenience: resolve an ee.Image + vis to a signed XYZ tile template.  Uses only ee
-#    (no geemap / folium), so the core builders keep no interactive-mapping dependency.
+# 7. The whole viewer page in one call (the timber analogue of crop_map.build_crop_viewer, on the same
+#    shared page, pathway_viewer). map_id_tile_url (a signed tile link) is map_layers', imported above.
 # --------------------------------------------------------------------------------------------------
-def map_id_tile_url(image, vis_params: dict) -> str:
-    """Resolve ``(image, vis_params)`` to a signed XYZ tile-template URL via ``getMapId``.
+TIMBER_BOOKMARKS = [
+    ["Tocantinzinho post-2020 mine", -6.0519, -56.2935, 13],
+    ["Pasture expansion (Amazon basin)", -6.4478, -56.1887, 13],
+    ["Southern silviculture belt", -22.0, -48.0, 9],
+    ["Cerrado pasture-gain hotspot (Matopiba)", -9.5, -45.5, 9],
+]
 
-    Optional helper for embedding a layer as an XYZ tile source (Leaflet / folium / a static viewer).
-    Uses only ``ee`` (``getMapId(...)["tile_fetcher"].url_format``); no interactive-mapping library is
-    imported. The returned template is SIGNED and EXPIRES (typically within a day), so resolve it shortly
-    before use. Requires Earth Engine to be initialized.
+# the two derived questions, and the indicator each adds to the questions before it (its datasets are
+# listed under that question in the viewer)
+_DERIVED_INPUTS = {
+    "primary_2025": "Ind_19_primary_change_after_2020",
+    "regen_planted_still_2025": "Ind_18_regen_planted_2025",
+}
+
+
+def timber_input_layers(national_codes=None, lookup_df=None, max_workers=16):
+    """Tile layers for every dataset the timber tree reads, to view the inputs one at a time.
+
+    Returns {column: layers} for ``pathway_viewer``: the datasets of each indicator in the tree's
+    questions, and under the two derived questions (still primary, still regenerating or planted in 2025)
+    the indicator they add, Ind_19_primary_change_after_2020 and Ind_18_regen_planted_2025. The datasets
+    come from the same getters as the question images (``_indicator_names``). Needs Earth Engine
+    initialised.
     """
-    return ee.Image(image).getMapId(vis_params)["tile_fetcher"].url_format
+    lut = lookup_gee_datasets_df if lookup_df is None else lookup_df
+    lut = filter_lookup_by_country_codes(
+        lut, filter_col="ISO2_code", national_codes=national_codes
+    )
+    pools = _indicator_names(lut)
+    names = {}
+    for cols in tx.TIMBER_SPEC.q_to_columns.values():
+        for col in cols:
+            if col not in names:
+                names[col] = pools[_DERIVED_INPUTS.get(col, col)]
+    layers = _ml.input_layers(names, lut, max_workers=max_workers)
+    for col, indicator in _DERIVED_INPUTS.items():
+        if col in layers:
+            layers[col] = {"indicator": indicator, "layers": layers[col]}
+    return layers
+
+
+def build_timber_viewer(
+    ee_project=None,
+    national_codes=None,
+    api_key=None,
+    input_datasets=True,
+    agreement=True,
+    bookmarks=None,
+    center=(0, 20),
+    zoom=3,
+):
+    """Build the timber pathway viewer page and return its HTML.
+
+    ``ee_project``: Earth Engine project for the map layers. None builds a page without map layers (the
+    tree, a base map and plot analysis), which never expires; with a project, the layers stop loading
+    about a day after building.
+    ``national_codes``: national datasets for the map and for analysing plots. By default every country
+    with national datasets in the lookup: a national dataset is 0 outside its own country, so this only
+    adds detail inside each of them.
+    ``api_key``: a Whisp API key to build into the page; anyone with the file can read it, so by default
+    leave it out and whoever opens the page pastes their own.
+    ``input_datasets``: include each input dataset as its own on/off layer (needs ``ee_project``).
+    ``agreement``: also map the outcome and pathways with at least two sources agreeing on primary forest
+    2020 and agriculture after 2020 (``k=2``), as their own layers.
+    """
+    from . import pathway_viewer as pv
+
+    if national_codes is None:
+        codes = lookup_gee_datasets_df["ISO2_code"].dropna().astype(str).str.strip()
+        national_codes = sorted({c.lower() for c in codes if c and c.lower() != "nan"})
+    national_codes = list(national_codes)
+    spec, palette = tx.TIMBER_SPEC, timber_map_palette()
+    layers, input_layers = {}, None
+    if ee_project:
+        _ml.init_ee(ee_project)
+        qimg = build_timber_question_images(national_codes=national_codes)
+        agree = None
+        if agreement:
+            agree = build_timber_pathway_image(national_codes=national_codes, k=2)
+        layers = _ml.viewer_layers(
+            spec, qimg, tx.eval_tree_ee(qimg, ee.Image), palette, agree_pathway=agree
+        )
+        if input_datasets:
+            input_layers = timber_input_layers(national_codes=national_codes)
+    where = " + national layers (%s)" % ", ".join(national_codes).upper()
+    return pv.build_pathway_viewer_html(
+        spec,
+        layers.get("tiles"),
+        palette,
+        "Timber pathway viewer",
+        subtitle="risk_timber tree%s%s"
+        % (
+            " + combined risk map" if layers.get("tiles") else "",
+            where if national_codes else "",
+        ),
+        bookmarks=TIMBER_BOOKMARKS if bookmarks is None else bookmarks,
+        backgrounds=layers.get("backgrounds"),
+        risk_col="risk_timber",
+        center=center,
+        zoom=zoom,
+        node_tiles=layers.get("node_tiles"),
+        # the timber map's combined layers time out further out (tile test 2026-11-05)
+        layer_min_zoom=9,
+        input_layers=input_layers,
+        national_codes=national_codes,
+        api_key=api_key,
+        countries=layers.get("countries"),
+    )

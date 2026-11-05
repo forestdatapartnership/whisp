@@ -49,3 +49,24 @@ def test_page_built_without_earth_engine_still_analyses_plots_and_shows_their_ro
     assert cfg["nationalCodes"] == ["br"] and cfg["apiKey"] == ""
     assert cfg["routes"]["1"] == ["TC2020", "term_1"]
     assert cfg["builtWith"]["version"] and cfg["builtWith"]["date"]
+
+
+def test_timber_page_built_without_earth_engine_uses_every_national_dataset():
+    from openforis_whisp import timber_map
+    from openforis_whisp.risk import lookup_gee_datasets_df
+
+    html = timber_map.build_timber_viewer()
+    cfg = json.loads(re.search(r"const CFG = (\{.*?\});\n", html).group(1))
+    codes = lookup_gee_datasets_df["ISO2_code"].dropna().astype(str).str.strip()
+    assert set(cfg["nationalCodes"]) == {c.lower() for c in codes if c}
+    assert cfg["tiles"] == {} and cfg["countries"] == []
+    assert 'const RISK_COL = "risk_timber"' in html
+
+
+def test_a_derived_question_lists_the_indicator_it_adds():
+    from openforis_whisp.timber_tree_export import TIMBER_SPEC
+
+    ind = "Ind_19_primary_change_after_2020"
+    layers = {"primary_2025": {"indicator": ind, "layers": [{"name": "ForTy"}]}}
+    (group,) = pathway_viewer._input_groups(TIMBER_SPEC, layers)
+    assert group["q"] == "primary_2025" and group["indicator"] == ind

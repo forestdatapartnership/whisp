@@ -215,18 +215,24 @@ def node_tiles_by_id(spec, question_tiles=None, code_tiles=None, palette=None):
 
 
 def _input_groups(spec, input_layers):
-    """Ordered [{q, question, indicator, layers}] for the input datasets panel, one per tree question."""
+    """Ordered [{q, question, indicator, layers}] for the input datasets panel, one per tree question.
+
+    An ``input_layers`` value is a list of layers, or {"indicator", "layers"} to show a column's datasets
+    under another indicator name (a derived question listing the indicator it adds)."""
     out = []
     for q, cols in spec.q_to_columns.items():
         question = re.sub(r"<[^>]+>", "", spec.q_label.get(q, q).split("<br")[0])
         for c in cols:
-            if (input_layers or {}).get(c):
+            group, indicator = (input_layers or {}).get(c), c
+            if isinstance(group, dict):
+                group, indicator = group.get("layers"), group.get("indicator", c)
+            if group:
                 out.append(
                     {
                         "q": q,
                         "question": question.strip(),
-                        "indicator": c,
-                        "layers": input_layers[c],
+                        "indicator": indicator,
+                        "layers": group,
                     }
                 )
     return out
@@ -248,11 +254,15 @@ def build_pathway_viewer_html(
     input_layers=None,
     national_codes=None,
     api_key=None,
+    countries=None,
 ):
     """Return a self-contained viewer HTML string. See the module docstring for the feature list.
 
-    ``tiles``: {"outcome", "pathway"} tile urls, or None for a page without map layers (tree, base map and
+    ``tiles``: {"outcome", "pathway"} tile urls (optionally also "outcome_agree" / "pathway_agree", the
+    same with at least two sources agreeing), or None for a page without map layers (tree, base map and
     plot analysis only, which never expires).
+    ``countries``: [[name, south, west, north, east]] for a "go to country" menu
+    (``map_layers.country_boxes``); none, no menu.
     ``input_layers``: {indicator_column: [{"name", "iso2", "colour", "url"}]} (``crop_map.crop_input_layers``),
     shown as an on/off list of the datasets behind each question.
     ``national_codes``: the national layers the map was built with; plots are analysed with the same ones.
@@ -278,6 +288,7 @@ def build_pathway_viewer_html(
             "layerMinZoom": layer_min_zoom,
             "inputGroups": _input_groups(spec, input_layers),
             "nationalCodes": list(national_codes or []),
+            "countries": countries or [],
         },
         separators=(",", ":"),
     )
@@ -320,6 +331,7 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
   #drawStatus{font-size:.74rem;color:var(--accent)}
   .upl{font-family:var(--mono);font-size:.72rem;color:#fff;background:var(--accent);border-radius:7px;padding:.28rem .55rem;cursor:pointer} .upl input{display:none}
   .bm{font-family:var(--mono);font-size:.72rem;color:var(--ink2)} .bm button{font:inherit;font-family:var(--mono);font-size:.72rem;background:none;border:0;color:var(--accent);cursor:pointer;padding:0 .3rem}
+  .bm select{font:inherit;font-size:.72rem;max-width:11rem}
   main{flex:1;display:flex;min-height:0}
   #tree{width:44%;min-width:270px;overflow:auto;border-right:1px solid var(--line);background:#fafbf9;padding:.8rem}
   #splitter{flex:0 0 5px;cursor:col-resize;background:#e5e7eb}
@@ -413,6 +425,7 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
     <div id="drawStatus"></div>
   </div>
   <span class="bm" id="bm">go to:</span>
+  <label class="bm" id="countryWrap">country <select id="countrySelect"><option value="">go to&hellip;</option></select></label>
 </header>
 <main>
   <div id="tree">
@@ -463,14 +476,16 @@ const LAYER_MIN_ZOOM = CFG.layerMinZoom || 8;
 let layerOpacity = 0.85;  // set by the opacity slider, used by every layer added later too
 let plotsColoured = false;  // set once a plot result has coloured a drawn plot by its pathway
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-// a page built without Earth Engine has no map layers (tree, base map and plot analysis only)
-const riskLayers = {
-  outcome: CFG.tiles.outcome ? L.tileLayer(CFG.tiles.outcome, { pane:'risk', opacity:layerOpacity, minZoom:LAYER_MIN_ZOOM }) : null,
-  pathway: CFG.tiles.pathway ? L.tileLayer(CFG.tiles.pathway, { pane:'risk', opacity:layerOpacity, minZoom:LAYER_MIN_ZOOM }) : null
-};
+// a page built without Earth Engine has no map layers (tree, base map and plot analysis only); the outcome
+// and pathway can also come with at least two sources agreeing, as their own layers
+const RISK_LABELS = { outcome:'Risk – outcome', pathway:'Risk – pathway', outcome_agree:'Risk – outcome, 2+ sources agree', pathway_agree:'Risk – pathway, 2+ sources agree' };
+const riskLayers = {};
+Object.keys(RISK_LABELS).forEach(k => { if(CFG.tiles[k]) riskLayers[k]=L.tileLayer(CFG.tiles[k], { pane:'risk', opacity:layerOpacity, minZoom:LAYER_MIN_ZOOM }); });
+const riskList = Object.values(riskLayers);
 function shown(l){ return !!l && map.hasLayer(l); }
+// Sentinel-2 medians are computed on request too (tens of seconds a tile zoomed out), so the same zoom limit
 const s2layers = {};
-Object.entries(CFG.backgrounds || {}).forEach(([label,url]) => { s2layers[label] = watchLoading(L.tileLayer(url, { pane:'s2bg', maxZoom:19 })); });
+Object.entries(CFG.backgrounds || {}).forEach(([label,url]) => { s2layers[label] = watchLoading(L.tileLayer(url, { pane:'s2bg', maxZoom:19, minZoom:LAYER_MIN_ZOOM })); });
 osm.addTo(map); if(riskLayers.outcome) riskLayers.outcome.addTo(map);
 // on-map messages: zoom in to see the layers; loading while their tiles arrive; expired once no tile loads
 let _loading=0, _slowTimer=null, _tilesOk=0, _tilesBad=0;
@@ -492,9 +507,9 @@ function watchLoading(layer){
   layer.on('remove', ()=>{ _loading=0; document.getElementById('loadMsg').style.display='none'; });
   return layer;
 }
-[riskLayers.outcome, riskLayers.pathway].forEach(l => { if(l) watchLoading(l); });
+riskList.forEach(watchLoading);
 function updateZoomMsg(){
-  const m=document.getElementById('zoomMsg'); const live=[riskLayers.outcome, riskLayers.pathway, nodeLayer].some(shown);
+  const m=document.getElementById('zoomMsg'); const live=riskList.concat(Object.values(s2layers), [nodeLayer]).some(shown);
   if(live && map.getZoom() < LAYER_MIN_ZOOM){
     m.innerHTML='Zoom in to see the map layer <button id="zoomBtn">Zoom in</button>';
     document.getElementById('zoomBtn').onclick=()=>map.setZoom(LAYER_MIN_ZOOM);
@@ -504,8 +519,7 @@ function updateZoomMsg(){
 }
 map.on('zoomend overlayadd overlayremove', updateZoomMsg);
 const overlays = {};
-if(riskLayers.outcome) overlays['Risk – outcome'] = riskLayers.outcome;
-if(riskLayers.pathway) overlays['Risk – pathway'] = riskLayers.pathway;
+Object.keys(riskLayers).forEach(k => { overlays[RISK_LABELS[k]] = riskLayers[k]; });
 Object.keys(s2layers).forEach(label => { overlays['Sentinel-2 ' + label] = s2layers[label]; });
 L.control.layers({ 'Map': osm, 'Satellite': sat }, overlays, { collapsed:false, position:'topright' }).addTo(map);
 // opacity slider for the risk, node and input layers (see Sentinel-2 / base through them)
@@ -514,7 +528,7 @@ const OpCtl = L.Control.extend({ options:{position:'topright'}, onAdd:function()
   d.innerHTML='layer opacity <input type="range" min="0" max="100" value="85" style="width:88px;vertical-align:middle">';
   L.DomEvent.disableClickPropagation(d);
   d.querySelector('input').addEventListener('input', e=>{ layerOpacity=e.target.value/100;
-    [riskLayers.outcome, riskLayers.pathway, nodeLayer].concat(Object.values(inputLayers)).forEach(l => { if(l) l.setOpacity(layerOpacity); }); });
+    riskList.concat([nodeLayer], Object.values(inputLayers)).forEach(l => { if(l) l.setOpacity(layerOpacity); }); });
   return d; }});
 if(riskLayers.outcome) map.addControl(new OpCtl());
 
@@ -530,6 +544,9 @@ function setInput(name, on){
 }
 function inputsOn(){ return Object.keys(inputLayers).filter(n => map.hasLayer(inputLayers[n])); }
 function afterInputChange(){
+  // a dataset can sit under two questions (e.g. timber's forest 2020 and primary 2020): tick every copy
+  const onNow = inputsOn();
+  document.querySelectorAll('#inBox input[data-ds]').forEach(cb => { cb.checked = onNow.includes(cb.dataset.ds); });
   document.querySelectorAll('#inBox input.inparent').forEach(p => {
     const kids=Array.from(p.closest('details').querySelectorAll('input[data-ds]')); const on=kids.filter(k => k.checked).length;
     p.checked = on>0 && on===kids.length; p.indeterminate = on>0 && on<kids.length;
@@ -570,7 +587,8 @@ function revealInputs(q){
 // since their names and colours are already beside their tick boxes in the Input datasets list
 function updateLegend(){
   // with no map layer on, analysed plots are still coloured by pathway, so that legend explains them
-  const main = nodeLayer ? 'nodeLeg' : shown(riskLayers.pathway) ? 'legPathway' : shown(riskLayers.outcome) ? 'legOutcome' : plotsColoured ? 'legPathway' : null;
+  const main = nodeLayer ? 'nodeLeg' : (shown(riskLayers.pathway) || shown(riskLayers.pathway_agree)) ? 'legPathway'
+    : (shown(riskLayers.outcome) || shown(riskLayers.outcome_agree)) ? 'legOutcome' : plotsColoured ? 'legPathway' : null;
   ['legOutcome','legPathway','nodeLeg'].forEach(id => { document.getElementById(id).style.display = id===main ? 'block' : 'none'; });
   const on=inputsOn(), li=document.getElementById('legInputs');
   const sw=n => "<i style='background:#"+esc(inputDefs[n].colour)+"' title='"+esc(n)+"'></i>";
@@ -581,11 +599,11 @@ function updateLegend(){
   li.style.borderTop = main ? '' : '0';
   document.getElementById('legend').style.display = (main || on.length) ? 'block' : 'none';
 }
-// outcome and pathway draw in the same place, so they are either/or: switching one on switches the other off
-// (deferred so the layer list has finished its own click and redraws its tick boxes)
+// the risk layers draw in the same place, so only one shows at a time: switching one on switches the others
+// off (deferred so the layer list has finished its own click and redraws its tick boxes)
 map.on('overlayadd', e => {
-  const other = e.layer===riskLayers.outcome ? riskLayers.pathway : e.layer===riskLayers.pathway ? riskLayers.outcome : null;
-  if(other) setTimeout(() => { if(map.hasLayer(other)) map.removeLayer(other); updateLegend(); }, 0);
+  if(!riskList.includes(e.layer)) return;
+  setTimeout(() => { riskList.forEach(l => { if(l!==e.layer && map.hasLayer(l)) map.removeLayer(l); }); updateLegend(); }, 0);
 });
 map.on('overlayadd overlayremove', updateLegend);
 setTimeout(() => { updateZoomMsg(); updateLegend(); }, 0);
@@ -622,7 +640,7 @@ function showNodeLayer(nid, el){
   if(activeNode===nid){ clearNodeLayer(); return; }
   clearNodeLayer();
   // hide the combined risk layers while a node layer is shown, so its pixels stand out; restored on clear
-  [riskLayers.outcome, riskLayers.pathway].forEach(l => { if(shown(l)){ hiddenRisk.push(l); map.removeLayer(l); } });
+  riskList.forEach(l => { if(shown(l)){ hiddenRisk.push(l); map.removeLayer(l); } });
   nodeLayer=watchLoading(L.tileLayer(nt.url, { pane:'risk', opacity:layerOpacity, minZoom:LAYER_MIN_ZOOM })).addTo(map);
   if(map.getZoom() < LAYER_MIN_ZOOM) map.setZoom(LAYER_MIN_ZOOM);  // so a click always shows something
   activeNode=nid; activeEl=el; el.classList.add('active');
@@ -644,6 +662,11 @@ function attachNodeClicks(){
 }
 const bm = document.getElementById('bm');
 CFG.bookmarks.forEach(([name,lat,lon,z]) => { const a=document.createElement('button'); a.textContent=name; a.onclick=()=>map.setView([lat,lon], z); bm.appendChild(a); });
+// go to a country: its bounding box (GAUL 2024, built into the page)
+const COUNTRIES = CFG.countries || [], csel = document.getElementById('countrySelect');
+COUNTRIES.forEach((c,i) => { const o=document.createElement('option'); o.value=String(i); o.textContent=c[0]; csel.appendChild(o); });
+if(!COUNTRIES.length) document.getElementById('countryWrap').style.display='none';
+csel.addEventListener('change', () => { if(csel.value==='') return; const c=COUNTRIES[Number(csel.value)]; map.fitBounds([[c[1],c[2]],[c[3],c[4]]]); });
 
 // --- draw / upload + analyze + live re-threshold ---
 const drawn = new L.FeatureGroup(); map.addLayer(drawn);

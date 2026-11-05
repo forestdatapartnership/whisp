@@ -23,13 +23,16 @@ is one example framework, not the focus).
 
 from __future__ import annotations
 
-import logging
-from concurrent.futures import ThreadPoolExecutor
-
 import ee
 
-from . import datasets
 from . import decision_tree as _dt
+from . import map_layers as _ml
+from .map_layers import (  # noqa: F401 - kept as names of this module too
+    INPUT_COLOURS,
+    OUTCOME_COLOUR,
+    OUTCOME_NAMES,
+    map_id_tile_url,
+)
 from .reformat import filter_lookup_by_country_codes
 from .risk import (
     lookup_gee_datasets_df,
@@ -38,10 +41,6 @@ from .risk import (
     get_cols_ind_03_dist_before_2020,
     get_cols_ind_04_dist_after_2020,
 )
-
-# 3-class outcome colours (green low / amber more-info / red high), matching timber_map.OUTCOME_COLOUR.
-OUTCOME_COLOUR = {1: "41ab5d", 2: "f08c00", 3: "e31a1c"}
-OUTCOME_NAMES = {1: "low", 2: "more_info_needed", 3: "high"}
 
 # WHISP indicator column name -> the getter that returns its lookup dataset names. The crop trees only use
 # these four indicators (Ind_01 treecover, Ind_02 commodities, Ind_03 disturbance-before, Ind_04
@@ -52,32 +51,6 @@ _GETTERS = {
     "Ind_03_disturbance_before_2020": get_cols_ind_03_dist_before_2020,
     "Ind_04_disturbance_after_2020": get_cols_ind_04_dist_after_2020,
 }
-
-
-# --------------------------------------------------------------------------------------------------
-# Lookup-name -> ee.Image resolvers (same behaviour as timber_map's band_img / union: a row becomes a
-# 0/1 presence image via its corresponding_variable + datasets.py prep, global 0-fill so a limited
-# footprint member does not mask the union). Kept local so crop_map is independent of timber_map.
-# --------------------------------------------------------------------------------------------------
-def _band_image(row):
-    fn = getattr(datasets, str(row["corresponding_variable"]), None)
-    if fn is None:
-        return None
-    try:
-        return ee.Image(fn()).select(0).gt(0).unmask(0, False)
-    except Exception:  # noqa: BLE001 - one unbuildable dataset must not abort the union
-        return None
-
-
-def _union(lookup_df, names):
-    rows = lookup_df[lookup_df["name"].isin(list(names))]
-    imgs = [img for _, row in rows.iterrows() if (img := _band_image(row)) is not None]
-    if not imgs:
-        return ee.Image(0)
-    out = imgs[0]
-    for img in imgs[1:]:
-        out = out.Or(img)
-    return out
 
 
 def _getter_names(ind_col, lut, risk_col):
@@ -110,7 +83,7 @@ def build_crop_question_images(
         names = []
         for ind_col in ind_cols:
             names += _getter_names(ind_col, lut, risk_col)
-        qimg[q] = _union(lut, names)
+        qimg[q] = _ml.union(lut, names)
     return qimg
 
 
@@ -129,46 +102,17 @@ def build_crop_pathway_image(
 
 
 # --------------------------------------------------------------------------------------------------
-# 3. Collapse to the 3-class low / more-info / high outcome image (code sets from the spec's tree).
+# 3. The 3-class low / more-info / high outcome image and 4. the palette + legend: one copy each in
+#    map_layers, shared with timber_map, so the crop and timber maps cannot drift apart.
 # --------------------------------------------------------------------------------------------------
 def collapse_to_outcome3(spec, pathway_image):
-    cc = _dt.class_codes(spec)  # {"low": [...], "more": [...], "high": [...]}
-
-    def _mask(image, codes):
-        m = ee.Image(0)
-        for c in codes:
-            m = m.Or(image.eq(c))
-        return m
-
-    low = _mask(pathway_image, cc["low"])
-    more = _mask(pathway_image, cc["more"])
-    high = _mask(pathway_image, cc["high"])
-    out = ee.Image(0).where(low, 1).where(more, 2).where(high, 3)
-    return out.selfMask()
+    """1 = low / 2 = more info / 3 = high from a pathway-code image (``map_layers.outcome3``)."""
+    return _ml.outcome3(spec, pathway_image)
 
 
-# --------------------------------------------------------------------------------------------------
-# 4. Palette + legend, from the spec (mirrors timber_map.timber_map_palette).
-# --------------------------------------------------------------------------------------------------
 def crop_map_palette(spec):
-    code_names = _dt.code_names(spec)
-    code_colour = spec.code_colour
-    emitted = sorted(code_names)
-    lo, hi = emitted[0], emitted[-1]
-    pathway_palette = [code_colour.get(c, "000000") for c in range(lo, hi + 1)]
-    return {
-        "code_names": dict(code_names),
-        "code_colour": {c: code_colour[c] for c in emitted},
-        "pathway_vis": {"min": lo, "max": hi, "palette": pathway_palette},
-        "class_codes": _dt.class_codes(spec),
-        "outcome_names": dict(OUTCOME_NAMES),
-        "outcome_colour": dict(OUTCOME_COLOUR),
-        "outcome_vis": {
-            "min": 1,
-            "max": 3,
-            "palette": [OUTCOME_COLOUR[1], OUTCOME_COLOUR[2], OUTCOME_COLOUR[3]],
-        },
-    }
+    """Palette and legend for the crop tree's images (``map_layers.palette``)."""
+    return _ml.palette(spec)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -189,85 +133,28 @@ def build_crop_combined_map(
     }
 
 
-def map_id_tile_url(image, vis_params: dict) -> str:
-    """Resolve (image, vis) to a signed XYZ tile-template URL via getMapId (needs EE initialized)."""
-    return ee.Image(image).getMapId(vis_params)["tile_fetcher"].url_format
-
-
 # --------------------------------------------------------------------------------------------------
 # 6. Input dataset layers: each dataset the tree reads, on its own, for switching on and off in the viewer.
 # --------------------------------------------------------------------------------------------------
-# Distinct within an indicator's group (the largest group, Ind_02_commodities with Brazil on, has 15),
-# starting away from the question layers' blue (2b6cb0).
-INPUT_COLOURS = [
-    "f0027f",
-    "33a02c",
-    "e31a1c",
-    "ff7f00",
-    "6a3d9a",
-    "b15928",
-    "a6cee3",
-    "b2df8a",
-    "fb9a99",
-    "fdbf6f",
-    "cab2d6",
-    "ffff99",
-    "17becf",
-    "bcbd22",
-    "8c564b",
-    "e377c2",
-]
-
-
 def crop_input_layers(
     spec, risk_col, national_codes=None, lookup_df=None, max_workers=16
 ):
     """Tile layers for every dataset the crop ``spec``'s tree reads, to view the inputs one at a time.
 
     Returns {indicator_column: [{"name", "iso2", "colour", "url"}]} in tree order, global datasets
-    first (iso2 is "" for those). The datasets come from the same getters as the question images. A
-    dataset whose tiles cannot be made (e.g. a broken asset) is left out with a warning. Needs Earth
-    Engine initialized.
+    first (``map_layers.input_layers``). The datasets come from the same getters as the question images.
+    Needs Earth Engine initialised.
     """
     lut = lookup_gee_datasets_df if lookup_df is None else lookup_df
     lut = filter_lookup_by_country_codes(
         lut, filter_col="ISO2_code", national_codes=national_codes
     )
-    jobs = []
+    names = {}
     for ind_cols in spec.q_to_columns.values():
         for ind_col in ind_cols:
-            if any(j[0] == ind_col for j in jobs):
-                continue
-            rows = lut[lut["name"].isin(_getter_names(ind_col, lut, risk_col))]
-            rows = rows.assign(iso2=rows["ISO2_code"].fillna("").astype(str))
-            rows = rows.sort_values("iso2", kind="stable")
-            for i, (_, row) in enumerate(rows.iterrows()):
-                jobs.append((ind_col, row, INPUT_COLOURS[i % len(INPUT_COLOURS)]))
-
-    def _resolve(job):
-        ind_col, row, colour = job
-        img = _band_image(row)
-        if img is None:
-            return None
-        try:
-            url = map_id_tile_url(
-                img.selfMask(), {"min": 1, "max": 1, "palette": [colour]}
-            )
-        except Exception as e:  # noqa: BLE001 - one broken dataset must not stop the others
-            logging.getLogger("whisp").warning(
-                "Input layer %s left out: %s", row["name"], e
-            )
-            return None
-        return {"name": row["name"], "iso2": row["iso2"], "colour": colour, "url": url}
-
-    with ThreadPoolExecutor(max_workers=max_workers) as ex:
-        resolved = list(ex.map(_resolve, jobs))
-    out = {}
-    for (ind_col, _, _), layer in zip(jobs, resolved):
-        out.setdefault(ind_col, [])
-        if layer is not None:
-            out[ind_col].append(layer)
-    return out
+            if ind_col not in names:
+                names[ind_col] = _getter_names(ind_col, lut, risk_col)
+    return _ml.input_layers(names, lut, max_workers=max_workers)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -280,15 +167,6 @@ BRAZIL_BOOKMARKS = [
     ["Soy frontier (Mato Grosso)", -12.5, -55.5, 8],
     ["Cocoa (Cote d Ivoire)", 6.7, -5.5, 9],
 ]
-
-
-def _s2_median(start, end):
-    return (
-        ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
-        .filterDate(start, end)
-        .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", 20))
-        .median()
-    )
 
 
 def build_crop_viewer(
@@ -331,45 +209,14 @@ def build_crop_viewer(
     }[tree]
     national_codes = list(national_codes or [])
     palette = crop_map_palette(spec)
-    tiles = node_tiles = input_layers = backgrounds = None
+    layers, input_layers = {}, None
     if ee_project:
-        try:
-            ee.Initialize(project=ee_project)
-        except Exception:  # noqa: BLE001 - not signed in yet on this machine
-            ee.Authenticate()
-            ee.Initialize(project=ee_project)
-        # land only: WorldCover maps coastal sea and lakes as class 80 (permanent water)
-        land = ee.ImageCollection("ESA/WorldCover/v200").mosaic().neq(80)
-        s2_vis = {"bands": ["B4", "B3", "B2"], "min": 0, "max": 3000}
-        backgrounds = {
-            "2020": map_id_tile_url(_s2_median("2020-01-01", "2020-12-31"), s2_vis),
-            "2025": map_id_tile_url(_s2_median("2025-01-01", "2025-12-31"), s2_vis),
-        }
+        _ml.init_ee(ee_project)
         qimg = build_crop_question_images(
             spec, risk_use_col, national_codes=national_codes
         )
-        pathway = _dt.eval_tree_ee(qimg, ee.Image, spec).updateMask(land)
-        outcome = collapse_to_outcome3(spec, pathway)
-        tiles = {
-            "outcome": map_id_tile_url(outcome, palette["outcome_vis"]),
-            "pathway": map_id_tile_url(pathway.selfMask(), palette["pathway_vis"]),
-        }
-        # one layer per tree box: a question's presence pixels, or an outcome's pixels
-        q_tiles = {
-            q: map_id_tile_url(
-                img.selfMask().updateMask(land),
-                {"min": 1, "max": 1, "palette": ["2b6cb0"]},
-            )
-            for q, img in qimg.items()
-        }
-        code_tiles = {
-            c: map_id_tile_url(
-                pathway.eq(c).selfMask(),
-                {"min": 1, "max": 1, "palette": [palette["code_colour"][c]]},
-            )
-            for c in palette["code_names"]
-        }
-        node_tiles = pv.node_tiles_by_id(spec, q_tiles, code_tiles, palette)
+        pathway = _dt.eval_tree_ee(qimg, ee.Image, spec)
+        layers = _ml.viewer_layers(spec, qimg, pathway, palette)
         if input_datasets:
             input_layers = crop_input_layers(
                 spec, risk_use_col, national_codes=national_codes
@@ -377,22 +224,23 @@ def build_crop_viewer(
     where = " + national layers (%s)" % ", ".join(national_codes).upper()
     return pv.build_pathway_viewer_html(
         spec,
-        tiles,
+        layers.get("tiles"),
         palette,
         title,
         subtitle="%s tree%s%s"
         % (
             risk_col,
-            " + combined risk map" if tiles else "",
+            " + combined risk map" if layers.get("tiles") else "",
             where if national_codes else "",
         ),
         bookmarks=BRAZIL_BOOKMARKS if bookmarks is None else bookmarks,
-        backgrounds=backgrounds,
+        backgrounds=layers.get("backgrounds"),
         risk_col=risk_col,
         center=center,
         zoom=zoom,
-        node_tiles=node_tiles,
+        node_tiles=layers.get("node_tiles"),
         input_layers=input_layers,
         national_codes=national_codes,
         api_key=api_key,
+        countries=layers.get("countries"),
     )
