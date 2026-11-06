@@ -10,15 +10,15 @@ New entries are added by the release workflow, from the "Changes to results" and
 
 ## v3.0.0a23 (2026-11-06)
 
-RADD alerts now come only from RADD's latest weekly copy, and count once confirmed (Whisp merged every weekly copy, so it still counted alerts RADD had dropped). In_waterbody is now True only when more than half of the plot is in water, and points on water are now flagged (was any water at all). Côte d'Ivoire plots get a national forest layer, nCI_Forest_bnetd_2020, from the BNETD 2020 land cover map.
+Fixes for RADD alerts and the water flag, and a new national forest layer for Côte d'Ivoire.
 
 **Changes to results:**
 - Forest Data Partnership layers now use 2026a release data and thresholds. This could change the mapped area of cocoa, coffee, palm and/or rubber.
 - Ind_01_treecover, risk_pcrop and risk_acrop for Côte d'Ivoire plots (national_codes "ci"): BNETD forest (new column nCI_Forest_bnetd_2020) now counts as tree cover, so some plots move from a low outcome to more info needed or high
-- In_waterbody: True only when more than half of the plot is in water, so plots with some water but less than half now show False; points on water now show True
+- In_waterbody (flag column with True/False): True only when more than half of the plot is in water, so plots with some water but less than half now show False; points on water now show True
 - Local mode: points now get the value under them for every dataset, as in the other modes (before, every dataset was 0 for a point, so risk_pcrop, risk_acrop and risk_timber always came out low). As local mode is not yet in the API, this likely only affected a few users.
 - RADD_after_2020, RADD_before_2020 and RADD_year_*: only confirmed alerts from RADD's latest weekly copy (alerts RADD had dropped, and unconfirmed ones, were counted before)
-- Ind_04_disturbance_after_2020, risk_pcrop, risk_acrop: plots whose only disturbance after 2020 was one of those alerts now get no and more_info_needed instead of yes and high (2 of the 50 test plots)
+- Ind_04_disturbance_after_2020, risk_pcrop, risk_acrop: where the only disturbance after 2020 was a RADD alert that is no longer counted (dropped by RADD, or not yet confirmed), plots get no and more_info_needed instead of yes and high (2 of the 50 test plots)
 
 Pull requests: #302, #316, #318, #319, #303, #307, #301, #310
 
