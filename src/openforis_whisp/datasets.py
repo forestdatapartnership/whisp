@@ -470,15 +470,14 @@ def g_esri_2020_2024_crop_prep():
 #### disturbances by year
 
 
-def _radd_latest_dates():
+def _radd_confirmed_dates():
     """
-    RADD alert dates from the latest weekly release of each region (africa, asia, ca, sa).
+    Dates of confirmed RADD alerts, taken from the latest weekly release of each region.
 
-    The collection keeps every weekly release (e.g. asia_20240117 to asia_20261028) and some older
-    full releases (radd_*). Each weekly release holds all alerts to date, and alerts that are not
-    confirmed are dropped from later releases, so a mosaic of every release brings them back.
-    Using only the latest release (as in RADD's own example) keeps the confirmed alerts, plus recent
-    unconfirmed ones still within the 90 days RADD allows for confirmation.
+    RADD publishes a fresh copy of all its alerts every week and drops the ones it can't
+    confirm within 90 days, so older copies still have alerts that were later dropped.
+    Using only the latest copy and only confirmed alerts (class 3) means results don't go
+    down when re-run later. New alerts show up once confirmed, which can take up to 90 days.
     """
     weekly = (
         ee.ImageCollection("projects/radar-wur/raddalert/v1")
@@ -494,7 +493,8 @@ def _radd_latest_dates():
             .first()
         )
     )
-    return ee.ImageCollection.fromImages(latest).select("Date").mosaic()
+    radd = ee.ImageCollection.fromImages(latest).mosaic()
+    return radd.select("Date").updateMask(radd.select("Alert").eq(3))
 
 
 # RADD_year_2019 to RADD_year_< current year >
@@ -511,7 +511,7 @@ def g_radd_year_prep():
               Available from January 2019 to present for Africa,
               and from January 2020 to present for South America and Southeast Asia.
     """
-    radd_date = _radd_latest_dates()
+    radd_date = _radd_confirmed_dates()
     start_year = 19
     current_year = CURRENT_YEAR_2DIGIT
 
@@ -670,7 +670,7 @@ def g_esa_fire_prep():
 
 # RADD_after_2020
 def g_radd_after_2020_prep():
-    radd_date = _radd_latest_dates()
+    radd_date = _radd_confirmed_dates()
     # date of avaialbility
     start_year = 21  ## (starts 2019 in Africa, then 2020 for S America and Asia: https://data.globalforestwatch.org/datasets/gfw::deforestation-alerts-radd/about)
 
@@ -688,7 +688,7 @@ def g_radd_after_2020_prep():
 
 # RADD_before_2020
 def g_radd_before_2020_prep():
-    radd_date = _radd_latest_dates()
+    radd_date = _radd_confirmed_dates()
     # date of avaialbility
     start_year = 19  ## (starts 2019 in Africa, then 2020 for S America and Asia: https://data.globalforestwatch.org/datasets/gfw::deforestation-alerts-radd/about)
 
