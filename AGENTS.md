@@ -45,14 +45,14 @@ Whisp ("What is in that plot?") is a Python package for forest monitoring and de
 ### Dataset Function Naming Convention
 Functions in [`datasets.py`](src/openforis_whisp/datasets.py) **MUST** follow strict naming:
 - Suffix: `_prep` (e.g., `g_jrc_gfc_2020_prep`)
-- Prefix: `g_` for global datasets, `nXX_` for national (XX = ISO2 code, e.g., `nCI_bnetd_cocoa_prep` for Côte d'Ivoire)
+- Prefix: `g_` for global datasets, `nXX_` for national (XX = ISO2 code, e.g., `nci_ocs2020_prep` for Côte d'Ivoire)
 - Return: `ee.Image` with `.rename('DatasetName')` matching CSV `name` column
 
 **Example from CSV → Function mapping:**
 ```csv
 name,corresponding_variable
 EUFO_2020,g_jrc_gfc_2020_prep
-Cocoa_bnetd,nCI_bnetd_cocoa_prep
+nCI_Cocoa_bnetd,nci_ocs2020_prep
 ```
 
 ### Earth Engine Best Practices
