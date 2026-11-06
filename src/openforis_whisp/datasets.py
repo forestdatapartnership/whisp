@@ -1575,20 +1575,22 @@ def g_gaul_admin_code():
 
 def g_water_mask_prep():
     """
-    Water mask from JRC/USGS combined dataset.
-    Used to identify water bodies for downstream filtering and context.
+    Water mask from JRC/USGS combined dataset, as water area per pixel.
+    Used for the In_waterbody flag (more than half of the plot in permanent water).
 
-    A context band: unlike the dataset bands it is not multiplied by pixel area.
+    A context band, added after the dataset bands are converted to area, so it is multiplied by
+    pixel area here: the per-plot sum is then the water area in square metres, comparable with
+    the plot's own area.
 
     Returns
     -------
     ee.Image
-        Binary water mask image renamed to In_waterbody (not converted to area)
+        Water area per pixel (square metres; masked where there is no water), renamed to In_waterbody
     """
     from openforis_whisp.parameters.config_runtime import water_flag
 
     water_mask_image = ee.Image("projects/ee-andyarnellgee/assets/water_mask_jrc_usgs")
-    return water_mask_image.selfMask().rename(water_flag)
+    return water_mask_image.selfMask().multiply(ee.Image.pixelArea()).rename(water_flag)
 
 
 ###Combining datasets
