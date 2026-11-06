@@ -469,6 +469,34 @@ def g_esri_2020_2024_crop_prep():
 
 #### disturbances by year
 
+
+def _radd_latest_dates():
+    """
+    RADD alert dates from the latest weekly release of each region (africa, asia, ca, sa).
+
+    The collection keeps every weekly release (e.g. asia_20240117 to asia_20261028) and some older
+    full releases (radd_*). Each weekly release holds all alerts to date, and alerts that are not
+    confirmed are dropped from later releases, so a mosaic of every release brings them back.
+    Using only the latest release (as in RADD's own example) keeps the confirmed alerts, plus recent
+    unconfirmed ones still within the 90 days RADD allows for confirmation.
+    """
+    weekly = (
+        ee.ImageCollection("projects/radar-wur/raddalert/v1")
+        .filterMetadata("layer", "contains", "alert")
+        .filter(ee.Filter.stringStartsWith("system:index", "radd_").Not())
+    )
+    latest = (
+        weekly.aggregate_array("geography")
+        .distinct()
+        .map(
+            lambda region: weekly.filter(ee.Filter.eq("geography", region))
+            .sort("system:time_end", False)
+            .first()
+        )
+    )
+    return ee.ImageCollection.fromImages(latest).select("Date").mosaic()
+
+
 # RADD_year_2019 to RADD_year_< current year >
 # Coverage: Primary humid tropical forest areas of South America, sub-Saharan Africa,
 #           and insular Southeast Asia at 10m spatial resolution.
@@ -483,10 +511,7 @@ def g_radd_year_prep():
               Available from January 2019 to present for Africa,
               and from January 2020 to present for South America and Southeast Asia.
     """
-    radd = ee.ImageCollection("projects/radar-wur/raddalert/v1")
-    radd_date = (
-        radd.filterMetadata("layer", "contains", "alert").select("Date").mosaic()
-    )
+    radd_date = _radd_latest_dates()
     start_year = 19
     current_year = CURRENT_YEAR_2DIGIT
 
@@ -645,11 +670,7 @@ def g_esa_fire_prep():
 
 # RADD_after_2020
 def g_radd_after_2020_prep():
-    radd = ee.ImageCollection("projects/radar-wur/raddalert/v1")
-
-    radd_date = (
-        radd.filterMetadata("layer", "contains", "alert").select("Date").mosaic()
-    )
+    radd_date = _radd_latest_dates()
     # date of avaialbility
     start_year = 21  ## (starts 2019 in Africa, then 2020 for S America and Asia: https://data.globalforestwatch.org/datasets/gfw::deforestation-alerts-radd/about)
 
@@ -667,11 +688,7 @@ def g_radd_after_2020_prep():
 
 # RADD_before_2020
 def g_radd_before_2020_prep():
-    radd = ee.ImageCollection("projects/radar-wur/raddalert/v1")
-
-    radd_date = (
-        radd.filterMetadata("layer", "contains", "alert").select("Date").mosaic()
-    )
+    radd_date = _radd_latest_dates()
     # date of avaialbility
     start_year = 19  ## (starts 2019 in Africa, then 2020 for S America and Asia: https://data.globalforestwatch.org/datasets/gfw::deforestation-alerts-radd/about)
 
