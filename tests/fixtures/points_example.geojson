@@ -10,11 +10,6 @@
       "type": "Feature",
       "properties": {"name": "forest"},
       "geometry": {"type": "Point", "coordinates": [113.6045, 0.6045]}
-    },
-    {
-      "type": "Feature",
-      "properties": {"name": "oil_palm"},
-      "geometry": {"type": "Point", "coordinates": [101.38958, 0.73834]}
     }
   ]
 }
