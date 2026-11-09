@@ -330,6 +330,7 @@ def whisp_risk(
 
     # Get indicator columns (now includes custom bands)
     if ind_1_input_columns is None:
+        # also the tree cover part of the timber forest gate, so its rows carry use_for_risk_timber=1 too
         ind_1_input_columns = get_cols_ind_01_treecover(filtered_lookup_gee_datasets_df)
     if ind_2_input_columns is None:
         # Union of pcrop + acrop commodity datasets. The two LUT columns are currently held
@@ -917,10 +918,10 @@ def add_risk_timber_col(
         )
         plantation_2020 = row[ind_7b_name] == high_name
         treecover_2020 = row[ind_1_name] == high_name
-        # "Forest in 2020?" root gate = UNION of treecover + the natural-forest classes (Ind_07b plantation
-        # deliberately excluded: ~fully inside Ind_01 via silviculture, and keeping it here would make its
-        # threshold dual-use). Any forest evidence routes the plot into the forest half so its
-        # deforestation/degradation is assessed and cannot be exonerated by a non-forest sliver.
+        # "Forest in 2020?" gate: tree cover (Ind_01, shared with the crop decision trees) OR a 2020 forest
+        # type (primary, regenerating or planted), so any forest evidence sends the plot to the forest half,
+        # where its deforestation and degradation are checked. Ind_07b plantation is left out: its Brazilian
+        # silviculture layers are in Ind_01, but a plantation mapped only by ForTy V2 or IIASA does not open it.
         forest_2020 = treecover_2020 or primary_2020 or regen_planted_2020
 
         yes_locals = {

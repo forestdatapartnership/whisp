@@ -5,7 +5,23 @@ import inspect
 from openforis_whisp.risk import (
     _dedupe_keep_order,
     add_indicator_column,
+    get_cols_ind_01_treecover,
     get_cols_ind_02_commodities,
+    get_cols_ind_03_dist_before_2020,
+    get_cols_ind_04_dist_after_2020,
+    get_cols_ind_05_primary_2020,
+    get_cols_ind_06_nat_reg_2020,
+    get_cols_ind_07a_planted_2020,
+    get_cols_ind_07b_plantation_2020,
+    get_cols_ind_08b_plantation_after_2020,
+    get_cols_ind_09_treecover_after_2020,
+    get_cols_ind_10_agri_after_2020,
+    get_cols_ind_12_other_land_2020,
+    get_cols_ind_13_other_land_after_2020,
+    get_cols_ind_15_agriculture_2020,
+    get_cols_ind_16_plantation_presence_2025,
+    get_cols_ind_18_regen_planted_2025,
+    get_cols_ind_19_primary_change_after_2020,
     lookup_gee_datasets_df,
     whisp_risk,
 )
@@ -58,6 +74,53 @@ def test_pcrop_acrop_held_identical():
     )
     assert pcrop == acrop
     assert _dedupe_keep_order(pcrop + acrop) == pcrop
+
+
+def _flagged(flag):
+    emitted = lookup_gee_datasets_df[lookup_gee_datasets_df["exclude_from_output"] != 1]
+    return set(emitted.loc[emitted[flag] == 1, "name"])
+
+
+def test_crop_flag_is_on_exactly_for_the_crop_indicator_datasets():
+    lut = lookup_gee_datasets_df
+    used = set(
+        get_cols_ind_01_treecover(lut)
+        + get_cols_ind_02_commodities(lut)
+        + get_cols_ind_03_dist_before_2020(lut)
+        + get_cols_ind_04_dist_after_2020(lut)
+    )
+    flagged = _flagged("use_for_risk_pcrop")
+    assert sorted(used - flagged) == [] and sorted(flagged - used) == []
+
+
+def test_timber_flag_is_on_exactly_for_the_timber_indicator_datasets():
+    # The timber decision tree also reads three indicators it shares with the crop decision trees
+    # (Ind_01_treecover in its forest gate, Ind_02_commodities, Ind_04_disturbance_after_2020), so the
+    # rows behind those carry use_for_risk_timber=1 too, and a row with the flag on feeds a timber indicator.
+    lut = lookup_gee_datasets_df
+    used = set(
+        get_cols_ind_01_treecover(lut)
+        + get_cols_ind_02_commodities(lut)
+        + get_cols_ind_04_dist_after_2020(lut)
+        + get_cols_ind_05_primary_2020(lut)
+        + get_cols_ind_06_nat_reg_2020(lut)
+        + get_cols_ind_07a_planted_2020(lut)
+        + get_cols_ind_07b_plantation_2020(lut)
+        + get_cols_ind_08b_plantation_after_2020(lut)
+        + get_cols_ind_09_treecover_after_2020(lut)
+        + get_cols_ind_10_agri_after_2020(lut)
+        + get_cols_ind_12_other_land_2020(lut)
+        + get_cols_ind_13_other_land_after_2020(lut)
+        + get_cols_ind_15_agriculture_2020(lut)
+        + get_cols_ind_16_plantation_presence_2025(lut)
+        + get_cols_ind_18_regen_planted_2025(lut)
+        + get_cols_ind_19_primary_change_after_2020(lut)
+    )
+    flagged = _flagged("use_for_risk_timber")
+    assert sorted(used - flagged) == [], "used for timber but use_for_risk_timber is 0"
+    assert (
+        sorted(flagged - used) == []
+    ), "use_for_risk_timber is 1 but no timber indicator uses it"
 
 
 def test_ind_02_and_ind_03_default_thresholds_are_50():
