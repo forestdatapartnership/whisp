@@ -20,6 +20,20 @@ def test_slider_defaults_follow_whisp_risk():
         assert ind["default"] == params[ind["param"]].default
 
 
+def test_timber_sliders_send_only_thresholds_whisp_risk_accepts():
+    from openforis_whisp.serve_viewer import _clean_thresholds
+    from openforis_whisp.timber_tree_export import TIMBER_SPEC
+
+    params = inspect.signature(whisp_risk).parameters
+    sliders = pathway_viewer._indicators(TIMBER_SPEC)
+    assert len({s["param"] for s in sliders}) == len(sliders) > 0
+    for s in sliders:
+        assert s["default"] == params[s["param"]].default
+    sent = {s["param"]: s["default"] for s in sliders}
+    sent.update({"ind_7_pcent_threshold": 5, "national_codes": "xx"})
+    assert _clean_thresholds(sent) == {s["param"]: float(s["default"]) for s in sliders}
+
+
 def test_outcome_nodes_carry_their_route_and_questions_their_datasets():
     from openforis_whisp.pcrop_tree_export import PCROP_SPEC
 

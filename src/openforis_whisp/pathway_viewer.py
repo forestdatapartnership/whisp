@@ -145,7 +145,7 @@ def _default_thresholds():
     return {
         name: p.default
         for name, p in inspect.signature(whisp_risk).parameters.items()
-        if re.fullmatch(r"ind_\d+_pcent_threshold", name)
+        if re.fullmatch(r"ind_\d+[a-z]?_pcent_threshold", name)
     }
 
 
@@ -159,12 +159,11 @@ def _indicators(spec):
             if c in seen:
                 continue
             seen.add(c)
-            m = re.match(r"Ind_0*(\d+)", c)
-            if m:
-                param = "ind_%d_pcent_threshold" % int(m.group(1))
-                out.append(
-                    {"label": c, "param": param, "default": defaults.get(param, 10)}
-                )
+            m = re.match(r"Ind_0*(\d+[a-z]?)_", c)
+            # only thresholds whisp_risk accepts, or every re-run of the page would fail
+            if m and "ind_%s_pcent_threshold" % m.group(1) in defaults:
+                param = "ind_%s_pcent_threshold" % m.group(1)
+                out.append({"label": c, "param": param, "default": defaults[param]})
     return out
 
 

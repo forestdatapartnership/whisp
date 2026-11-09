@@ -22,6 +22,7 @@ and colours the plot by its pathway via the single-source JS tree walk.
 
 from __future__ import annotations
 
+import inspect
 import json
 import re
 import sys
@@ -32,6 +33,21 @@ import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .pathway_viewer import WHISP_API_BASE, package_info
+
+
+def _clean_thresholds(t):
+    """The threshold arguments from the page that whisp_risk accepts, each clamped to 0-100."""
+    from .risk import whisp_risk
+
+    accepted = inspect.signature(whisp_risk).parameters
+    out = {}
+    for k, v in (t or {}).items():
+        if re.match(r"^ind_\d+[a-z]?_pcent_threshold$", str(k)) and k in accepted:
+            try:
+                out[k] = max(0.0, min(100.0, float(v)))
+            except (TypeError, ValueError):
+                pass
+    return out
 
 
 def _relay(method, path, body, api_key):
@@ -116,16 +132,6 @@ def serve(html_path, port=8788, project=None, national_codes=None):
             whisp_image=_whisp_image(),
             mode="sequential",
         )
-
-    def _clean_thresholds(t):
-        out = {}
-        for k, v in (t or {}).items():
-            if re.match(r"^ind_\d+_pcent_threshold$", str(k)):
-                try:
-                    out[k] = max(0.0, min(100.0, float(v)))
-                except (TypeError, ValueError):
-                    pass
-        return out
 
     def _apply_risk(stats_df, thresholds):
         # whisp_risk adds the Ind_* + risk_pcrop / risk_acrop / risk_timber columns; re-runnable cheaply
