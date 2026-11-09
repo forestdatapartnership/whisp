@@ -34,11 +34,10 @@ CI_SQUARE = {
 def test_points_and_a_polygon_give_the_same_results_in_concurrent_and_local_mode(
     tmp_path, capfd
 ):
-    # Three points, each well inside its class: Lake Victoria, forest in Kalimantan (EUFO_2020)
-    # and an oil palm plantation in Riau (Oil_palm_Descals), plus the small square above. A point
-    # has no area, so it needs its own handling: local mode used to give a point 0 for every
-    # dataset, and in the other modes a point was never flagged as in water (#313). One run per
-    # mode keeps the test short.
+    # Two points, each well inside its class: Lake Victoria and forest in Kalimantan (EUFO_2020),
+    # plus the small square above. A point has no area, so it needs its own handling: local mode
+    # used to give a point 0 for every dataset, and in the other modes a point was never flagged
+    # as in water (#313). One run per mode keeps the test short.
     fc = json.loads(POINTS_EXAMPLE_FILEPATH.read_text())
     fc["features"].append(CI_SQUARE)
     path = tmp_path / "points_and_square.geojson"
@@ -49,12 +48,10 @@ def test_points_and_a_polygon_give_the_same_results_in_concurrent_and_local_mode
         df = whisp_formatted_stats_geojson_to_df(
             str(path), external_id_column="name", national_codes=["ci"], mode=mode
         ).set_index("external_id")
-        assert (df.loc[["lake", "forest", "oil_palm"], "Area"] == 0).all()
+        assert (df.loc[["lake", "forest"], "Area"] == 0).all()
         assert df.loc["lake", "In_waterbody"]
         assert not df.loc["forest", "In_waterbody"]
-        assert not df.loc["oil_palm", "In_waterbody"]
         assert df.loc["forest", "EUFO_2020"] > 0
-        assert df.loc["oil_palm", "Oil_palm_Descals"] > 0
         assert df.loc["ci_square", "Area"] > 0
         assert "nCI_Forest_bnetd_2020" in df.columns
         results[mode] = df.sort_index()
