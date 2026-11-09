@@ -35,7 +35,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from importlib.metadata import version as get_version
 
-from shapely.geometry import Polygon, mapping
+from shapely.geometry import Polygon, box, mapping
 from shapely.validation import make_valid
 from rio_vrt import build_vrt
 
@@ -1301,6 +1301,33 @@ def _process_chunk_df(chunk_gdf, rasters, ops, chunk_idx, num_chunks):
         gc.collect()
 
 
+def _points_to_raster_cells(gdf, raster_path):
+    """Replace each Point geometry with the raster cell it falls in.
+
+    exactextract weights each pixel by how much of it a geometry covers, so a point (no area) gets 0
+    for every band. Its raster cell gives the value under the point instead, as Earth Engine does for a
+    point in the other processing modes.
+    """
+    is_point = gdf.geometry.geom_type == "Point"
+    if not is_point.any():
+        return gdf
+    import rasterio
+
+    with rasterio.open(raster_path) as src:
+        transform = src.transform
+
+    def _cell(point):
+        col, row = ~transform * (point.x, point.y)
+        col, row = math.floor(col), math.floor(row)
+        x0, y0 = transform * (col, row)
+        x1, y1 = transform * (col + 1, row + 1)
+        return box(min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1))
+
+    gdf = gdf.copy()
+    gdf.loc[is_point, "geometry"] = gdf.loc[is_point, "geometry"].apply(_cell)
+    return gdf
+
+
 def exact_extract_in_chunks_parallel(
     rasters,
     vector_file,
@@ -1369,6 +1396,11 @@ def exact_extract_in_chunks_parallel(
     if gdf.crs is not None and raster_crs and gdf.crs != raster_crs:
         gdf = gdf.to_crs(raster_crs)
 
+    # A point covers no pixel area, so exactextract gives it 0 for every band: use its raster cell
+    gdf = _points_to_raster_cells(
+        gdf, rasters if isinstance(rasters, str) else rasters[0]
+    )
+
     total_features = len(gdf)
     num_chunks = (total_features + chunk_size - 1) // chunk_size
 
@@ -1392,47 +1424,60 @@ def exact_extract_in_chunks_parallel(
     # to input features by position, so they must be combined in submission order
     all_results = [None] * num_chunks
     failed_chunks = []
-    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
-        future_to_chunk = {
-            executor.submit(_process_chunk_df, chunk, rasters, ops, i, num_chunks): i
-            for i, chunk in enumerate(chunks)
-        }
-        for future in concurrent.futures.as_completed(future_to_chunk):
-            chunk_idx = future_to_chunk[future]
-            try:
-                result = future.result()
-                # One row per feature is required, anything else counts as a failure
-                if result is not None and len(result) == len(chunks[chunk_idx]):
-                    all_results[chunk_idx] = result
-                else:
+    # The workers only read the downloaded files, so they skip Whisp's Earth Engine start-up (#322)
+    previous_skip = os.environ.get("WHISP_SKIP_EE_INIT")
+    os.environ["WHISP_SKIP_EE_INIT"] = "1"
+    try:
+        with concurrent.futures.ProcessPoolExecutor(
+            max_workers=max_workers
+        ) as executor:
+            future_to_chunk = {
+                executor.submit(
+                    _process_chunk_df, chunk, rasters, ops, i, num_chunks
+                ): i
+                for i, chunk in enumerate(chunks)
+            }
+            for future in concurrent.futures.as_completed(future_to_chunk):
+                chunk_idx = future_to_chunk[future]
+                try:
+                    result = future.result()
+                    # One row per feature is required, anything else counts as a failure
+                    if result is not None and len(result) == len(chunks[chunk_idx]):
+                        all_results[chunk_idx] = result
+                    else:
+                        failed_chunks.append(chunk_idx + 1)  # 1-based for user display
+                    completed += 1
+
+                    # Log progress at milestones
+                    percent = int((completed / num_chunks) * 100)
+                    for milestone in sorted(milestones):
+                        if percent >= milestone and milestone not in shown_milestones:
+                            shown_milestones.add(milestone)
+                            if percent >= 100:
+                                shown_milestones.add(100)  # Prevent final duplicate
+                            if verbose:
+                                _log_progress(
+                                    completed,
+                                    num_chunks,
+                                    start_time,
+                                    "batches",
+                                    verbose=verbose,
+                                )
+                            break
+
+                except control_flow.PROPAGATE:
+                    raise
+                except Exception as e:
+                    completed += 1
                     failed_chunks.append(chunk_idx + 1)  # 1-based for user display
-                completed += 1
-
-                # Log progress at milestones
-                percent = int((completed / num_chunks) * 100)
-                for milestone in sorted(milestones):
-                    if percent >= milestone and milestone not in shown_milestones:
-                        shown_milestones.add(milestone)
-                        if percent >= 100:
-                            shown_milestones.add(100)  # Prevent final duplicate
-                        if verbose:
-                            _log_progress(
-                                completed,
-                                num_chunks,
-                                start_time,
-                                "batches",
-                                verbose=verbose,
-                            )
-                        break
-
-            except control_flow.PROPAGATE:
-                raise
-            except Exception as e:
-                completed += 1
-                failed_chunks.append(chunk_idx + 1)  # 1-based for user display
-                _whisp_logger.error(
-                    f"Exception in chunk {chunk_idx+1}/{num_chunks}: {str(e)}"
-                )
+                    _whisp_logger.error(
+                        f"Exception in chunk {chunk_idx+1}/{num_chunks}: {str(e)}"
+                    )
+    finally:
+        if previous_skip is None:
+            os.environ.pop("WHISP_SKIP_EE_INIT", None)
+        else:
+            os.environ["WHISP_SKIP_EE_INIT"] = previous_skip
 
     # Final progress only if 100% wasn't already shown
     if 100 not in shown_milestones and verbose:
@@ -1551,7 +1596,8 @@ def whisp_stats_local(
         remove_median_columns: Whether to remove the intermediate '_majority' columns after
             processing (default: True; the name dates from when a median was used)
         convert_water_flag: Whether to convert water flag to boolean (default: True)
-        water_flag_threshold: Threshold for water flag ratio (default: 0.5)
+        water_flag_threshold: Share of the plot in permanent water above which In_waterbody is True
+            (default: 0.5, more than half; a point is True when it falls on water)
         sort_column: Column to sort output by (default: 'plotId', None to skip)
         geometry_audit_trail: If True, includes geo_original column with input geometry (default: False)
         verbose: If True, print progress messages (default: True). Set to False for quiet mode.

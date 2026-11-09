@@ -780,6 +780,33 @@ def g_esri_other_land_2025_prep():
 #### disturbances by year
 
 
+def _radd_confirmed_dates():
+    """
+    Dates of confirmed RADD alerts, taken from the latest weekly release of each region.
+
+    RADD publishes a fresh copy of all its alerts every week and drops the ones it can't
+    confirm within 90 days, so older copies still have alerts that were later dropped.
+    Using only the latest copy and only confirmed alerts (class 3) means results don't go
+    down when re-run later. New alerts show up once confirmed, which can take up to 90 days.
+    """
+    weekly = (
+        ee.ImageCollection("projects/radar-wur/raddalert/v1")
+        .filterMetadata("layer", "contains", "alert")
+        .filter(ee.Filter.stringStartsWith("system:index", "radd_").Not())
+    )
+    latest = (
+        weekly.aggregate_array("geography")
+        .distinct()
+        .map(
+            lambda region: weekly.filter(ee.Filter.eq("geography", region))
+            .sort("system:time_end", False)
+            .first()
+        )
+    )
+    radd = ee.ImageCollection.fromImages(latest).mosaic()
+    return radd.select("Date").updateMask(radd.select("Alert").eq(3))
+
+
 # RADD_year_2019 to RADD_year_< current year >
 # Coverage: Primary humid tropical forest areas of South America, sub-Saharan Africa,
 #           and insular Southeast Asia at 10m spatial resolution.
@@ -794,10 +821,7 @@ def g_radd_year_prep():
               Available from January 2019 to present for Africa,
               and from January 2020 to present for South America and Southeast Asia.
     """
-    radd = ee.ImageCollection("projects/radar-wur/raddalert/v1")
-    radd_date = (
-        radd.filterMetadata("layer", "contains", "alert").select("Date").mosaic()
-    )
+    radd_date = _radd_confirmed_dates()
     start_year = 19
     current_year = CURRENT_YEAR_2DIGIT
 
@@ -957,11 +981,7 @@ def g_esa_fire_prep():
 
 # RADD_after_2020
 def g_radd_after_2020_prep():
-    radd = ee.ImageCollection("projects/radar-wur/raddalert/v1")
-
-    radd_date = (
-        radd.filterMetadata("layer", "contains", "alert").select("Date").mosaic()
-    )
+    radd_date = _radd_confirmed_dates()
     # date of avaialbility
     start_year = 21  ## (starts 2019 in Africa, then 2020 for S America and Asia: https://data.globalforestwatch.org/datasets/gfw::deforestation-alerts-radd/about)
 
@@ -979,11 +999,7 @@ def g_radd_after_2020_prep():
 
 # RADD_before_2020
 def g_radd_before_2020_prep():
-    radd = ee.ImageCollection("projects/radar-wur/raddalert/v1")
-
-    radd_date = (
-        radd.filterMetadata("layer", "contains", "alert").select("Date").mosaic()
-    )
+    radd_date = _radd_confirmed_dates()
     # date of avaialbility
     start_year = 19  ## (starts 2019 in Africa, then 2020 for S America and Asia: https://data.globalforestwatch.org/datasets/gfw::deforestation-alerts-radd/about)
 
@@ -2180,6 +2196,17 @@ def nco_ideam_eufo_commission_2020_prep():
     return ideam_agroforest.rename("nCO_ideam_eufo_commission_2020").selfMask()
 
 
+# nCI - Côte d'Ivoire
+
+
+# Forest_bnetd_2020
+def nci_bnetd_forest_2020_prep():
+    lc = ee.Image("BNETD/land_cover/v1/2020").select("classification")
+    return (
+        lc.gte(1).And(lc.lte(7)).Or(lc.eq(16)).rename("nCI_Forest_bnetd_2020")
+    ).selfMask()  # forest land classes 1-7 and tree savannah 16 (FAO forest) from national land cover map for Côte d'Ivoire
+
+
 # Cocoa_bnetd
 def nci_ocs2020_prep():
     return (
@@ -2228,20 +2255,22 @@ def g_gaul_admin_code():
 
 def g_water_mask_prep():
     """
-    Water mask from JRC/USGS combined dataset.
-    Used to identify water bodies for downstream filtering and context.
+    Water mask from JRC/USGS combined dataset, as water area per pixel.
+    Used for the In_waterbody flag (more than half of the plot in permanent water).
 
-    A context band: unlike the dataset bands it is not multiplied by pixel area.
+    A context band, added after the dataset bands are converted to area, so it is multiplied by
+    pixel area here: the per-plot sum is then the water area in square metres, comparable with
+    the plot's own area.
 
     Returns
     -------
     ee.Image
-        Binary water mask image renamed to In_waterbody (not converted to area)
+        Water area per pixel (square metres; masked where there is no water), renamed to In_waterbody
     """
     from openforis_whisp.parameters.config_runtime import water_flag
 
     water_mask_image = ee.Image("projects/ee-andyarnellgee/assets/water_mask_jrc_usgs")
-    return water_mask_image.selfMask().rename(water_flag)
+    return water_mask_image.selfMask().multiply(ee.Image.pixelArea()).rename(water_flag)
 
 
 ###Combining datasets

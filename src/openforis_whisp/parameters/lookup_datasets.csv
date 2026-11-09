@@ -34,6 +34,7 @@ nBR_MapBiomas_col10_annual_crops_2020,2170,BR,commodities,,1,1,1,0,float32,1,0,n
 nBR_INPE_TCamz_pasture_2020,2180,BR,commodities,,1,1,1,0,float32,1,0,nbr_terraclass_amz20_pasture_prep
 nBR_INPE_TCcer_pasture_2020,2190,BR,commodities,,1,1,1,0,float32,1,0,nbr_terraclass_cer20_ac_prep
 nBR_MapBiomas_col10_pasture_2020,2200,BR,commodities,,1,1,1,0,float32,1,0,nbr_mapbiomasc10_pasture_prep
+nCI_Forest_bnetd_2020,2205,CI,treecover,,1,1,1,0,float32,1,0,nci_bnetd_forest_2020_prep
 nCI_Cocoa_bnetd,2210,CI,commodities,,1,1,1,0,float32,1,0,nci_ocs2020_prep
 plotId,-10,,context_and_metadata,context_and_metadata,,,,0,string,1,0,plot_id_column
 external_id,-9,,context_and_metadata,context_and_metadata,,,,0,string,1,0,external_id_column

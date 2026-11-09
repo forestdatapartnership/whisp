@@ -7,6 +7,7 @@ except (ImportError, ModuleNotFoundError):
 
 import pandas as pd
 import os
+import json
 import logging
 from pathlib import Path  # Add this import
 
@@ -128,6 +129,18 @@ def validate_dataframe(
     _log_missing_columns(df_stats, schema)
 
     # df_stats = df_stats.reindex(schema.columns.keys(), axis=1)
+
+    # Earth Engine returns each shape as a dict, and coercing that to text gives Python's form
+    # with single quotes. Write JSON instead, as local mode does, so geo is the same in every mode
+    geo = config_runtime.geometry_column
+    if geo in df_stats.columns:
+        df_stats = df_stats.assign(
+            **{
+                geo: df_stats[geo].apply(
+                    lambda g: json.dumps(g) if isinstance(g, dict) else g
+                )
+            }
+        )
 
     # Automatically coerce the DataFrame to match the schema types (raises SchemaError if it can't)
     validated_df = schema(df_stats)
@@ -483,7 +496,8 @@ def format_stats_dataframe(
 
     - Converts columns ending with `strip_suffix` (default '_sum') to hectares or percent.
     - Removes columns ending with `remove_columns_suffix` (default '_mode') if `remove_columns` is True.
-    - Optionally converts a water-flag stat into a boolean column based on the threshold compared to `area_col`.
+    - Optionally sets the water flag: True where more than `water_flag_threshold` of the plot (`area_col`)
+      is water, or for a point where it falls on water, from the raw areas before any conversion.
     - Strips the `strip_suffix` from produced stat column names (so 'Cocoa_sum' -> 'Cocoa').
     - Fills `stats_unit_type_column` with `unit_type` for every row.
 
@@ -509,11 +523,12 @@ def format_stats_dataframe(
     remove_columns_suffix : str
         Suffix for columns to remove (default '_mode')
     convert_water_flag : bool
-        Whether to convert water flag to boolean (default True)
+        Whether to replace the water area with the True/False water flag (default True)
     water_flag_column : str
-        Name of water flag column (default 'In_waterbody_sum')
+        Name of the water area column, in square metres (default 'In_waterbody_sum'); the flag takes
+        its name without the suffix ('In_waterbody')
     water_flag_threshold : float
-        Threshold for water flag ratio (default 0.5)
+        Share of the plot in water above which the flag is True (default 0.5, more than half)
     sort_column : str
         Column to sort by, or None to skip sorting (default "plotId")
 
@@ -561,27 +576,23 @@ def format_stats_dataframe(
                 new[base] = df[col].round(decimal_places)
         return pd.DataFrame(new, index=df.index)
 
-    # Helper: convert water flag stat (if present) into bool by thresholding water_area / total_area
+    # Helper: the water flag, from the raw water and plot areas (both square metres, before any unit
+    # conversion): True where more than `threshold` of the plot is water; a point (no area) is True when
+    # it falls on water. The water sum is replaced by the flag, named without the suffix (In_waterbody).
     def _apply_water_flag(df, water_flag_column, strip_suffix, area_col, threshold):
-        # possible names for water stat: exact provided name, name+suffix
-        candidates = []
-        if water_flag_column in df.columns:
-            candidates.append(water_flag_column)
-        suffixed = water_flag_column + strip_suffix if strip_suffix else None
-        if suffixed and suffixed in df.columns:
-            candidates.append(suffixed)
-        # also check generic 'water' candidates
-        if "water" + strip_suffix in df.columns:
-            candidates.append("water" + strip_suffix)
-        if not candidates:
-            # nothing to do
+        if water_flag_column not in df.columns or area_col not in df.columns:
             return df
-        # pick first available candidate
-        water_col = candidates[0]
-        total_area = df[area_col].replace(0, float("nan"))
-        # compute ratio
-        ratio = df[water_col] / total_area
-        df[water_flag_column] = (ratio > threshold).astype(bool)
+        flag_col = (
+            water_flag_column[: -len(strip_suffix)]
+            if strip_suffix and water_flag_column.endswith(strip_suffix)
+            else water_flag_column
+        )
+        water = df[water_flag_column].fillna(0)
+        area = df[area_col]
+        share = water / area.where(area > 0)
+        df[flag_col] = (share > threshold).where(area > 0, water > 0).astype(bool)
+        if flag_col != water_flag_column:
+            df = df.drop(columns=[water_flag_column])
         return df
 
     # 1) Work on a shallow copy to avoid mutating caller inplace accidentally
@@ -596,6 +607,12 @@ def format_stats_dataframe(
         df = _drop_suffix_columns(df, remove_columns_suffix)
         logger.debug(
             f"Columns after drop: {[c for c in df.columns if c.endswith(remove_columns_suffix)]}"
+        )
+
+    # 2b) Water flag, from the raw areas: before step 4 converts the stats and the plot area to other units
+    if convert_water_flag:
+        df = _apply_water_flag(
+            df, water_flag_column, strip_suffix, area_col, water_flag_threshold
         )
 
     # 3) Collect stat columns to convert (those ending with strip_suffix and not equal to area_col)
@@ -635,11 +652,7 @@ def format_stats_dataframe(
     # 7) Fill stats unit type column
     df[stats_unit_type_column] = unit_type
 
-    # 8) Optionally convert water flag to boolean
-    if convert_water_flag:
-        df = _apply_water_flag(
-            df, water_flag_column, strip_suffix, area_col, water_flag_threshold
-        )
+    # 8) (the water flag is set in step 2b, from the raw areas)
 
     # 9) rename area_col by stripping suffix from area_col
     area_col_stripped = (

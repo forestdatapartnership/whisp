@@ -1845,9 +1845,11 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
         admin code switched to the mode; the parameter keeps its name for compatibility) (default True).
         Currently has no effect: the columns are already removed when the stats are extracted.
     convert_water_flag : bool
-        Convert water flag to boolean (default True). Currently has no effect.
+        Convert water flag to boolean (default True). Currently has no effect: the flag is set when
+        the stats are extracted.
     water_flag_threshold : float
-        Water flag ratio threshold (default 0.5). Currently has no effect.
+        Water flag ratio threshold (default 0.5). Currently has no effect: the flag is True where
+        more than half of the plot is in permanent water (for a point, where it falls on water).
     sort_column : str
         Column to sort by (default "plotId", None to skip)
     geometry_audit_trail : bool, default False
@@ -2032,9 +2034,11 @@ def whisp_formatted_stats_geojson_to_df_sequential(
         admin code switched to the mode; the parameter keeps its name for compatibility) (default True).
         Currently has no effect: the columns are already removed when the stats are extracted.
     convert_water_flag : bool
-        Convert water flag to boolean (default True). Currently has no effect.
+        Convert water flag to boolean (default True). Currently has no effect: the flag is set when
+        the stats are extracted.
     water_flag_threshold : float
-        Water flag ratio threshold (default 0.5). Currently has no effect.
+        Water flag ratio threshold (default 0.5). Currently has no effect: the flag is True where
+        more than half of the plot is in permanent water (for a point, where it falls on water).
     sort_column : str
         Column to sort by (default "plotId", None to skip)
     geometry_audit_trail : bool, default False

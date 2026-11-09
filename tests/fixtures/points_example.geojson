@@ -1,0 +1,15 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {"name": "lake"},
+      "geometry": {"type": "Point", "coordinates": [32.4185, 0.0035]}
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "forest"},
+      "geometry": {"type": "Point", "coordinates": [113.6045, 0.6045]}
+    }
+  ]
+}
