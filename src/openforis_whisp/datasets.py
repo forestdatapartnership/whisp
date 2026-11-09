@@ -363,7 +363,7 @@ def g_forty_v2_primary_change_2020_2025_prep():
     return change.selfMask().rename("ForTy_v2_primary_change_2020_2025")
 
 
-#########################TMF regrowth in 2024
+#########################TMF regrowth in 2025
 def g_tmf_regrowth_prep():
     # Load the TMF Degradation annual product
     TMF_AC = ee.ImageCollection("projects/JRC/TMF/v1_2025/AnnualChanges").mosaic()

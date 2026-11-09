@@ -63,9 +63,8 @@ PATHWAY_TO_CODE = {
 }
 RETIRED_CODES = {9, 15, 16, 20}
 
-# Per-code display colour (hex, no '#'). Preserves the historical palette for codes 1-18; 15 keeps its
-# old grey (now the primary->regrowth leg) and 19 is a new more-info purple-grey; 20 is a mid green
-# between the still-primary (2) and stayed-forest (3) lows.
+# Per-code display colour (hex, no '#'). Preserves the historical palette for codes 1-18; 19, 21 and
+# 22 are more-info shades. Codes 9, 15, 16 and 20 are retired (RETIRED_CODES).
 CODE_COLOUR = {
     1: "c7e9c0",
     2: "238b45",

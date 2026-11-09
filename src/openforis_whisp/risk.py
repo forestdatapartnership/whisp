@@ -275,7 +275,7 @@ def whisp_risk(
         ind_16_input_columns (pd.Series, optional): Input columns for indicator 16. Defaults to the multi-year silviculture-presence columns flagged for timber (theme_timber=plantation_presence_2025).
         ind_16_name (str, optional): Name of indicator 16 column. Defaults to "Ind_16_plantation_presence_2025".
         ind_18_pcent_threshold (float, optional): Percentage threshold for indicator 18 (observed regenerating / planted forest in 2025). Defaults to 10.
-        ind_18_input_columns (pd.Series, optional): Input columns for indicator 18. Defaults to the 2025 regenerating / planted forest columns flagged for timber (theme_timber=regen_planted_2025); none are flagged until a 2025 forest-type product is wired, so Ind_18 is then always "no".
+        ind_18_input_columns (pd.Series, optional): Input columns for indicator 18. Defaults to the 2025 regenerating / planted forest columns flagged for timber (theme_timber=regen_planted_2025), i.e. ForTy_v2_regen_planted_2025; with none flagged, the regenerating leg falls back to no disturbance after 2020.
         ind_18_name (str, optional): Name of indicator 18 column. Defaults to "Ind_18_regen_planted_2025".
         ind_19_pcent_threshold (float, optional): Percentage threshold for indicator 19 (primary forest in 2020 that ForTy V2 itself no longer calls primary in 2025; on the timber primary leg a change with no disturbance behind it gives more-info instead of LOW). Defaults to 10.
         ind_19_input_columns (pd.Series, optional): Input columns for indicator 19. Defaults to the primary-change columns flagged for timber (theme_timber=primary_change_after_2020), i.e. ForTy_v2_primary_change_2020_2025.
@@ -289,7 +289,7 @@ def whisp_risk(
             {
                 'band_name': {
                     'theme': 'treecover',  # or 'commodities', 'disturbance_before', 'disturbance_after'
-                    'theme_timber': 'primary',  # or 'naturally_reg_2020', 'planted_plantation_2020', etc.
+                    'theme_timber': 'primary',  # or 'naturally_reg_2020', 'planted_2020', 'plantation_2020', etc.
                     'use_for_risk_pcrop': 1,  # 0 or 1 - include in perennial crop risk
                     'use_for_risk_acrop': 1,  # 0 or 1 - include in annual crop risk
                     'use_for_risk_timber': 1,  # 0 or 1
@@ -845,65 +845,39 @@ def add_risk_timber_col(
     high_name: str = "yes",
 ) -> data_lookup_type:
     """
-    Adds the risk_timber column based on the WHISP timber decision tree, the elaborate FAO
-    "diagram A" land-use-transition logic that checks both the 2020 state and the 2025 state.
+    Adds the risk_timber column from the timber decision tree (TIMBER_ROOT_TREE above), which checks the
+    2020 state and the 2025 state of each plot, following the land-use transitions of the EUDR table (as
+    one example of a framework).
 
-    Planted (Ind_07a) is grouped with naturally regenerating (Ind_06) into a "regenerating-planted"
-    class, because the two are not reliably separable in the data; plantation (Ind_07b / Ind_08b)
-    is kept separate as the operative degradation class.
+    Planted (Ind_07a_planted_2020) is grouped with naturally regenerating (Ind_06_nat_reg_forest_2020)
+    into one "regenerating or planted" class, because the two are not reliably separable in the data;
+    plantation (Ind_07b_plantation_2020, Ind_08b_plantation_after_2020) is kept separate as the class
+    that marks degradation.
 
-    2020 states: primary (Ind_05), regenerating-planted (Ind_06 or Ind_07a), plantation (Ind_07b).
-    2025 states (derived in whisp_risk from the ForTy V2 time series where its rows are flagged):
-    primary_2025 = Ind_05 AND NOT Ind_04 AND NOT Ind_19 (no change in ForTy V2's own 2020 -> 2025 primary
-    class), disturbed_after_2020 = Ind_04 (the crop trees' disturbance after 2020), regen_planted_still_2025 =
-    (Ind_06 OR Ind_07a) AND observed Ind_18 (ForTy V2 regenerating / planted 2025; without a flagged source,
-    AND NOT Ind_04), plantation_2025 = GAIN
-    (Ind_08b: ForTy V2 plantation gain 2020 -> 2025 plus MapBiomas silviculture gain in Brazil; degradation
-    only), plantation_presence_2025 = PRESENCE (Ind_16: ForTy V2 plantation 2025 plus MapBiomas any-year;
-    stability only), other land 2025 (Ind_13), agriculture 2025 (Ind_10).
+    The questions, in order:
+    - Forest in 2020? Ind_01_treecover, Ind_05_primary_2020, Ind_06_nat_reg_forest_2020 or
+      Ind_07a_planted_2020 (Ind_07b_plantation_2020 is not part of this gate).
+    - Not forest in 2020: other land 2020 (Ind_12_other_land_2020) gives low if still other land in 2025
+      (Ind_13_other_land_after_2020), else more info; otherwise agriculture 2020 (Ind_02_commodities or
+      Ind_15_agriculture_2020) gives low, else more info.
+    - Forest in 2020: agriculture after 2020 (Ind_10_agri_after_2020) gives high (deforestation). Then by
+      2020 class, primary first, then regenerating or planted, then plantation, so a plot mapped as two
+      classes takes the first:
+      - primary: plantation gain (Ind_08b_plantation_after_2020) high; disturbed after 2020
+        (Ind_04_disturbance_after_2020) more info; still primary (primary_2025) low, else more info;
+      - regenerating or planted: plantation gain high; still regenerating or planted
+        (regen_planted_still_2025) low; other land 2025 low; else more info;
+      - plantation: still a plantation (Ind_16_plantation_presence_2025) low; other land 2025 low; else
+        more info;
+      - none of the three: other land 2025 low, else more info.
 
-    Also writes risk_timber_pathway: a human-readable per-terminal label aligned to the map pathway
-    codes (so the ->other-land terminals are NOT mislabelled "stable/stayed"). risk_timber is unchanged.
+    The derived 2025 states come from whisp_risk: primary_2025 = Ind_05 AND NOT Ind_04 AND NOT
+    Ind_19_primary_change_after_2020; regen_planted_still_2025 = (Ind_06 OR Ind_07a) AND
+    Ind_18_regen_planted_2025 where a source is flagged, else AND NOT Ind_04. Plantation gain is a gain
+    (0 on a plantation already standing in 2020), so stability uses the presence layer, Ind_16.
 
-    Rules (priority order, matching the code order below):
-    0. Other land use 2020 (Ind_12). TERMINAL sub-branch (no fall-through): still other land 2025
-       (Ind_13) -> LOW (stable other land); else (changed) -> MORE INFO NEEDED.
-    1. Agriculture/commodity 2020 (Ind_02 or Ind_15) -> LOW (pre-2020 land use, outside scope).
-    2. Treecover 2020 (Ind_01) AND agriculture after 2020 (Ind_10) -> HIGH (deforestation). Treecover
-       gate: a genuine non-forest plot is not mis-flagged as deforestation.
-    3. Plantation 2020 -> STILL a plantation (plantation_presence_2025 = Ind_16, multi-year PRESENCE)
-       -> LOW (stable plantation); -> other land 2025 (Ind_13) -> LOW; otherwise MORE INFO NEEDED. The
-       stability test uses the PRESENCE layer (Ind_16), NOT the gain (Ind_08b), because the gain is 0
-       on any plantation already standing in 2020 (it would fail ~all stable plantations to MORE INFO).
-    4. Regenerating-planted 2020 -> NEW plantation 2025 (Ind_08b GAIN) = degradation -> HIGH; -> still
-       regenerating-planted in 2025 (regen_planted_still_2025: observed Ind_18 where flagged) -> LOW;
-       -> other land 2025 (Ind_13) -> LOW; otherwise MORE INFO NEEDED.
-    5. Primary 2020 -> NEW plantation 2025 (Ind_08b GAIN) = degradation -> HIGH (per the EUDR transition
-       matrix, Art 2(7)); -> disturbed after 2020 (Ind_04) -> MORE INFO NEEDED (disturbance is not itself
-       a non-compliant end state, but a disturbed plot is never read as still primary); -> still primary
-       (primary_2025: no change in ForTy V2's own primary class) -> LOW; otherwise (ForTy shows a change that
-       no disturbance layer backs) -> MORE INFO NEEDED.
-    6. Nothing recognised in 2020 -> MORE INFO NEEDED ("if we do not know the 2020 state, we do not
-       know"; an unclassified plot is not assumed compliant).
-
-    Choices that differ from a literal reading of diagram A, noted for the meeting:
-    - Rule 2 is a negative gate (deforestation unless known non-forest in 2020 via rules 0/1), replacing
-      the old positive any-forest-2020 guard. Rule 4's #229 2020-treecover gate remains the one code-only
-      refinement not drawn as a diagram node (it stops ESRI-only commission earning an unearned LOW).
-    - Rule 0 (other land use 2020 -> LOW) uses Ind_12 = ESRI built/water/snow + MapBiomas other-land 2020
-      restricted to the SOLID, unambiguous non-forest non-agriculture classes (built, water, mining, rock,
-      sand, salt), deliberately NOT the full wall-to-wall non-forest set even though MapBiomas labels every
-      pixel in Brazil (bare ground and grassland blur into agriculture, so they are excluded). Outside
-      Brazil the non-forest set is still thin (ESRI built/water/snow only), so the negative gate (rule 2)
-      can over-flag there until a global non-forest-2020 layer is wired.
-    - The 2020 forest classes are evaluated PRIMARY first, then regenerating-planted, then plantation
-      (plantation LAST; the 2026-07-28 reorder, caveat 28). Order only matters for a plot overlapping
-      several 2020 classes: a plantation-2020 commission over a genuine primary or regenerating plot still
-      reaches the degradation HIGH instead of reading as a stable plantation.
-    - The plantation GAIN (Ind_08b) and the plantation PRESENCE (Ind_16) are global since 2026-10-23
-      (ForTy V2 plantation gain 2020 -> 2025 and plantation 2025, beta), OR-ed with the MapBiomas
-      silviculture rows in Brazil. Before that they were Brazil-only and rules 4/5 (degradation HIGH) and
-      rule 3 (stable-plantation LOW) fell to MORE INFO NEEDED elsewhere.
+    Also writes risk_timber_pathway: the label of the end point reached, aligned with the map's pathway
+    codes.
 
     low_name / high_name: the indicator values for at or below / above the threshold (default "no" / "yes").
 
@@ -1130,11 +1104,11 @@ def get_cols_ind_03_dist_before_2020(
 
 def get_cols_ind_18_regen_planted_2025(lookup_gee_datasets_df):
     """
-    Dataset names for an OBSERVED regenerating / planted forest state in 2025 (theme_timber=
-    regen_planted_2025), e.g. the ForTy V2 2025 naturally-regenerating and planted classes. Feeds the
-    timber tree's "became regenerating / planted forest in 2025?" question (primary leg, 2026-07-29
-    planned diagram). Returns [] while no row carries use_for_risk_timber=1, in which case
-    Ind_18_regen_planted_2025 is always "no" and that leaf is unreachable.
+    Dataset names for an observed regenerating or planted forest state in 2025 (theme_timber=
+    regen_planted_2025), e.g. ForTy V2's 2025 naturally regenerating and planted classes. Feeds the timber
+    decision tree's "still regenerating or planted forest in 2025?" question on the regenerating leg,
+    through the derived regen_planted_still_2025. With no such row flagged for timber, whisp_risk falls
+    back to "no disturbance after 2020".
     """
     lookup_gee_datasets_df = lookup_gee_datasets_df[
         lookup_gee_datasets_df["exclude_from_output"] != 1
@@ -1265,9 +1239,9 @@ def get_cols_ind_07b_plantation_2020(lookup_gee_datasets_df):
 
 def get_cols_ind_08b_plantation_after_2020(lookup_gee_datasets_df):
     """
-    Dataset names for plantation forest after 2020 (theme_timber=plantation_after_2020).
-    The degradation "to" class (natural/regen-planted -> plantation). Dormant (returns [])
-    until a post-2020 split layer (ForTy post-2020 / MapBiomas C10) is added.
+    Dataset names for plantation gain after 2020 (theme_timber=plantation_after_2020): ForTy V2
+    plantation gain 2020-2025 and, in Brazil, MapBiomas silviculture gain. The degradation "to" class on
+    the primary and regenerating legs of the timber decision tree.
     """
     lookup_gee_datasets_df = lookup_gee_datasets_df[
         lookup_gee_datasets_df["exclude_from_output"] != 1
@@ -1324,9 +1298,9 @@ def get_cols_ind_10_agri_after_2020(lookup_gee_datasets_df):
 
 def get_cols_ind_12_other_land_2020(lookup_gee_datasets_df):
     """
-    Dataset names for other land in 2020 (theme_timber=other_land_2020; ESRI built/bare/water/snow).
-    Output indicator; the diagram-A other-land-2020 side short-circuit is dropped, so a non-forest
-    plot reaches LOW by falling through the tree rather than via this indicator.
+    Dataset names for other land in 2020 (theme_timber=other_land_2020: ESRI other land, global mining
+    and, in Brazil, MapBiomas other land). The first question in the non-forest half of the timber
+    decision tree.
     """
     lookup_gee_datasets_df = lookup_gee_datasets_df[
         lookup_gee_datasets_df["exclude_from_output"] != 1
@@ -1341,8 +1315,9 @@ def get_cols_ind_12_other_land_2020(lookup_gee_datasets_df):
 
 def get_cols_ind_13_other_land_after_2020(lookup_gee_datasets_df):
     """
-    Dataset names for other land after 2020 (theme_timber=other_land_after_2020; ESRI built/bare/
-    water/snow for 2025). Feeds the diagram-A "primary -> other land 2025 -> LOW" node.
+    Dataset names for other land in 2025 (theme_timber=other_land_after_2020: ESRI other land 2025,
+    global mining and, in Brazil, MapBiomas other land 2024 and mining gain). A presence in 2025, not a
+    change: the timber decision tree asks it after other land 2020 and on the forest legs.
     """
     lookup_gee_datasets_df = lookup_gee_datasets_df[
         lookup_gee_datasets_df["exclude_from_output"] != 1
@@ -1358,9 +1333,9 @@ def get_cols_ind_13_other_land_after_2020(lookup_gee_datasets_df):
 def get_cols_ind_16_plantation_presence_2025(lookup_gee_datasets_df):
     """
     Dataset names for a multi-year plantation PRESENCE signal (theme_timber=plantation_presence_2025).
-    Source: MapBiomas Collection-10 silviculture present in ANY year 2021-2024 (Brazil). This is a
-    presence / not-loss layer (NOT the gain), used ONLY by the plantation-2020 STABILITY check in the
-    timber tree (Rule 3 "still a plantation in 2025?"). The GAIN layer (Ind_08b) is 0 on any plantation
+    Sources: ForTy V2 plantation 2025 and, in Brazil, MapBiomas Collection 10 silviculture in any year
+    2021-2024. This is a presence / not-loss layer (NOT the gain), used ONLY by the plantation-2020
+    stability check in the timber decision tree ("still a plantation in 2025?"). The GAIN layer (Ind_08b) is 0 on any plantation
     already standing in 2020, so using it for stability wrongly fails stable plantations to MORE INFO;
     this presence layer fixes that while Ind_08b stays the degradation signal on the regen/primary nodes.
     """

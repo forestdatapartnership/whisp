@@ -62,8 +62,8 @@ USAGE
 NOTE ON national_codes: the reference notebook / scripts built the Brazil map on the FULL global lookup
 (so every ``nBR_`` MapBiomas layer was included). To reproduce that, pass the matching national codes
 (e.g. ``national_codes=["br"]``). With ``national_codes=None`` every country-specific (``nXX_``) dataset
-is dropped, so the Brazil-only plantation presence / gain and other-land layers fall away and their
-branches collapse to more-info, exactly as ``add_risk_timber_col`` documents for outside-Brazil.
+is dropped, so the MapBiomas layers fall away and Brazil is assessed with the global layers only
+(ForTy V2, ESRI, mining and the rest), as any other country is.
 """
 
 from __future__ import annotations
