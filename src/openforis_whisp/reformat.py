@@ -7,6 +7,7 @@ except (ImportError, ModuleNotFoundError):
 
 import pandas as pd
 import os
+import json
 import logging
 from pathlib import Path  # Add this import
 
@@ -128,6 +129,18 @@ def validate_dataframe(
     _log_missing_columns(df_stats, schema)
 
     # df_stats = df_stats.reindex(schema.columns.keys(), axis=1)
+
+    # Earth Engine returns each shape as a dict, and coercing that to text gives Python's form
+    # with single quotes. Write JSON instead, as local mode does, so geo is the same in every mode
+    geo = config_runtime.geometry_column
+    if geo in df_stats.columns:
+        df_stats = df_stats.assign(
+            **{
+                geo: df_stats[geo].apply(
+                    lambda g: json.dumps(g) if isinstance(g, dict) else g
+                )
+            }
+        )
 
     # Automatically coerce the DataFrame to match the schema types (raises SchemaError if it can't)
     validated_df = schema(df_stats)
