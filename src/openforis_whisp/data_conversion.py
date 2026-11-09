@@ -14,7 +14,7 @@ import os
 import geopandas as gpd
 import ee
 
-from openforis_whisp.parameters.config_runtime import plot_id_column
+from openforis_whisp.parameters.config_runtime import geometry_column, plot_id_column
 
 
 # ============================================================================
@@ -826,7 +826,12 @@ def convert_ee_to_df(
     kwargs["fileFormat"] = "PANDAS_DATAFRAME"
     # Errors are left as they are (not re-wrapped) so callers can tell an ee.EEException, such as
     # a broken dataset, from other failures.
-    return ee.data.computeFeatures(kwargs)
+    df = ee.data.computeFeatures(kwargs)
+    if isinstance(df, pd.DataFrame) and geometry_column in df.columns:
+        df[geometry_column] = df[geometry_column].map(
+            lambda g: json.dumps(g) if isinstance(g, dict) else g
+        )
+    return df
 
 
 def convert_ee_to_shapefile(feature_collection, shapefile_path):

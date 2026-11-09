@@ -5,6 +5,7 @@ try:
 except (ImportError, ModuleNotFoundError):
     import pandera as pa
 
+import json
 import pandas as pd
 import os
 import logging
@@ -18,6 +19,7 @@ from openforis_whisp.pd_schemas import data_lookup_type
 from openforis_whisp.parameters import config_runtime
 from openforis_whisp.parameters.config_runtime import (
     DEFAULT_LOOKUP_TABLE_PATH,
+    geometry_column,
     read_lookup_table,
 )
 
@@ -128,6 +130,12 @@ def validate_dataframe(
     _log_missing_columns(df_stats, schema)
 
     # df_stats = df_stats.reindex(schema.columns.keys(), axis=1)
+
+    if geometry_column in df_stats.columns:
+        df_stats = df_stats.copy()
+        df_stats[geometry_column] = df_stats[geometry_column].map(
+            lambda g: json.dumps(g) if isinstance(g, dict) else g
+        )
 
     # Automatically coerce the DataFrame to match the schema types (raises SchemaError if it can't)
     validated_df = schema(df_stats)
