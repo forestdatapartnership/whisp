@@ -496,6 +496,25 @@ def test_timber_primary_leg_through_whisp_risk() -> None:
     assert "Ind_19_primary_change_after_2020" in out.columns
 
 
+def test_timber_derived_columns_keep_each_row_when_index_labels_repeat() -> None:
+    # results joined together can share index labels; each plot must keep its own 2025 states
+    cases = [
+        ({"ForTy_v2_primary_2020": 8.0}, "low"),
+        (
+            {"ForTy_v2_primary_2020": 8.0, "ForTy_v2_primary_change_2020_2025": 3.0},
+            "more_info_needed",
+        ),
+        (
+            {"ForTy_v2_nat_reg_2020": 8.0, "ForTy_v2_regen_planted_2025": 8.0},
+            "low",
+        ),
+        ({"ForTy_v2_nat_reg_2020": 8.0}, "more_info_needed"),
+    ]
+    df = pd.DataFrame([_synthetic_plot(**ha) for ha, _ in cases], index=[0, 0, 1, 1])
+    out = whisp_risk(df)
+    assert list(out["risk_timber"]) == [risk for _, risk in cases]
+
+
 # Crop indicator column names read by the flat crop-risk rules and their decision-tree mirrors.
 _CROP_IND_1 = "Ind_01_treecover"
 _CROP_IND_2 = "Ind_02_commodities"

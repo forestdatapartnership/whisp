@@ -517,8 +517,10 @@ def whisp_risk(
     # layer calls primary is not a change), and a change share rather than a 2025 presence share, which at
     # 10 % of a plot would call a mostly cleared plot still primary. With no Ind_19 row flagged this is the
     # interim 2020-minus-disturbance rule.
-    for index, row in df_w_indicators.iterrows():
-        df_w_indicators.at[index, "primary_2025"] = (
+    # collected in a list and assigned once, so rows sharing an index label each keep their own value
+    primary_2025 = []
+    for _, row in df_w_indicators.iterrows():
+        primary_2025.append(
             high_name
             if (
                 row[ind_5_name] == high_name
@@ -527,6 +529,7 @@ def whisp_risk(
             )
             else low_name
         )
+    df_w_indicators["primary_2025"] = primary_2025
 
     # "Still regenerating / planted forest in 2025" for the regen leg: regenerating or planted in 2020
     # (Ind_06 or Ind_07a) AND, where the lookup flags an observed 2025 source (Ind_18, e.g.
@@ -537,7 +540,8 @@ def whisp_risk(
     # evidence replaces the interim absence-of-disturbance rule (caveat 27); with no Ind_18 source flagged
     # the interim rule (NOT Ind_04) applies. Ind_09 canopy stays out of the tree.
     observed_regen_planted_2025 = len(ind_18_input_columns) > 0
-    for index, row in df_w_indicators.iterrows():
+    regen_planted_still_2025 = []
+    for _, row in df_w_indicators.iterrows():
         regen_planted_2020 = (
             row[ind_6_name] == high_name or row[ind_7a_name] == high_name
         )
@@ -545,9 +549,10 @@ def whisp_risk(
             still_2025 = row[ind_18_name] == high_name
         else:
             still_2025 = row[ind_4_name] == low_name
-        df_w_indicators.at[index, "regen_planted_still_2025"] = (
+        regen_planted_still_2025.append(
             high_name if (regen_planted_2020 and still_2025) else low_name
         )
+    df_w_indicators["regen_planted_still_2025"] = regen_planted_still_2025
 
     # these "add_" functions modify the 'df_w_indicators' dataframe in place
     add_risk_pcrop_col(
