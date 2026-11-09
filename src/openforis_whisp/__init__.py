@@ -1,3 +1,4 @@
+import os
 import ee
 from google.oauth2 import service_account
 
@@ -118,14 +119,16 @@ def _current_ee_credentials():
         return getattr(ee.data, "_credentials", None)
 
 
-# Default to normal initialize if nobody calls whisp.initialize_ee.
-try:
-    if not _is_ee_initialized():
-        ee.Initialize()
-        print("EE auto-initialized with default credentials.")
-except Exception as e:
-    _reset_ee()
-    print("Error in default EE initialization:", e)
+# Default to normal initialize if nobody calls whisp.initialize_ee. Local mode's worker processes
+# set WHISP_SKIP_EE_INIT: they only read downloaded files and don't need Earth Engine (#322)
+if os.environ.get("WHISP_SKIP_EE_INIT") != "1":
+    try:
+        if not _is_ee_initialized():
+            ee.Initialize()
+            print("EE auto-initialized with default credentials.")
+    except Exception as e:
+        _reset_ee()
+        print("Error in default EE initialization:", e)
 
 from openforis_whisp.datasets import combine_datasets, combine_custom_bands
 

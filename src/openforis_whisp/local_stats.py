@@ -1424,47 +1424,60 @@ def exact_extract_in_chunks_parallel(
     # to input features by position, so they must be combined in submission order
     all_results = [None] * num_chunks
     failed_chunks = []
-    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
-        future_to_chunk = {
-            executor.submit(_process_chunk_df, chunk, rasters, ops, i, num_chunks): i
-            for i, chunk in enumerate(chunks)
-        }
-        for future in concurrent.futures.as_completed(future_to_chunk):
-            chunk_idx = future_to_chunk[future]
-            try:
-                result = future.result()
-                # One row per feature is required, anything else counts as a failure
-                if result is not None and len(result) == len(chunks[chunk_idx]):
-                    all_results[chunk_idx] = result
-                else:
+    # The workers only read the downloaded files, so they skip Whisp's Earth Engine start-up (#322)
+    previous_skip = os.environ.get("WHISP_SKIP_EE_INIT")
+    os.environ["WHISP_SKIP_EE_INIT"] = "1"
+    try:
+        with concurrent.futures.ProcessPoolExecutor(
+            max_workers=max_workers
+        ) as executor:
+            future_to_chunk = {
+                executor.submit(
+                    _process_chunk_df, chunk, rasters, ops, i, num_chunks
+                ): i
+                for i, chunk in enumerate(chunks)
+            }
+            for future in concurrent.futures.as_completed(future_to_chunk):
+                chunk_idx = future_to_chunk[future]
+                try:
+                    result = future.result()
+                    # One row per feature is required, anything else counts as a failure
+                    if result is not None and len(result) == len(chunks[chunk_idx]):
+                        all_results[chunk_idx] = result
+                    else:
+                        failed_chunks.append(chunk_idx + 1)  # 1-based for user display
+                    completed += 1
+
+                    # Log progress at milestones
+                    percent = int((completed / num_chunks) * 100)
+                    for milestone in sorted(milestones):
+                        if percent >= milestone and milestone not in shown_milestones:
+                            shown_milestones.add(milestone)
+                            if percent >= 100:
+                                shown_milestones.add(100)  # Prevent final duplicate
+                            if verbose:
+                                _log_progress(
+                                    completed,
+                                    num_chunks,
+                                    start_time,
+                                    "batches",
+                                    verbose=verbose,
+                                )
+                            break
+
+                except control_flow.PROPAGATE:
+                    raise
+                except Exception as e:
+                    completed += 1
                     failed_chunks.append(chunk_idx + 1)  # 1-based for user display
-                completed += 1
-
-                # Log progress at milestones
-                percent = int((completed / num_chunks) * 100)
-                for milestone in sorted(milestones):
-                    if percent >= milestone and milestone not in shown_milestones:
-                        shown_milestones.add(milestone)
-                        if percent >= 100:
-                            shown_milestones.add(100)  # Prevent final duplicate
-                        if verbose:
-                            _log_progress(
-                                completed,
-                                num_chunks,
-                                start_time,
-                                "batches",
-                                verbose=verbose,
-                            )
-                        break
-
-            except control_flow.PROPAGATE:
-                raise
-            except Exception as e:
-                completed += 1
-                failed_chunks.append(chunk_idx + 1)  # 1-based for user display
-                _whisp_logger.error(
-                    f"Exception in chunk {chunk_idx+1}/{num_chunks}: {str(e)}"
-                )
+                    _whisp_logger.error(
+                        f"Exception in chunk {chunk_idx+1}/{num_chunks}: {str(e)}"
+                    )
+    finally:
+        if previous_skip is None:
+            os.environ.pop("WHISP_SKIP_EE_INIT", None)
+        else:
+            os.environ["WHISP_SKIP_EE_INIT"] = previous_skip
 
     # Final progress only if 100% wasn't already shown
     if 100 not in shown_milestones and verbose:

@@ -32,7 +32,7 @@ CI_SQUARE = {
 
 
 def test_points_and_a_polygon_give_the_same_results_in_concurrent_and_local_mode(
-    tmp_path,
+    tmp_path, capfd
 ):
     # Three points, each well inside its class: Lake Victoria, forest in Kalimantan (EUFO_2020)
     # and an oil palm plantation in Riau (Oil_palm_Descals), plus the small square above. A point
@@ -58,6 +58,11 @@ def test_points_and_a_polygon_give_the_same_results_in_concurrent_and_local_mode
         assert df.loc["ci_square", "Area"] > 0
         assert "nCI_Forest_bnetd_2020" in df.columns
         results[mode] = df.sort_index()
+
+    # local mode's worker processes don't try to start Earth Engine (#322)
+    printed = "".join(capfd.readouterr())
+    assert "Error in default EE initialization" not in printed
+    assert "EE auto-initialized" not in printed
 
     # local mode gives the same results as concurrent, plot ids included
     concurrent, local = results["concurrent"], results["local"]
