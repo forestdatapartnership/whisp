@@ -139,6 +139,7 @@ def serve(html_path, port=8788, project=None, national_codes=None):
         df = whisp.whisp_risk(
             stats_df.copy(),
             national_codes=national_codes,
+            include_working_columns=True,  # the page walks the timber decision tree from them
             **_clean_thresholds(thresholds),
         )
         out_path = tempfile.NamedTemporaryFile(

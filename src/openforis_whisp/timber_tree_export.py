@@ -42,9 +42,9 @@ PATHWAY_TO_CODE = {
     "more-info: non-forest 2020, unclassified": 5,
     "high: deforestation": 6,
     "high: regen->plantation degradation": 7,
-    "more-info: plantation 2020, no 2025 state": 8,
-    # 9 retired (was "more-info: primary 2020, no 2025 state")
-    "more-info: regen 2020, no 2025 state": 10,
+    "more-info: plantation 2020, no later state": 8,
+    # 9 retired (was "more-info: primary 2020, no later state")
+    "more-info: regen 2020, no later state": 10,
     "low: other land 2020 (stable)": 11,
     "high: primary->plantation degradation": 12,
     "more-info: other land 2020 changed": 13,
@@ -207,23 +207,23 @@ Q_TO_COLUMNS = {
         "Ind_01_treecover",
         "Ind_05_primary_2020",
         "Ind_06_nat_reg_forest_2020",
-        "Ind_07a_planted_2020",
-        # derived in whisp_risk: Ind_07b AND NOT (Ind_02 OR Ind_15), plantation with no agriculture in 2020
+        "Ind_20_planted_2020",
+        # derived in whisp_risk: Ind_21 AND NOT (Ind_02 OR Ind_15), plantation with no agriculture in 2020
         "plantation_forest_2020",
     ],
     "other_land_2020": ["Ind_12_other_land_2020"],
     "other_land_2025": ["Ind_13_other_land_after_2020"],
-    "agriculture_2020": ["Ind_02_commodities", "Ind_15_agriculture_2020"],
+    "agriculture_2020": ["Ind_02_commodities", "Ind_15_cropland_2020"],
     "agriculture_2025": ["Ind_10_agri_after_2020"],
-    "plantation_2020": ["Ind_07b_plantation_2020"],
+    "plantation_2020": ["Ind_21_plantation_2020"],
     "plantation_presence_2025": ["Ind_16_plantation_presence_2025"],
     "primary_2020": ["Ind_05_primary_2020"],
-    "plantation_2025": ["Ind_08b_plantation_after_2020"],
+    "plantation_2025": ["Ind_22_natural_to_plantation_after_2020"],
     "disturbed_after_2020": ["Ind_04_disturbance_after_2020"],
     # derived in whisp_risk: Ind_05 AND NOT Ind_04 AND NOT Ind_19 (no change in ForTy's own primary class)
     "primary_2025": ["primary_2025"],
-    "regen_planted_2020": ["Ind_06_nat_reg_forest_2020", "Ind_07a_planted_2020"],
-    # derived in whisp_risk: (Ind_06 OR Ind_07a) AND observed Ind_18 where flagged, else AND NOT Ind_04
+    "regen_planted_2020": ["Ind_06_nat_reg_forest_2020", "Ind_20_planted_2020"],
+    # derived in whisp_risk: (Ind_06 OR Ind_20) AND observed Ind_18 where flagged, else AND NOT Ind_04
     "regen_planted_still_2025": ["regen_planted_still_2025"],
 }
 

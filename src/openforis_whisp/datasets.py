@@ -260,10 +260,10 @@ def g_forty_forest_2020_prep():
 # may change before release (contact naturalforests@google.com).
 #
 # These are the 2020 and 2025 states the timber tree asks about (2026-07-29 planned diagram). The 2020
-# classes replace the ForTy V1 2020 rows on the timber baselines (Ind_05 / 06 / 07a / 07b); the 2025
+# classes replace the ForTy V1 2020 rows on the timber baselines (Ind_05 / 06 / 20 / 21); the 2025
 # classes fill the slots that were DERIVED from 2020-minus-disturbance until now (primary 2020 -> not
 # primary 2025 = Ind_19, regenerating / planted 2025 = Ind_18, plantation presence 2025 = Ind_16; the
-# primary 2025 class itself is emitted for information only) plus the plantation GAIN 2020 -> 2025 (Ind_08b, the first global
+# primary 2025 class itself is emitted for information only) plus the plantation GAIN 2020 -> 2025 (Ind_22, the first global
 # dated plantation layer). Tree crops (2020 and gain), forest extent
 # and other land are emitted present-but-unused (use_for_risk_* = 0): generic crop classes feeding
 # Ind_02 / Ind_10 is still an open question (#287) and ForTy "other land" is ALL non-forest, not the
@@ -336,7 +336,7 @@ def g_forty_v2_other_land_2025_prep():
     return _forty_v2_present(2025, [6], "ForTy_v2_other_land_2025")
 
 
-# GAIN layers: the class present in 2025 but NOT that class in 2020 (the Ind_08b / Ind_10 convention).
+# GAIN layers: the class present in 2025 but NOT that class in 2020 (the Ind_22 / Ind_10 convention).
 def g_forty_v2_plantation_gain_2020_2025_prep():
     # natural forest in 2020 (primary 1 / 7 or naturally regenerating 2) that is plantation in 2025: the
     # degradation signal. A plantation stand in rotation ("other land" in 2020) or planted forest (3) turning
@@ -588,7 +588,7 @@ def _fdap_any_tree_crop(year):
 # (plantations missed in 2020 only) in four test regions, so the gain has to hold on both sides.
 # It still counts young plantations that only became visible after 2020 on land cleared before it
 # (detection lag), so treat it as a weak signal.
-# NB tree crops (especially rubber and oil palm) can be confused with timber plantations (Ind_07b/08b
+# NB tree crops (especially rubber and oil palm) can be confused with timber plantations (Ind_21/22
 # silviculture); this layer is the commodity-crop reading, the plantation layers carry the silviculture
 # reading, and the tree's branch order resolves any pixel that fires both.
 def g_fdap_tree_crop_gain_prep():
@@ -642,7 +642,7 @@ def g_esri_2025_tc_prep():
     esri_lulc10_TC = (
         esri_lulc10_raw.filterDate("2025-01-01", "2025-12-31").mosaic().eq(2)
     )
-    return esri_lulc10_TC.rename("ESRI_2025_TC").selfMask()
+    return esri_lulc10_TC.rename("ESRI_TC_2025").selfMask()
 
 
 # ESRI 2025 - Crop
@@ -663,7 +663,7 @@ def g_esri_2020_2025_crop_prep():
 
 
 # ESRI 10m LULC cropland EXTENT in 2020 (.eq(5)), the same-product BEFORE-state paired with the ESRI
-# crop gain above. Feeds Ind_15_agriculture_2020 so a plot that was already cropland in 2020 reads as
+# crop gain above. Feeds Ind_15_cropland_2020 so a plot that was already cropland in 2020 reads as
 # pre-existing agriculture (Rule 1 -> LOW), not new clearing.
 def g_esri_crop_2020_prep():
     esri_lulc10_crop_2020 = (
@@ -1644,7 +1644,7 @@ def nbr_mapbiomasc10_silv20_prep():
 
 
 # [non-official dataset by MapBiomas multisector initiative]
-# REAL post-2020 plantation signal for the timber tree (Ind_08b "plantation after 2020").
+# REAL post-2020 plantation signal for the timber tree (Ind_22 "plantation after 2020").
 # Reads the MapBiomas Brazil Collection 10 latest year (classification_2024) Forest plantation
 # class (DN=9 = silviculture; planted tree stands, eucalyptus/pine). This is "plantation present
 # in 2024", matching the demo proxy's semantics; the timber tree's branch structure already
@@ -1667,7 +1667,7 @@ def nbr_mapbiomasc10_silv24_prep():
 # (DN=9 = silviculture) present in ANY year 2021-2024 (OR of classification_2021..classification_2024
 # == 9). A presence/not-loss layer, NOT the gain: a plantation already standing in 2020 stays detected
 # here, which is exactly what the Rule-3 "still a plantation in 2025?" stability test needs (the GAIN
-# layer Ind_08b is 0 on any 2020 plantation, so it wrongly fails stable plantations to MORE INFO). The
+# layer Ind_22 is 0 on any 2020 plantation, so it wrongly fails stable plantations to MORE INFO). The
 # multi-year OR also rides over the harvest/replant cycle (a year that is bare/harvested in one snapshot
 # is still caught by an adjacent year). Modelled on nbr_mapbiomasc10_silv24_prep (silv-2024 presence);
 # Brazil-only (MapBiomas coverage), latest year 2024.
@@ -1686,7 +1686,7 @@ def nbr_mapbiomasc10_silv_anyyear_2125_prep():
 
 
 # [non-official dataset by MapBiomas multisector initiative]
-# PLANTATION GAIN 2020 -> 2024 for the timber decision tree's degradation question (Ind_08b): MapBiomas
+# PLANTATION GAIN 2020 -> 2024 for the timber decision tree's degradation question (Ind_22): MapBiomas
 # C10 natural forest in 2020 (the forest 2020 row's classes 3, 5, 6, 49) that is forest plantation (DN=9,
 # silviculture) in 2024. A stand in rotation or new plantation on pasture is not counted. Brazil only,
 # latest year 2024. The presence layer (nbr_mapbiomasc10_silv24_prep) stays for the stability question.

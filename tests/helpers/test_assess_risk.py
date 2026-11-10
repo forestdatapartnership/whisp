@@ -31,17 +31,17 @@ EXPECTED_INDICATOR_COLS = [
     "Ind_04_disturbance_after_2020",
     "Ind_05_primary_2020",
     "Ind_06_nat_reg_forest_2020",
-    "Ind_07a_planted_2020",
-    "Ind_07b_plantation_2020",
-    "Ind_08b_plantation_after_2020",
+    "Ind_07_planted_plantations_2020",
+    "Ind_08_planted_plantations_after_2020",
     "Ind_09_treecover_after_2020",
     "Ind_10_agri_after_2020",
+    "Ind_11_logging_concession_before_2020",
     "Ind_12_other_land_2020",
-    "Ind_13_other_land_after_2020",
-    "Ind_15_agriculture_2020",
-    "Ind_16_plantation_presence_2025",
-    "Ind_18_regen_planted_2025",
+    "Ind_15_cropland_2020",
     "Ind_19_primary_change_after_2020",
+    "Ind_20_planted_2020",
+    "Ind_21_plantation_2020",
+    "Ind_22_natural_to_plantation_after_2020",
 ]
 
 
@@ -96,7 +96,7 @@ def test_whisp_stats_geojson_to_df() -> None:
     for col in EXPECTED_INDICATOR_COLS:
         assert col in df_stats_with_risk.columns, f"missing indicator column: {col}"
     ind_cols = [c for c in df_stats_with_risk.columns if c.startswith("Ind_")]
-    extra_cols = [c for c in ["primary_2025"] if c in df_stats_with_risk.columns]
+    extra_cols = ["risk_timber_pathway"]
     print(df_stats_with_risk[["risk_timber"] + ind_cols + extra_cols].to_string())
     print(
         "\nrisk_timber distribution:\n",
@@ -109,14 +109,14 @@ _IND_1 = "Ind_01_treecover"
 _IND_2 = "Ind_02_commodities"
 _IND_5 = "Ind_05_primary_2020"
 _IND_6 = "Ind_06_nat_reg_forest_2020"
-_IND_7A = "Ind_07a_planted_2020"
-_IND_7B = "Ind_07b_plantation_2020"
-_IND_8B = "Ind_08b_plantation_after_2020"
+_IND_7A = "Ind_20_planted_2020"
+_IND_7B = "Ind_21_plantation_2020"
+_IND_8B = "Ind_22_natural_to_plantation_after_2020"
 _IND_9 = "Ind_09_treecover_after_2020"
 _IND_10 = "Ind_10_agri_after_2020"
 _IND_12 = "Ind_12_other_land_2020"
 _IND_13 = "Ind_13_other_land_after_2020"
-_IND_15 = "Ind_15_agriculture_2020"
+_IND_15 = "Ind_15_cropland_2020"
 _IND_16 = "Ind_16_plantation_presence_2025"
 _IND_4 = "Ind_04_disturbance_after_2020"
 _PRIMARY_2025 = "primary_2025"
@@ -204,7 +204,7 @@ def test_timber_decision_tree_terminals() -> None:
             "high: deforestation",
             **{_IND_5: "yes", _IND_15: "yes", _IND_10: "yes"},
         ),
-        # plantation-2020 branch: Ind_07b opens the forest gate only through the derived
+        # plantation-2020 branch: Ind_21 opens the forest gate only through the derived
         # plantation_forest_2020 (no agriculture in 2020); with tree cover it is in the forest half anyway.
         _timber_row(
             "plantation_stable",  # Ind_16 PRESENCE -> LOW
@@ -233,7 +233,7 @@ def test_timber_decision_tree_terminals() -> None:
         _timber_row(
             "plantation_no_2025",
             "more_info_needed",
-            "more-info: plantation 2020, no 2025 state",
+            "more-info: plantation 2020, no later state",
             **{_IND_1: "yes", _IND_7B: "yes"},
         ),
         # primary-2020 branch (checked BEFORE regen; plantation-2025 GAIN checked FIRST)
@@ -358,7 +358,7 @@ def test_timber_decision_tree_terminals() -> None:
             # ONLY route to the regen more-info leg (a no-disturbance regen plot is LOW, above).
             "regen_disturbed",
             "more_info_needed",
-            "more-info: regen 2020, no 2025 state",
+            "more-info: regen 2020, no later state",
             **{_IND_6: "yes", _IND_4: "yes"},
         ),
         # forest-gate plot with no recognised class or change -> more info
@@ -378,7 +378,7 @@ def test_timber_decision_tree_terminals() -> None:
         ),
         _timber_row(
             # CAVEAT-28 FIX (plantation checked LAST): a genuine primary-2020 plot that a broad plantation
-            # layer ALSO flags (Ind_07b), with a NEW plantation gain (Ind_08b). Under the old plantation-first
+            # layer ALSO flags (Ind_21), with a NEW plantation gain (Ind_22). Under the old plantation-first
             # order this was masked as "low: stable plantation"; now primary wins the overlap and the
             # degradation HIGH fires. Locks in the reorder.
             "primary_and_plantation2020_overlap_degradation",
@@ -402,9 +402,9 @@ def test_timber_decision_tree_terminals() -> None:
         ind_2_name=_IND_2,
         ind_5_name=_IND_5,
         ind_6_name=_IND_6,
-        ind_7a_name=_IND_7A,
-        ind_7b_name=_IND_7B,
-        ind_8b_name=_IND_8B,
+        ind_20_name=_IND_7A,
+        ind_21_name=_IND_7B,
+        ind_22_name=_IND_8B,
         ind_9_name=_IND_9,
         ind_10_name=_IND_10,
         ind_12_name=_IND_12,
@@ -562,6 +562,44 @@ def test_timber_derived_columns_keep_each_row_when_index_labels_repeat() -> None
     df = pd.DataFrame([_synthetic_plot(**ha) for ha, _ in cases], index=[0, 0, 1, 1])
     out = whisp_risk(df)
     assert list(out["risk_timber"]) == [risk for _, risk in cases]
+
+
+_WORKING_COLS = [
+    _IND_13,
+    _IND_16,
+    _IND_18,
+    _PRIMARY_2025,
+    _REGEN_STILL,
+    _PLANTATION_FOREST,
+]
+
+
+def test_released_timber_indicators_kept_and_working_columns_hidden() -> None:
+    # Ind_07, Ind_08 and Ind_11 stay in the output for existing users (Ind_07 = planted or plantation 2020,
+    # Ind_08 has no dataset so stays "no"); the decision tree's working columns are left out unless asked for
+    cases = [
+        {"ForTy_v2_planted_2020": 8.0},
+        {"ForTy_v2_plantation_2020": 8.0},
+        {"GFW_logging_before_2020": 8.0},
+        {},
+    ]
+    df = pd.DataFrame([_synthetic_plot(**ha) for ha in cases])
+    out = whisp_risk(df)
+    assert list(out["Ind_07_planted_plantations_2020"]) == ["yes", "yes", "no", "no"]
+    assert list(out["Ind_08_planted_plantations_after_2020"]) == ["no"] * 4
+    assert list(out["Ind_11_logging_concession_before_2020"]) == [
+        "no",
+        "no",
+        "yes",
+        "no",
+    ]
+    assert not [c for c in _WORKING_COLS if c in out.columns]
+    assert set(c for c in out.columns if c.startswith("Ind_")) == set(
+        EXPECTED_INDICATOR_COLS
+    )
+    full = whisp_risk(df, include_working_columns=True)
+    assert all(c in full.columns for c in _WORKING_COLS)
+    assert list(full["risk_timber"]) == list(out["risk_timber"])
 
 
 # Crop indicator column names read by the flat crop-risk rules and their decision-tree mirrors.

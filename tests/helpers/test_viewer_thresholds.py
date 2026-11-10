@@ -30,7 +30,7 @@ def test_timber_sliders_send_only_thresholds_whisp_risk_accepts():
     for s in sliders:
         assert s["default"] == params[s["param"]].default
     sent = {s["param"]: s["default"] for s in sliders}
-    sent.update({"ind_7_pcent_threshold": 5, "national_codes": "xx"})
+    sent.update({"ind_14_pcent_threshold": 5, "national_codes": "xx"})
     assert _clean_thresholds(sent) == {s["param"]: float(s["default"]) for s in sliders}
 
 
