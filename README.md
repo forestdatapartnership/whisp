@@ -125,7 +125,7 @@ The **relevant risk assessment column depends on the commodity** in question:
   <tr>
     <td>Timber</td>
     <td><code>risk_timber</code></td>
-    <td>Timber extraction deforestation risk</td>
+    <td>Timber deforestation and degradation risk</td>
   </tr>
 </table>
 
@@ -164,7 +164,7 @@ Each risk column holds one of the values `low`, `high` or `more_info_needed` (sh
 
   For timber, Whisp applies a different decision logic compared to perennial and annual crops. In addition to the **deforestation risk**, Whisp also evaluates **degradation risk**, here a natural forest turned plantation. It first asks whether the plot was forest in 2020: tree cover, primary, naturally regenerating or planted forest, or plantation forest with no agriculture mapped in 2020.
 
-  - Not forest in 2020: agriculture in 2020, or other land in 2020 that is still other land, gives **low**; anything else gives **"More info needed"**.
+  - Not forest in 2020: other land in 2020 gives **low** if it is still other land and **"More info needed"** if not; otherwise agriculture in 2020 gives **low**, and anything else **"More info needed"**.
   - Forest in 2020 and agriculture after 2020 gives **high** (deforestation).
   - Primary forest in 2020: turned plantation gives **high** (degradation); disturbed after 2020 gives **"More info needed"**; still primary gives **low**; otherwise **"More info needed"**.
   - Naturally regenerating or planted forest in 2020: turned plantation gives **high**; still regenerating or planted, or now other land, gives **low**; otherwise **"More info needed"**.
