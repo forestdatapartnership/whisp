@@ -337,14 +337,14 @@ def g_forty_v2_other_land_2025_prep():
 
 
 # GAIN layers: the class present in 2025 but NOT that class in 2020 (the Ind_22 / Ind_10 convention).
-def g_forty_v2_plantation_gain_2020_2025_prep():
+def g_forty_v2_natural_to_plantation_2020_2025_prep():
     # natural forest in 2020 (primary 1 / 7 or naturally regenerating 2) that is plantation in 2025: the
     # degradation signal. A plantation stand in rotation ("other land" in 2020) or planted forest (3) turning
     # plantation is not counted; on the plantation belts nearly all plantation gain was rotation.
     c2020 = _forty_v2_class(2020)
     natural_2020 = c2020.eq(1).Or(c2020.eq(2)).Or(c2020.eq(7))
     gain = _forty_v2_class(2025).eq(4).And(natural_2020)
-    return gain.selfMask().rename("ForTy_v2_plantation_gain_2020_2025")
+    return gain.selfMask().rename("ForTy_v2_natural_to_plantation_2020_2025")
 
 
 def g_forty_v2_tree_crop_gain_2020_2025_prep():
@@ -1690,7 +1690,7 @@ def nbr_mapbiomasc10_silv_anyyear_2125_prep():
 # C10 natural forest in 2020 (the forest 2020 row's classes 3, 5, 6, 49) that is forest plantation (DN=9,
 # silviculture) in 2024. A stand in rotation or new plantation on pasture is not counted. Brazil only,
 # latest year 2024. The presence layer (nbr_mapbiomasc10_silv24_prep) stays for the stability question.
-def nbr_mapbiomasc10_silv_gain_2020_2024_prep():
+def nbr_mapbiomasc10_forest_to_silv_2020_2024_prep():
     mapbiomasc10 = ee.Image(
         "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
     )
@@ -1700,7 +1700,9 @@ def nbr_mapbiomasc10_silv_gain_2020_2024_prep():
     )
     silv_2024 = mapbiomasc10.select("classification_2024").eq(9)
     gain = silv_2024.And(forest_2020)
-    return gain.rename("nBR_MapBiomas_col10_silviculture_gain_2020_2024").selfMask()
+    return gain.rename(
+        "nBR_MapBiomas_col10_forest_to_silviculture_2020_2024"
+    ).selfMask()
 
 
 # [non-official dataset by MapBiomas multisector initiative]
