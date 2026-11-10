@@ -134,7 +134,7 @@ pytest  # Runs basic tests for Whisp stats)
    - Set `corresponding_variable` to function name
    - Set `theme` (treecover/commodities/disturbance_before/disturbance_after)
    - Set both `use_for_risk_pcrop=1` and `use_for_risk_acrop=1` (keep them equal) if dataset should feed into crop risk calculations; the perennial/annual split is not yet wired, so the two columns are held identical
-   - Set `use_for_risk_timber=1` if dataset should feed into timber risk calculations. The timber decision tree also reads the crop decision trees' tree cover, commodities and disturbance after 2020 indicators, so a crop-risk dataset with one of those themes needs `use_for_risk_timber=1` too (tests in `tests/helpers/test_risk_helpers.py` check each flag matches what its decision tree uses)
+   - Set `use_for_risk_timber=1` if dataset should feed into timber risk calculations. The timber decision tree also reads the crop decision trees' tree cover, commodities and disturbance after 2020 indicators, so a crop-risk dataset with one of those themes needs `use_for_risk_timber=1` too; for a timber forest type question also set `theme_timber` (tests in `tests/helpers/test_risk_helpers.py` check the crop and timber flags against the datasets each decision tree reads)
    - Set `ISO2_code` if national dataset
 3. No code changes needed for dataset to appear in output - CSV drives everything!
 4. Update documentation files as needed (see Documentation References below)

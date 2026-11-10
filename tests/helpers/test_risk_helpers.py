@@ -123,6 +123,42 @@ def test_timber_flag_is_on_exactly_for_the_timber_indicator_datasets():
     ), "use_for_risk_timber is 1 but no timber indicator uses it"
 
 
+def test_timber_forest_type_indicators_read_only_their_type_layers():
+    # the 2020 forest type questions are answered by type maps only; the broad tree cover rows (EUFO_2020,
+    # GLAD_Primary, the Brazilian forest layers) feed the forest gate through Ind_01_treecover and carry a
+    # blank theme_timber, so they must not reappear here
+    from openforis_whisp.reformat import filter_lookup_by_country_codes
+
+    lut = filter_lookup_by_country_codes(
+        lookup_gee_datasets_df, "ISO2_code", ["br", "ci", "co", "cm"]
+    )
+    assert set(get_cols_ind_05_primary_2020(lut)) == {
+        "European_Primary_Forest",
+        "GFT_primary",
+        "TMF_undist",
+        "ForTy_v2_primary_2020",
+        "nBR_BFS_primary_forest_Pantanal_2020",
+        "nBR_BFS_primary_forest_Caatinga_2020",
+        "nBR_BFS_primary_forest_AtlanticForest_2020",
+        "nBR_BFS_primary_forest_Pampa_2020",
+    }
+    assert set(get_cols_ind_06_nat_reg_2020(lut)) == {
+        "GFT_naturally_regenerating",
+        "ForTy_v2_nat_reg_2020",
+    }
+    assert set(get_cols_ind_07a_planted_2020(lut)) == {
+        "IIASA_planted_2020",
+        "ForTy_v2_planted_2020",
+    }
+    assert set(get_cols_ind_07b_plantation_2020(lut)) == {
+        "IIASA_plantation_2020",
+        "ForTy_v2_plantation_2020",
+        "nBR_INPE_TCsilviculture_Amazon_2020",  # pragma: allowlist secret
+        "nBR_INPE_TCsilviculture_Cerrado_2020",
+        "nBR_MapBiomas_col10_silviculture_Brazil_2020",
+    }
+
+
 def test_ind_02_and_ind_03_default_thresholds_are_50():
     # Ind_02_commodities and Ind_03_disturbance_before_2020 lead to a low risk outcome, so they
     # use a higher bar than the other indicators: the dataset must cover more than half the plot.
