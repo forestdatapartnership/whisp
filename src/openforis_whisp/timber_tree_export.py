@@ -102,7 +102,7 @@ CODE_COLOUR = {
 # falling back to the 2020 state minus disturbance when no observed 2025 source is flagged; the viewer
 # footnote under the tree explains.
 Q_LABEL = {
-    "forest_2020": "Forest in 2020?<br/><small>(treecover / primary / regen / planted)</small>",
+    "forest_2020": "Forest in 2020?<br/><small>(treecover / primary / regen / planted / plantation)</small>",
     "other_land_2020": "Other land in 2020?<br/><small>(built / water / mining / bare)</small>",
     # forest-side wording; the non-forest branch node (OL2025_nf) is overridden to "Still other land".
     "other_land_2025": "Became other land in 2025?",
@@ -208,6 +208,8 @@ Q_TO_COLUMNS = {
         "Ind_05_primary_2020",
         "Ind_06_nat_reg_forest_2020",
         "Ind_07a_planted_2020",
+        # derived in whisp_risk: Ind_07b AND NOT (Ind_02 OR Ind_15), plantation with no agriculture in 2020
+        "plantation_forest_2020",
     ],
     "other_land_2020": ["Ind_12_other_land_2020"],
     "other_land_2025": ["Ind_13_other_land_after_2020"],

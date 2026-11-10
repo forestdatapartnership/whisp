@@ -554,6 +554,23 @@ def whisp_risk(
         )
     df_w_indicators["regen_planted_still_2025"] = regen_planted_still_2025
 
+    # Plantation forest in 2020 for the forest gate: plantation (Ind_07b) with no agriculture in 2020
+    # (Ind_02 or Ind_15). The plantation forest maps (IIASA, ForTy V2) also fire on rubber and oil palm,
+    # which would then read as deforestation on replanting; with agriculture mapped in 2020 the plot stays in
+    # the non-forest half and reads "agriculture 2020".
+    plantation_forest_2020 = []
+    for _, row in df_w_indicators.iterrows():
+        plantation_forest_2020.append(
+            high_name
+            if (
+                row[ind_7b_name] == high_name
+                and row[ind_2_name] == low_name
+                and row[ind_15_name] == low_name
+            )
+            else low_name
+        )
+    df_w_indicators["plantation_forest_2020"] = plantation_forest_2020
+
     # these "add_" functions modify the 'df_w_indicators' dataframe in place
     add_risk_pcrop_col(
         df=df_w_indicators,
@@ -593,6 +610,7 @@ def whisp_risk(
         ind_18_name=ind_18_name,
         primary_2025_name="primary_2025",
         regen_planted_still_2025_name="regen_planted_still_2025",
+        plantation_forest_2020_name="plantation_forest_2020",
         low_name=low_name,
         high_name=high_name,
     )
@@ -841,6 +859,7 @@ def add_risk_timber_col(
     ind_4_name: str = "Ind_04_disturbance_after_2020",
     ind_18_name: str = "Ind_18_regen_planted_2025",
     regen_planted_still_2025_name: str = "regen_planted_still_2025",
+    plantation_forest_2020_name: str = "plantation_forest_2020",
     low_name: str = "no",
     high_name: str = "yes",
 ) -> data_lookup_type:
@@ -855,8 +874,9 @@ def add_risk_timber_col(
     that marks degradation.
 
     The questions, in order:
-    - Forest in 2020? Ind_01_treecover, Ind_05_primary_2020, Ind_06_nat_reg_forest_2020 or
-      Ind_07a_planted_2020 (Ind_07b_plantation_2020 is not part of this gate).
+    - Forest in 2020? Ind_01_treecover, Ind_05_primary_2020, Ind_06_nat_reg_forest_2020,
+      Ind_07a_planted_2020, or Ind_07b_plantation_2020 with no agriculture in 2020 (the derived
+      plantation_forest_2020).
     - Not forest in 2020: other land 2020 (Ind_12_other_land_2020) gives low if still other land in 2025
       (Ind_13_other_land_after_2020), else more info; otherwise agriculture 2020 (Ind_02_commodities or
       Ind_15_agriculture_2020) gives low, else more info.
@@ -898,10 +918,14 @@ def add_risk_timber_col(
         plantation_2020 = row[ind_7b_name] == high_name
         treecover_2020 = row[ind_1_name] == high_name
         # "Forest in 2020?" gate: tree cover (Ind_01, shared with the crop decision trees) OR a 2020 forest
-        # type (primary, regenerating or planted), so any forest evidence sends the plot to the forest half,
-        # where its deforestation and degradation are checked. Ind_07b plantation is left out: its Brazilian
-        # silviculture layers are in Ind_01, but a plantation mapped only by ForTy V2 or IIASA does not open it.
-        forest_2020 = treecover_2020 or primary_2020 or regen_planted_2020
+        # type (primary, regenerating, planted, or plantation without agriculture in 2020), so any forest
+        # evidence sends the plot to the forest half, where its deforestation and degradation are checked.
+        forest_2020 = (
+            treecover_2020
+            or primary_2020
+            or regen_planted_2020
+            or row[plantation_forest_2020_name] == high_name
+        )
 
         yes_locals = {
             "forest_2020": forest_2020,
@@ -1434,6 +1458,7 @@ def filter_to_risk_columns(
     derived_cols = [
         "primary_2025",
         "regen_planted_still_2025",
+        "plantation_forest_2020",
     ]
 
     # Post-processing metadata columns (added after validation, not in schema CSV)
