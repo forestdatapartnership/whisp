@@ -62,7 +62,8 @@ def _forty_rows(df):
 
 
 def test_forty_lookup_rows_are_crop_risk_neutral():
-    """Every ForTy band ticks no crop risk pathway yet is still emitted (timber may use them)."""
+    """Every ForTy band ticks no crop risk pathway; the V1 bands (released) and every band timber reads are
+    emitted, while the V2 bands no indicator reads are left out of the output."""
     rows = _forty_rows(lookup_gee_datasets_df)
     assert not rows.empty, "no ForTy_ rows found in the lookup table"
     for col in ("use_for_risk_pcrop", "use_for_risk_acrop"):
@@ -70,9 +71,12 @@ def test_forty_lookup_rows_are_crop_risk_neutral():
             f"ForTy rows must have {col}==0 (present-but-unused); "
             f"offenders: {list(rows.loc[rows[col] != 0, 'name'])}"
         )
+    must_emit = rows[
+        (rows["use_for_risk_timber"] == 1) | ~rows["name"].str.startswith("ForTy_v2_")
+    ]
     assert (
-        rows["exclude_from_output"] == 0
-    ).all(), "ForTy rows must be emitted (exclude_from_output==0)"
+        must_emit["exclude_from_output"] == 0
+    ).all(), "ForTy V1 rows and the rows timber reads must be emitted (exclude_from_output==0)"
 
 
 def test_forty_bands_excluded_from_crop_indicators():
