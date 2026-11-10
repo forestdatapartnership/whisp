@@ -338,7 +338,12 @@ def g_forty_v2_other_land_2025_prep():
 
 # GAIN layers: the class present in 2025 but NOT that class in 2020 (the Ind_08b / Ind_10 convention).
 def g_forty_v2_plantation_gain_2020_2025_prep():
-    gain = _forty_v2_class(2025).eq(4).And(_forty_v2_class(2020).neq(4))
+    # natural forest in 2020 (primary 1 / 7 or naturally regenerating 2) that is plantation in 2025: the
+    # degradation signal. A plantation stand in rotation ("other land" in 2020) or planted forest (3) turning
+    # plantation is not counted; on the plantation belts nearly all plantation gain was rotation.
+    c2020 = _forty_v2_class(2020)
+    natural_2020 = c2020.eq(1).Or(c2020.eq(2)).Or(c2020.eq(7))
+    gain = _forty_v2_class(2025).eq(4).And(natural_2020)
     return gain.selfMask().rename("ForTy_v2_plantation_gain_2020_2025")
 
 
@@ -1681,20 +1686,20 @@ def nbr_mapbiomasc10_silv_anyyear_2125_prep():
 
 
 # [non-official dataset by MapBiomas multisector initiative]
-# PLANTATION EXPANSION 2020 -> 2024 for the timber tree's "plantation after 2020" / degradation node
-# (Ind_08b). Same-product gain: MapBiomas C10 Forest plantation (DN=9, silviculture) present in 2024 AND
-# NOT in 2020 , a NEW plantation that appeared after 2020. This is the degradation signal (primary/regen
-# -> new plantation): unlike the 2024-presence layer it does NOT fire on a plantation already there in
-# 2020 (stable plantation = not new degradation). Best-guess plantation-after source; Brazil-only
-# (MapBiomas coverage), latest year 2024. Supersedes the presence layer (nbr_mapbiomasc10_silv24_prep) for
-# Ind_08b.
+# PLANTATION GAIN 2020 -> 2024 for the timber decision tree's degradation question (Ind_08b): MapBiomas
+# C10 natural forest in 2020 (the forest 2020 row's classes 3, 5, 6, 49) that is forest plantation (DN=9,
+# silviculture) in 2024. A stand in rotation or new plantation on pasture is not counted. Brazil only,
+# latest year 2024. The presence layer (nbr_mapbiomasc10_silv24_prep) stays for the stability question.
 def nbr_mapbiomasc10_silv_gain_2020_2024_prep():
     mapbiomasc10 = ee.Image(
         "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
     )
-    silv_2020 = mapbiomasc10.select("classification_2020").eq(9)
+    lulc_2020 = mapbiomasc10.select("classification_2020")
+    forest_2020 = (
+        lulc_2020.eq(3).Or(lulc_2020.eq(5)).Or(lulc_2020.eq(6)).Or(lulc_2020.eq(49))
+    )
     silv_2024 = mapbiomasc10.select("classification_2024").eq(9)
-    gain = silv_2024.And(silv_2020.Not())
+    gain = silv_2024.And(forest_2020)
     return gain.rename("nBR_MapBiomas_col10_silviculture_gain_2020_2024").selfMask()
 
 
