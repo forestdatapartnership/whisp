@@ -169,8 +169,16 @@ def g_gft_plantation_prep():
     return gft_plantation.rename("GFT_planted_plantation").selfMask()
 
 
-# IIASA Global Forest Management (FML v3-2, 2015, 100 m): 31 = planted forest, 32 = short-rotation
-# timber plantation. Split into the two slots (was merged as eq(31).Or(eq(32))).
+# IIASA Global Forest Management (FML v3-2, 100 m) is a map of 2015, used to represent 2020 (there is
+# no later version), so its columns end in _2020 like the other baseline layers (#277). Classes:
+# 31 = planted forest, 32 = short-rotation timber plantation (plantation forest), one column each.
+def g_iiasa_planted_plantation_prep():
+    # Classes 31 and 32 together, as released before the split. Kept for existing users until the
+    # bulk rename (#277); it feeds no indicator.
+    iiasa = ee.Image("projects/sat-io/open-datasets/GFM/FML_v3-2")
+    return iiasa.eq(31).Or(iiasa.eq(32)).rename("IIASA_planted_plantation").selfMask()
+
+
 def g_iiasa_planted_2020_prep():
     iiasa = ee.Image("projects/sat-io/open-datasets/GFM/FML_v3-2")
     return iiasa.eq(31).rename("IIASA_planted_2020").selfMask()
