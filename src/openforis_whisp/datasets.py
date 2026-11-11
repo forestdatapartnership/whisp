@@ -138,7 +138,7 @@ def g_ifl_2020_prep():
 
 # Intact Forest Landscape 2025 (extent as of 1 Jan 2025). Note the project-style asset path; the older
 # users/potapovpeter/IFL_YYYY naming does not carry to 2025. This is a primary-2025 / still-intact
-# candidate, added as an output band for now; wiring it into the timber tree's primary-2025 path is
+# candidate, added as an output band for now; wiring it into the timber decision tree's primary-2025 path is
 # pending (alongside the MapBiomas primary proxy and TMF undisturbed 2025).
 def g_ifl_2025_prep():
     IFL_2025 = ee.Image("projects/ee-potapovpeter/assets/IFL/IFL_2025m")
@@ -198,7 +198,7 @@ def g_iiasa_plantation_2020_prep():
 #
 # 2026-10-23: superseded by the ForTy V2 time series below for the timber 2020 baselines (the lookup now
 # flags the ForTy_v2_*_2020 rows and leaves these V1 rows present-but-unused), so that the 2020 and 2025
-# states the timber tree compares come from the same model version. Kept as emitted columns for comparison.
+# states the timber decision tree compares come from the same model version. Kept as emitted columns for comparison.
 
 
 def _forty_2020_mean():
@@ -259,7 +259,7 @@ def g_forty_forest_2020_prep():
 # "regrowing" (7) into "mature" (1) to get the V1 scheme. Beta: assets, band order and class definitions
 # may change before release (contact naturalforests@google.com).
 #
-# These are the 2020 and 2025 states the timber tree asks about (2026-07-29 planned diagram). The 2020
+# These are the 2020 and 2025 states the timber decision tree asks about (2026-07-29 planned diagram). The 2020
 # classes replace the ForTy V1 2020 rows on the timber baselines (Ind_05 / 06 / 20 / 21); the 2025
 # classes fill the slots that were DERIVED from 2020-minus-disturbance until now (primary 2020 -> not
 # primary 2025 = Ind_19, regenerating / planted 2025 = Ind_18, plantation presence 2025 = Ind_16; the
@@ -1644,10 +1644,10 @@ def nbr_mapbiomasc10_silv20_prep():
 
 
 # [non-official dataset by MapBiomas multisector initiative]
-# REAL post-2020 plantation signal for the timber tree (Ind_22 "plantation after 2020").
+# REAL post-2020 plantation signal for the timber decision tree (Ind_22 "plantation after 2020").
 # Reads the MapBiomas Brazil Collection 10 latest year (classification_2024) Forest plantation
 # class (DN=9 = silviculture; planted tree stands, eucalyptus/pine). This is "plantation present
-# in 2024", matching the demo proxy's semantics; the timber tree's branch structure already
+# in 2024", matching the demo proxy's semantics; the timber decision tree's branch structure already
 # handles the 2020 state, so this is the current-state input. It augments (does not replace) the
 # ForTy 2020-extent demo proxy and is Brazil-only (MapBiomas has no pixel outside its coverage).
 # 2024 is the latest MapBiomas year; no MapBiomas product reaches 2025.
@@ -1662,7 +1662,7 @@ def nbr_mapbiomasc10_silv24_prep():
 
 
 # [non-official dataset by MapBiomas multisector initiative]
-# MULTI-YEAR plantation PRESENCE (not gain) for the timber tree's plantation-2020 STABILITY check
+# MULTI-YEAR plantation PRESENCE (not gain) for the timber decision tree's plantation-2020 STABILITY check
 # (Ind_16 "plantation presence 2025"). Reads MapBiomas Brazil Collection 10 Forest plantation
 # (DN=9 = silviculture) present in ANY year 2021-2024 (OR of classification_2021..classification_2024
 # == 9). A presence/not-loss layer, NOT the gain: a plantation already standing in 2020 stays detected

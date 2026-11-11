@@ -110,7 +110,7 @@ _count = _ml.count
 
 
 def _indicator_names(lut):
-    """{indicator column: dataset names} for every indicator the timber tree reads, from the SAME getters
+    """{indicator column: dataset names} for every indicator the timber decision tree reads, from the SAME getters
     ``add_risk_timber_col`` feeds its ``yes_locals`` from. The question images and the viewer's input
     dataset list both read this, so they cannot drift apart."""
     return {
@@ -309,7 +309,7 @@ def build_timber_question_images(
     n_ind15 = names["Ind_15_cropland_2020"]
     # multi-year silviculture PRESENCE = stability
     n_ind16 = names["Ind_16_plantation_presence_2025"]
-    # the crop trees' disturbance after 2020 (asked on the primary leg; part of the derived primary_2025
+    # the crop decision trees' disturbance after 2020 (asked on the primary leg; part of the derived primary_2025
     # and the regen_planted_still_2025 fallback)
     n_ind04 = names["Ind_04_disturbance_after_2020"]
     # observed regen / planted 2025 (ForTy V2) and ForTy V2 primary 2020 no longer primary in 2025. Either
@@ -390,7 +390,7 @@ def build_timber_question_images(
         "disturbed_after_2020": disturbance_2025,  # Ind_04 (primary leg: disturbed primary -> more-info)
         "primary_2025": still_primary_2025,  # Ind_05 AND NOT Ind_04 AND NOT Ind_19 (ForTy primary change)
         "regen_planted_still_2025": regen_planted_still_2025,  # (Ind_06 OR Ind_20) AND Ind_18 (observed)
-        # regen_planted_2020 = plain Ind_06 OR Ind_20, NO "and not primary" carve-out: the tree checks
+        # regen_planted_2020 = plain Ind_06 OR Ind_20, NO "and not primary" carve-out: the decision tree checks
         # primary BEFORE regen, so ORDER (not exclusion) resolves a primary+regen overlap.
         "regen_planted_2020": regen_planted_2020,
     }
@@ -532,7 +532,7 @@ _DERIVED_INPUTS = {
 
 
 def timber_input_layers(national_codes=None, lookup_df=None, max_workers=16):
-    """Tile layers for every dataset the timber tree reads, to view the inputs one at a time.
+    """Tile layers for every dataset the timber decision tree reads, to view the inputs one at a time.
 
     Returns {column: layers} for ``pathway_viewer``: the datasets of each indicator in the tree's
     questions, and under the two derived questions (still primary, still regenerating or planted in 2025)

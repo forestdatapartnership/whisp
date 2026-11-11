@@ -3,7 +3,7 @@
 ``risk.add_risk_acrop_col`` is the AUTHORITY for the annual-crop risk outcome. It is a small flat rule
 over three WHISP indicators, NOT a walked tree (unlike timber, whose ``risk.TIMBER_ROOT_TREE`` is itself
 walked by ``add_risk_timber_col``). This module adds a display-only MIRROR of that flat rule so the
-annual-crop tree gets the same machinery the timber tree already has: a Mermaid diagram, a notebook
+annual crop decision tree gets the same machinery the timber decision tree already has: a Mermaid diagram, a notebook
 viewer JS walk, and a per-pixel Earth Engine pathway raster, all from the generic engine in
 ``openforis_whisp.decision_tree``.
 
@@ -26,7 +26,7 @@ Like ``timber_tree_export`` this module:
   * binds the generic ``decision_tree`` functions to ``ACROP_SPEC`` (so ``to_mermaid()`` /
     ``eval_tree_ee(qimg, ee_image)`` / ``code_names()`` and the rest work with no spec argument).
 
-The perennial-crop tree (pcrop) is the sibling instance in ``openforis_whisp.pcrop_tree_export``.
+The perennial crop decision tree (pcrop) is the sibling instance in ``openforis_whisp.pcrop_tree_export``.
 
 WHISP is a non-authoritative exploration tool and a digital public good for compliance workflows (EUDR is
 one example of a framework it can inform, not its focus), so the three risk levels are treated as outcome
@@ -44,7 +44,7 @@ from . import decision_tree as _dt
 from .decision_tree import DecisionTreeSpec
 
 
-# ---- The annual-crop tree: a display MIRROR of risk.add_risk_acrop_col ---------------------------
+# ---- The annual crop decision tree: a display MIRROR of risk.add_risk_acrop_col ---------------------------
 # Each node is a LEAF {"risk", "pathway"} or a DECISION {"q": <question name>, "yes": node, "no": node}.
 # The flat rule (risk.add_risk_acrop_col) is:
 #     low  if (Ind_01_treecover == "no" OR Ind_02_commodities == "yes")
@@ -154,7 +154,7 @@ _CLASSDEFS = """
 
 # --------------------------------------------------------------------------------------------------
 # 3. The acrop spec: bundle every acrop-specific piece so the generic decision_tree functions can drive
-#    the annual-crop tree.
+#    the annual crop decision tree.
 # --------------------------------------------------------------------------------------------------
 ACROP_SPEC = DecisionTreeSpec(
     tree=ACROP_ROOT_TREE,

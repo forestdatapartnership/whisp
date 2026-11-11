@@ -257,7 +257,7 @@ def test_timber_decision_tree_terminals() -> None:
             "low: still primary",
             **{_IND_5: "yes", _PRIMARY_2025: "yes"},
         ),
-        # 2026-11-03: on the primary leg DISTURBANCE after 2020 (Ind_04, the crop trees' set) is asked right
+        # 2026-11-03: on the primary leg DISTURBANCE after 2020 (Ind_04, the crop decision trees' set) is asked right
         # after the plantation gain, and a disturbed primary plot is MORE INFO: disturbance is not itself a
         # non-compliant end state, but it must never read still primary -> LOW. The old LOW exits (became
         # regenerating / planted, became other land) are gone: ForTy V2 still calls much cleared primary
@@ -489,7 +489,7 @@ def test_timber_primary_leg_through_whisp_risk() -> None:
             "low: still primary",
         ),
         (
-            # an alert layer counts too: timber reads the same disturbance as the crop trees
+            # an alert layer counts too: timber reads the same disturbance as the crop decision trees
             "disturbed_by_radd_alert",
             {"ForTy_v2_primary_2020": 8.0, "RADD_after_2020": 2.0},
             "more_info_needed",

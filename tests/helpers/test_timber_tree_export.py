@@ -1,4 +1,4 @@
-"""The timber tree's display copies stay in step with risk.TIMBER_ROOT_TREE: the code table covers exactly
+"""The timber decision tree's display copies stay in step with risk.TIMBER_ROOT_TREE: the code table covers exactly
 the tree's leaves, every question has its label / node kind / id / result columns / drill-down layer, and
 the map builder answers exactly the tree's questions. No Earth Engine requests (the map images are lazy).
 """

@@ -49,7 +49,7 @@ def test_ind_02_commodity_union_not_empty():
 
 def test_pcrop_acrop_held_identical():
     # The perennial/annual crop split is not yet wired: whisp_risk builds Ind_02_commodities
-    # as the union of pcrop + acrop and feeds the same indicator to both crop trees. To keep
+    # as the union of pcrop + acrop and feeds the same indicator to both crop decision trees. To keep
     # the LUT honest (so anyone rebuilding a tree from a single column matches the canonical
     # result), use_for_risk_pcrop and use_for_risk_acrop are held identical. Lock that here so
     # the two columns cannot silently drift apart before the split is genuinely implemented.

@@ -5,9 +5,9 @@ NO tree-specific data: no pathway labels, no map codes, no palette colours, and 
 names. Every one of those lives on a :class:`DecisionTreeSpec`, and each function here takes a spec, so
 the SAME code can drive any tree.
 
-Today it drives one instance, the timber tree (see ``openforis_whisp.timber_tree_export``, which builds
+Today it drives one instance, the timber decision tree (see ``openforis_whisp.timber_tree_export``, which builds
 ``TIMBER_SPEC`` from ``risk.TIMBER_ROOT_TREE`` and binds these functions to it). It is written so a future
-perennial-crop tree (``PCROP_SPEC``) and annual-crop tree (``ACROP_SPEC``) can slot in the same way: a
+perennial crop decision tree (``PCROP_SPEC``) and annual crop decision tree (``ACROP_SPEC``) can slot in the same way: a
 nested-dict tree, a question -> indicator-column mapping, a stable pathway-label -> code map, a palette,
 and the per-question display / drill-down metadata, all packed into another ``DecisionTreeSpec``. The
 crop specs are intentionally NOT written here; this module only provides the shared machinery for them.
