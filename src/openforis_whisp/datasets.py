@@ -1742,7 +1742,7 @@ def nbr_mapbiomasc10_ag_gain_after_2020_prep():
 # commodity / agriculture-2020 node); native forest + silviculture (the forest branches); and the AMBIGUOUS
 # vegetated / bare classes (grassland 12, wetland 11, other-non-vegetated/bare 25, aquaculture 31), which we
 # are not confident are non-forest, so they fall through to MORE INFO rather than being called LOW
-# other-land. 2020 -> Ind_12 (Rule 0 -> LOW); 2024 -> Ind_13 (other-land-after-2020 -> LOW). A forest ->
+# other-land. 2020 -> Ind_12 (Rule 0 -> LOW); 2024 is kept as a building block for an other land gain. A forest ->
 # mining/built/water change reads as other land (compliant, outside the EUDR forest -> agriculture
 # definition). Mining is captured both here (class 30) and by the global Tang & Werner + Maus footprint.
 def _mapbiomasc10_other_land(year):
@@ -1769,7 +1769,7 @@ def nbr_mapbiomasc10_other_land_2020_prep():
     )
 
 
-# 2024 after-state (Ind_13): OTHER LAND = only the SOLID, sure non-forest non-agriculture classes (see helper).
+# 2024 state, hidden: a building block for an other land gain (Ind_13) once checked; not read today.
 def nbr_mapbiomasc10_other_land_latest_prep():
     return (
         _mapbiomasc10_other_land(2024)
@@ -1782,7 +1782,7 @@ def nbr_mapbiomasc10_other_land_latest_prep():
 # MINING EXPANSION 2020 -> 2024 for Brazil (MapBiomas C10 class 30 = mining). Same-product gain: mined in
 # 2024 AND NOT in 2020 = NEW mining after 2020. Forest -> mining is forest loss to a NON-agricultural use,
 # which under EUDR is outside the deforestation definition (the transition matrix puts mining in "Other
-# land use" = compliant), so this feeds the other-land-after node (Ind_13) -> LOW, routing forest -> mining
+# land use" = compliant), so this feeds the other land gain (Ind_13) -> LOW, routing forest -> mining
 # correctly to LOW rather than more-info or a false HIGH. Country-specific (Brazil; MapBiomas is paired/
 # annual, so it can detect the EXPANSION); a separate GLOBAL mining EXTENT layer covers the state
 # elsewhere. NB mining (30) is also inside the broad non-forest layer, so this is an explicit, auditable
@@ -1799,9 +1799,9 @@ def nbr_mapbiomasc10_mining_gain_after_2020_prep():
 
 # Global industrial-mining footprint (Tang & Werner 2023, unioned with Maus et al. V1 for recall) as a
 # 0/1 mask. Forest -> mining is forest loss to NON-agricultural use, outside the EUDR deforestation
-# definition (the transition matrix puts mining in "Other land use" = compliant), so this feeds the
-# other-land nodes GLOBALLY -> LOW. Static extent (single snapshot; mining does not revert), so the same
-# mask serves both the 2020 and after-2020 nodes (forest -> mining is LOW regardless of timing). INDUSTRIAL
+# definition (the transition matrix puts mining in "Other land use" = compliant), so this feeds other
+# land in 2020 (Ind_12) GLOBALLY -> LOW. Static extent (single snapshot, no dates), so it cannot say a mine
+# is new: the after-2020 gain (Ind_13) uses MapBiomas's dated mining class, Brazil only. INDUSTRIAL
 # mining only , artisanal/small-scale (e.g. most of the Congo Basin / Cameroon) is NOT captured; Maus V2
 # (which adds artisanal) is not on GEE and is a future manual PANGAEA ingest. Omissions are SAFE: an
 # uncaptured mine falls back to the normal more-info/HIGH path, never a false LOW. Brazil additionally has
@@ -1824,10 +1824,6 @@ def _global_mining_mask():
 
 def g_global_mining_2020_prep():
     return _global_mining_mask().rename("Global_mining_2020").selfMask()
-
-
-def g_global_mining_after_2020_prep():
-    return _global_mining_mask().rename("Global_mining_after_2020").selfMask()
 
 
 # [non-official dataset by MapBiomas multisector initiative]

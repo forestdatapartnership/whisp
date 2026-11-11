@@ -104,8 +104,9 @@ CODE_COLOUR = {
 Q_LABEL = {
     "forest_2020": "Forest in 2020?<br/><small>(treecover / primary / regen / planted / plantation)</small>",
     "other_land_2020": "Other land in 2020?<br/><small>(built / water / mining / bare)</small>",
-    # forest-side wording; the non-forest branch node (OL2025_nf) is overridden to "Still other land".
     "other_land_2025": "Became other land in 2025?",
+    # non-forest side: worked out from other land 2020 (nothing after 2020 matters there)
+    "other_land_still_2025": "Still other land in 2025?",
     "agriculture_2020": "Agriculture in 2020?",
     "agriculture_2025": "Agriculture after 2020?<br/><small>(deforestation)</small>",
     "plantation_2020": "Plantation forest in 2020?",
@@ -121,6 +122,7 @@ Q_KIND = {
     "forest_2020": "forest",
     "other_land_2020": "landuse",
     "other_land_2025": "landuse",
+    "other_land_still_2025": "landuse",
     "agriculture_2020": "landuse",
     "agriculture_2025": "landuse",
     "plantation_2020": "forest",
@@ -138,6 +140,7 @@ _ABBREV = {
     "forest_2020": "FOREST2020",
     "other_land_2020": "OL2020",
     "other_land_2025": "OL2025",
+    "other_land_still_2025": "OL2025_nf",
     "agriculture_2020": "AG2020",
     "agriculture_2025": "AG2025",
     "plantation_2020": "PL2020",
@@ -166,8 +169,8 @@ _DEFAULT_BRANCH_TAG = "fh"
 _Q_TO_LAYER = {
     "forest_2020": "agree_forest",  # the root gate: treecover OR primary OR regen OR planted
     "other_land_2020": "agree_other_land",
-    # default for the forest-half branches (gain, not presence); the non-forest branch overrides it below
     "other_land_2025": "gain_other_land_gain",
+    "other_land_still_2025": "agree_other_land",  # worked out from other land 2020
     "agriculture_2020": [
         "agree_ag_whole",
         "agree_cropland",
@@ -191,14 +194,11 @@ _Q_TO_LAYER = {
 }
 # Per-node overrides where the same question means different data in different branches.
 _NODE_LAYER_OVERRIDE = {
-    "OL2025_nf": "gain_other_land_present_2025",  # non-forest branch: presence, not gain
     "OL2025_pl": "gain_other_land_gain",
     "OL2025_rp": "gain_other_land_gain",
 }
 # Per-node LABEL overrides: the same question worded for its branch (2026-07-29 planned diagram).
-_NODE_LABEL_OVERRIDE = {
-    "OL2025_nf": "Still other land in 2025?",  # non-forest branch: presence, not a change
-}
+_NODE_LABEL_OVERRIDE = {}
 
 # The per-question -> Whisp result column(s) mapping, mirroring risk.py add_risk_timber_col's yes_locals.
 # Used only to generate the JS walk (so the viewer popup answers each question the same way risk.py does).
@@ -212,7 +212,9 @@ Q_TO_COLUMNS = {
         "plantation_forest_2020",
     ],
     "other_land_2020": ["Ind_12_other_land_2020"],
-    "other_land_2025": ["Ind_13_other_land_after_2020"],
+    "other_land_2025": ["Ind_13_other_land_gain_after_2020"],
+    # worked out: yes wherever other land 2020 is (nothing after 2020 matters for non-forest land)
+    "other_land_still_2025": ["Ind_12_other_land_2020"],
     "agriculture_2020": ["Ind_02_commodities", "Ind_15_cropland_2020"],
     "agriculture_2025": ["Ind_10_agri_after_2020"],
     "plantation_2020": ["Ind_21_plantation_forest_2020"],

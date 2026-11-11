@@ -114,7 +114,7 @@ _IND_8B = "Ind_22_plantation_forest_gain_after_2020"
 _IND_9 = "Ind_09_treecover_after_2020"
 _IND_10 = "Ind_10_agri_after_2020"
 _IND_12 = "Ind_12_other_land_2020"
-_IND_13 = "Ind_13_other_land_after_2020"
+_IND_13 = "Ind_13_other_land_gain_after_2020"
 _IND_15 = "Ind_15_cropland_2020"
 _IND_16 = "Ind_16_plantation_presence_2025"
 _IND_4 = "Ind_04_disturbance_after_2020"
@@ -170,9 +170,10 @@ def test_timber_decision_tree_terminals() -> None:
             **{_IND_12: "yes", _IND_13: "yes"},
         ),
         _timber_row(
-            "nonforest_other_land_changed",
-            "more_info_needed",
-            "more-info: other land 2020 changed",
+            # still other land is worked out from other land 2020, so "changed" is not reached
+            "nonforest_other_land_without_later_other_land",
+            "low",
+            "low: other land 2020 (stable)",
             **{_IND_12: "yes"},
         ),
         _timber_row(
