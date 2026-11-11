@@ -337,14 +337,14 @@ def g_forty_v2_other_land_2025_prep():
 
 
 # GAIN layers: the class present in 2025 but NOT that class in 2020 (the Ind_22 / Ind_10 convention).
-def g_forty_v2_natural_to_plantation_2020_2025_prep():
+def g_forty_v2_natural_to_plantation_forest_2020_2025_prep():
     # natural forest in 2020 (primary 1 / 7 or naturally regenerating 2) that is plantation in 2025: the
     # degradation signal. A plantation stand in rotation ("other land" in 2020) or planted forest (3) turning
     # plantation is not counted; on the plantation belts nearly all plantation gain was rotation.
     c2020 = _forty_v2_class(2020)
     natural_2020 = c2020.eq(1).Or(c2020.eq(2)).Or(c2020.eq(7))
     gain = _forty_v2_class(2025).eq(4).And(natural_2020)
-    return gain.selfMask().rename("ForTy_v2_natural_to_plantation_2020_2025")
+    return gain.selfMask().rename("ForTy_v2_natural_to_plantation_forest_2020_2025")
 
 
 def g_forty_v2_tree_crop_gain_2020_2025_prep():
