@@ -543,6 +543,85 @@ def test_plantation_opens_the_forest_gate_unless_agriculture_in_2020() -> None:
         assert got == (risk, pathway), f"{label}: got {got}, expected {(risk, pathway)}"
 
 
+# The EUDR transition table, as one example framework the timber decision tree approximates: the state in 2020
+# (rows) against the state after 2020 (columns). f = free of deforestation and degradation, o = outside the
+# regulation's scope (both compliant: low); D = deforestation, G = degradation (both high).
+_EUDR_STATES = [
+    "primary",
+    "naturally regenerating",
+    "planted",
+    "plantation",
+    "other wooded land",
+    "agriculture",
+    "other land",
+]
+_EUDR_TABLE = {
+    "primary": "ffGGGDo",
+    "naturally regenerating": "offGGDo",
+    "planted": "offffDo",
+    "plantation": "offffDo",
+    "other wooded land": "ooooooo",
+    "agriculture": "ooooooo",
+    "other land": "ooooooo",
+}
+# each 2020 state as datasets on a synthetic 10 ha plot (there is no other wooded land map yet)
+_EUDR_STATE_2020 = {
+    "primary": {"ForTy_v2_primary_2020": 8.0},
+    "naturally regenerating": {"ForTy_v2_nat_reg_2020": 8.0},
+    "planted": {"ForTy_v2_planted_2020": 8.0},
+    "plantation": {"ForTy_v2_plantation_2020": 8.0},
+    "other wooded land": {},
+    "agriculture": {"GLAD_cropland_2020": 8.0},
+    "other land": {"ESRI_other_land_2020": 8.0},
+}
+# what the data show of each change after 2020: forest that is cut and grows back, cleared and replanted, thinned to
+# scrub or cleared for a road or mine shows as forest loss (there is no planted forest gain, other wooded land or
+# global other land gain map yet)
+_LOSS = {"GFC_loss_after_2020": 3.0}
+_EUDR_CHANGE = {
+    "primary": {},
+    "naturally regenerating": _LOSS,
+    "planted": _LOSS,
+    "plantation": {"ForTy_v2_plantation_forest_gain_after_2020": 3.0},
+    "other wooded land": _LOSS,
+    "agriculture": {"GLAD_crop_gain_after_2020": 3.0},
+    "other land": _LOSS,
+}
+# cells where the timber decision tree gives another outcome, on purpose or until the data exist
+_EUDR_DIFFERENCES = {
+    # disturbed primary forest asks for a closer look
+    ("primary", "naturally regenerating"): "more_info_needed",
+    ("primary", "other land"): "more_info_needed",
+    # no planted forest gain or other wooded land map yet
+    ("primary", "planted"): "more_info_needed",
+    ("primary", "other wooded land"): "more_info_needed",
+    ("naturally regenerating", "other wooded land"): "low",
+    **{("other wooded land", after): "more_info_needed" for after in _EUDR_STATES},
+}
+
+
+def test_timber_decision_tree_against_the_eudr_transition_table() -> None:
+    """Every cell of the EUDR transition table on a synthetic plot (no GEE). The timber outcome matches the
+    table (compliant -> low, deforestation or degradation -> high) except the listed differences, which are
+    pinned so that closing a gap, or opening a new one, shows up here."""
+    cells, rows = [], []
+    for before in _EUDR_STATES:
+        for after, code in zip(_EUDR_STATES, _EUDR_TABLE[before]):
+            change = _EUDR_CHANGE[after]
+            if after == "plantation" and before in ("planted", "plantation"):
+                # the plantation forest gain map only counts primary or naturally regenerating forest in 2020
+                change = {}
+            rows.append(_synthetic_plot(**_EUDR_STATE_2020[before], **change))
+            cells.append((before, after, "high" if code in "DG" else "low"))
+    out = whisp_risk(pd.DataFrame(rows))
+    for i, (before, after, table) in enumerate(cells):
+        expected = _EUDR_DIFFERENCES.get((before, after), table)
+        got = out["risk_timber"].iloc[i]
+        assert (
+            got == expected
+        ), f"{before} -> {after}: got {got}, expected {expected} (table: {table})"
+
+
 def test_timber_derived_columns_keep_each_row_when_index_labels_repeat() -> None:
     # results joined together can share index labels; each plot must keep its own 2025 states
     cases = [
