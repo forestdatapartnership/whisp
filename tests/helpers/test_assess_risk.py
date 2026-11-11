@@ -38,7 +38,6 @@ EXPECTED_INDICATOR_COLS = [
     "Ind_11_logging_concession_before_2020",
     "Ind_12_other_land_2020",
     "Ind_15_cropland_2020",
-    "Ind_19_primary_change_after_2020",
     "Ind_20_planted_forest_2020",
     "Ind_21_plantation_forest_2020",
     "Ind_22_plantation_forest_gain_after_2020",
@@ -508,7 +507,7 @@ def test_timber_primary_leg_through_whisp_risk() -> None:
     for i, (label, _, risk, pathway) in enumerate(cases):
         got = (out["risk_timber"].iloc[i], out["risk_timber_pathway"].iloc[i])
         assert got == (risk, pathway), f"{label}: got {got}, expected {(risk, pathway)}"
-    assert "Ind_19_primary_change_after_2020" in out.columns
+    assert "Ind_19_primary_change_after_2020" not in out.columns
 
 
 def test_plantation_opens_the_forest_gate_unless_agriculture_in_2020() -> None:
@@ -568,6 +567,7 @@ _WORKING_COLS = [
     _IND_13,
     _IND_16,
     _IND_18,
+    "Ind_19_primary_change_after_2020",
     _PRIMARY_2025,
     _REGEN_STILL,
     _PLANTATION_FOREST,
