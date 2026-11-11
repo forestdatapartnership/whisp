@@ -220,7 +220,7 @@ def whisp_risk(
     ind_10_name: str = "Ind_10_agri_after_2020",
     ind_11_name: str = "Ind_11_logging_concession_before_2020",
     ind_12_name: str = "Ind_12_other_land_2020",
-    ind_13_name: str = "Ind_13_other_land_after_2020",
+    ind_13_name: str = "Ind_13_other_land_gain_after_2020",
     ind_15_name: str = "Ind_15_cropland_2020",
     ind_16_name: str = "Ind_16_plantation_presence_2025",
     ind_18_name: str = "Ind_18_regen_planted_2025",
@@ -272,7 +272,7 @@ def whisp_risk(
         ind_21_name (str, optional): Name of indicator 21 column. Defaults to "Ind_21_plantation_forest_2020".
         ind_22_name (str, optional): Name of indicator 22 column. Defaults to "Ind_22_plantation_forest_gain_after_2020".
         ind_12_name (str, optional): Name of indicator 12 column. Defaults to "Ind_12_other_land_2020".
-        ind_13_name (str, optional): Name of indicator 13 column. Defaults to "Ind_13_other_land_after_2020".
+        ind_13_name (str, optional): Name of indicator 13 column. Defaults to "Ind_13_other_land_gain_after_2020".
         ind_9_name (str, optional): Name of indicator 9 column. Defaults to "Ind_09_treecover_after_2020".
         ind_10_name (str, optional): Name of indicator 10 column. Defaults to "Ind_10_agri_after_2020".
         ind_15_pcent_threshold (float, optional): Percentage threshold for indicator 15 (timber agriculture 2020). Defaults to 50, matching Ind_02: a yes leads to a low outcome, so it must cover most of the plot.
@@ -399,7 +399,7 @@ def whisp_risk(
             filtered_lookup_gee_datasets_df
         )
     if ind_13_input_columns is None:
-        ind_13_input_columns = get_cols_ind_13_other_land_after_2020(
+        ind_13_input_columns = get_cols_ind_13_other_land_gain_after_2020(
             filtered_lookup_gee_datasets_df
         )
     if ind_15_input_columns is None:
@@ -656,9 +656,10 @@ def whisp_risk(
     if drop_unused_columns:
         df_w_indicators = filter_to_risk_columns(df_w_indicators, input_cols, names)
 
-    # The timber decision tree's working columns stay out of the output for now: Ind_13, Ind_16 and Ind_18
-    # are states after 2020, to be replaced by changes measured within one dataset, and the three derived
-    # columns can be rebuilt from emitted indicators. risk_timber_pathway says which way each plot went.
+    # The timber decision tree's working columns stay out of the output for now: Ind_16 and Ind_18 are
+    # states after 2020, Ind_13 (other land gain) has only Brazil's mining gain so far, and the three
+    # derived columns can be rebuilt from emitted indicators. risk_timber_pathway says which way each
+    # plot went.
     if not include_working_columns:
         df_w_indicators = df_w_indicators.drop(
             columns=[c for c in working_columns if c in df_w_indicators.columns]
@@ -767,7 +768,9 @@ TIMBER_ROOT_TREE = {
     "no": {  # non-forest half: no forest in 2020, so nothing to deforest/degrade
         "q": "other_land_2020",
         "yes": {
-            "q": "other_land_2025",
+            # still other land is worked out: for land that was not forest in 2020 nothing after 2020
+            # matters, so it is yes wherever other land 2020 is (its "no" is not reached)
+            "q": "other_land_still_2025",
             "yes": _timber_leaf("low", "low: other land 2020 (stable)"),
             "no": _timber_leaf(
                 "more_info_needed", "more-info: other land 2020 changed"
@@ -926,19 +929,19 @@ def add_risk_timber_col(
     - Forest in 2020? Ind_01_treecover, Ind_05_primary_2020, Ind_06_nat_reg_forest_2020,
       Ind_20_planted_forest_2020, or Ind_21_plantation_forest_2020 with no agriculture in 2020 (the derived
       plantation_forest_2020).
-    - Not forest in 2020: other land 2020 (Ind_12_other_land_2020) gives low if still other land in 2025
-      (Ind_13_other_land_after_2020), else more info; otherwise agriculture 2020 (Ind_02_commodities or
-      Ind_15_cropland_2020) gives low, else more info.
+    - Not forest in 2020: other land 2020 (Ind_12_other_land_2020) gives low (still other land is worked
+      out, as nothing after 2020 matters for land that was not forest in 2020); otherwise agriculture
+      2020 (Ind_02_commodities or Ind_15_cropland_2020) gives low, else more info.
     - Forest in 2020: agriculture after 2020 (Ind_10_agri_after_2020) gives high (deforestation). Then by
       2020 class, primary first, then regenerating or planted, then plantation, so a plot mapped as two
       classes takes the first:
       - primary: plantation gain (Ind_22_plantation_forest_gain_after_2020) high; disturbed after 2020
         (Ind_04_disturbance_after_2020) more info; still primary (primary_2025) low, else more info;
       - regenerating or planted: plantation gain high; still regenerating or planted
-        (regen_planted_still_2025) low; other land 2025 low; else more info;
-      - plantation: still a plantation (Ind_16_plantation_presence_2025) low; other land 2025 low; else
+        (regen_planted_still_2025) low; became other land (Ind_13) low; else more info;
+      - plantation: still a plantation (Ind_16_plantation_presence_2025) low; became other land (Ind_13) low; else
         more info;
-      - none of the three: other land 2025 low, else more info.
+      - none of the three: became other land (Ind_13) low, else more info.
 
     The derived 2025 states come from whisp_risk: primary_2025 = Ind_05 AND NOT Ind_04 AND NOT
     Ind_22_plantation_forest_gain_after_2020; regen_planted_still_2025 = (Ind_06 OR Ind_20) AND
@@ -979,7 +982,10 @@ def add_risk_timber_col(
         yes_locals = {
             "forest_2020": forest_2020,
             "other_land_2020": row[ind_12_name] == high_name,
+            # became other land after 2020 (Ind_13, a gain), asked on the forest side
             "other_land_2025": row[ind_13_name] == high_name,
+            # still other land on the non-forest side: worked out from other land 2020 (see the tree)
+            "other_land_still_2025": row[ind_12_name] == high_name,
             "agriculture_2020": (row[ind_2_name] == high_name)
             or (row[ind_15_name] == high_name),
             "agriculture_2025": row[ind_10_name] == high_name,
@@ -1426,11 +1432,12 @@ def get_cols_ind_12_other_land_2020(lookup_gee_datasets_df):
     )
 
 
-def get_cols_ind_13_other_land_after_2020(lookup_gee_datasets_df):
+def get_cols_ind_13_other_land_gain_after_2020(lookup_gee_datasets_df):
     """
-    Dataset names for other land in 2025 (theme_timber=other_land_after_2020: ESRI other land 2025,
-    global mining and, in Brazil, MapBiomas other land 2024 and mining gain). A presence in 2025, not a
-    change: the timber decision tree asks it after other land 2020 and on the forest legs.
+    Dataset names for other land gained after 2020 (theme_timber=other_land_gain_after_2020): pixels that
+    became other land within one product, for the timber decision tree's "Became other land?" on the
+    forest side. For now MapBiomas's dated mining gain in Brazil; the ESRI and MapBiomas other land gains
+    join once checked (water needs a permanence rule).
     """
     lookup_gee_datasets_df = lookup_gee_datasets_df[
         lookup_gee_datasets_df["exclude_from_output"] != 1
@@ -1438,7 +1445,7 @@ def get_cols_ind_13_other_land_after_2020(lookup_gee_datasets_df):
     return list(
         lookup_gee_datasets_df["name"][
             (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
-            & (lookup_gee_datasets_df["theme_timber"] == "other_land_after_2020")
+            & (lookup_gee_datasets_df["theme_timber"] == "other_land_gain_after_2020")
         ]
     )
 

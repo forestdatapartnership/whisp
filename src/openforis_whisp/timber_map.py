@@ -91,7 +91,7 @@ from .risk import (
     get_cols_ind_22_plantation_forest_gain_after_2020,
     get_cols_ind_10_agri_after_2020,
     get_cols_ind_12_other_land_2020,
-    get_cols_ind_13_other_land_after_2020,
+    get_cols_ind_13_other_land_gain_after_2020,
     get_cols_ind_15_cropland_2020,
     get_cols_ind_16_plantation_presence_2025,
     get_cols_ind_18_regen_planted_2025,
@@ -129,7 +129,9 @@ def _indicator_names(lut):
         ),
         "Ind_10_agri_after_2020": get_cols_ind_10_agri_after_2020(lut),
         "Ind_12_other_land_2020": get_cols_ind_12_other_land_2020(lut),
-        "Ind_13_other_land_after_2020": get_cols_ind_13_other_land_after_2020(lut),
+        "Ind_13_other_land_gain_after_2020": get_cols_ind_13_other_land_gain_after_2020(
+            lut
+        ),
         "Ind_15_cropland_2020": get_cols_ind_15_cropland_2020(lut),
         "Ind_16_plantation_presence_2025": get_cols_ind_16_plantation_presence_2025(
             lut
@@ -301,7 +303,7 @@ def build_timber_question_images(
     n_ind22 = names["Ind_22_plantation_forest_gain_after_2020"]
     n_ind10 = names["Ind_10_agri_after_2020"]
     n_ind12 = names["Ind_12_other_land_2020"]
-    n_ind13 = names["Ind_13_other_land_after_2020"]
+    n_ind13 = names["Ind_13_other_land_gain_after_2020"]
     n_ind15 = names["Ind_15_cropland_2020"]
     # multi-year silviculture PRESENCE = stability
     n_ind16 = names["Ind_16_plantation_presence_2025"]
@@ -324,7 +326,7 @@ def build_timber_question_images(
     plantation_gain_2025 = _union(lut, n_ind22)
     # Ind_16_plantation_presence_2025 (stable-plantation PRESENCE).
     plantation_presence_2025 = _union(lut, n_ind16)
-    other_land_2025 = _union(lut, n_ind13)  # Ind_13_other_land_after_2020
+    other_land_2025 = _union(lut, n_ind13)  # Ind_13_other_land_gain_after_2020
     other_land_2020 = _union(lut, n_ind12)  # Ind_12_other_land_2020
     combine = combine or {}
 
@@ -366,7 +368,7 @@ def build_timber_question_images(
     else:
         regen_planted_still_2025 = regen_planted_2020.And(disturbance_2025.Not())
 
-    # --- the 13 tree questions, mirroring add_risk_timber_col's yes_locals in ee.Image form ----------
+    # --- the tree questions, mirroring add_risk_timber_col's yes_locals in ee.Image form ----------
     qimg = {
         # forest_2020 = treecover(Ind_01) OR primary(Ind_05) OR regen/planted(Ind_06 or Ind_20) OR
         # plantation (Ind_21) with no agriculture 2020 (the derived plantation_forest_2020), as risk.py.
@@ -374,7 +376,9 @@ def build_timber_question_images(
         .Or(regen_planted_2020)
         .Or(plantation_2020.And(ag_2020.Not())),
         "other_land_2020": other_land_2020,  # Ind_12_other_land_2020
-        "other_land_2025": other_land_2025,  # Ind_13_other_land_after_2020
+        "other_land_2025": other_land_2025,  # Ind_13_other_land_gain_after_2020
+        # still other land: worked out from other land 2020 (nothing after 2020 matters there)
+        "other_land_still_2025": other_land_2020,
         # agriculture_2020 = Ind_02_commodities OR Ind_15_cropland_2020.
         "agriculture_2020": ag_2020,
         "agriculture_2025": agriculture_2025,  # Ind_10_agri_after_2020 (deforestation)

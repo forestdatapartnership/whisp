@@ -166,7 +166,7 @@ Each risk column holds one of the values `low`, `high` or `more_info_needed` (sh
 
   For timber, Whisp applies a different decision logic compared to perennial and annual crops. In addition to the **deforestation risk**, Whisp also evaluates **degradation risk**, here primary or naturally regenerating forest converted into plantation forest. Tree crops such as oil palm and rubber are agricultural plantations, not plantation forest. It first asks whether the plot was forest in 2020: tree cover, primary, naturally regenerating or planted forest, or plantation forest with no agriculture mapped in 2020. This is wider than the tree cover question for crops, because much timber comes from planted and plantation forests, which some general forest maps leave out by design.
 
-  - Not forest in 2020: other land in 2020 gives **low** if it is still other land and **"More info needed"** if not; otherwise agriculture in 2020 gives **low**, and anything else **"More info needed"**.
+  - Not forest in 2020: other land in 2020 gives **low**; otherwise agriculture in 2020 gives **low**, and anything else **"More info needed"**.
   - Forest in 2020 and agriculture after 2020 gives **high** (deforestation).
   - Primary forest in 2020: converted into plantation forest gives **high** (degradation); disturbed after 2020 gives **"More info needed"**; still primary gives **low**; otherwise **"More info needed"**.
   - Naturally regenerating or planted forest in 2020: converted into plantation forest gives **high**; still regenerating or planted, or now other land, gives **low**; otherwise **"More info needed"**.
