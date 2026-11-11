@@ -48,7 +48,7 @@
   ***Whisp***  implements the convergence of evidence approach by providing a transparent and public processing flow using datasets covering the following categories:
 
   1) Tree and forest cover (at the end of 2020);
-  2) Commodities (i.e., crop plantations and other agricultural uses at the end of 2020);
+  2) Commodities (i.e., agricultural plantations and other agricultural uses at the end of 2020);
   3) Disturbances **before 2020** (i.e., degradation or deforestation until 2020-12-31);
   4) Disturbances **after 2020** (i.e., degradation or deforestation from 2021-01-01 onward).
 
@@ -60,7 +60,7 @@ Additional categories are specific for the timber (wood) commodity, comparing 20
   8) Plantation forests in 2020;
   9) Other land in 2020 (e.g. built-up, water, mining, bare);
   10) Cropland in 2020;
-  11) Changes after 2020: agricultural expansion, natural forest turned plantation, primary forest that changed type;
+  11) Changes after 2020: agricultural expansion, natural forest converted into plantation forest, primary forest that changed type;
   12) Forest type and other land in the latest year mapped.
 
 
@@ -84,7 +84,7 @@ And specifically for the timber commodity:
   9) Was there other land in 2020?
   10) Was there cropland in 2020?
   11) Did agriculture expand after 2020?
-  12) Did natural forest become plantation after 2020?
+  12) Did natural forest become plantation forest after 2020?
   13) Did primary forest change type after 2020?
   14) In the latest year mapped, is the plot still the same forest type, or other land?
 
@@ -164,13 +164,13 @@ Each risk column holds one of the values `low`, `high` or `more_info_needed` (sh
   *The Whisp algorithm for **Timber** visualized:*
   ![timber_graphic](https://github.com/user-attachments/assets/c3da6e05-37a1-4790-ac86-90412f645071)
 
-  For timber, Whisp applies a different decision logic compared to perennial and annual crops. In addition to the **deforestation risk**, Whisp also evaluates **degradation risk**, here a natural forest turned plantation. It first asks whether the plot was forest in 2020: tree cover, primary, naturally regenerating or planted forest, or plantation forest with no agriculture mapped in 2020. This is wider than the tree cover question for crops, because much timber comes from planted and plantation forests, which some general forest maps leave out by design.
+  For timber, Whisp applies a different decision logic compared to perennial and annual crops. In addition to the **deforestation risk**, Whisp also evaluates **degradation risk**, here primary or naturally regenerating forest converted into plantation forest. Tree crops such as oil palm and rubber are agricultural plantations, not plantation forest. It first asks whether the plot was forest in 2020: tree cover, primary, naturally regenerating or planted forest, or plantation forest with no agriculture mapped in 2020. This is wider than the tree cover question for crops, because much timber comes from planted and plantation forests, which some general forest maps leave out by design.
 
   - Not forest in 2020: other land in 2020 gives **low** if it is still other land and **"More info needed"** if not; otherwise agriculture in 2020 gives **low**, and anything else **"More info needed"**.
   - Forest in 2020 and agriculture after 2020 gives **high** (deforestation).
-  - Primary forest in 2020: turned plantation gives **high** (degradation); disturbed after 2020 gives **"More info needed"**; still primary gives **low**; otherwise **"More info needed"**.
-  - Naturally regenerating or planted forest in 2020: turned plantation gives **high**; still regenerating or planted, or now other land, gives **low**; otherwise **"More info needed"**.
-  - Plantation forest in 2020: still a plantation, or now other land, gives **low**; otherwise **"More info needed"**.
+  - Primary forest in 2020: converted into plantation forest gives **high** (degradation); disturbed after 2020 gives **"More info needed"**; still primary gives **low**; otherwise **"More info needed"**.
+  - Naturally regenerating or planted forest in 2020: converted into plantation forest gives **high**; still regenerating or planted, or now other land, gives **low**; otherwise **"More info needed"**.
+  - Plantation forest in 2020: still plantation forest, or now other land, gives **low**; otherwise **"More info needed"**.
   - Forest in 2020 with none of these types mapped: now other land gives **low**; otherwise **"More info needed"**.
 
   The `risk_timber_pathway` column names the end point each plot reached. Some of the indicators the timber decision tree uses along the way are not in the output yet; `whisp_risk(..., include_working_columns=True)` returns them.

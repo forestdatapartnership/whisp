@@ -11,9 +11,9 @@ from openforis_whisp.risk import (
     get_cols_ind_04_dist_after_2020,
     get_cols_ind_05_primary_2020,
     get_cols_ind_06_nat_reg_2020,
-    get_cols_ind_20_planted_2020,
-    get_cols_ind_21_plantation_2020,
-    get_cols_ind_22_natural_to_plantation_after_2020,
+    get_cols_ind_20_planted_forest_2020,
+    get_cols_ind_21_plantation_forest_2020,
+    get_cols_ind_22_natural_to_plantation_forest_after_2020,
     get_cols_ind_09_treecover_after_2020,
     get_cols_ind_10_agri_after_2020,
     get_cols_ind_12_other_land_2020,
@@ -104,9 +104,9 @@ def test_timber_flag_is_on_exactly_for_the_timber_indicator_datasets():
         + get_cols_ind_04_dist_after_2020(lut)
         + get_cols_ind_05_primary_2020(lut)
         + get_cols_ind_06_nat_reg_2020(lut)
-        + get_cols_ind_20_planted_2020(lut)
-        + get_cols_ind_21_plantation_2020(lut)
-        + get_cols_ind_22_natural_to_plantation_after_2020(lut)
+        + get_cols_ind_20_planted_forest_2020(lut)
+        + get_cols_ind_21_plantation_forest_2020(lut)
+        + get_cols_ind_22_natural_to_plantation_forest_after_2020(lut)
         + get_cols_ind_09_treecover_after_2020(lut)
         + get_cols_ind_10_agri_after_2020(lut)
         + get_cols_ind_12_other_land_2020(lut)
@@ -146,11 +146,11 @@ def test_timber_forest_type_indicators_read_only_their_type_layers():
         "GFT_naturally_regenerating",
         "ForTy_v2_nat_reg_2020",
     }
-    assert set(get_cols_ind_20_planted_2020(lut)) == {
+    assert set(get_cols_ind_20_planted_forest_2020(lut)) == {
         "IIASA_planted_2020",
         "ForTy_v2_planted_2020",
     }
-    assert set(get_cols_ind_21_plantation_2020(lut)) == {
+    assert set(get_cols_ind_21_plantation_forest_2020(lut)) == {
         "IIASA_plantation_2020",
         "ForTy_v2_plantation_2020",
         "nBR_INPE_TCsilviculture_Amazon_2020",  # pragma: allowlist secret

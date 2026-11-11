@@ -38,15 +38,15 @@ PATHWAY_TO_CODE = {
     "low: agriculture 2020": 1,
     "low: still primary": 2,
     "low: regen stayed forest": 3,
-    "low: stable plantation": 4,
+    "low: still plantation forest": 4,
     "more-info: non-forest 2020, unclassified": 5,
     "high: deforestation": 6,
-    "high: regen->plantation degradation": 7,
-    "more-info: plantation 2020, no later state": 8,
+    "high: regenerating -> plantation forest (degradation)": 7,
+    "more-info: plantation forest 2020, no later state": 8,
     # 9 retired (was "more-info: primary 2020, no later state")
     "more-info: regen 2020, no later state": 10,
     "low: other land 2020 (stable)": 11,
-    "high: primary->plantation degradation": 12,
+    "high: primary -> plantation forest (degradation)": 12,
     "more-info: other land 2020 changed": 13,
     # 14 revived for the unclassified-forest (treecover only) -> other land leaf; it was the OLD shared
     # "forest/plantation 2020 -> other land" low, whose class-specific cases split off as 16/17/18.
@@ -54,7 +54,7 @@ PATHWAY_TO_CODE = {
     # 15 retired (was the dropped Ind_09_treecover_after_2020 "primary -> regrowth" leg)
     # 16 retired (was "low: primary 2020 -> other land")
     "low: regen 2020 -> other land": 17,
-    "low: plantation 2020 -> other land": 18,
+    "low: plantation forest 2020 -> other land": 18,
     "more-info: forest 2020, unclassified": 19,
     # 20 retired (was "low: primary 2020 -> regen/planted 2025")
     # 21-22: the primary leg since 2026-11-03 (disturbance asked before the ForTy V2 2025 state).
@@ -108,10 +108,10 @@ Q_LABEL = {
     "other_land_2025": "Became other land in 2025?",
     "agriculture_2020": "Agriculture in 2020?",
     "agriculture_2025": "Agriculture after 2020?<br/><small>(deforestation)</small>",
-    "plantation_2020": "Plantation in 2020?",
-    "plantation_presence_2025": "Still a plantation in 2025?<br/><small>(presence)</small>",
+    "plantation_2020": "Plantation forest in 2020?",
+    "plantation_presence_2025": "Still plantation forest in 2025?<br/><small>(presence)</small>",
     "primary_2020": "Primary forest in 2020?",
-    "plantation_2025": "Became a plantation in 2025?<br/><small>(degradation)</small>",
+    "plantation_2025": "Became plantation forest in 2025?<br/><small>(degradation)</small>",
     "disturbed_after_2020": "Disturbed after 2020?<br/><small>(as for crops: TMF, Hansen loss, alerts)</small>",
     "primary_2025": "Still primary in 2025?**",
     "regen_planted_2020": "Regenerating / planted forest in 2020?",
@@ -207,7 +207,7 @@ Q_TO_COLUMNS = {
         "Ind_01_treecover",
         "Ind_05_primary_2020",
         "Ind_06_nat_reg_forest_2020",
-        "Ind_20_planted_2020",
+        "Ind_20_planted_forest_2020",
         # derived in whisp_risk: Ind_21 AND NOT (Ind_02 OR Ind_15), plantation with no agriculture in 2020
         "plantation_forest_2020",
     ],
@@ -215,14 +215,14 @@ Q_TO_COLUMNS = {
     "other_land_2025": ["Ind_13_other_land_after_2020"],
     "agriculture_2020": ["Ind_02_commodities", "Ind_15_cropland_2020"],
     "agriculture_2025": ["Ind_10_agri_after_2020"],
-    "plantation_2020": ["Ind_21_plantation_2020"],
+    "plantation_2020": ["Ind_21_plantation_forest_2020"],
     "plantation_presence_2025": ["Ind_16_plantation_presence_2025"],
     "primary_2020": ["Ind_05_primary_2020"],
-    "plantation_2025": ["Ind_22_natural_to_plantation_after_2020"],
+    "plantation_2025": ["Ind_22_natural_to_plantation_forest_after_2020"],
     "disturbed_after_2020": ["Ind_04_disturbance_after_2020"],
     # derived in whisp_risk: Ind_05 AND NOT Ind_04 AND NOT Ind_19 (no change in ForTy's own primary class)
     "primary_2025": ["primary_2025"],
-    "regen_planted_2020": ["Ind_06_nat_reg_forest_2020", "Ind_20_planted_2020"],
+    "regen_planted_2020": ["Ind_06_nat_reg_forest_2020", "Ind_20_planted_forest_2020"],
     # derived in whisp_risk: (Ind_06 OR Ind_20) AND observed Ind_18 where flagged, else AND NOT Ind_04
     "regen_planted_still_2025": ["regen_planted_still_2025"],
 }

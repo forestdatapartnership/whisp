@@ -86,9 +86,9 @@ from .risk import (
     get_cols_ind_04_dist_after_2020,
     get_cols_ind_05_primary_2020,
     get_cols_ind_06_nat_reg_2020,
-    get_cols_ind_20_planted_2020,
-    get_cols_ind_21_plantation_2020,
-    get_cols_ind_22_natural_to_plantation_after_2020,
+    get_cols_ind_20_planted_forest_2020,
+    get_cols_ind_21_plantation_forest_2020,
+    get_cols_ind_22_natural_to_plantation_forest_after_2020,
     get_cols_ind_10_agri_after_2020,
     get_cols_ind_12_other_land_2020,
     get_cols_ind_13_other_land_after_2020,
@@ -123,9 +123,9 @@ def _indicator_names(lut):
         "Ind_04_disturbance_after_2020": get_cols_ind_04_dist_after_2020(lut),
         "Ind_05_primary_2020": get_cols_ind_05_primary_2020(lut),
         "Ind_06_nat_reg_forest_2020": get_cols_ind_06_nat_reg_2020(lut),
-        "Ind_20_planted_2020": get_cols_ind_20_planted_2020(lut),
-        "Ind_21_plantation_2020": get_cols_ind_21_plantation_2020(lut),
-        "Ind_22_natural_to_plantation_after_2020": get_cols_ind_22_natural_to_plantation_after_2020(
+        "Ind_20_planted_forest_2020": get_cols_ind_20_planted_forest_2020(lut),
+        "Ind_21_plantation_forest_2020": get_cols_ind_21_plantation_forest_2020(lut),
+        "Ind_22_natural_to_plantation_forest_after_2020": get_cols_ind_22_natural_to_plantation_forest_after_2020(
             lut
         ),
         "Ind_10_agri_after_2020": get_cols_ind_10_agri_after_2020(lut),
@@ -299,10 +299,10 @@ def build_timber_question_images(
     n_ind02 = names["Ind_02_commodities"]
     n_ind05 = names["Ind_05_primary_2020"]
     n_ind06 = names["Ind_06_nat_reg_forest_2020"]
-    n_ind20 = names["Ind_20_planted_2020"]
-    n_ind21 = names["Ind_21_plantation_2020"]
+    n_ind20 = names["Ind_20_planted_forest_2020"]
+    n_ind21 = names["Ind_21_plantation_forest_2020"]
     # plantation GAIN = degradation
-    n_ind22 = names["Ind_22_natural_to_plantation_after_2020"]
+    n_ind22 = names["Ind_22_natural_to_plantation_forest_after_2020"]
     n_ind10 = names["Ind_10_agri_after_2020"]
     n_ind12 = names["Ind_12_other_land_2020"]
     n_ind13 = names["Ind_13_other_land_after_2020"]
@@ -322,10 +322,10 @@ def build_timber_question_images(
     tc20 = _union(lut, n_ind01)  # Ind_01_treecover
     # Ind_02_commodities OR Ind_15_cropland_2020 (the Rule-1 agriculture-2020 pool).
     ag_2020 = _union(lut, list(n_ind02) + list(n_ind15))
-    # Ind_06_nat_reg_forest_2020 OR Ind_20_planted_2020 (plain, no "and not primary" carve-out).
+    # Ind_06_nat_reg_forest_2020 OR Ind_20_planted_forest_2020 (plain, no "and not primary" carve-out).
     regen_planted_2020 = _union(lut, list(n_ind06) + list(n_ind20))
-    plantation_2020 = _union(lut, n_ind21)  # Ind_21_plantation_2020
-    # Ind_22_natural_to_plantation_after_2020 (plantation GAIN = degradation).
+    plantation_2020 = _union(lut, n_ind21)  # Ind_21_plantation_forest_2020
+    # Ind_22_natural_to_plantation_forest_after_2020 (plantation GAIN = degradation).
     plantation_gain_2025 = _union(lut, n_ind22)
     # Ind_16_plantation_presence_2025 (stable-plantation PRESENCE).
     plantation_presence_2025 = _union(lut, n_ind16)
@@ -383,10 +383,10 @@ def build_timber_question_images(
         # agriculture_2020 = Ind_02_commodities OR Ind_15_cropland_2020.
         "agriculture_2020": ag_2020,
         "agriculture_2025": agriculture_2025,  # Ind_10_agri_after_2020 (deforestation)
-        "plantation_2020": plantation_2020,  # Ind_21_plantation_2020
+        "plantation_2020": plantation_2020,  # Ind_21_plantation_forest_2020
         "plantation_presence_2025": plantation_presence_2025,  # Ind_16 (stable-plantation PRESENCE)
         "primary_2020": primary_2020,  # Ind_05_primary_2020
-        "plantation_2025": plantation_gain_2025,  # Ind_22_natural_to_plantation_after_2020 (GAIN = degradation)
+        "plantation_2025": plantation_gain_2025,  # Ind_22_natural_to_plantation_forest_after_2020 (GAIN = degradation)
         "disturbed_after_2020": disturbance_2025,  # Ind_04 (primary leg: disturbed primary -> more-info)
         "primary_2025": still_primary_2025,  # Ind_05 AND NOT Ind_04 AND NOT Ind_19 (ForTy primary change)
         "regen_planted_still_2025": regen_planted_still_2025,  # (Ind_06 OR Ind_20) AND Ind_18 (observed)
@@ -527,7 +527,7 @@ TIMBER_BOOKMARKS = [
 _DERIVED_INPUTS = {
     "primary_2025": "Ind_19_primary_change_after_2020",
     "regen_planted_still_2025": "Ind_18_regen_planted_2025",
-    "plantation_forest_2020": "Ind_21_plantation_2020",
+    "plantation_forest_2020": "Ind_21_plantation_forest_2020",
 }
 
 

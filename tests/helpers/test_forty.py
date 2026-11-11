@@ -36,7 +36,7 @@ FORTY_EXPECTED = {
     "ForTy_v2_primary_2025": "g_forty_v2_primary_2025_prep",
     "ForTy_v2_regen_planted_2025": "g_forty_v2_regen_planted_2025_prep",
     "ForTy_v2_plantation_2025": "g_forty_v2_plantation_2025_prep",
-    "ForTy_v2_natural_to_plantation_2020_2025": "g_forty_v2_natural_to_plantation_2020_2025_prep",
+    "ForTy_v2_natural_to_plantation_forest_2020_2025": "g_forty_v2_natural_to_plantation_forest_2020_2025_prep",
     "ForTy_v2_tree_crop_gain_2020_2025": "g_forty_v2_tree_crop_gain_2020_2025_prep",
     "ForTy_v2_other_land_2020": "g_forty_v2_other_land_2020_prep",
     "ForTy_v2_other_land_2025": "g_forty_v2_other_land_2025_prep",
@@ -52,7 +52,7 @@ FORTY_TIMBER_ON = {
     "ForTy_v2_plantation_2020",
     "ForTy_v2_regen_planted_2025",
     "ForTy_v2_plantation_2025",
-    "ForTy_v2_natural_to_plantation_2020_2025",
+    "ForTy_v2_natural_to_plantation_forest_2020_2025",
     "ForTy_v2_primary_change_2020_2025",
 }
 
