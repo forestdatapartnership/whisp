@@ -93,8 +93,6 @@ from .risk import (
     get_cols_ind_12_other_land_2020,
     get_cols_ind_13_other_land_gain_after_2020,
     get_cols_ind_15_cropland_2020,
-    get_cols_ind_16_plantation_presence_2025,
-    get_cols_ind_18_regen_planted_2025,
 )
 
 # --------------------------------------------------------------------------------------------------
@@ -133,10 +131,6 @@ def _indicator_names(lut):
             lut
         ),
         "Ind_15_cropland_2020": get_cols_ind_15_cropland_2020(lut),
-        "Ind_16_plantation_presence_2025": get_cols_ind_16_plantation_presence_2025(
-            lut
-        ),
-        "Ind_18_regen_planted_2025": get_cols_ind_18_regen_planted_2025(lut),
     }
 
 
@@ -305,15 +299,9 @@ def build_timber_question_images(
     n_ind12 = names["Ind_12_other_land_2020"]
     n_ind13 = names["Ind_13_other_land_gain_after_2020"]
     n_ind15 = names["Ind_15_cropland_2020"]
-    # multi-year silviculture PRESENCE = stability
-    n_ind16 = names["Ind_16_plantation_presence_2025"]
-    # the crop decision trees' disturbance after 2020 (asked on the primary leg; part of the derived primary_2025
-    # and the regen_planted_still_2025 fallback)
+    # the crop decision trees' disturbance after 2020 (asked on the primary leg; part of the worked-out
+    # primary_2025)
     n_ind04 = names["Ind_04_disturbance_after_2020"]
-    # observed regen / planted 2025 (ForTy V2). The pool can be empty when no lookup row is flagged (_union
-    # renders that as ee.Image(0)); the derived question then falls back to 2020-minus-disturbance,
-    # mirroring whisp_risk.
-    n_ind18 = names["Ind_18_regen_planted_2025"]
 
     # --- indicator ee.Images (unions), and the two COUNT pools that carry the k agreement knob --------
     tc20 = _union(lut, n_ind01)  # Ind_01_treecover
@@ -324,8 +312,8 @@ def build_timber_question_images(
     plantation_2020 = _union(lut, n_ind21)  # Ind_21_plantation_forest_2020
     # Ind_22_plantation_forest_gain_after_2020 (plantation GAIN = degradation).
     plantation_gain_2025 = _union(lut, n_ind22)
-    # Ind_16_plantation_presence_2025 (stable-plantation PRESENCE).
-    plantation_presence_2025 = _union(lut, n_ind16)
+    # still plantation forest: worked out (agriculture after 2020 is asked before it)
+    plantation_presence_2025 = plantation_2020
     other_land_2025 = _union(lut, n_ind13)  # Ind_13_other_land_gain_after_2020
     other_land_2020 = _union(lut, n_ind12)  # Ind_12_other_land_2020
     combine = combine or {}
@@ -357,16 +345,13 @@ def build_timber_question_images(
     primary_2020 = _folded(n_ind05, "Ind_05", lambda: _count(lut, n_ind05).gte(k))
     agriculture_2025 = _folded(n_ind10, "Ind_10", lambda: _count(lut, n_ind10).gte(k))
 
-    # Derived 2025 forest states, mirroring whisp_risk: still primary = primary 2020 AND NOT disturbance
-    # AND NOT plantation forest gain (Ind_22); still regen / planted = regen 2020 AND the observed Ind_18
-    # where flagged, else AND NOT disturbance (regenerating forest tolerates disturbance).
+    # Worked-out 2025 forest states, mirroring whisp_risk: still primary = primary 2020 AND NOT disturbance
+    # AND NOT plantation forest gain (Ind_22); still regen / planted = regen 2020 AND NOT Ind_22 (harvest
+    # is not a conversion, so disturbance is not asked).
     still_primary_2025 = primary_2020.And(disturbance_2025.Not()).And(
         plantation_gain_2025.Not()
     )
-    if len(n_ind18) > 0:
-        regen_planted_still_2025 = regen_planted_2020.And(_union(lut, n_ind18))
-    else:
-        regen_planted_still_2025 = regen_planted_2020.And(disturbance_2025.Not())
+    regen_planted_still_2025 = regen_planted_2020.And(plantation_gain_2025.Not())
 
     # --- the tree questions, mirroring add_risk_timber_col's yes_locals in ee.Image form ----------
     qimg = {
@@ -383,12 +368,12 @@ def build_timber_question_images(
         "agriculture_2020": ag_2020,
         "agriculture_2025": agriculture_2025,  # Ind_10_agri_after_2020 (deforestation)
         "plantation_2020": plantation_2020,  # Ind_21_plantation_forest_2020
-        "plantation_presence_2025": plantation_presence_2025,  # Ind_16 (stable-plantation PRESENCE)
+        "plantation_presence_2025": plantation_presence_2025,  # worked out: plantation forest 2020
         "primary_2020": primary_2020,  # Ind_05_primary_2020
         "plantation_2025": plantation_gain_2025,  # Ind_22_plantation_forest_gain_after_2020 (GAIN = degradation)
         "disturbed_after_2020": disturbance_2025,  # Ind_04 (primary leg: disturbed primary -> more-info)
         "primary_2025": still_primary_2025,  # Ind_05 AND NOT Ind_04 AND NOT Ind_22
-        "regen_planted_still_2025": regen_planted_still_2025,  # (Ind_06 OR Ind_20) AND Ind_18 (observed)
+        "regen_planted_still_2025": regen_planted_still_2025,  # (Ind_06 OR Ind_20) AND NOT Ind_22
         # regen_planted_2020 = plain Ind_06 OR Ind_20, NO "and not primary" carve-out: the decision tree checks
         # primary BEFORE regen, so ORDER (not exclusion) resolves a primary+regen overlap.
         "regen_planted_2020": regen_planted_2020,
@@ -522,10 +507,9 @@ TIMBER_BOOKMARKS = [
 ]
 
 # the derived questions, and the indicator each adds to the questions before it (its datasets are listed
-# under that question in the viewer). Still primary (primary_2025) adds none: it is worked out from the
-# questions before it, so it lists no datasets of its own.
+# under that question in the viewer). The worked-out "still" questions add none, so they list no
+# datasets of their own.
 _DERIVED_INPUTS = {
-    "regen_planted_still_2025": "Ind_18_regen_planted_2025",
     "plantation_forest_2020": "Ind_21_plantation_forest_2020",
 }
 
@@ -534,8 +518,7 @@ def timber_input_layers(national_codes=None, lookup_df=None, max_workers=16):
     """Tile layers for every dataset the timber decision tree reads, to view the inputs one at a time.
 
     Returns {column: layers} for ``pathway_viewer``: the datasets of each indicator in the tree's
-    questions, and under the derived question still regenerating or planted in 2025 the indicator it
-    adds, Ind_18_regen_planted_2025 (still primary adds none). The datasets
+    questions; the worked-out "still" questions list none of their own. The datasets
     come from the same getters as the question images (``_indicator_names``). Needs Earth Engine
     initialised.
     """

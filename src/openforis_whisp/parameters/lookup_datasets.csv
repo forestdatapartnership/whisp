@@ -266,7 +266,7 @@ nBR_INPE_TCsilviculture_Cerrado_2020,2050,BR,treecover,plantation_2020,1,1,1,0,f
 nBR_MapBiomas_col10_silviculture_Brazil_2020,2060,BR,treecover,plantation_2020,1,1,1,0,float32,1,0,nbr_mapbiomasc10_silv20_prep
 nBR_MapBiomas_col10_silviculture_2024,2061,BR,treecover,plantation_forest_gain_after_2020,0,0,0,1,float32,1,0,nbr_mapbiomasc10_silv24_prep
 nBR_MapBiomas_col10_silviculture_gain_after_2020,2062,BR,treecover,plantation_forest_gain_after_2020,0,0,1,0,float32,1,0,nbr_mapbiomasc10_silv_gain_after_2020_prep
-nBR_MapBiomas_col10_silviculture_anyyear_after_2020,2063,BR,treecover,plantation_presence_2025,0,0,1,0,float32,1,0,nbr_mapbiomasc10_silv_anyyear_after_2020_prep
+nBR_MapBiomas_col10_silviculture_anyyear_after_2020,2063,BR,treecover,,0,0,0,1,float32,1,0,nbr_mapbiomasc10_silv_anyyear_after_2020_prep
 GLAD_Primary,20,,treecover,,1,1,1,0,float32,1,0,g_glad_pht_prep
 nBR_INPE_TC_primary_forest_Amazon_2020,1960,BR,treecover,,1,1,1,0,float32,1,0,nbr_terraclass_amz20_primary_prep
 TMF_undist,30,,treecover,primary,1,1,1,0,float32,1,0,g_jrc_tmf_undisturbed_prep
@@ -281,8 +281,8 @@ ForTy_v2_plantation_2020,1865,,,plantation_2020,0,0,1,0,float32,1,0,g_forty_v2_p
 ForTy_v2_tree_crops_2020,1866,,commodities,,0,0,0,1,float32,1,0,g_forty_v2_tree_crops_2020_prep
 ForTy_v2_forest_2020,1867,,treecover,,0,0,0,1,float32,1,0,g_forty_v2_forest_2020_prep
 ForTy_v2_primary_2025,1868,,,primary_2025,0,0,0,1,float32,1,0,g_forty_v2_primary_2025_prep
-ForTy_v2_regen_planted_latest,1869,,,regen_planted_2025,0,0,1,0,float32,1,0,g_forty_v2_regen_planted_latest_prep
-ForTy_v2_plantation_latest,1870,,,plantation_presence_2025,0,0,1,0,float32,1,0,g_forty_v2_plantation_latest_prep
+ForTy_v2_regen_planted_latest,1869,,,,0,0,0,1,float32,1,0,g_forty_v2_regen_planted_latest_prep
+ForTy_v2_plantation_latest,1870,,,,0,0,0,1,float32,1,0,g_forty_v2_plantation_latest_prep
 ForTy_v2_plantation_forest_gain_after_2020,1871,,,plantation_forest_gain_after_2020,0,0,1,0,float32,1,0,g_forty_v2_plantation_forest_gain_after_2020_prep
 ForTy_v2_tree_crop_gain_2020_2025,1872,,,agri_after_2020,0,0,0,1,float32,1,0,g_forty_v2_tree_crop_gain_2020_2025_prep
 ForTy_v2_other_land_2020,1873,,,other_land_2020,0,0,0,1,float32,1,0,g_forty_v2_other_land_2020_prep

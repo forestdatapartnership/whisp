@@ -168,12 +168,12 @@ Each risk column holds one of the values `low`, `high` or `more_info_needed` (sh
 
   - Not forest in 2020: other land in 2020 gives **low**; otherwise agriculture in 2020 gives **low**, and anything else **"More info needed"**.
   - Forest in 2020 and agriculture after 2020 gives **high** (deforestation).
-  - Primary forest in 2020: converted into plantation forest gives **high** (degradation); disturbed after 2020 gives **"More info needed"**; still primary gives **low**; otherwise **"More info needed"**.
-  - Naturally regenerating or planted forest in 2020: converted into plantation forest gives **high**; still regenerating or planted, or now other land, gives **low**; otherwise **"More info needed"**.
-  - Plantation forest in 2020: still plantation forest, or now other land, gives **low**; otherwise **"More info needed"**.
+  - Primary forest in 2020: converted into plantation forest gives **high** (degradation); disturbed after 2020 gives **"More info needed"**; otherwise **low**.
+  - Naturally regenerating or planted forest in 2020: converted into plantation forest gives **high**; otherwise **low**, as harvest is not a conversion.
+  - Plantation forest in 2020: **low**.
   - Forest in 2020 with none of these types mapped: now other land gives **low**; otherwise **"More info needed"**.
 
-  The `risk_timber_pathway` column names the end point each plot reached. Some of the indicators the timber decision tree uses along the way are not in the output yet; `whisp_risk(..., include_working_columns=True)` returns them.
+  The `risk_timber_pathway` column names the end point each plot reached. Every indicator the timber decision tree reads is in the output, so it can be rerun from the results.
 
 
 
