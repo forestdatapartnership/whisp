@@ -705,16 +705,16 @@ def g_glad_crop_gain_after_2020_prep():
 # GAIN after 2020 = the GLOBAL pasture leg of Ind_10 (agriculture after 2020), alongside the Brazil-only
 # MapBiomas ag_gain. Uses the GGC-30m grassland_c dominant_class band: class 1 = CULTIVATED (managed /
 # grazed = agricultural use under EUDR Art. 2(5)); class 2 = natural/semi-natural is EXCLUDED (a natural
-# land cover, not agriculture). Version 1.1, 2000-2024: readable in Earth Engine, though the public catalog
-# still lists v1 (2000-2022). The after-state is the NEWEST year in the collection (2024 now), so a newly
-# published year is picked up without a code change; the 2019 / 2020 baseline is fixed.
+# land cover, not agriculture). Version 1.1 (2000-2024), not yet on Zenodo or in the EE catalog (v1 only), is
+# the one the GPW team recommends: https://github.com/wri/global-pasture-watch/discussions/12 (cite the v1 paper).
+# After-state = NEWEST year in the collection (2024 now; new years picked up); the 2019 / 2020 baseline is fixed.
 # Same-product gain, guarded on the before side: cultivated in the newest year and NOT in 2020 or 2019, so
 # pasture already there in 2019 that dropped out of the 2020 map is not counted as new (in six cattle-
 # frontier boxes this removed about a quarter of the plain gain, of which 1% sat on tree loss). Requiring a
 # second after-year was tried and dropped: it removed real conversions first mapped in the last year.
 # v1.1 against v1 in eight 1-degree cattle-frontier boxes: 50% more new pasture, more of it on tree loss
 # since 2020 (32% against 24%), and a better match with MapBiomas new pasture in Brazil (20% of its area
-# against 14%). v2 (published 2025, not in the Earth Engine catalog; adds an open shrubland class and a
+# against 14%). v2 (beta, published 2025, not in the Earth Engine catalog; adds an open shrubland class and a
 # median filter, with new reference samples) draws cultivated grassland more tightly: better in drylands
 # (it no longer calls Sahel rangeland cultivated), but it sees less of the recent forest -> pasture change
 # (in the Chaco it calls half of v1.1's new pasture "other"), so v1.1 is used for this gain for now.
