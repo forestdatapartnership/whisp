@@ -705,12 +705,14 @@ def g_glad_crop_gain_after_2020_prep():
 # GAIN 2020 -> 2022 = the GLOBAL pasture leg of Ind_10 (agriculture after 2020), alongside the
 # Brazil-only MapBiomas ag_gain. Uses the GGC-30m grassland_c dominant_class band: class 1 = CULTIVATED
 # (managed / grazed = agricultural use under EUDR Art. 2(5)); class 2 = natural/semi-natural is EXCLUDED
-# (a natural land cover, not agriculture). Same-product gain that has to hold: cultivated in both 2021
-# and 2022 and NOT in 2020, so one-year flicker is not counted (about 40% of the plain 2020 -> 2022 gain
-# flipped back; on the 564 test plots the stricter rule removed 6 timber highs, 5 of them with no forest
-# loss at all). GPW v1 is annual 2000-2022, so the after-state is 2022 and LAGS the ESRI (2025) /
-# MapBiomas (2024) pairs; pasture first mapped in 2022, or forest -> pasture in 2023-2025, is missed
-# outside Brazil until a newer GPW release. Wired GLOBAL (no Brazil mask):
+# (a natural land cover, not agriculture). Same-product gain, guarded on the before side: cultivated in
+# 2022 and NOT in 2020 or 2019, so pasture already there in 2019 that dropped out of the 2020 map is not
+# counted as new. In six 1-degree cattle-frontier boxes this removes about a quarter of the plain gain
+# area, of which 1% sits on Hansen loss 2020-2022, and it agrees better with MapBiomas new pasture in
+# Brazil. Requiring 2021 as well was tried and dropped: it removed real conversions first mapped in 2022.
+# GPW v1 is annual 2000-2022, so the after-state is 2022 and LAGS the ESRI (2025) / MapBiomas (2024)
+# pairs; forest -> pasture in 2023-2025 is missed outside Brazil until a newer GPW release. Wired
+# GLOBAL (no Brazil mask):
 # the Ind_10 OR-union plus the treecover_2020 gate (Rule 2) make the MapBiomas overlap harmless (it can
 # only ADD a forest -> pasture HIGH on a plot that carried 2020 treecover). Cultivated grassland is GPW's
 # noisiest class (F1 ~0.64), so treat as a conservative member. See
@@ -728,9 +730,9 @@ def _gpw_cultivated(year):
 
 def g_gpw_cultiv_pasture_gain_after_2020_prep():
     gain = (
-        _gpw_cultivated(2021)
-        .And(_gpw_cultivated(2022))
+        _gpw_cultivated(2022)
         .And(_gpw_cultivated(2020).Not())
+        .And(_gpw_cultivated(2019).Not())
     )
     return gain.rename("GPW_cultiv_pasture_gain_after_2020").selfMask()
 
