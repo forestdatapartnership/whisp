@@ -38,7 +38,6 @@ EXPECTED_INDICATOR_COLS = [
     "Ind_11_logging_concession_before_2020",
     "Ind_12_other_land_2020",
     "Ind_15_cropland_2020",
-    "Ind_19_primary_change_after_2020",
     "Ind_20_planted_forest_2020",
     "Ind_21_plantation_forest_2020",
     "Ind_22_plantation_forest_gain_after_2020",
@@ -297,8 +296,8 @@ def test_timber_decision_tree_terminals() -> None:
             **{_IND_5: "yes", _IND_4: "yes", _PRIMARY_2025: "yes"},
         ),
         _timber_row(
-            # ForTy shows a change (primary_2025 = no) but no disturbance layer backs it -> more-info,
-            # where the regenerating / planted 2025 state (code 20) used to give LOW
+            # still primary = no with no disturbance: not reachable through whisp_risk today (still primary
+            # is not disturbed and not converted), kept for when planted forest is split out
             "primary_changed_to_regen_without_disturbance",
             "more_info_needed",
             "more-info: primary 2020, changed without disturbance",
@@ -448,10 +447,10 @@ def _synthetic_plot(**hectares):
 
 
 def test_timber_primary_leg_through_whisp_risk() -> None:
-    """The primary leg end to end through whisp_risk (no GEE): the lookup rows behind Ind_04 and Ind_19,
-    the derived primary_2025 and the tree. Covers the case a ForTy-only "still primary" rule got wrong
-    (cleared forest ForTy still calls primary) and the case a ForTy-only change rule got wrong (primary
-    that only TMF calls primary, which ForTy never called primary, so nothing changed)."""
+    """The primary leg end to end through whisp_risk (no GEE): the lookup rows behind Ind_04 and Ind_22,
+    the derived primary_2025 (not disturbed, not converted into plantation forest) and the tree. Covers
+    the case a ForTy-only "still primary" rule got wrong (cleared forest ForTy still calls primary) and
+    primary that only TMF calls primary."""
     cases = [
         # (label, hectares, risk_timber, pathway)
         (
@@ -471,10 +470,13 @@ def test_timber_primary_leg_through_whisp_risk() -> None:
             "more-info: primary 2020, disturbed after 2020",
         ),
         (
-            "forty_change_without_disturbance",
-            {"ForTy_v2_primary_2020": 8.0, "ForTy_v2_primary_change_after_2020": 3.0},
-            "more_info_needed",
-            "more-info: primary 2020, changed without disturbance",
+            "converted_into_plantation_forest",
+            {
+                "ForTy_v2_primary_2020": 8.0,
+                "ForTy_v2_plantation_forest_gain_after_2020": 3.0,
+            },
+            "high",
+            "high: primary -> plantation forest (degradation)",
         ),
         (
             "still_primary",
@@ -508,7 +510,7 @@ def test_timber_primary_leg_through_whisp_risk() -> None:
     for i, (label, _, risk, pathway) in enumerate(cases):
         got = (out["risk_timber"].iloc[i], out["risk_timber_pathway"].iloc[i])
         assert got == (risk, pathway), f"{label}: got {got}, expected {(risk, pathway)}"
-    assert "Ind_19_primary_change_after_2020" in out.columns
+    assert "Ind_19_primary_change_after_2020" not in out.columns
 
 
 def test_plantation_opens_the_forest_gate_unless_agriculture_in_2020() -> None:
@@ -550,7 +552,7 @@ def test_timber_derived_columns_keep_each_row_when_index_labels_repeat() -> None
     cases = [
         ({"ForTy_v2_primary_2020": 8.0}, "low"),
         (
-            {"ForTy_v2_primary_2020": 8.0, "ForTy_v2_primary_change_after_2020": 3.0},
+            {"ForTy_v2_primary_2020": 8.0, "GFC_loss_after_2020": 2.0},
             "more_info_needed",
         ),
         (
@@ -560,8 +562,9 @@ def test_timber_derived_columns_keep_each_row_when_index_labels_repeat() -> None
         ({"ForTy_v2_nat_reg_2020": 8.0}, "more_info_needed"),
     ]
     df = pd.DataFrame([_synthetic_plot(**ha) for ha, _ in cases], index=[0, 0, 1, 1])
-    out = whisp_risk(df)
+    out = whisp_risk(df, include_working_columns=True)
     assert list(out["risk_timber"]) == [risk for _, risk in cases]
+    assert list(out["primary_2025"]) == ["yes", "no", "no", "no"]
 
 
 _WORKING_COLS = [

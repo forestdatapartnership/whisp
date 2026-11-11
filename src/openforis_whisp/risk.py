@@ -186,7 +186,6 @@ def whisp_risk(
     ind_15_pcent_threshold: float = 50,  # like Ind_02: agriculture in 2020 leads to a low risk outcome on the timber decision tree, so it must cover most of the plot
     ind_16_pcent_threshold: float = 10,
     ind_18_pcent_threshold: float = 10,  # observed regenerating / planted forest in 2025 (Ind_18)
-    ind_19_pcent_threshold: float = 10,  # ForTy V2 primary 2020 no longer primary in 2025 (Ind_19)
     ind_20_pcent_threshold: float = 10,
     ind_21_pcent_threshold: float = 10,
     ind_22_pcent_threshold: float = 10,
@@ -206,7 +205,6 @@ def whisp_risk(
     ind_15_input_columns: pd.Series = None,
     ind_16_input_columns: pd.Series = None,
     ind_18_input_columns: pd.Series = None,
-    ind_19_input_columns: pd.Series = None,
     ind_20_input_columns: pd.Series = None,
     ind_21_input_columns: pd.Series = None,
     ind_22_input_columns: pd.Series = None,
@@ -226,7 +224,6 @@ def whisp_risk(
     ind_15_name: str = "Ind_15_cropland_2020",
     ind_16_name: str = "Ind_16_plantation_presence_2025",
     ind_18_name: str = "Ind_18_regen_planted_2025",
-    ind_19_name: str = "Ind_19_primary_change_after_2020",
     ind_20_name: str = "Ind_20_planted_forest_2020",
     ind_21_name: str = "Ind_21_plantation_forest_2020",
     ind_22_name: str = "Ind_22_plantation_forest_gain_after_2020",
@@ -287,9 +284,6 @@ def whisp_risk(
         ind_18_pcent_threshold (float, optional): Percentage threshold for indicator 18 (observed regenerating / planted forest in 2025). Defaults to 10.
         ind_18_input_columns (pd.Series, optional): Input columns for indicator 18. Defaults to the 2025 regenerating / planted forest columns flagged for timber (theme_timber=regen_planted_2025), i.e. ForTy_v2_regen_planted_latest; with none flagged, the regenerating leg falls back to no disturbance after 2020.
         ind_18_name (str, optional): Name of indicator 18 column. Defaults to "Ind_18_regen_planted_2025".
-        ind_19_pcent_threshold (float, optional): Percentage threshold for indicator 19 (primary forest in 2020 that ForTy V2 itself no longer calls primary in 2025; on the timber primary leg a change with no disturbance behind it gives more-info instead of LOW). Defaults to 10.
-        ind_19_input_columns (pd.Series, optional): Input columns for indicator 19. Defaults to the primary-change columns flagged for timber (theme_timber=primary_change_after_2020), i.e. ForTy_v2_primary_change_after_2020.
-        ind_19_name (str, optional): Name of indicator 19 column. Defaults to "Ind_19_primary_change_after_2020".
         low_name (str, optional): Value shown in table if less than or equal to the threshold. Defaults to "no".
         high_name (str, optional): Value shown in table if more than the threshold. Defaults to "yes".
         explicit_unit_type (str, optional): Override the autodetected unit type ('ha' or 'percent').
@@ -420,10 +414,6 @@ def whisp_risk(
         ind_18_input_columns = get_cols_ind_18_regen_planted_2025(
             filtered_lookup_gee_datasets_df
         )
-    if ind_19_input_columns is None:
-        ind_19_input_columns = get_cols_ind_19_primary_change_after_2020(
-            filtered_lookup_gee_datasets_df
-        )
     if ind_20_input_columns is None:
         ind_20_input_columns = get_cols_ind_20_planted_forest_2020(
             filtered_lookup_gee_datasets_df
@@ -454,7 +444,6 @@ def whisp_risk(
     check_range(ind_15_pcent_threshold)
     check_range(ind_16_pcent_threshold)
     check_range(ind_18_pcent_threshold)
-    check_range(ind_19_pcent_threshold)
     check_range(ind_20_pcent_threshold)
     check_range(ind_21_pcent_threshold)
     check_range(ind_22_pcent_threshold)
@@ -476,7 +465,6 @@ def whisp_risk(
         ind_15_input_columns,
         ind_16_input_columns,
         ind_18_input_columns,
-        ind_19_input_columns,
         ind_20_input_columns,
         ind_21_input_columns,
         ind_22_input_columns,
@@ -498,7 +486,6 @@ def whisp_risk(
         ind_15_pcent_threshold,
         ind_16_pcent_threshold,
         ind_18_pcent_threshold,
-        ind_19_pcent_threshold,
         ind_20_pcent_threshold,
         ind_21_pcent_threshold,
         ind_22_pcent_threshold,
@@ -520,7 +507,6 @@ def whisp_risk(
         ind_15_name,
         ind_16_name,
         ind_18_name,
-        ind_19_name,
         ind_20_name,
         ind_21_name,
         ind_22_name,
@@ -564,12 +550,10 @@ def whisp_risk(
     # today's Ind_04 adds little over Hansen + TMF at plot level, and on the primary leg it gives more-info,
     # not HIGH, so an extra alert only asks for a closer look.
 
-    # "Still primary in 2025" for the timber decision tree: primary in 2020 (Ind_05), no disturbance after 2020
-    # (Ind_04) and no change in ForTy V2's own 2020 -> 2025 primary class (Ind_19). Either one sends the
-    # plot to more-info on the tree, not LOW. Ind_19 is judged against ForTy's own 2020 class (primary only another
-    # layer calls primary is not a change), and a change share rather than a 2025 presence share, which at
-    # 10 % of a plot would call a mostly cleared plot still primary. With no Ind_19 row flagged this is the
-    # interim 2020-minus-disturbance rule.
+    # "Still primary in 2025" for the timber decision tree, worked out from what the primary leg already asks:
+    # primary in 2020 (Ind_05), not disturbed after 2020 (Ind_04) and not converted into plantation forest
+    # (Ind_22). Both are asked before it, so on the tree it can only read "no" once another change joins it
+    # (conversion into planted forest, once planted is split from naturally regenerating).
     # collected in a list and assigned once, so rows sharing an index label each keep their own value
     primary_2025 = []
     for _, row in df_w_indicators.iterrows():
@@ -578,7 +562,7 @@ def whisp_risk(
             if (
                 row[ind_5_name] == high_name
                 and row[ind_4_name] == low_name
-                and row[ind_19_name] == low_name
+                and row[ind_22_name] == low_name
             )
             else low_name
         )
@@ -957,7 +941,7 @@ def add_risk_timber_col(
       - none of the three: other land 2025 low, else more info.
 
     The derived 2025 states come from whisp_risk: primary_2025 = Ind_05 AND NOT Ind_04 AND NOT
-    Ind_19_primary_change_after_2020; regen_planted_still_2025 = (Ind_06 OR Ind_20) AND
+    Ind_22_plantation_forest_gain_after_2020; regen_planted_still_2025 = (Ind_06 OR Ind_20) AND
     Ind_18_regen_planted_2025 where a source is flagged, else AND NOT Ind_04. Plantation gain is a gain
     (0 on a plantation already standing in 2020), so stability uses the presence layer, Ind_16.
 
@@ -1005,7 +989,7 @@ def add_risk_timber_col(
             "primary_2020": primary_2020,
             # Ind_04 asked directly on the primary leg: disturbed primary -> more-info.
             "disturbed_after_2020": row[ind_4_name] == high_name,
-            # primary_2025 derived upstream = Ind_05 AND NOT Ind_04 AND NOT Ind_19 (ForTy change).
+            # primary_2025 derived upstream = Ind_05 AND NOT Ind_04 AND NOT Ind_22.
             "primary_2025": row[primary_2025_name] == high_name,
             # Ind_09_treecover_after_2020 stays DROPPED from the tree (too broad: generic ESRI canopy; and
             # regionally uneven: TMF regrowth is tropics-only). Still regenerating / planted forest in 2025 =
@@ -1203,24 +1187,6 @@ def get_cols_ind_18_regen_planted_2025(lookup_gee_datasets_df):
         lookup_gee_datasets_df["name"][
             (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
             & (lookup_gee_datasets_df["theme_timber"] == "regen_planted_2025")
-        ]
-    )
-
-
-def get_cols_ind_19_primary_change_after_2020(lookup_gee_datasets_df):
-    """
-    Dataset names for primary forest in 2020 that ForTy V2 itself no longer calls primary in 2025
-    (theme_timber=primary_change_after_2020). On the timber primary leg a change with no post-2020 disturbance
-    behind it goes to more-info instead of LOW. Returns [] while no row carries use_for_risk_timber=1, in
-    which case Ind_19_primary_change_after_2020 is always "no".
-    """
-    lookup_gee_datasets_df = lookup_gee_datasets_df[
-        lookup_gee_datasets_df["exclude_from_output"] != 1
-    ]
-    return list(
-        lookup_gee_datasets_df["name"][
-            (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
-            & (lookup_gee_datasets_df["theme_timber"] == "primary_change_after_2020")
         ]
     )
 
@@ -1576,7 +1542,7 @@ def filter_to_risk_columns(
     risk_cols = ["risk_pcrop", "risk_acrop", "risk_timber", "risk_timber_pathway"]
 
     # Derived columns computed in whisp_risk and kept in the output: primary_2025 (Ind_05 AND NOT Ind_04
-    # AND NOT Ind_19) and regen_planted_still_2025 (Ind_06 or Ind_20, AND observed Ind_18 where flagged,
+    # AND NOT Ind_22) and regen_planted_still_2025 (Ind_06 or Ind_20, AND observed Ind_18 where flagged,
     # else AND NOT Ind_04).
     derived_cols = [
         "primary_2025",

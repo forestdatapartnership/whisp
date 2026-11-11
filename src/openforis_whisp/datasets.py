@@ -269,8 +269,8 @@ def g_forty_forest_2020_prep():
 #
 # These are the 2020 and 2025 states the timber decision tree asks about (2026-07-29 planned diagram). The 2020
 # classes replace the ForTy V1 2020 rows on the timber baselines (Ind_05 / 06 / 20 / 21); the 2025
-# classes fill the slots that were DERIVED from 2020-minus-disturbance until now (primary 2020 -> not
-# primary 2025 = Ind_19, regenerating / planted 2025 = Ind_18, plantation presence 2025 = Ind_16; the
+# classes fill the slots that were DERIVED from 2020-minus-disturbance until now (regenerating /
+# planted 2025 = Ind_18, plantation presence 2025 = Ind_16; the
 # primary 2025 class itself is emitted for information only) plus the plantation GAIN 2020 -> 2025 (Ind_22, the first global
 # dated plantation layer). Tree crops (2020 and gain), forest extent
 # and other land are emitted present-but-unused (use_for_risk_* = 0): generic crop classes feeding
@@ -358,22 +358,6 @@ def g_forty_v2_plantation_forest_gain_after_2020_prep():
 def g_forty_v2_tree_crop_gain_2020_2025_prep():
     gain = _forty_v2_class(2025).eq(5).And(_forty_v2_class(2020).neq(5))
     return gain.selfMask().rename("ForTy_v2_tree_crop_gain_2020_2025")
-
-
-# Primary forest in 2020 that ForTy V2 itself no longer calls primary in 2025 (the primary leg's "changed
-# without disturbance" question, Ind_19). Judged against ForTy's own 2020 class, so a plot that only another
-# layer (TMF, GFT, BFS) calls primary is not read as a change. Mature primary (1) turning "regrowing" (7) counts
-# as a change, as ForTy's own sign of disturbance; a pixel already regrowing in 2020 and still regrowing in
-# 2025 does not.
-def _forty_v2_primary_change(class_2020, class_2025):
-    primary_2020 = class_2020.eq(1).Or(class_2020.eq(7))
-    still_primary = class_2025.eq(1).Or(class_2025.eq(7).And(class_2020.eq(7)))
-    return primary_2020.And(still_primary.Not())
-
-
-def g_forty_v2_primary_change_after_2020_prep():
-    change = _forty_v2_primary_change(_forty_v2_class(2020), _forty_v2_class(2025))
-    return change.selfMask().rename("ForTy_v2_primary_change_after_2020")
 
 
 #########################TMF regrowth in 2025
