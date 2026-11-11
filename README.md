@@ -60,7 +60,7 @@ Additional categories are specific for the timber (wood) commodity, comparing 20
   8) Plantation forests in 2020;
   9) Other land in 2020 (e.g. built-up, water, mining, bare);
   10) Cropland in 2020;
-  11) Changes after 2020: agricultural expansion, natural forest converted into plantation forest, primary forest that changed type;
+  11) Changes after 2020: agricultural expansion, primary or naturally regenerating forest converted into plantation forest, primary forest that changed type;
   12) Forest type and other land in the latest year mapped.
 
 
@@ -84,7 +84,7 @@ And specifically for the timber commodity:
   9) Was there other land in 2020?
   10) Was there cropland in 2020?
   11) Did agriculture expand after 2020?
-  12) Did natural forest become plantation forest after 2020?
+  12) Did primary or naturally regenerating forest become plantation forest after 2020?
   13) Did primary forest change type after 2020?
   14) In the latest year mapped, is the plot still the same forest type, or other land?
 

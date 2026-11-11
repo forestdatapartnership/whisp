@@ -229,7 +229,7 @@ def whisp_risk(
     ind_19_name: str = "Ind_19_primary_change_after_2020",
     ind_20_name: str = "Ind_20_planted_forest_2020",
     ind_21_name: str = "Ind_21_plantation_forest_2020",
-    ind_22_name: str = "Ind_22_natural_to_plantation_forest_after_2020",
+    ind_22_name: str = "Ind_22_plantation_forest_gain_after_2020",
     low_name: str = "no",
     high_name: str = "yes",
     explicit_unit_type: str = None,
@@ -251,7 +251,7 @@ def whisp_risk(
         ind_6_pcent_threshold (float, optional): Percentage threshold for indicator 6 (naturally regenerating forest 2020). Defaults to 10.
         ind_20_pcent_threshold (float, optional): Percentage threshold for indicator 20 (planted forest 2020). Defaults to 10.
         ind_21_pcent_threshold (float, optional): Percentage threshold for indicator 21 (plantation forest 2020). Defaults to 10.
-        ind_22_pcent_threshold (float, optional): Percentage threshold for indicator 22 (natural forest in 2020 turned plantation after 2020). Defaults to 10.
+        ind_22_pcent_threshold (float, optional): Percentage threshold for indicator 22 (plantation forest gain after 2020, from primary or naturally regenerating forest in 2020). Defaults to 10.
         ind_9_pcent_threshold (float, optional): Percentage threshold for indicator 9 (treecover after 2020). Defaults to 10.
         ind_10_pcent_threshold (float, optional): Percentage threshold for indicator 10 (agriculture after 2020). Defaults to 10.
         ind_1_input_columns (pd.Series, optional): Input columns for indicator 1. Defaults to columns for the treecover theme.
@@ -262,7 +262,7 @@ def whisp_risk(
         ind_6_input_columns (pd.Series, optional): Input columns for indicator 6. Defaults to columns for naturally regenerating forest 2020.
         ind_20_input_columns (pd.Series, optional): Input columns for indicator 20. Defaults to columns for planted forest 2020.
         ind_21_input_columns (pd.Series, optional): Input columns for indicator 21. Defaults to columns for plantation forest 2020.
-        ind_22_input_columns (pd.Series, optional): Input columns for indicator 22. Defaults to the natural forest to plantation columns (theme_timber=natural_to_plantation_forest_after_2020).
+        ind_22_input_columns (pd.Series, optional): Input columns for indicator 22. Defaults to the plantation forest gain columns (theme_timber=plantation_forest_gain_after_2020).
         ind_9_input_columns (pd.Series, optional): Input columns for indicator 9. Defaults to columns for treecover after 2020.
         ind_10_input_columns (pd.Series, optional): Input columns for indicator 10. Defaults to columns for agriculture after 2020.
         ind_1_name (str, optional): Name of indicator 1 column. Defaults to "Ind_01_treecover".
@@ -273,7 +273,7 @@ def whisp_risk(
         ind_6_name (str, optional): Name of indicator 6 column. Defaults to "Ind_06_nat_reg_forest_2020".
         ind_20_name (str, optional): Name of indicator 20 column. Defaults to "Ind_20_planted_forest_2020".
         ind_21_name (str, optional): Name of indicator 21 column. Defaults to "Ind_21_plantation_forest_2020".
-        ind_22_name (str, optional): Name of indicator 22 column. Defaults to "Ind_22_natural_to_plantation_forest_after_2020".
+        ind_22_name (str, optional): Name of indicator 22 column. Defaults to "Ind_22_plantation_forest_gain_after_2020".
         ind_12_name (str, optional): Name of indicator 12 column. Defaults to "Ind_12_other_land_2020".
         ind_13_name (str, optional): Name of indicator 13 column. Defaults to "Ind_13_other_land_after_2020".
         ind_9_name (str, optional): Name of indicator 9 column. Defaults to "Ind_09_treecover_after_2020".
@@ -433,7 +433,7 @@ def whisp_risk(
             filtered_lookup_gee_datasets_df
         )
     if ind_22_input_columns is None:
-        ind_22_input_columns = get_cols_ind_22_natural_to_plantation_forest_after_2020(
+        ind_22_input_columns = get_cols_ind_22_plantation_forest_gain_after_2020(
             filtered_lookup_gee_datasets_df
         )
 
@@ -935,7 +935,7 @@ def add_risk_timber_col(
 
     Planted (Ind_20_planted_forest_2020) is grouped with naturally regenerating (Ind_06_nat_reg_forest_2020)
     into one "regenerating or planted" class, because the two are not reliably separable in the data;
-    plantation (Ind_21_plantation_forest_2020, Ind_22_natural_to_plantation_forest_after_2020) is kept separate as the class
+    plantation (Ind_21_plantation_forest_2020, Ind_22_plantation_forest_gain_after_2020) is kept separate as the class
     that marks degradation.
 
     The questions, in order:
@@ -948,7 +948,7 @@ def add_risk_timber_col(
     - Forest in 2020: agriculture after 2020 (Ind_10_agri_after_2020) gives high (deforestation). Then by
       2020 class, primary first, then regenerating or planted, then plantation, so a plot mapped as two
       classes takes the first:
-      - primary: plantation gain (Ind_22_natural_to_plantation_forest_after_2020) high; disturbed after 2020
+      - primary: plantation gain (Ind_22_plantation_forest_gain_after_2020) high; disturbed after 2020
         (Ind_04_disturbance_after_2020) more info; still primary (primary_2025) low, else more info;
       - regenerating or planted: plantation gain high; still regenerating or planted
         (regen_planted_still_2025) low; other land 2025 low; else more info;
@@ -1323,11 +1323,13 @@ def get_cols_ind_21_plantation_forest_2020(lookup_gee_datasets_df):
     )
 
 
-def get_cols_ind_22_natural_to_plantation_forest_after_2020(lookup_gee_datasets_df):
+def get_cols_ind_22_plantation_forest_gain_after_2020(lookup_gee_datasets_df):
     """
-    Dataset names for plantation gain after 2020 (theme_timber=natural_to_plantation_forest_after_2020): ForTy V2
-    plantation gain 2020-2025 and, in Brazil, MapBiomas silviculture gain. The degradation "to" class on
-    the primary and regenerating legs of the timber decision tree.
+    Dataset names for plantation forest gain after 2020 (theme_timber=plantation_forest_gain_after_2020):
+    ForTy_v2_plantation_forest_gain_2020_2025 and, in Brazil, nBR_MapBiomas_col10_silviculture_gain_2020_2024,
+    each counting plantation forest only where its own map had primary or naturally regenerating forest in
+    2020 (the EUDR degradation conversion). Asked on the primary and naturally regenerating branches of the
+    timber decision tree, which say where the plot came from.
     """
     lookup_gee_datasets_df = lookup_gee_datasets_df[
         lookup_gee_datasets_df["exclude_from_output"] != 1
@@ -1337,7 +1339,7 @@ def get_cols_ind_22_natural_to_plantation_forest_after_2020(lookup_gee_datasets_
             (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
             & (
                 lookup_gee_datasets_df["theme_timber"]
-                == "natural_to_plantation_forest_after_2020"
+                == "plantation_forest_gain_after_2020"
             )
         ]
     )
@@ -1366,7 +1368,7 @@ def get_cols_ind_08_planted_after_2020(lookup_gee_datasets_df):
     """
     Dataset names for Ind_08_planted_plantations_after_2020, kept in the output for existing users. No
     dataset carries its theme_timber value (planted_plantation_after_2020), so it is "no" as before (see
-    #195); natural forest turned plantation after 2020 is Ind_22_natural_to_plantation_forest_after_2020. No
+    #195); plantation forest gain after 2020 is Ind_22_plantation_forest_gain_after_2020. No
     decision tree reads it.
     """
     lookup_gee_datasets_df = lookup_gee_datasets_df[
