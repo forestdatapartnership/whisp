@@ -40,7 +40,6 @@ FORTY_EXPECTED = {
     "ForTy_v2_tree_crop_gain_2020_2025": "g_forty_v2_tree_crop_gain_2020_2025_prep",
     "ForTy_v2_other_land_2020": "g_forty_v2_other_land_2020_prep",
     "ForTy_v2_other_land_2025": "g_forty_v2_other_land_2025_prep",
-    "ForTy_v2_primary_change_after_2020": "g_forty_v2_primary_change_after_2020_prep",
 }
 
 # which ForTy rows the TIMBER tree reads (use_for_risk_timber=1): V2 only, same model version for the
@@ -53,7 +52,6 @@ FORTY_TIMBER_ON = {
     "ForTy_v2_regen_planted_latest",
     "ForTy_v2_plantation_latest",
     "ForTy_v2_plantation_forest_gain_after_2020",
-    "ForTy_v2_primary_change_after_2020",
 }
 
 
@@ -118,38 +116,3 @@ def test_forty_prep_functions_present_and_named():
         assert hasattr(datasets, fn) and callable(
             getattr(datasets, fn)
         ), f"prep function {fn} not found/callable in datasets.py"
-
-
-def test_forty_v2_primary_change_rule():
-    """ForTy V2 classes: 1 primary (mature), 2 naturally regenerating, 3 planted, 4 plantation,
-    5 tree crops, 6 other land, 7 primary (regrowing). A change is judged against ForTy's own 2020 class:
-    primary in 2020 (1 or 7) and not still primary in 2025, where mature -> regrowing counts as a change
-    and regrowing -> regrowing does not."""
-    cases = {
-        (1, 1): 0,  # stayed mature primary
-        (1, 7): 1,  # mature turned regrowing: ForTy's own sign of disturbance
-        (7, 7): 0,  # already regrowing in 2020 (e.g. old fire scars)
-        (7, 1): 0,  # regrowing recovered to mature
-        (1, 2): 1,  # became naturally regenerating
-        (1, 6): 1,  # became other land
-        (7, 2): 1,  # regrowing became naturally regenerating
-        (
-            2,
-            2,
-        ): 0,  # not primary to ForTy in 2020 (primary only per another layer): no change
-        (2, 6): 0,  # not primary to ForTy in 2020
-    }
-    point = ee.Geometry.Point([0, 0])
-    results = ee.Dictionary(
-        {
-            f"{a}_{b}": datasets._forty_v2_primary_change(
-                ee.Image.constant(a), ee.Image.constant(b)
-            )
-            .rename("change")
-            .reduceRegion(ee.Reducer.first(), point, 1000)
-            .get("change")
-            for a, b in cases
-        }
-    ).getInfo()
-    for (a, b), expected in cases.items():
-        assert results[f"{a}_{b}"] == expected, f"2020 class {a} -> 2025 class {b}"

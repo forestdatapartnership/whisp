@@ -97,8 +97,8 @@ CODE_COLOUR = {
 # Wording follows the 2026-07-29 planned diagram (temp_dev_notes/decision_trees/timber_tree_dated.html).
 # The diagram's "*" (dated plantation data Brazil-only) is dropped: the ForTy V2 plantation gain
 # 2020 -> 2025 is global. "**" marks the 2025 forest states, which whisp_risk derives from the ForTy V2
-# time series where its rows are flagged (still primary = no post-2020 timber disturbance and no change in
-# ForTy's own 2020 -> 2025 primary class),
+# time series where its rows are flagged (still primary = no disturbance after 2020 and no conversion into
+# plantation forest),
 # falling back to the 2020 state minus disturbance when no observed 2025 source is flagged; the viewer
 # footnote under the tree explains.
 Q_LABEL = {
@@ -220,7 +220,7 @@ Q_TO_COLUMNS = {
     "primary_2020": ["Ind_05_primary_2020"],
     "plantation_2025": ["Ind_22_plantation_forest_gain_after_2020"],
     "disturbed_after_2020": ["Ind_04_disturbance_after_2020"],
-    # derived in whisp_risk: Ind_05 AND NOT Ind_04 AND NOT Ind_19 (no change in ForTy's own primary class)
+    # derived in whisp_risk: Ind_05 AND NOT Ind_04 AND NOT Ind_22 (not disturbed, not converted)
     "primary_2025": ["primary_2025"],
     "regen_planted_2020": ["Ind_06_nat_reg_forest_2020", "Ind_20_planted_forest_2020"],
     # derived in whisp_risk: (Ind_06 OR Ind_20) AND observed Ind_18 where flagged, else AND NOT Ind_04

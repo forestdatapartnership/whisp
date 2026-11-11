@@ -95,7 +95,6 @@ from .risk import (
     get_cols_ind_15_cropland_2020,
     get_cols_ind_16_plantation_presence_2025,
     get_cols_ind_18_regen_planted_2025,
-    get_cols_ind_19_primary_change_after_2020,
 )
 
 # --------------------------------------------------------------------------------------------------
@@ -136,9 +135,6 @@ def _indicator_names(lut):
             lut
         ),
         "Ind_18_regen_planted_2025": get_cols_ind_18_regen_planted_2025(lut),
-        "Ind_19_primary_change_after_2020": get_cols_ind_19_primary_change_after_2020(
-            lut
-        ),
     }
 
 
@@ -312,11 +308,10 @@ def build_timber_question_images(
     # the crop decision trees' disturbance after 2020 (asked on the primary leg; part of the derived primary_2025
     # and the regen_planted_still_2025 fallback)
     n_ind04 = names["Ind_04_disturbance_after_2020"]
-    # observed regen / planted 2025 (ForTy V2) and ForTy V2 primary 2020 no longer primary in 2025. Either
-    # pool can be empty when no lookup row is flagged (_union renders that as ee.Image(0)); the derived
-    # questions then fall back to 2020-minus-disturbance, mirroring whisp_risk.
+    # observed regen / planted 2025 (ForTy V2). The pool can be empty when no lookup row is flagged (_union
+    # renders that as ee.Image(0)); the derived question then falls back to 2020-minus-disturbance,
+    # mirroring whisp_risk.
     n_ind18 = names["Ind_18_regen_planted_2025"]
-    n_ind19 = names["Ind_19_primary_change_after_2020"]
 
     # --- indicator ee.Images (unions), and the two COUNT pools that carry the k agreement knob --------
     tc20 = _union(lut, n_ind01)  # Ind_01_treecover
@@ -361,10 +356,10 @@ def build_timber_question_images(
     agriculture_2025 = _folded(n_ind10, "Ind_10", lambda: _count(lut, n_ind10).gte(k))
 
     # Derived 2025 forest states, mirroring whisp_risk: still primary = primary 2020 AND NOT disturbance
-    # AND NOT a change in ForTy V2's own primary class (Ind_19); still regen / planted = regen 2020 AND the
-    # observed Ind_18 where flagged, else AND NOT disturbance (regenerating forest tolerates disturbance).
+    # AND NOT plantation forest gain (Ind_22); still regen / planted = regen 2020 AND the observed Ind_18
+    # where flagged, else AND NOT disturbance (regenerating forest tolerates disturbance).
     still_primary_2025 = primary_2020.And(disturbance_2025.Not()).And(
-        _union(lut, n_ind19).Not()
+        plantation_gain_2025.Not()
     )
     if len(n_ind18) > 0:
         regen_planted_still_2025 = regen_planted_2020.And(_union(lut, n_ind18))
@@ -388,7 +383,7 @@ def build_timber_question_images(
         "primary_2020": primary_2020,  # Ind_05_primary_2020
         "plantation_2025": plantation_gain_2025,  # Ind_22_plantation_forest_gain_after_2020 (GAIN = degradation)
         "disturbed_after_2020": disturbance_2025,  # Ind_04 (primary leg: disturbed primary -> more-info)
-        "primary_2025": still_primary_2025,  # Ind_05 AND NOT Ind_04 AND NOT Ind_19 (ForTy primary change)
+        "primary_2025": still_primary_2025,  # Ind_05 AND NOT Ind_04 AND NOT Ind_22
         "regen_planted_still_2025": regen_planted_still_2025,  # (Ind_06 OR Ind_20) AND Ind_18 (observed)
         # regen_planted_2020 = plain Ind_06 OR Ind_20, NO "and not primary" carve-out: the decision tree checks
         # primary BEFORE regen, so ORDER (not exclusion) resolves a primary+regen overlap.
@@ -522,10 +517,10 @@ TIMBER_BOOKMARKS = [
     ["Cerrado pasture-gain hotspot (Matopiba)", -9.5, -45.5, 9],
 ]
 
-# the two derived questions, and the indicator each adds to the questions before it (its datasets are
-# listed under that question in the viewer)
+# the derived questions, and the indicator each adds to the questions before it (its datasets are listed
+# under that question in the viewer). Still primary (primary_2025) adds none: it is worked out from the
+# questions before it, so it lists no datasets of its own.
 _DERIVED_INPUTS = {
-    "primary_2025": "Ind_19_primary_change_after_2020",
     "regen_planted_still_2025": "Ind_18_regen_planted_2025",
     "plantation_forest_2020": "Ind_21_plantation_forest_2020",
 }
@@ -535,8 +530,8 @@ def timber_input_layers(national_codes=None, lookup_df=None, max_workers=16):
     """Tile layers for every dataset the timber decision tree reads, to view the inputs one at a time.
 
     Returns {column: layers} for ``pathway_viewer``: the datasets of each indicator in the tree's
-    questions, and under the two derived questions (still primary, still regenerating or planted in 2025)
-    the indicator they add, Ind_19_primary_change_after_2020 and Ind_18_regen_planted_2025. The datasets
+    questions, and under the derived question still regenerating or planted in 2025 the indicator it
+    adds, Ind_18_regen_planted_2025 (still primary adds none). The datasets
     come from the same getters as the question images (``_indicator_names``). Needs Earth Engine
     initialised.
     """
@@ -548,8 +543,9 @@ def timber_input_layers(national_codes=None, lookup_df=None, max_workers=16):
     names = {}
     for cols in tx.TIMBER_SPEC.q_to_columns.values():
         for col in cols:
-            if col not in names:
-                names[col] = pools[_DERIVED_INPUTS.get(col, col)]
+            source = _DERIVED_INPUTS.get(col, col)
+            if col not in names and source in pools:
+                names[col] = pools[source]
     layers = _ml.input_layers(names, lut, max_workers=max_workers)
     for col, indicator in _DERIVED_INPUTS.items():
         if col in layers:

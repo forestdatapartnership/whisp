@@ -288,4 +288,3 @@ ForTy_v2_plantation_forest_gain_after_2020,1871,,,plantation_forest_gain_after_2
 ForTy_v2_tree_crop_gain_2020_2025,1872,,,agri_after_2020,0,0,0,1,float32,1,0,g_forty_v2_tree_crop_gain_2020_2025_prep
 ForTy_v2_other_land_2020,1873,,,other_land_2020,0,0,0,1,float32,1,0,g_forty_v2_other_land_2020_prep
 ForTy_v2_other_land_2025,1874,,,other_land_after_2020,0,0,0,1,float32,1,0,g_forty_v2_other_land_2025_prep
-ForTy_v2_primary_change_after_2020,1876,,,primary_change_after_2020,0,0,1,0,float32,1,0,g_forty_v2_primary_change_after_2020_prep

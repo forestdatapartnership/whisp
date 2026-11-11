@@ -21,7 +21,6 @@ from openforis_whisp.risk import (
     get_cols_ind_15_cropland_2020,
     get_cols_ind_16_plantation_presence_2025,
     get_cols_ind_18_regen_planted_2025,
-    get_cols_ind_19_primary_change_after_2020,
     lookup_gee_datasets_df,
     whisp_risk,
 )
@@ -114,7 +113,6 @@ def test_timber_flag_is_on_exactly_for_the_timber_indicator_datasets():
         + get_cols_ind_15_cropland_2020(lut)
         + get_cols_ind_16_plantation_presence_2025(lut)
         + get_cols_ind_18_regen_planted_2025(lut)
-        + get_cols_ind_19_primary_change_after_2020(lut)
     )
     flagged = _flagged("use_for_risk_timber")
     assert sorted(used - flagged) == [], "used for timber but use_for_risk_timber is 0"

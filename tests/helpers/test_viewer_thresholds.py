@@ -80,7 +80,9 @@ def test_timber_page_built_without_earth_engine_uses_every_national_dataset():
 def test_a_derived_question_lists_the_indicator_it_adds():
     from openforis_whisp.timber_tree_export import TIMBER_SPEC
 
-    ind = "Ind_19_primary_change_after_2020"
-    layers = {"primary_2025": {"indicator": ind, "layers": [{"name": "ForTy"}]}}
+    ind = "Ind_18_regen_planted_2025"
+    layers = {
+        "regen_planted_still_2025": {"indicator": ind, "layers": [{"name": "ForTy"}]}
+    }
     (group,) = pathway_viewer._input_groups(TIMBER_SPEC, layers)
-    assert group["q"] == "primary_2025" and group["indicator"] == ind
+    assert group["q"] == "regen_planted_still_2025" and group["indicator"] == ind
