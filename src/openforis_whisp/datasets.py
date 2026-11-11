@@ -705,27 +705,33 @@ def g_glad_crop_gain_after_2020_prep():
 # GAIN 2020 -> 2022 = the GLOBAL pasture leg of Ind_10 (agriculture after 2020), alongside the
 # Brazil-only MapBiomas ag_gain. Uses the GGC-30m grassland_c dominant_class band: class 1 = CULTIVATED
 # (managed / grazed = agricultural use under EUDR Art. 2(5)); class 2 = natural/semi-natural is EXCLUDED
-# (a natural land cover, not agriculture). Same-product paired gain (cultivated in 2022 AND NOT
-# cultivated in 2020), so only NEW cultivated grassland since 2020 is counted. GPW v1 is annual
-# 2000-2022, so the after-state is 2022 and LAGS the ESRI (2025) / MapBiomas (2024) pairs; forest ->
-# pasture in 2023-2025 is missed outside Brazil until a newer GPW release. Wired GLOBAL (no Brazil mask):
+# (a natural land cover, not agriculture). Same-product gain that has to hold: cultivated in both 2021
+# and 2022 and NOT in 2020, so one-year flicker is not counted (about 40% of the plain 2020 -> 2022 gain
+# flipped back; on the 564 test plots the stricter rule removed 6 timber highs, 5 of them with no forest
+# loss at all). GPW v1 is annual 2000-2022, so the after-state is 2022 and LAGS the ESRI (2025) /
+# MapBiomas (2024) pairs; pasture first mapped in 2022, or forest -> pasture in 2023-2025, is missed
+# outside Brazil until a newer GPW release. Wired GLOBAL (no Brazil mask):
 # the Ind_10 OR-union plus the treecover_2020 gate (Rule 2) make the MapBiomas overlap harmless (it can
 # only ADD a forest -> pasture HIGH on a plot that carried 2020 treecover). Cultivated grassland is GPW's
 # noisiest class (F1 ~0.64), so treat as a conservative member. See
 # temp_dev_notes/data_assessments/global_pasture_watch_assessment.md.
-def g_gpw_cultiv_pasture_gain_after_2020_prep():
+def _gpw_cultivated(year):
+    # class 1 = cultivated (managed) grassland only; natural/semi-natural (class 2) excluded
     cultiv = ee.ImageCollection(
         "projects/global-pasture-watch/assets/ggc-30m/v1/grassland_c"
     )
-    dc_2020 = ee.Image(
-        cultiv.filter(ee.Filter.eq("system:index", "2020")).first()
+    dominant = ee.Image(
+        cultiv.filter(ee.Filter.eq("system:index", str(year))).first()
     ).select("dominant_class")
-    dc_2022 = ee.Image(
-        cultiv.filter(ee.Filter.eq("system:index", "2022")).first()
-    ).select("dominant_class")
-    cultiv_2020 = dc_2020.eq(1)  # class 1 = cultivated (managed) grassland only
-    cultiv_2022 = dc_2022.eq(1)  # natural/semi-natural (class 2) excluded
-    gain = cultiv_2022.And(cultiv_2020.Not())
+    return dominant.eq(1)
+
+
+def g_gpw_cultiv_pasture_gain_after_2020_prep():
+    gain = (
+        _gpw_cultivated(2021)
+        .And(_gpw_cultivated(2022))
+        .And(_gpw_cultivated(2020).Not())
+    )
     return gain.rename("GPW_cultiv_pasture_gain_after_2020").selfMask()
 
 
