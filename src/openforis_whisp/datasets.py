@@ -702,38 +702,41 @@ def g_glad_crop_gain_after_2020_prep():
 
 
 # Global Pasture Watch (GPW; WRI / Land & Carbon Lab, Parente et al. 2024) global cultivated-grassland
-# GAIN 2020 -> 2022 = the GLOBAL pasture leg of Ind_10 (agriculture after 2020), alongside the
-# Brazil-only MapBiomas ag_gain. Uses the GGC-30m grassland_c dominant_class band: class 1 = CULTIVATED
-# (managed / grazed = agricultural use under EUDR Art. 2(5)); class 2 = natural/semi-natural is EXCLUDED
-# (a natural land cover, not agriculture). Same-product gain, guarded on the before side: cultivated in
-# 2022 and NOT in 2020 or 2019, so pasture already there in 2019 that dropped out of the 2020 map is not
-# counted as new. In six 1-degree cattle-frontier boxes this removes about a quarter of the plain gain
-# area, of which 1% sits on Hansen loss 2020-2022, and it agrees better with MapBiomas new pasture in
-# Brazil. Requiring 2021 as well was tried and dropped: it removed real conversions first mapped in 2022.
-# GPW v1 is annual 2000-2022, so the after-state is 2022 and LAGS the ESRI (2025) / MapBiomas (2024)
-# pairs; forest -> pasture in 2023-2025 is missed outside Brazil until a newer GPW release. Wired
-# GLOBAL (no Brazil mask):
-# the Ind_10 OR-union plus the treecover_2020 gate (Rule 2) make the MapBiomas overlap harmless (it can
-# only ADD a forest -> pasture HIGH on a plot that carried 2020 treecover). Cultivated grassland is GPW's
-# noisiest class (F1 ~0.64), so treat as a conservative member. See
+# GAIN after 2020 = the GLOBAL pasture leg of Ind_10 (agriculture after 2020), alongside the Brazil-only
+# MapBiomas ag_gain. Uses the GGC-30m grassland_c dominant_class band: class 1 = CULTIVATED (managed /
+# grazed = agricultural use under EUDR Art. 2(5)); class 2 = natural/semi-natural is EXCLUDED (a natural
+# land cover, not agriculture). Version 1.1, 2000-2024: readable in Earth Engine, though the public catalog
+# still lists v1 (2000-2022). The after-state is the NEWEST year in the collection (2024 now), so a newly
+# published year is picked up without a code change; the 2019 / 2020 baseline is fixed.
+# Same-product gain, guarded on the before side: cultivated in the newest year and NOT in 2020 or 2019, so
+# pasture already there in 2019 that dropped out of the 2020 map is not counted as new (in six cattle-
+# frontier boxes this removed about a quarter of the plain gain, of which 1% sat on tree loss). Requiring a
+# second after-year was tried and dropped: it removed real conversions first mapped in the last year.
+# v1.1 against v1 in eight 1-degree cattle-frontier boxes: 50% more new pasture, more of it on tree loss
+# since 2020 (32% against 24%), and a better match with MapBiomas new pasture in Brazil (20% of its area
+# against 14%). v2 (also 2000-2024 in Earth Engine, unannounced) did worse and is not used.
+# Wired GLOBAL (no Brazil mask): the Ind_10 OR-union plus the forest 2020 gate make the MapBiomas overlap
+# harmless. Cultivated grassland is GPW's noisiest class, so treat it as a conservative member. See
 # temp_dev_notes/data_assessments/global_pasture_watch_assessment.md.
-def _gpw_cultivated(year):
+_GPW_GRASSLAND = "projects/global-pasture-watch/assets/ggc-30m/v1-1/grassland_c"
+
+
+def _gpw_cultivated(image):
     # class 1 = cultivated (managed) grassland only; natural/semi-natural (class 2) excluded
-    cultiv = ee.ImageCollection(
-        "projects/global-pasture-watch/assets/ggc-30m/v1/grassland_c"
+    return ee.Image(image).select("dominant_class").eq(1)
+
+
+def _gpw_year(year):
+    years = ee.ImageCollection(_GPW_GRASSLAND)
+    return _gpw_cultivated(
+        years.filter(ee.Filter.eq("system:index", str(year))).first()
     )
-    dominant = ee.Image(
-        cultiv.filter(ee.Filter.eq("system:index", str(year))).first()
-    ).select("dominant_class")
-    return dominant.eq(1)
 
 
 def g_gpw_cultiv_pasture_gain_after_2020_prep():
-    gain = (
-        _gpw_cultivated(2022)
-        .And(_gpw_cultivated(2020).Not())
-        .And(_gpw_cultivated(2019).Not())
-    )
+    # the newest year published (2024 in v1.1), so a new year is picked up without a code change
+    newest = ee.ImageCollection(_GPW_GRASSLAND).sort("system:index", False).first()
+    gain = _gpw_cultivated(newest).And(_gpw_year(2020).Not()).And(_gpw_year(2019).Not())
     return gain.rename("GPW_cultiv_pasture_gain_after_2020").selfMask()
 
 
