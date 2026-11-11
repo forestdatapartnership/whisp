@@ -164,7 +164,7 @@ Each risk column holds one of the values `low`, `high` or `more_info_needed` (sh
   *The Whisp algorithm for **Timber** visualized:*
   ![timber_graphic](https://github.com/user-attachments/assets/c3da6e05-37a1-4790-ac86-90412f645071)
 
-  For timber, Whisp applies a different decision logic compared to perennial and annual crops. In addition to the **deforestation risk**, Whisp also evaluates **degradation risk**, here a natural forest turned plantation. It first asks whether the plot was forest in 2020: tree cover, primary, naturally regenerating or planted forest, or plantation forest with no agriculture mapped in 2020.
+  For timber, Whisp applies a different decision logic compared to perennial and annual crops. In addition to the **deforestation risk**, Whisp also evaluates **degradation risk**, here a natural forest turned plantation. It first asks whether the plot was forest in 2020: tree cover, primary, naturally regenerating or planted forest, or plantation forest with no agriculture mapped in 2020. This is wider than the tree cover question for crops, because much timber comes from planted and plantation forests that general forest maps often miss.
 
   - Not forest in 2020: other land in 2020 gives **low** if it is still other land and **"More info needed"** if not; otherwise agriculture in 2020 gives **low**, and anything else **"More info needed"**.
   - Forest in 2020 and agriculture after 2020 gives **high** (deforestation).
