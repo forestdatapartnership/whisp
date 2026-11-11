@@ -34,13 +34,13 @@ FORTY_EXPECTED = {
     "ForTy_v2_tree_crops_2020": "g_forty_v2_tree_crops_2020_prep",
     "ForTy_v2_forest_2020": "g_forty_v2_forest_2020_prep",
     "ForTy_v2_primary_2025": "g_forty_v2_primary_2025_prep",
-    "ForTy_v2_regen_planted_2025": "g_forty_v2_regen_planted_2025_prep",
-    "ForTy_v2_plantation_2025": "g_forty_v2_plantation_2025_prep",
-    "ForTy_v2_plantation_forest_gain_2020_2025": "g_forty_v2_plantation_forest_gain_2020_2025_prep",
+    "ForTy_v2_regen_planted_latest": "g_forty_v2_regen_planted_latest_prep",
+    "ForTy_v2_plantation_latest": "g_forty_v2_plantation_latest_prep",
+    "ForTy_v2_plantation_forest_gain_after_2020": "g_forty_v2_plantation_forest_gain_after_2020_prep",
     "ForTy_v2_tree_crop_gain_2020_2025": "g_forty_v2_tree_crop_gain_2020_2025_prep",
     "ForTy_v2_other_land_2020": "g_forty_v2_other_land_2020_prep",
     "ForTy_v2_other_land_2025": "g_forty_v2_other_land_2025_prep",
-    "ForTy_v2_primary_change_2020_2025": "g_forty_v2_primary_change_2020_2025_prep",
+    "ForTy_v2_primary_change_after_2020": "g_forty_v2_primary_change_after_2020_prep",
 }
 
 # which ForTy rows the TIMBER tree reads (use_for_risk_timber=1): V2 only, same model version for the
@@ -50,10 +50,10 @@ FORTY_TIMBER_ON = {
     "ForTy_v2_nat_reg_2020",
     "ForTy_v2_planted_2020",
     "ForTy_v2_plantation_2020",
-    "ForTy_v2_regen_planted_2025",
-    "ForTy_v2_plantation_2025",
-    "ForTy_v2_plantation_forest_gain_2020_2025",
-    "ForTy_v2_primary_change_2020_2025",
+    "ForTy_v2_regen_planted_latest",
+    "ForTy_v2_plantation_latest",
+    "ForTy_v2_plantation_forest_gain_after_2020",
+    "ForTy_v2_primary_change_after_2020",
 }
 
 

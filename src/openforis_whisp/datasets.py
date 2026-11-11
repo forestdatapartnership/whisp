@@ -318,12 +318,12 @@ def g_forty_v2_primary_2025_prep():
 # Naturally regenerating OR planted forest in 2025 (classes 2 and 3): the observed "regenerating /
 # planted forest in 2025" state (Ind_18). Plantation (4) is deliberately NOT included: a primary or
 # regenerating forest that became a plantation is degradation, handled by the plantation-gain question.
-def g_forty_v2_regen_planted_2025_prep():
-    return _forty_v2_present(2025, [2, 3], "ForTy_v2_regen_planted_2025")
+def g_forty_v2_regen_planted_latest_prep():
+    return _forty_v2_present(2025, [2, 3], "ForTy_v2_regen_planted_latest")
 
 
-def g_forty_v2_plantation_2025_prep():
-    return _forty_v2_present(2025, [4], "ForTy_v2_plantation_2025")
+def g_forty_v2_plantation_latest_prep():
+    return _forty_v2_present(2025, [4], "ForTy_v2_plantation_latest")
 
 
 # "Other land" (class 6) is everything that is not a forest class or tree crops, so it includes cropland
@@ -337,14 +337,14 @@ def g_forty_v2_other_land_2025_prep():
 
 
 # GAIN layers: the class present in 2025 but NOT that class in 2020 (the Ind_22 / Ind_10 convention).
-def g_forty_v2_plantation_forest_gain_2020_2025_prep():
+def g_forty_v2_plantation_forest_gain_after_2020_prep():
     # primary (1 / 7) or naturally regenerating (2) forest in 2020 that is plantation forest in 2025: the
     # degradation signal. A plantation stand in rotation ("other land" in 2020) or planted forest (3) turning
     # plantation is not counted; on the plantation belts nearly all plantation gain was rotation.
     c2020 = _forty_v2_class(2020)
     natural_2020 = c2020.eq(1).Or(c2020.eq(2)).Or(c2020.eq(7))
     gain = _forty_v2_class(2025).eq(4).And(natural_2020)
-    return gain.selfMask().rename("ForTy_v2_plantation_forest_gain_2020_2025")
+    return gain.selfMask().rename("ForTy_v2_plantation_forest_gain_after_2020")
 
 
 def g_forty_v2_tree_crop_gain_2020_2025_prep():
@@ -363,9 +363,9 @@ def _forty_v2_primary_change(class_2020, class_2025):
     return primary_2020.And(still_primary.Not())
 
 
-def g_forty_v2_primary_change_2020_2025_prep():
+def g_forty_v2_primary_change_after_2020_prep():
     change = _forty_v2_primary_change(_forty_v2_class(2020), _forty_v2_class(2025))
-    return change.selfMask().rename("ForTy_v2_primary_change_2020_2025")
+    return change.selfMask().rename("ForTy_v2_primary_change_after_2020")
 
 
 #########################TMF regrowth in 2025
@@ -374,7 +374,7 @@ def g_tmf_regrowth_prep():
     TMF_AC = ee.ImageCollection("projects/JRC/TMF/v1_2025/AnnualChanges").mosaic()
     TMF_AC_2025 = TMF_AC.select("Dec2025")
     Regrowth_TMF = TMF_AC_2025.eq(4)
-    return Regrowth_TMF.rename("TMF_regrowth_2025").selfMask()
+    return Regrowth_TMF.rename("TMF_regrowth_latest").selfMask()
 
 
 ############tree crops
@@ -595,7 +595,7 @@ def g_fdap_tree_crop_gain_prep():
     before = _fdap_any_tree_crop(2018).Or(_fdap_any_tree_crop(2020))
     after = _fdap_any_tree_crop(2022).And(_fdap_any_tree_crop(2024))
     gain = after.And(before.Not())
-    return gain.rename("FDaP_tree_crop_gain_2020_2024").selfMask()
+    return gain.rename("FDaP_tree_crop_gain_after_2020").selfMask()
 
 
 # Combined FDaP tree-crop EXTENT in 2020, the union of palm/cocoa/rubber/coffee in 2020. DORMANT
@@ -635,18 +635,18 @@ def g_soy_song_2020_prep():
 
 
 # ESRI 2025 - Tree Cover
-def g_esri_2025_tc_prep():
+def g_esri_tc_latest_prep():
     esri_lulc10_raw = ee.ImageCollection(
         "projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS"
     )
     esri_lulc10_TC = (
         esri_lulc10_raw.filterDate("2025-01-01", "2025-12-31").mosaic().eq(2)
     )
-    return esri_lulc10_TC.rename("ESRI_TC_2025").selfMask()
+    return esri_lulc10_TC.rename("ESRI_TC_latest").selfMask()
 
 
 # ESRI 2025 - Crop
-def g_esri_2020_2025_crop_prep():
+def g_esri_crop_gain_after_2020_prep():
     esri_lulc10_raw = ee.ImageCollection(
         "projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS"
     )
@@ -659,7 +659,7 @@ def g_esri_2020_2025_crop_prep():
 
     newCrop = esri_lulc10_crop_2025.And(esri_lulc10_crop_2020.Not())
 
-    return newCrop.rename("ESRI_crop_gain_2020_2025").selfMask()
+    return newCrop.rename("ESRI_crop_gain_after_2020").selfMask()
 
 
 # ESRI 10m LULC cropland EXTENT in 2020 (.eq(5)), the same-product BEFORE-state paired with the ESRI
@@ -699,7 +699,7 @@ def g_glad_cropland_2024_prep():
 # GLAD global same-product cropland gain 2020 -> 2024 for the "agriculture after 2020" indicator
 # (Ind_10): cropland present in 2024 AND NOT cropland in 2020. Same-product definition (cropland in
 # both years) means stable cropland is not counted; only new cropland since 2020 is captured.
-def g_glad_crop_gain_2020_2024_prep():
+def g_glad_crop_gain_after_2020_prep():
     glad_cropland_2020 = ee.ImageCollection(
         "projects/glad/Cropland_Annual_2015_2024/2020"
     ).mosaic()
@@ -707,7 +707,7 @@ def g_glad_crop_gain_2020_2024_prep():
         "projects/glad/Cropland_Annual_2015_2024/2024"
     ).mosaic()
     gain = glad_cropland_2024.gt(0).And(glad_cropland_2020.gt(0).Not())
-    return gain.rename("GLAD_crop_gain_2020_2024").selfMask()
+    return gain.rename("GLAD_crop_gain_after_2020").selfMask()
 
 
 # Global Pasture Watch (GPW; WRI / Land & Carbon Lab, Parente et al. 2024) global cultivated-grassland
@@ -722,7 +722,7 @@ def g_glad_crop_gain_2020_2024_prep():
 # only ADD a forest -> pasture HIGH on a plot that carried 2020 treecover). Cultivated grassland is GPW's
 # noisiest class (F1 ~0.64), so treat as a conservative member. See
 # temp_dev_notes/data_assessments/global_pasture_watch_assessment.md.
-def g_gpw_cultiv_pasture_gain_2020_2022_prep():
+def g_gpw_cultiv_pasture_gain_after_2020_prep():
     cultiv = ee.ImageCollection(
         "projects/global-pasture-watch/assets/ggc-30m/v1/grassland_c"
     )
@@ -735,7 +735,7 @@ def g_gpw_cultiv_pasture_gain_2020_2022_prep():
     cultiv_2020 = dc_2020.eq(1)  # class 1 = cultivated (managed) grassland only
     cultiv_2022 = dc_2022.eq(1)  # natural/semi-natural (class 2) excluded
     gain = cultiv_2022.And(cultiv_2020.Not())
-    return gain.rename("GPW_cultiv_pasture_gain_2020_2022").selfMask()
+    return gain.rename("GPW_cultiv_pasture_gain_after_2020").selfMask()
 
 
 # ESRI LULC "other land" = built (7), water (1), snow/ice (9). Bare ground (8) is DROPPED: ESRI
@@ -757,8 +757,8 @@ def g_esri_other_land_2020_prep():
     return _esri_other_land(2020).rename("ESRI_other_land_2020").selfMask()
 
 
-def g_esri_other_land_2025_prep():
-    return _esri_other_land(2025).rename("ESRI_other_land_2025").selfMask()
+def g_esri_other_land_latest_prep():
+    return _esri_other_land(2025).rename("ESRI_other_land_latest").selfMask()
 
 
 # PLACEHOLDER (coded out): Copernicus LCFM LCM-10 "other land" to corroborate ESRI for Ind_12/Ind_13 so
@@ -1671,7 +1671,7 @@ def nbr_mapbiomasc10_silv24_prep():
 # multi-year OR also rides over the harvest/replant cycle (a year that is bare/harvested in one snapshot
 # is still caught by an adjacent year). Modelled on nbr_mapbiomasc10_silv24_prep (silv-2024 presence);
 # Brazil-only (MapBiomas coverage), latest year 2024.
-def nbr_mapbiomasc10_silv_anyyear_2125_prep():
+def nbr_mapbiomasc10_silv_anyyear_after_2020_prep():
     mapbiomasc10 = ee.Image(
         "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
     )
@@ -1681,7 +1681,7 @@ def nbr_mapbiomasc10_silv_anyyear_2125_prep():
     silv_2024 = mapbiomasc10.select("classification_2024").eq(9)
     silv_anyyear = silv_2021.Or(silv_2022).Or(silv_2023).Or(silv_2024)
     return silv_anyyear.rename(
-        "nBR_MapBiomas_col10_silviculture_anyyear_2021_2024"
+        "nBR_MapBiomas_col10_silviculture_anyyear_after_2020"
     ).selfMask()
 
 
@@ -1690,7 +1690,7 @@ def nbr_mapbiomasc10_silv_anyyear_2125_prep():
 # C10 forest classes in 2020 (the forest 2020 row's classes 3, 5, 6, 49) that is forest plantation (DN=9,
 # silviculture) in 2024. A stand in rotation or new plantation on pasture is not counted. Brazil only,
 # latest year 2024. The presence layer (nbr_mapbiomasc10_silv24_prep) stays for the stability question.
-def nbr_mapbiomasc10_silv_gain_2020_2024_prep():
+def nbr_mapbiomasc10_silv_gain_after_2020_prep():
     mapbiomasc10 = ee.Image(
         "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
     )
@@ -1700,7 +1700,7 @@ def nbr_mapbiomasc10_silv_gain_2020_2024_prep():
     )
     silv_2024 = mapbiomasc10.select("classification_2024").eq(9)
     gain = silv_2024.And(forest_2020)
-    return gain.rename("nBR_MapBiomas_col10_silviculture_gain_2020_2024").selfMask()
+    return gain.rename("nBR_MapBiomas_col10_silviculture_gain_after_2020").selfMask()
 
 
 # [non-official dataset by MapBiomas multisector initiative]
@@ -1717,7 +1717,7 @@ def nbr_mapbiomasc10_silv_gain_2020_2024_prep():
 # Silviculture (class 9) stays excluded (degradation pathway, not agriculture).
 # NB pasture re-inflates the extent vs a crops-only signal, so for the cropland-convergence comparison
 # (matching ESRI/GLAD cropland) a separate crops-only variant will be needed later; deferred for now.
-def nbr_mapbiomasc10_ag_gain_2020_2024_prep():
+def nbr_mapbiomasc10_ag_gain_after_2020_prep():
     mapbiomasc10 = ee.Image(
         "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
     )
@@ -1739,7 +1739,7 @@ def nbr_mapbiomasc10_ag_gain_2020_2024_prep():
     ag_2020 = classification_2020.remap(ag_classes, [1] * len(ag_classes), 0)
     ag_2024 = classification_2024.remap(ag_classes, [1] * len(ag_classes), 0)
     gain = ag_2024.And(ag_2020.Not())
-    return gain.rename("nBR_MapBiomas_col10_ag_gain_2020_2024").selfMask()
+    return gain.rename("nBR_MapBiomas_col10_ag_gain_after_2020").selfMask()
 
 
 # [non-official dataset by MapBiomas multisector initiative]
@@ -1778,10 +1778,10 @@ def nbr_mapbiomasc10_other_land_2020_prep():
 
 
 # 2024 after-state (Ind_13): OTHER LAND = only the SOLID, sure non-forest non-agriculture classes (see helper).
-def nbr_mapbiomasc10_other_land_2024_prep():
+def nbr_mapbiomasc10_other_land_latest_prep():
     return (
         _mapbiomasc10_other_land(2024)
-        .rename("nBR_MapBiomas_col10_other_land_2024")
+        .rename("nBR_MapBiomas_col10_other_land_latest")
         .selfMask()
     )
 
@@ -1795,14 +1795,14 @@ def nbr_mapbiomasc10_other_land_2024_prep():
 # annual, so it can detect the EXPANSION); a separate GLOBAL mining EXTENT layer covers the state
 # elsewhere. NB mining (30) is also inside the broad non-forest layer, so this is an explicit, auditable
 # expansion signal feeding the same node.
-def nbr_mapbiomasc10_mining_gain_2020_2024_prep():
+def nbr_mapbiomasc10_mining_gain_after_2020_prep():
     mapbiomasc10 = ee.Image(
         "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
     )
     mining_2020 = mapbiomasc10.select("classification_2020").eq(30)
     mining_2024 = mapbiomasc10.select("classification_2024").eq(30)
     gain = mining_2024.And(mining_2020.Not())
-    return gain.rename("nBR_MapBiomas_col10_mining_gain_2020_2024").selfMask()
+    return gain.rename("nBR_MapBiomas_col10_mining_gain_after_2020").selfMask()
 
 
 # Global industrial-mining footprint (Tang & Werner 2023, unioned with Maus et al. V1 for recall) as a
