@@ -714,7 +714,10 @@ def g_glad_crop_gain_after_2020_prep():
 # second after-year was tried and dropped: it removed real conversions first mapped in the last year.
 # v1.1 against v1 in eight 1-degree cattle-frontier boxes: 50% more new pasture, more of it on tree loss
 # since 2020 (32% against 24%), and a better match with MapBiomas new pasture in Brazil (20% of its area
-# against 14%). v2 (also 2000-2024 in Earth Engine, unannounced) did worse and is not used.
+# against 14%). v2 (published 2025, not in the Earth Engine catalog; adds an open shrubland class and a
+# median filter, with new reference samples) draws cultivated grassland more tightly: better in drylands
+# (it no longer calls Sahel rangeland cultivated), but it sees less of the recent forest -> pasture change
+# (in the Chaco it calls half of v1.1's new pasture "other"), so v1.1 is used for this gain for now.
 # Wired GLOBAL (no Brazil mask): the Ind_10 OR-union plus the forest 2020 gate make the MapBiomas overlap
 # harmless. Cultivated grassland is GPW's noisiest class, so treat it as a conservative member. See
 # temp_dev_notes/data_assessments/global_pasture_watch_assessment.md.
