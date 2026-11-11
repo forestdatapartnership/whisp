@@ -20,6 +20,7 @@ from openforis_whisp.datasets import (
     combine_datasets_without_broken,
     is_dataset_error,
 )
+from openforis_whisp.stats import whisp_formatted_stats_geojson_to_df
 
 GEOJSON_EXAMPLE_FILEPATH = (
     Path(__file__).parents[1] / "fixtures" / "geojson_example.geojson"
@@ -263,6 +264,17 @@ def test_unavailable_datasets_only_in_metadata_when_something_was_dropped(
     )
     df = advanced_stats.whisp_formatted_stats_geojson_to_df_sequential(three_plots)
     assert "unavailable_datasets" not in df["whisp_processing_metadata"].iloc[0]
+
+
+def test_local_mode_lists_dropped_datasets_in_metadata(
+    three_plots, stack_with_dead_dataset
+):
+    # Local mode used to drop a broken dataset without saying so in the output, so whisp_risk
+    # could not note that risk was worked out without it
+    df = whisp_formatted_stats_geojson_to_df(str(three_plots), mode="local")
+    assert len(df) == 3
+    assert df["whisp_processing_metadata"].iloc[0]["unavailable_datasets"] == ["dead"]
+    assert not any(c.startswith("Dead_dataset") for c in df.columns)
 
 
 def test_unavailable_dataset_names_use_column_prefixes():

@@ -1680,6 +1680,7 @@ def whisp_stats_local(
         # Get band names from the EE image (single getInfo call for both naming and tile size calculation).
         # It is also the first call that loads every dataset, so a broken one shows up here: leave it out
         # if Whisp built the image, otherwise stop with guidance (a passed-in image is never swapped).
+        unavailable = []
         try:
             band_names = image.bandNames().getInfo()
         except ee.EEException as e:
@@ -1694,8 +1695,9 @@ def whisp_stats_local(
                 national_codes=national_codes,
                 include_context_bands=include_context_bands,
             )
+            unavailable = unavailable_dataset_names(dropped)
             _whisp_logger.warning(
-                f"Dropped unavailable dataset(s): {', '.join(unavailable_dataset_names(dropped))}"
+                f"Dropped unavailable dataset(s): {', '.join(unavailable)}"
             )
             band_names = image.bandNames().getInfo()
         num_bands = len(band_names)
@@ -1862,6 +1864,9 @@ def whisp_stats_local(
                 "%Y-%m-%d %H:%M:%S%z"
             ),
         }
+        # Only present when a dataset could not be loaded and was left out of this run
+        if unavailable:
+            metadata_dict["unavailable_datasets"] = unavailable
         # Only present when the input went through split_multipart_geojson and parts were split
         split_info = read_split_metadata(input_geojson_filepath)
         if split_info:
