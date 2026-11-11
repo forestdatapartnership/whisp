@@ -285,10 +285,10 @@ def whisp_risk(
         ind_16_input_columns (pd.Series, optional): Input columns for indicator 16. Defaults to the multi-year silviculture-presence columns flagged for timber (theme_timber=plantation_presence_2025).
         ind_16_name (str, optional): Name of indicator 16 column. Defaults to "Ind_16_plantation_presence_2025".
         ind_18_pcent_threshold (float, optional): Percentage threshold for indicator 18 (observed regenerating / planted forest in 2025). Defaults to 10.
-        ind_18_input_columns (pd.Series, optional): Input columns for indicator 18. Defaults to the 2025 regenerating / planted forest columns flagged for timber (theme_timber=regen_planted_2025), i.e. ForTy_v2_regen_planted_2025; with none flagged, the regenerating leg falls back to no disturbance after 2020.
+        ind_18_input_columns (pd.Series, optional): Input columns for indicator 18. Defaults to the 2025 regenerating / planted forest columns flagged for timber (theme_timber=regen_planted_2025), i.e. ForTy_v2_regen_planted_latest; with none flagged, the regenerating leg falls back to no disturbance after 2020.
         ind_18_name (str, optional): Name of indicator 18 column. Defaults to "Ind_18_regen_planted_2025".
         ind_19_pcent_threshold (float, optional): Percentage threshold for indicator 19 (primary forest in 2020 that ForTy V2 itself no longer calls primary in 2025; on the timber primary leg a change with no disturbance behind it gives more-info instead of LOW). Defaults to 10.
-        ind_19_input_columns (pd.Series, optional): Input columns for indicator 19. Defaults to the primary-change columns flagged for timber (theme_timber=primary_change_after_2020), i.e. ForTy_v2_primary_change_2020_2025.
+        ind_19_input_columns (pd.Series, optional): Input columns for indicator 19. Defaults to the primary-change columns flagged for timber (theme_timber=primary_change_after_2020), i.e. ForTy_v2_primary_change_after_2020.
         ind_19_name (str, optional): Name of indicator 19 column. Defaults to "Ind_19_primary_change_after_2020".
         low_name (str, optional): Value shown in table if less than or equal to the threshold. Defaults to "no".
         high_name (str, optional): Value shown in table if more than the threshold. Defaults to "yes".
@@ -586,7 +586,7 @@ def whisp_risk(
 
     # "Still regenerating / planted forest in 2025" for the regen leg: regenerating or planted in 2020
     # (Ind_06 or Ind_20) AND, where the lookup flags an observed 2025 source (Ind_18, e.g.
-    # ForTy_v2_regen_planted_2025), regenerating or planted forest in 2025 (Ind_18). Unlike primary, the
+    # ForTy_v2_regen_planted_latest), regenerating or planted forest in 2025 (Ind_18). Unlike primary, the
     # disturbance stack is NOT subtracted once an observed state exists: regenerating forest tolerates
     # disturbance (fire, windthrow, selective logging) and stays forest, and the two changes that count as
     # degradation for it (-> plantation, -> other land) are separate questions in the tree. Positive 2025
@@ -1326,7 +1326,7 @@ def get_cols_ind_21_plantation_forest_2020(lookup_gee_datasets_df):
 def get_cols_ind_22_plantation_forest_gain_after_2020(lookup_gee_datasets_df):
     """
     Dataset names for plantation forest gain after 2020 (theme_timber=plantation_forest_gain_after_2020):
-    ForTy_v2_plantation_forest_gain_2020_2025 and, in Brazil, nBR_MapBiomas_col10_silviculture_gain_2020_2024,
+    ForTy_v2_plantation_forest_gain_after_2020 and, in Brazil, nBR_MapBiomas_col10_silviculture_gain_after_2020,
     each counting plantation forest only where its own map had primary or naturally regenerating forest in
     2020 (the EUDR degradation conversion). Asked on the primary and naturally regenerating branches of the
     timber decision tree, which say where the plot came from.

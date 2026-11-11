@@ -472,7 +472,7 @@ def test_timber_primary_leg_through_whisp_risk() -> None:
         ),
         (
             "forty_change_without_disturbance",
-            {"ForTy_v2_primary_2020": 8.0, "ForTy_v2_primary_change_2020_2025": 3.0},
+            {"ForTy_v2_primary_2020": 8.0, "ForTy_v2_primary_change_after_2020": 3.0},
             "more_info_needed",
             "more-info: primary 2020, changed without disturbance",
         ),
@@ -484,7 +484,7 @@ def test_timber_primary_leg_through_whisp_risk() -> None:
         ),
         (
             "primary_only_per_tmf",
-            {"TMF_undist": 8.0, "ForTy_v2_regen_planted_2025": 8.0},
+            {"TMF_undist": 8.0, "ForTy_v2_regen_planted_latest": 8.0},
             "low",
             "low: still primary",
         ),
@@ -516,13 +516,13 @@ def test_plantation_opens_the_forest_gate_unless_agriculture_in_2020() -> None:
         # (label, hectares, risk_timber, pathway)
         (
             "plantation_forest_stable",
-            {"IIASA_plantation_2020": 8.0, "ForTy_v2_plantation_2025": 8.0},
+            {"IIASA_plantation_2020": 8.0, "ForTy_v2_plantation_latest": 8.0},
             "low",
             "low: still plantation forest",
         ),
         (
             "plantation_forest_to_cropland",
-            {"IIASA_plantation_2020": 8.0, "ESRI_crop_gain_2020_2025": 3.0},
+            {"IIASA_plantation_2020": 8.0, "ESRI_crop_gain_after_2020": 3.0},
             "high",
             "high: deforestation",
         ),
@@ -532,7 +532,7 @@ def test_plantation_opens_the_forest_gate_unless_agriculture_in_2020() -> None:
             {
                 "IIASA_plantation_2020": 8.0,
                 "Oil_palm_Descals": 8.0,
-                "FDaP_tree_crop_gain_2020_2024": 3.0,
+                "FDaP_tree_crop_gain_after_2020": 3.0,
             },
             "low",
             "low: agriculture 2020",
@@ -550,11 +550,11 @@ def test_timber_derived_columns_keep_each_row_when_index_labels_repeat() -> None
     cases = [
         ({"ForTy_v2_primary_2020": 8.0}, "low"),
         (
-            {"ForTy_v2_primary_2020": 8.0, "ForTy_v2_primary_change_2020_2025": 3.0},
+            {"ForTy_v2_primary_2020": 8.0, "ForTy_v2_primary_change_after_2020": 3.0},
             "more_info_needed",
         ),
         (
-            {"ForTy_v2_nat_reg_2020": 8.0, "ForTy_v2_regen_planted_2025": 8.0},
+            {"ForTy_v2_nat_reg_2020": 8.0, "ForTy_v2_regen_planted_latest": 8.0},
             "low",
         ),
         ({"ForTy_v2_nat_reg_2020": 8.0}, "more_info_needed"),
