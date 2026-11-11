@@ -310,7 +310,7 @@ def whisp_risk(
             keeping only context/metadata columns, datasets used in indicators, indicator columns,
             and final risk columns. Defaults to False (backward compatible).
         include_working_columns (bool, optional): If True, also returns the columns the timber decision tree
-            uses along the way and that are not part of the output yet (Ind_13, Ind_16, Ind_18, Ind_19, primary_2025,
+            uses along the way and that are not part of the output yet (Ind_13, Ind_16, Ind_18, primary_2025,
             regen_planted_still_2025, plantation_forest_2020), e.g. for the pathway viewer. Defaults to False.
 
         Ind_07_planted_plantations_2020, Ind_08_planted_plantations_after_2020 and
@@ -531,7 +531,6 @@ def whisp_risk(
         ind_13_name,
         ind_16_name,
         ind_18_name,
-        ind_19_name,
         "primary_2025",
         "regen_planted_still_2025",
         "plantation_forest_2020",
@@ -674,8 +673,7 @@ def whisp_risk(
         df_w_indicators = filter_to_risk_columns(df_w_indicators, input_cols, names)
 
     # The timber decision tree's working columns stay out of the output for now: Ind_13, Ind_16 and Ind_18
-    # are states after 2020 and Ind_19 a change of forest type, all to be replaced by changes measured within
-    # one dataset, and the three derived
+    # are states after 2020, to be replaced by changes measured within one dataset, and the three derived
     # columns can be rebuilt from emitted indicators. risk_timber_pathway says which way each plot went.
     if not include_working_columns:
         df_w_indicators = df_w_indicators.drop(
