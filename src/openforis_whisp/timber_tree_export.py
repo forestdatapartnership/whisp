@@ -218,7 +218,7 @@ Q_TO_COLUMNS = {
     "plantation_2020": ["Ind_21_plantation_forest_2020"],
     "plantation_presence_2025": ["Ind_16_plantation_presence_2025"],
     "primary_2020": ["Ind_05_primary_2020"],
-    "plantation_2025": ["Ind_22_natural_to_plantation_forest_after_2020"],
+    "plantation_2025": ["Ind_22_plantation_forest_gain_after_2020"],
     "disturbed_after_2020": ["Ind_04_disturbance_after_2020"],
     # derived in whisp_risk: Ind_05 AND NOT Ind_04 AND NOT Ind_19 (no change in ForTy's own primary class)
     "primary_2025": ["primary_2025"],

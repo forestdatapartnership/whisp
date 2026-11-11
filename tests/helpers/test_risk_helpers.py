@@ -13,7 +13,7 @@ from openforis_whisp.risk import (
     get_cols_ind_06_nat_reg_2020,
     get_cols_ind_20_planted_forest_2020,
     get_cols_ind_21_plantation_forest_2020,
-    get_cols_ind_22_natural_to_plantation_forest_after_2020,
+    get_cols_ind_22_plantation_forest_gain_after_2020,
     get_cols_ind_09_treecover_after_2020,
     get_cols_ind_10_agri_after_2020,
     get_cols_ind_12_other_land_2020,
@@ -106,7 +106,7 @@ def test_timber_flag_is_on_exactly_for_the_timber_indicator_datasets():
         + get_cols_ind_06_nat_reg_2020(lut)
         + get_cols_ind_20_planted_forest_2020(lut)
         + get_cols_ind_21_plantation_forest_2020(lut)
-        + get_cols_ind_22_natural_to_plantation_forest_after_2020(lut)
+        + get_cols_ind_22_plantation_forest_gain_after_2020(lut)
         + get_cols_ind_09_treecover_after_2020(lut)
         + get_cols_ind_10_agri_after_2020(lut)
         + get_cols_ind_12_other_land_2020(lut)

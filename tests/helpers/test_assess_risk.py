@@ -41,7 +41,7 @@ EXPECTED_INDICATOR_COLS = [
     "Ind_19_primary_change_after_2020",
     "Ind_20_planted_forest_2020",
     "Ind_21_plantation_forest_2020",
-    "Ind_22_natural_to_plantation_forest_after_2020",
+    "Ind_22_plantation_forest_gain_after_2020",
 ]
 
 
@@ -111,7 +111,7 @@ _IND_5 = "Ind_05_primary_2020"
 _IND_6 = "Ind_06_nat_reg_forest_2020"
 _IND_7A = "Ind_20_planted_forest_2020"
 _IND_7B = "Ind_21_plantation_forest_2020"
-_IND_8B = "Ind_22_natural_to_plantation_forest_after_2020"
+_IND_8B = "Ind_22_plantation_forest_gain_after_2020"
 _IND_9 = "Ind_09_treecover_after_2020"
 _IND_10 = "Ind_10_agri_after_2020"
 _IND_12 = "Ind_12_other_land_2020"
