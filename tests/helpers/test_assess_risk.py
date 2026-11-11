@@ -37,6 +37,7 @@ EXPECTED_INDICATOR_COLS = [
     "Ind_10_agri_after_2020",
     "Ind_11_logging_concession_before_2020",
     "Ind_12_other_land_2020",
+    "Ind_13_other_land_gain_after_2020",
     "Ind_15_cropland_2020",
     "Ind_20_planted_forest_2020",
     "Ind_21_plantation_forest_2020",
@@ -116,10 +117,8 @@ _IND_10 = "Ind_10_agri_after_2020"
 _IND_12 = "Ind_12_other_land_2020"
 _IND_13 = "Ind_13_other_land_gain_after_2020"
 _IND_15 = "Ind_15_cropland_2020"
-_IND_16 = "Ind_16_plantation_presence_2025"
 _IND_4 = "Ind_04_disturbance_after_2020"
 _PRIMARY_2025 = "primary_2025"
-_IND_18 = "Ind_18_regen_planted_2025"
 _REGEN_STILL = "regen_planted_still_2025"
 _PLANTATION_FOREST = "plantation_forest_2020"
 
@@ -136,10 +135,8 @@ _TIMBER_INPUT_COLS = [
     _IND_12,
     _IND_13,
     _IND_15,
-    _IND_16,
     _IND_4,
     _PRIMARY_2025,
-    _IND_18,
     _REGEN_STILL,
     _PLANTATION_FOREST,
 ]
@@ -207,33 +204,34 @@ def test_timber_decision_tree_terminals() -> None:
         # plantation-2020 branch: Ind_21 opens the forest gate only through the derived
         # plantation_forest_2020 (no agriculture in 2020); with tree cover it is in the forest half anyway.
         _timber_row(
-            "plantation_stable",  # Ind_16 PRESENCE -> LOW
+            "plantation_stable",  # still plantation forest is worked out -> LOW
             "low",
             "low: still plantation forest",
-            **{_IND_1: "yes", _IND_7B: "yes", _IND_16: "yes"},
+            **{_IND_1: "yes", _IND_7B: "yes"},
         ),
         _timber_row(
             "plantation_only_opens_the_gate",
             "low",
             "low: still plantation forest",
-            **{_PLANTATION_FOREST: "yes", _IND_7B: "yes", _IND_16: "yes"},
+            **{_PLANTATION_FOREST: "yes", _IND_7B: "yes"},
         ),
         _timber_row(
             "plantation_without_the_derived_column_stays_non_forest",
             "more_info_needed",
             "more-info: non-forest 2020, unclassified",
-            **{_IND_7B: "yes", _IND_16: "yes"},
+            **{_IND_7B: "yes"},
         ),
         _timber_row(
+            # still plantation forest is worked out from plantation forest 2020, so other land is not asked
             "plantation_to_other_land",
             "low",
-            "low: plantation forest 2020 -> other land",
+            "low: still plantation forest",
             **{_IND_1: "yes", _IND_7B: "yes", _IND_13: "yes"},
         ),
         _timber_row(
             "plantation_no_2025",
-            "more_info_needed",
-            "more-info: plantation forest 2020, no later state",
+            "low",
+            "low: still plantation forest",
             **{_IND_1: "yes", _IND_7B: "yes"},
         ),
         # primary-2020 branch (checked BEFORE regen; plantation-2025 GAIN checked FIRST)
@@ -273,7 +271,7 @@ def test_timber_decision_tree_terminals() -> None:
             "primary_disturbed_then_regen_or_other_land",
             "more_info_needed",
             "more-info: primary 2020, disturbed after 2020",
-            **{_IND_5: "yes", _IND_4: "yes", _IND_18: "yes", _IND_13: "yes"},
+            **{_IND_5: "yes", _IND_4: "yes", _IND_13: "yes"},
         ),
         _timber_row(
             # the order inside the leg: a plantation gain is still read as degradation first
@@ -302,7 +300,7 @@ def test_timber_decision_tree_terminals() -> None:
             "primary_changed_to_regen_without_disturbance",
             "more_info_needed",
             "more-info: primary 2020, changed without disturbance",
-            **{_IND_5: "yes", _IND_18: "yes"},
+            **{_IND_5: "yes"},
         ),
         _timber_row(
             # other land 2025 is no longer asked on the primary leg (was LOW, code 16)
@@ -332,8 +330,8 @@ def test_timber_decision_tree_terminals() -> None:
             **{_IND_6: "yes", _IND_8B: "yes"},
         ),
         _timber_row(
-            # no new plantation and still regenerating / planted in 2025 (the derived column: regen 2020
-            # AND NOT Ind_04) -> stayed-forest LOW, by absence of disturbance, not by canopy presence.
+            # no new plantation and still regenerating / planted in 2025 (the worked-out column: regen
+            # 2020 AND NOT Ind_22) -> stayed-forest LOW.
             "regen_stayed_forest",
             "low",
             "low: regen stayed forest",
@@ -354,8 +352,8 @@ def test_timber_decision_tree_terminals() -> None:
             **{_IND_6: "yes", _IND_13: "yes"},
         ),
         _timber_row(
-            # regen + DISTURBANCE (Ind_04), no plantation-gain, no other-land -> more-info. This is now the
-            # ONLY route to the regen more-info leg (a no-disturbance regen plot is LOW, above).
+            # still regenerating = no (reachable only by passing the column in: whisp_risk works it out as
+            # yes once the gain question is no) and no other land -> more-info.
             "regen_disturbed",
             "more_info_needed",
             "more-info: regen 2020, no later state",
@@ -388,7 +386,6 @@ def test_timber_decision_tree_terminals() -> None:
                 _IND_1: "yes",
                 _IND_5: "yes",
                 _IND_7B: "yes",
-                _IND_16: "yes",
                 _IND_8B: "yes",
             },
         ),
@@ -410,10 +407,8 @@ def test_timber_decision_tree_terminals() -> None:
         ind_12_name=_IND_12,
         ind_13_name=_IND_13,
         ind_15_name=_IND_15,
-        ind_16_name=_IND_16,
         plantation_forest_2020_name=_PLANTATION_FOREST,
         primary_2025_name=_PRIMARY_2025,
-        ind_18_name=_IND_18,
         regen_planted_still_2025_name=_REGEN_STILL,
     )
 
@@ -560,7 +555,7 @@ def test_timber_derived_columns_keep_each_row_when_index_labels_repeat() -> None
             {"ForTy_v2_nat_reg_2020": 8.0, "ForTy_v2_regen_planted_latest": 8.0},
             "low",
         ),
-        ({"ForTy_v2_nat_reg_2020": 8.0}, "more_info_needed"),
+        ({"ForTy_v2_nat_reg_2020": 8.0}, "low"),
     ]
     df = pd.DataFrame([_synthetic_plot(**ha) for ha, _ in cases], index=[0, 0, 1, 1])
     out = whisp_risk(df, include_working_columns=True)
@@ -569,9 +564,6 @@ def test_timber_derived_columns_keep_each_row_when_index_labels_repeat() -> None
 
 
 _WORKING_COLS = [
-    _IND_13,
-    _IND_16,
-    _IND_18,
     _PRIMARY_2025,
     _REGEN_STILL,
     _PLANTATION_FOREST,

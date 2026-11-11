@@ -269,9 +269,8 @@ def g_forty_forest_2020_prep():
 #
 # These are the 2020 and 2025 states the timber decision tree asks about (2026-07-29 planned diagram). The 2020
 # classes replace the ForTy V1 2020 rows on the timber baselines (Ind_05 / 06 / 20 / 21); the 2025
-# classes fill the slots that were DERIVED from 2020-minus-disturbance until now (regenerating /
-# planted 2025 = Ind_18, plantation presence 2025 = Ind_16; the
-# primary 2025 class itself is emitted for information only) plus the plantation GAIN 2020 -> 2025 (Ind_22, the first global
+# classes are hidden building blocks (the decision tree works out its "still" questions from what did
+# not happen), and with the 2020 classes they give the plantation GAIN 2020 -> 2025 (Ind_22, the first global
 # dated plantation layer). Tree crops (2020 and gain), forest extent
 # and other land are emitted present-but-unused (use_for_risk_* = 0): generic crop classes feeding
 # Ind_02 / Ind_10 is still an open question (#287) and ForTy "other land" is ALL non-forest, not the
@@ -323,8 +322,8 @@ def g_forty_v2_primary_2025_prep():
     return _forty_v2_present(2025, [1, 7], "ForTy_v2_primary_2025")
 
 
-# Naturally regenerating OR planted forest in 2025 (classes 2 and 3): the observed "regenerating /
-# planted forest in 2025" state (Ind_18). Plantation (4) is deliberately NOT included: a primary or
+# Naturally regenerating OR planted forest in 2025 (classes 2 and 3), a hidden building block: the timber
+# decision tree works out "still regenerating or planted" from no conversion. Plantation (4) is NOT included: a primary or
 # regenerating forest that became a plantation is degradation, handled by the plantation-gain question.
 def g_forty_v2_regen_planted_latest_prep():
     return _forty_v2_present(2025, [2, 3], "ForTy_v2_regen_planted_latest")
@@ -1654,8 +1653,8 @@ def nbr_mapbiomasc10_silv24_prep():
 
 
 # [non-official dataset by MapBiomas multisector initiative]
-# MULTI-YEAR plantation PRESENCE (not gain) for the timber decision tree's plantation-2020 STABILITY check
-# (Ind_16 "plantation presence 2025"). Reads MapBiomas Brazil Collection 10 Forest plantation
+# MULTI-YEAR plantation PRESENCE (not gain), a hidden building block: the timber decision tree now works out
+# "still plantation forest" (agriculture after 2020 is asked before it). Reads MapBiomas Brazil Collection 10 Forest plantation
 # (DN=9 = silviculture) present in ANY year 2021-2024 (OR of classification_2021..classification_2024
 # == 9). A presence/not-loss layer, NOT the gain: a plantation already standing in 2020 stays detected
 # here, which is exactly what the Rule-3 "still a plantation in 2025?" stability test needs (the GAIN

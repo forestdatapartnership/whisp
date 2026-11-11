@@ -96,11 +96,8 @@ CODE_COLOUR = {
 # --------------------------------------------------------------------------------------------------
 # Wording follows the 2026-07-29 planned diagram (temp_dev_notes/decision_trees/timber_tree_dated.html).
 # The diagram's "*" (dated plantation data Brazil-only) is dropped: the ForTy V2 plantation gain
-# 2020 -> 2025 is global. "**" marks the 2025 forest states, which whisp_risk derives from the ForTy V2
-# time series where its rows are flagged (still primary = no disturbance after 2020 and no conversion into
-# plantation forest),
-# falling back to the 2020 state minus disturbance when no observed 2025 source is flagged; the viewer
-# footnote under the tree explains.
+# 2020 -> 2025 is global. "**" marks the "still" questions, which whisp_risk works out from what did not
+# happen (no disturbance or conversion), not from a map of the latest year.
 Q_LABEL = {
     "forest_2020": "Forest in 2020?<br/><small>(treecover / primary / regen / planted / plantation)</small>",
     "other_land_2020": "Other land in 2020?<br/><small>(built / water / mining / bare)</small>",
@@ -110,7 +107,7 @@ Q_LABEL = {
     "agriculture_2020": "Agriculture in 2020?",
     "agriculture_2025": "Agriculture after 2020?<br/><small>(deforestation)</small>",
     "plantation_2020": "Plantation forest in 2020?",
-    "plantation_presence_2025": "Still plantation forest in 2025?<br/><small>(presence)</small>",
+    "plantation_presence_2025": "Still plantation forest in 2025?**",
     "primary_2020": "Primary forest in 2020?",
     "plantation_2025": "Became plantation forest in 2025?<br/><small>(degradation)</small>",
     "disturbed_after_2020": "Disturbed after 2020?<br/><small>(as for crops: TMF, Hansen loss, alerts)</small>",
@@ -190,7 +187,7 @@ _Q_TO_LAYER = {
     "plantation_2025": "gain_plantation_gain",
     "disturbed_after_2020": "gain_disturbance_after_2020",  # disturbance after 2020 (Ind_04)
     "primary_2025": "gain_still_primary_2025",
-    "regen_planted_still_2025": "gain_regen_stayed_2025",  # regen stayed forest (absence of disturbance)
+    "regen_planted_still_2025": "gain_regen_stayed_2025",  # regen stayed forest (not converted)
 }
 # Per-node overrides where the same question means different data in different branches.
 _NODE_LAYER_OVERRIDE = {
@@ -218,14 +215,15 @@ Q_TO_COLUMNS = {
     "agriculture_2020": ["Ind_02_commodities", "Ind_15_cropland_2020"],
     "agriculture_2025": ["Ind_10_agri_after_2020"],
     "plantation_2020": ["Ind_21_plantation_forest_2020"],
-    "plantation_presence_2025": ["Ind_16_plantation_presence_2025"],
+    # worked out: plantation forest 2020 (agriculture after 2020 is asked before it)
+    "plantation_presence_2025": ["Ind_21_plantation_forest_2020"],
     "primary_2020": ["Ind_05_primary_2020"],
     "plantation_2025": ["Ind_22_plantation_forest_gain_after_2020"],
     "disturbed_after_2020": ["Ind_04_disturbance_after_2020"],
     # derived in whisp_risk: Ind_05 AND NOT Ind_04 AND NOT Ind_22 (not disturbed, not converted)
     "primary_2025": ["primary_2025"],
     "regen_planted_2020": ["Ind_06_nat_reg_forest_2020", "Ind_20_planted_forest_2020"],
-    # derived in whisp_risk: (Ind_06 OR Ind_20) AND observed Ind_18 where flagged, else AND NOT Ind_04
+    # worked out in whisp_risk: (Ind_06 OR Ind_20) AND NOT Ind_22 (not converted)
     "regen_planted_still_2025": ["regen_planted_still_2025"],
 }
 
