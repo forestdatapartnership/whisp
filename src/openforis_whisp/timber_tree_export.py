@@ -242,7 +242,7 @@ _CLASSDEFS = """
 
 # --------------------------------------------------------------------------------------------------
 # 3. The timber spec: bundle every timber-specific piece so the generic decision_tree functions can
-#    drive the timber tree.  A future PCROP_SPEC / ACROP_SPEC is another DecisionTreeSpec built the same
+#    drive the timber decision tree.  A future PCROP_SPEC / ACROP_SPEC is another DecisionTreeSpec built the same
 #    way (its own tree + question->indicator-column mapping + code map + palette).
 # --------------------------------------------------------------------------------------------------
 TIMBER_SPEC = DecisionTreeSpec(
@@ -283,12 +283,12 @@ _iter_nodes = _dt.iter_nodes
 
 
 def annotate():
-    """Return the timber tree annotated with a stable ``id`` on every node and ``code`` on every leaf."""
+    """Return the timber decision tree annotated with a stable ``id`` on every node and ``code`` on every leaf."""
     return _dt.annotate(TIMBER_SPEC)
 
 
 def code_names():
-    """code -> its pathway label (the map legend). Only codes actually reached by the timber tree."""
+    """code -> its pathway label (the map legend). Only codes actually reached by the timber decision tree."""
     return _dt.code_names(TIMBER_SPEC)
 
 
@@ -303,7 +303,7 @@ def pathway_label_to_code():
 
 
 def node_ids():
-    """Return (decision_ids, terminal_ids) for the timber tree, pre-order (for the viewer click-binding)."""
+    """Return (decision_ids, terminal_ids) for the timber decision tree, pre-order (for the viewer click-binding)."""
     return _dt.node_ids(TIMBER_SPEC)
 
 
@@ -313,7 +313,7 @@ def node_to_layer():
 
 
 def to_mermaid():
-    """Emit the ``flowchart TB`` Mermaid source for the timber tree (nodes, edges, styling)."""
+    """Emit the ``flowchart TB`` Mermaid source for the timber decision tree (nodes, edges, styling)."""
     return _dt.to_mermaid(TIMBER_SPEC)
 
 
@@ -336,5 +336,5 @@ def js_module_source():
 
 
 def selfcheck():
-    """Assert PATHWAY_TO_CODE is a bijection over the timber tree's leaf pathways; return the summary."""
+    """Assert PATHWAY_TO_CODE is a bijection over the timber decision tree's leaf pathways; return the summary."""
     return _dt.selfcheck(TIMBER_SPEC)

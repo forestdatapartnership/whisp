@@ -51,7 +51,7 @@ def test_risk_inputs_left_out_maps_short_names_to_the_risk_trees_they_feed():
     affected = risk.risk_inputs_left_out(
         ["ESA_fire", "RADD_after_2020", "admin_code", "dead"]
     )
-    # The timber tree reads the same disturbance after 2020 (Ind_04) as the crop trees, so RADD
+    # The timber decision tree reads the same disturbance after 2020 (Ind_04) as the crop decision trees, so RADD
     # feeds all three, as on main.
     assert affected == {"RADD_after_2020": ["pcrop", "acrop", "timber"]}
 

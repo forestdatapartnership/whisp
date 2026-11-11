@@ -3,7 +3,7 @@ low / more-info / high outcome image, for the perennial-crop (pcrop) and annual-
 
 This is the crop analogue of ``timber_map``, kept SPEC-DRIVEN so ONE builder covers both crops: pass
 ``pcrop_tree_export.PCROP_SPEC`` (with ``risk_col="use_for_risk_pcrop"``) or ``acrop_tree_export.ACROP_SPEC``
-(``"use_for_risk_acrop"``). The crop trees are far simpler than timber: every tree question maps to exactly
+(``"use_for_risk_acrop"``). The crop decision trees are far simpler than timber: every decision tree question maps to exactly
 ONE WHISP indicator's presence OR-union (no derived combinations like timber's forest_2020 / primary_2025 /
 agriculture_2020, and no multi-source count node). So the qimg is a direct getter-to-union map.
 
@@ -42,7 +42,7 @@ from .risk import (
     get_cols_ind_04_dist_after_2020,
 )
 
-# WHISP indicator column name -> the getter that returns its lookup dataset names. The crop trees only use
+# WHISP indicator column name -> the getter that returns its lookup dataset names. The crop decision trees only use
 # these four indicators (Ind_01 treecover, Ind_02 commodities, Ind_03 disturbance-before, Ind_04
 # disturbance-after); pcrop uses all four, acrop drops Ind_03_disturbance_before_2020.
 _GETTERS = {

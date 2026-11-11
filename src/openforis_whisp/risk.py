@@ -183,7 +183,7 @@ def whisp_risk(
     ind_11_pcent_threshold: float = 10,  # Ind_11, kept in the output for existing users; no decision tree reads it
     ind_12_pcent_threshold: float = 10,
     ind_13_pcent_threshold: float = 10,
-    ind_15_pcent_threshold: float = 50,  # like Ind_02: agriculture in 2020 leads to a low risk outcome on the timber tree, so it must cover most of the plot
+    ind_15_pcent_threshold: float = 50,  # like Ind_02: agriculture in 2020 leads to a low risk outcome on the timber decision tree, so it must cover most of the plot
     ind_16_pcent_threshold: float = 10,
     ind_18_pcent_threshold: float = 10,  # observed regenerating / planted forest in 2025 (Ind_18)
     ind_19_pcent_threshold: float = 10,  # ForTy V2 primary 2020 no longer primary in 2025 (Ind_19)
@@ -354,7 +354,7 @@ def whisp_risk(
         # identical (each equal to this union, i.e. the combined commodity signal that was the
         # single use_for_risk column up to v3.0.0a14), so this union is decision-neutral and
         # either column faithfully describes what its tree consumes. The perennial/annual split
-        # is NOT yet wired: both crop trees consume this same Ind_02. To implement it, repopulate
+        # is NOT yet wired: both crop decision trees consume this same Ind_02. To implement it, repopulate
         # use_for_risk_pcrop/acrop with distinct values and build a per-crop Ind_02 here; the
         # getter already accepts risk_col for that.
         _pcrop_cols = get_cols_ind_02_commodities(
@@ -558,13 +558,13 @@ def whisp_risk(
         unit_type,  # Pass the unit type
     )
 
-    # The timber tree reads the same disturbance-after-2020 evidence as the crop trees (Ind_04: TMF
+    # The timber decision tree reads the same disturbance-after-2020 evidence as the crop decision trees (Ind_04: TMF
     # deforestation / degradation, Hansen loss, the RADD / GLAD / DIST alerts and, for Brazil, PRODES /
     # DETER). A June 2026 pool that also held the per-year loss bands flagged nearly every primary pixel;
     # today's Ind_04 adds little over Hansen + TMF at plot level, and on the primary leg it gives more-info,
     # not HIGH, so an extra alert only asks for a closer look.
 
-    # "Still primary in 2025" for the timber tree: primary in 2020 (Ind_05), no disturbance after 2020
+    # "Still primary in 2025" for the timber decision tree: primary in 2020 (Ind_05), no disturbance after 2020
     # (Ind_04) and no change in ForTy V2's own 2020 -> 2025 primary class (Ind_19). Either one sends the
     # plot to more-info on the tree, not LOW. Ind_19 is judged against ForTy's own 2020 class (primary only another
     # layer calls primary is not a change), and a change share rather than a 2025 presence share, which at
@@ -1294,7 +1294,7 @@ def get_cols_ind_06_nat_reg_2020(lookup_gee_datasets_df):
 def get_cols_ind_20_planted_forest_2020(lookup_gee_datasets_df):
     """
     Dataset names for planted forest (non-plantation) in 2020 (theme_timber=planted_2020).
-    Split out from the old merged Ind_07; grouped with nat-regen (Ind_06) in the timber tree.
+    Split out from the old merged Ind_07; grouped with nat-regen (Ind_06) in the timber decision tree.
     """
     lookup_gee_datasets_df = lookup_gee_datasets_df[
         lookup_gee_datasets_df["exclude_from_output"] != 1
@@ -1310,7 +1310,7 @@ def get_cols_ind_20_planted_forest_2020(lookup_gee_datasets_df):
 def get_cols_ind_21_plantation_forest_2020(lookup_gee_datasets_df):
     """
     Dataset names for plantation forest in 2020 (theme_timber=plantation_2020).
-    The operative plantation class in the timber tree (stable-plantation / degradation logic).
+    The operative plantation class in the timber decision tree (stable-plantation / degradation logic).
     """
     lookup_gee_datasets_df = lookup_gee_datasets_df[
         lookup_gee_datasets_df["exclude_from_output"] != 1

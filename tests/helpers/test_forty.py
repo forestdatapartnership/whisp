@@ -1,10 +1,10 @@
 """ForTy forest-typology bands (V1 2020 and the V2 time series): emitted as output columns, neutral
 for the CROP trees.
 
-On main these bands are present-but-unused everywhere. On this branch the timber tree deliberately
+On main these bands are present-but-unused everywhere. On this branch the timber decision tree deliberately
 reads the ForTy V2 2020 classes (primary, naturally regenerating, planted, plantation) and 2025 states
 (primary, regenerating / planted, plantation presence and gain) through theme_timber, so the
-timber-neutrality assertion from main is dropped here; the crop trees must still never see them.
+timber-neutrality assertion from main is dropped here; the crop decision trees must still never see them.
 The tests are pure-Python (no Earth Engine): they check the shipped lookup table and the crop
 risk-column getters. The one exception checks the primary-change rule on constant class images.
 """
@@ -91,7 +91,7 @@ def test_forty_bands_excluded_from_crop_indicators():
 
 
 def test_forty_timber_flags_match_the_v2_switch():
-    """Only the ForTy V2 rows feed the timber tree; every ForTy row is in the expected-name contract."""
+    """Only the ForTy V2 rows feed the timber decision tree; every ForTy row is in the expected-name contract."""
     rows = _forty_rows(lookup_gee_datasets_df)
     on = set(rows.loc[rows["use_for_risk_timber"] == 1, "name"])
     assert (
