@@ -7,6 +7,8 @@ the same idea as the timber notebook's local-serve cell, generalized so any view
 why a drawn plot can be analyzed (a plain file opened directly has no backend). ``/api/info`` says which
 code that is, and ``/api/relay/...`` passes calls on to the live Whisp API with the key the page sends, so
 the page can also analyse with the API (or both, to compare) without the browser's CORS block.
+``/api/pick?lat=..&lon=..`` reads the page's own map layers at one spot (the pathway, each question of the
+decision tree and the datasets there), for the viewer's pixel picker.
 
 Usage (run in a SEPARATE terminal, not the one running other tools):
 
@@ -31,8 +33,42 @@ import urllib.error
 import urllib.request
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
 
 from .pathway_viewer import WHISP_API_BASE, package_info
+
+# the viewers the pixel picker knows how to rebuild the map for, by the page's risk column
+PICK_TREES = {
+    "risk_timber": "timber",
+    "risk_pcrop": "pcrop",
+    "risk_acrop": "acrop",
+}
+
+
+def _pick_layers(tree, national_codes):
+    """The page's per-pixel map, rebuilt the same way as the viewer: (one image with the pathway code as
+    "code" and each tree question as "q_<question>", the palette, the question names)."""
+    import ee
+
+    if tree == "timber":
+        from . import timber_tree_export as tx
+        from .timber_map import build_timber_question_images, timber_map_palette
+
+        qimg = build_timber_question_images(national_codes=national_codes)
+        pathway, palette = tx.eval_tree_ee(qimg, ee.Image), timber_map_palette()
+    else:
+        from . import acrop_tree_export, pcrop_tree_export
+        from .crop_map import build_crop_question_images, crop_map_palette
+
+        export = {"pcrop": pcrop_tree_export, "acrop": acrop_tree_export}[tree]
+        spec = export.PCROP_SPEC if tree == "pcrop" else export.ACROP_SPEC
+        qimg = build_crop_question_images(
+            spec, "use_for_risk_" + tree, national_codes=national_codes
+        )
+        pathway, palette = export.eval_tree_ee(qimg, ee.Image), crop_map_palette(spec)
+    bands = [pathway.rename("code")]
+    bands += [ee.Image(img).rename("q_" + q) for q, img in qimg.items()]
+    return ee.Image.cat(bands), palette, list(qimg)
 
 
 def _clean_thresholds(t):
@@ -97,6 +133,10 @@ def serve(html_path, port=8788, project=None, national_codes=None):
         national_codes = json.loads(m.group(1)) if m else None
     package = package_info()
     package["national_codes"] = national_codes or []
+    m = re.search(r'const RISK_COL = "([a-z_]+)"', html)
+    pick_tree = PICK_TREES.get(m.group(1) if m else "")
+    # the page offers its pixel picker when this is true
+    package["pick"] = bool(pick_tree)
 
     _img_cache = (
         {}
@@ -156,6 +196,46 @@ def serve(html_path, port=8788, project=None, national_codes=None):
             _stats_cache.pop(_order.pop(0), None)
         return token
 
+    # the map layers and the whisp image in one image, built once for every pick
+    _pick_cache = {}
+
+    def _pick(lat, lon):
+        if "img" not in _pick_cache:
+            print("  [pick] building the map layers once (a few seconds)...")
+            img, palette, questions = _pick_layers(pick_tree, national_codes)
+            # the datasets too: each band of the whisp image is the dataset's area in the pixel, so > 0 = there
+            _pick_cache.update(
+                img=img.addBands(_whisp_image()), palette=palette, questions=questions
+            )
+        palette = _pick_cache["palette"]
+        vals = (
+            _pick_cache["img"]
+            .reduceRegion(ee.Reducer.first(), ee.Geometry.Point([lon, lat]), 10)
+            .getInfo()
+        )
+        code = None if vals.get("code") is None else int(vals["code"])
+        names = palette["code_names"]
+        outcome = next(
+            (k for k, codes in palette["class_codes"].items() if code in codes), None
+        )
+        return {
+            "lat": lat,
+            "lon": lon,
+            "code": code,
+            "pathway": names.get(code, names.get(str(code), "")),
+            "outcome": {"low": "low", "more": "more_info_needed", "high": "high"}.get(
+                outcome
+            ),
+            "questions": {
+                q: bool(vals.get("q_" + q)) for q in _pick_cache["questions"]
+            },
+            "present": sorted(
+                k
+                for k, v in vals.items()
+                if v and k != "code" and not k.startswith("q_")
+            ),
+        }
+
     class Handler(BaseHTTPRequestHandler):
         def _send(self, code, body, ctype="application/json"):
             b = body if isinstance(body, bytes) else body.encode("utf-8")
@@ -173,6 +253,15 @@ def serve(html_path, port=8788, project=None, national_codes=None):
                 path == "/api/info"
             ):  # tells the page it is served here, and by which code
                 self._send(200, json.dumps(package))
+            elif path == "/api/pick" and pick_tree:
+                query = parse_qs(urlparse(self.path).query)
+                try:
+                    lat, lon = float(query["lat"][0]), float(query["lon"][0])
+                    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+                        raise ValueError("lat / lon out of range")
+                    self._send(200, json.dumps(_pick(lat, lon)))
+                except Exception as e:  # noqa: BLE001 - surface the error to the page
+                    self._send(500, json.dumps({"error": repr(e)}))
             elif path.startswith("/api/relay/"):
                 self._send(
                     *_relay(
