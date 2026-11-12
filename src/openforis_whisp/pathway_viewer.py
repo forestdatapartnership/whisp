@@ -14,6 +14,9 @@ Features
 * combined risk map (right) with a real Leaflet layer control (each layer an on/off checkbox; outcome and
   pathway either/or) + a legend of the one layer in view (bottom left, clear of the controls) + a
   risk-opacity slider + Sentinel-2 background layers + a map/satellite base;
+* pixel picker (pages served by ``serve_viewer``): a map button, then a click reads the map's own layers at
+  that spot (``/api/pick``): the pathway, each question's answer and the datasets present, and lights up
+  its route in the tree;
 * draw a polygon (Leaflet.draw) -> analyze through a same-origin ``/api`` (the notebook's local proxy /
   ``serve_viewer``); the drawn plot is coloured by its risk and a result panel shows a tick / cross per
   indicator and the outcome + pathway (following the timber viewer);
@@ -408,6 +411,10 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
   #compare td,#compare th{border-bottom:1px solid var(--line);padding:2px 4px;text-align:left}
   #compare tr.diff td{background:#fff3c4;font-weight:700} #compare .src{font-size:.68rem;color:var(--ink2)}
   #sliders.off{opacity:.45;pointer-events:none}
+  /* pixel picker: a map button, then a popup with the pathway and the answer to each question at that spot */
+  .leaflet-bar a.pickBtn{font-size:18px;line-height:30px;cursor:pointer} .leaflet-bar a.pickBtn.on{background:#2b6cb0;color:#fff}
+  .pick{font-size:.76rem;min-width:250px} .pick .ind{font-size:.74rem;padding:.05rem 0} .pick .ind.on{font-weight:700}
+  .pick .src{font-size:.68rem;color:var(--ink2);font-weight:400}
 </style></head><body>
 <header>
   <h1>__TITLE__</h1><span class="sub">__SUBTITLE__</span>
@@ -852,7 +859,57 @@ function updateKeyUi(){
   kb.textContent='API key ✓'; kb.style.display = show && apiKey ? '' : 'none';
   if(!show) ki.style.display='none'; else if(!apiKey) ki.style.display='inline-block';
 }
-(async () => { await checkLocal(); await checkApi(); fillModes(); })();
+// --- pixel picker (served pages only): click the map to read its layers at that spot, no plot analysis ---
+let pickOn=false, pickMarker=null, drawing=false;
+map.on(L.Draw.Event.DRAWSTART, () => { drawing=true; });
+map.on(L.Draw.Event.DRAWSTOP, () => { drawing=false; });
+function setupPick(){
+  if(!(ana.local.ok && ana.local.pkg && ana.local.pkg.pick)) return;
+  const PickCtl = L.Control.extend({ options:{ position:'topleft' }, onAdd:function(){
+    const d=L.DomUtil.create('div', 'leaflet-bar'), a=L.DomUtil.create('a', 'pickBtn', d);
+    a.href='#'; a.innerHTML='&#8982;'; a.title='Pick a pixel: click the map to see the pathway and the datasets at that spot';
+    L.DomEvent.on(a, 'click', e => { L.DomEvent.preventDefault(e); L.DomEvent.stopPropagation(e); setPick(!pickOn); });
+    return d; } });
+  map.addControl(new PickCtl());
+}
+function setPick(on){
+  pickOn=on; document.querySelector('.pickBtn').classList.toggle('on', on);
+  map.getContainer().style.cursor = on ? 'crosshair' : '';
+  if(!on && pickMarker){ map.removeLayer(pickMarker); pickMarker=null; }
+}
+map.on('click', async e => {
+  if(!pickOn || drawing) return;
+  const ll=e.latlng;
+  if(pickMarker) map.removeLayer(pickMarker);
+  pickMarker=L.circleMarker(ll, { radius:6, color:'#111', weight:2, fillColor:'#fff', fillOpacity:1 }).addTo(map);
+  pickMarker.bindPopup('Reading the map layers here&hellip;', { maxWidth:360 }).openPopup();
+  try{
+    const r=await fetch('/api/pick?lat='+ll.lat.toFixed(6)+'&lon='+ll.lng.toFixed(6));
+    const p=await r.json().catch(() => ({}));
+    if(!r.ok) throw new Error(p.error || r.status);
+    pickMarker.setPopupContent(pickHtml(p));
+    if(p.code!=null) showPlotRoute(p.code);  // a box picked for the map stays (showPlotRoute checks)
+  }catch(err){ pickMarker.setPopupContent('Could not read this spot: '+esc(err.message)); }
+});
+function pickHtml(p){
+  let h="<div class='pick'><b>"+p.lat.toFixed(5)+", "+p.lon.toFixed(5)+"</b><br>";
+  if(p.code==null) return h+'No pathway here (outside the map layers).</div>';
+  h+="<span class='badge "+classOf(p.outcome)+"'>"+esc(p.outcome || '?')+"</span> "+esc(p.pathway)+" <span class='src'>(code "+p.code+")</span>";
+  // each question with its answer here (bold on this spot's route) and the datasets present behind it
+  const qOf={}; Object.entries(CFG.nodeTiles||{}).forEach(([id, n]) => { if(n.kind==='question') qOf[id]=n; });
+  const onRoute=new Set(((CFG.routes||{})[p.code]||[]).map(id => qOf[id] && qOf[id].q).filter(Boolean));
+  const present=new Set(p.present||[]);
+  Object.entries(p.questions||{}).forEach(([q, yes]) => {
+    const node=Object.values(qOf).find(n => n.q===q), groups=(CFG.inputGroups||[]).filter(g => g.q===q);
+    // "**" in the tree marks the "still" questions, worked out from what did not happen
+    const label=((node && node.label) || (groups[0] && groups[0].question) || q).replace(/\*\*$/, ' (worked out)');
+    const here=[...new Set(groups.flatMap(g => (g.layers||[]).map(l => l.name)))].filter(n => present.has(n));
+    h+="<div class='ind"+(onRoute.has(q) ? ' on' : '')+"'><span class='mk "+(yes?'y':'n')+"'>"+(yes?'✓':'✗')+"</span><span>"+esc(label)
+      +(here.length ? "<br><span class='src'>"+here.map(esc).join(', ')+"</span>" : '')+"</span></div>";
+  });
+  return h+"<div class='src'>Read at 10 m from the same layers as the map; zoomed out, the map shows a coarser view.</div></div>";
+}
+(async () => { await checkLocal(); setupPick(); await checkApi(); fillModes(); })();
 document.getElementById('keyBtn').onclick=() => { const k=document.getElementById('keyIn'); k.style.display = k.style.display==='inline-block' ? 'none' : 'inline-block'; if(k.style.display!=='none') k.focus(); };
 document.getElementById('keyIn').addEventListener('keydown', async e => {
   if(e.key!=='Enter') return;
