@@ -125,7 +125,7 @@ def g_fdap_forest_prep():
 #########################primary forest
 # EUFO JRC Global forest type - primary
 def g_gft_primary_prep():
-    gft_raw = ee.Image("JRC/GFC2020_subtypes/V1")
+    gft_raw = ee.Image("JRC/GFC2020_subtypes/V2")
     gft_primary = gft_raw.eq(10)
     return gft_primary.rename("GFT_primary").selfMask()
 
@@ -154,7 +154,7 @@ def g_epfd_prep():
 
 # EUFO JRC Global forest type - naturally regenerating planted/plantation forests
 def g_gft_nat_reg_prep():
-    gft_raw = ee.Image("JRC/GFC2020_subtypes/V1")
+    gft_raw = ee.Image("JRC/GFC2020_subtypes/V2")
     gft_nat_reg = gft_raw.eq(1)
     return gft_nat_reg.rename("GFT_naturally_regenerating").selfMask()
 
@@ -164,7 +164,7 @@ def g_gft_nat_reg_prep():
 
 # EUFO JRC Global forest type - planted/plantation forests
 def g_gft_plantation_prep():
-    gft_raw = ee.Image("JRC/GFC2020_subtypes/V1")
+    gft_raw = ee.Image("JRC/GFC2020_subtypes/V2")
     gft_plantation = gft_raw.eq(20)
     return gft_plantation.rename("GFT_planted_plantation").selfMask()
 
