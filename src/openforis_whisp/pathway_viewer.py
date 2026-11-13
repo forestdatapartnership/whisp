@@ -257,12 +257,15 @@ def build_pathway_viewer_html(
     national_codes=None,
     api_key=None,
     countries=None,
+    agree_note=None,
 ):
     """Return a self-contained viewer HTML string. See the module docstring for the feature list.
 
     ``tiles``: {"outcome", "pathway"} tile urls (optionally also "outcome_agree" / "pathway_agree", the
     same with at least two sources agreeing), or None for a page without map layers (tree, base map and
     plot analysis only, which never expires).
+    ``agree_note``: which questions the "2+ sources agree" layers apply to; shown as a * on those layers
+    (hover for it) and as a footnote at the end of the page.
     ``countries``: [[name, south, west, north, east]] for a "go to country" menu
     (``map_layers.country_boxes``); none, no menu.
     ``input_layers``: {indicator_column: [{"name", "iso2", "colour", "url"}]} (``crop_map.crop_input_layers``),
@@ -291,6 +294,7 @@ def build_pathway_viewer_html(
             "inputGroups": _input_groups(spec, input_layers),
             "nationalCodes": list(national_codes or []),
             "countries": countries or [],
+            "agreeNote": agree_note or "",
         },
         separators=(",", ":"),
     )
@@ -453,7 +457,7 @@ _TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8">
     <div id="legend"><div id="legOutcome"><h4>Outcome</h4>__OUTCOME_LEG__</div><div id="legPathway"><h4>Pathways</h4>__PATHWAY_LEG__</div><div id="nodeLeg"></div><div id="legInputs"></div></div>
   </div>
 </main>
-<div class="note"><span id="zoomNote"><b>Zoom in for realistic areas.</b> When zoomed out, a tile-pyramiding artefact inflates disturbance pixels, so some categories (e.g. high risk) appear to cover far larger areas than they actually do; zoom in for a truthful view. </span>Draw a polygon (tools top-left of the map) to test a plot, then move the threshold sliders to see the impact. WHISP is a non-authoritative exploration tool: outcomes are signals, not a legal determination. <span id="builtNote"></span></div>
+<div class="note"><span id="zoomNote"><b>Zoom in for realistic areas.</b> When zoomed out, a tile-pyramiding artefact inflates disturbance pixels, so some categories (e.g. high risk) appear to cover far larger areas than they actually do; zoom in for a truthful view. </span>Draw a polygon (tools top-left of the map) to test a plot, then move the threshold sliders to see the impact. WHISP is a non-authoritative exploration tool: outcomes are signals, not a legal determination. <span id="agreeNote"></span><span id="builtNote"></span></div>
 <script>
 __JS_MODULE__
 const CFG = __CFG__;
@@ -485,6 +489,12 @@ function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&am
 // a page built without Earth Engine has no map layers (tree, base map and plot analysis only); the outcome
 // and pathway can also come with at least two sources agreeing, as their own layers
 const RISK_LABELS = { outcome:'Risk – outcome', pathway:'Risk – pathway', outcome_agree:'Risk – outcome, 2+ sources agree', pathway_agree:'Risk – pathway, 2+ sources agree' };
+// which questions the agreement applies to: a * on the two labels (hover for it) and a footnote at the end of the page
+if(CFG.agreeNote && (CFG.tiles.outcome_agree || CFG.tiles.pathway_agree)){
+  const star = "<sup title='"+esc(CFG.agreeNote)+"'>*</sup>";
+  RISK_LABELS.outcome_agree += star; RISK_LABELS.pathway_agree += star;
+  document.getElementById('agreeNote').textContent = '* '+CFG.agreeNote+' ';
+}
 const riskLayers = {};
 Object.keys(RISK_LABELS).forEach(k => { if(CFG.tiles[k]) riskLayers[k]=L.tileLayer(CFG.tiles[k], { pane:'risk', opacity:layerOpacity, minZoom:LAYER_MIN_ZOOM }); });
 const riskList = Object.values(riskLayers);
