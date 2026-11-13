@@ -557,7 +557,7 @@ FDAP_TREE_CROP_THRESHOLDS = {
 
 # Any of the four FDaP tree crops in one year, POOLED before any comparison between years: the per-crop
 # models confuse one crop for another (palm <-> rubber <-> cocoa), and a relabel is still a tree crop.
-def _fdap_any_tree_crop(year):
+def _fdap_any_tree_crop(year, margin=0.0):
     any_crop = None
     for crop, thr in FDAP_TREE_CROP_THRESHOLDS.items():
         present = (
@@ -566,7 +566,7 @@ def _fdap_any_tree_crop(year):
             )
             .filterDate("%d-01-01" % year, "%d-12-31" % year)
             .mosaic()
-            .gt(thr)
+            .gt(thr + margin)
             .unmask(0)
         )
         any_crop = present if any_crop is None else any_crop.Or(present)
@@ -582,9 +582,12 @@ def _fdap_any_tree_crop(year):
 # NB tree crops (especially rubber and oil palm) can be confused with timber plantations (Ind_21/22
 # silviculture); this layer is the commodity-crop reading, the plantation layers carry the silviculture
 # reading, and the tree's branch order resolves any pixel that fires both.
+# Margins against flicker round the thresholds (mostly cocoa under forest canopy, e.g. in Cameroon): after 2020
+# each crop must clear its threshold by 0.1, and before 2021 being within 0.15 of it already counts as tree crop.
+# On FRA 2024 labelled plots in Cameroon this halved the false highs (41 to 20), keeping the true highs elsewhere.
 def g_fdap_tree_crop_gain_prep():
-    before = _fdap_any_tree_crop(2018).Or(_fdap_any_tree_crop(2020))
-    after = _fdap_any_tree_crop(2022).And(_fdap_any_tree_crop(2024))
+    before = _fdap_any_tree_crop(2018, -0.15).Or(_fdap_any_tree_crop(2020, -0.15))
+    after = _fdap_any_tree_crop(2022, 0.10).And(_fdap_any_tree_crop(2024, 0.10))
     gain = after.And(before.Not())
     return gain.rename("FDaP_tree_crop_gain_after_2020").selfMask()
 
