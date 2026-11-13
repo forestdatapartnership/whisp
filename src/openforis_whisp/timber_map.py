@@ -592,4 +592,8 @@ def build_timber_viewer(
         national_codes=national_codes,
         api_key=api_key,
         countries=layers.get("countries"),
+        # k=2 above applies only to these two questions (build_timber_question_images)
+        agree_note="2+ sources agree: primary forest in 2020 (Ind_05_primary_2020) and agriculture after 2020"
+        " (Ind_10_agri_after_2020) count only where at least two of their datasets agree; every other question"
+        " takes any one.",
     )
