@@ -144,8 +144,8 @@ def test_timber_forest_type_indicators_read_only_their_type_layers():
         "IIASA_planted_2020",
         "ForTy_v2_planted_2020",
     }
+    # IIASA's plantation class also holds rubber and oil palm, so it is not read for plantation forest
     assert set(get_cols_ind_21_plantation_forest_2020(lut)) == {
-        "IIASA_plantation_2020",
         "ForTy_v2_plantation_2020",
         "nBR_INPE_TCsilviculture_Amazon_2020",  # pragma: allowlist secret
         "nBR_INPE_TCsilviculture_Cerrado_2020",

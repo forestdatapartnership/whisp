@@ -205,8 +205,7 @@ Q_TO_COLUMNS = {
         "Ind_05_primary_2020",
         "Ind_06_nat_reg_forest_2020",
         "Ind_20_planted_forest_2020",
-        # derived in whisp_risk: Ind_21 AND NOT (Ind_02 OR Ind_15), plantation with no agriculture in 2020
-        "plantation_forest_2020",
+        "Ind_21_plantation_forest_2020",
     ],
     "other_land_2020": ["Ind_12_other_land_2020"],
     "other_land_2025": ["Ind_13_other_land_gain_after_2020"],

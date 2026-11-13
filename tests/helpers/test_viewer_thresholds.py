@@ -77,12 +77,9 @@ def test_timber_page_built_without_earth_engine_uses_every_national_dataset():
     assert 'const RISK_COL = "risk_timber"' in html
 
 
-def test_a_derived_question_lists_the_indicator_it_adds():
+def test_the_forest_gate_lists_plantation_forest_datasets():
     from openforis_whisp.timber_tree_export import TIMBER_SPEC
 
     ind = "Ind_21_plantation_forest_2020"
-    layers = {
-        "plantation_forest_2020": {"indicator": ind, "layers": [{"name": "ForTy"}]}
-    }
-    (group,) = pathway_viewer._input_groups(TIMBER_SPEC, layers)
-    assert group["q"] == "forest_2020" and group["indicator"] == ind
+    groups = pathway_viewer._input_groups(TIMBER_SPEC, {ind: [{"name": "ForTy"}]})
+    assert any(g["q"] == "forest_2020" and g["indicator"] == ind for g in groups)

@@ -120,7 +120,6 @@ _IND_15 = "Ind_15_cropland_2020"
 _IND_4 = "Ind_04_disturbance_after_2020"
 _PRIMARY_2025 = "primary_2025"
 _REGEN_STILL = "regen_planted_still_2025"
-_PLANTATION_FOREST = "plantation_forest_2020"
 
 _TIMBER_INPUT_COLS = [
     _IND_1,
@@ -138,7 +137,6 @@ _TIMBER_INPUT_COLS = [
     _IND_4,
     _PRIMARY_2025,
     _REGEN_STILL,
-    _PLANTATION_FOREST,
 ]
 
 
@@ -201,8 +199,7 @@ def test_timber_decision_tree_terminals() -> None:
             "high: deforestation",
             **{_IND_5: "yes", _IND_15: "yes", _IND_10: "yes"},
         ),
-        # plantation-2020 branch: Ind_21 opens the forest gate only through the derived
-        # plantation_forest_2020 (no agriculture in 2020); with tree cover it is in the forest half anyway.
+        # plantation-2020 branch: Ind_21 opens the forest gate like the other forest classes, read as it is
         _timber_row(
             "plantation_stable",  # still plantation forest is worked out -> LOW
             "low",
@@ -213,13 +210,14 @@ def test_timber_decision_tree_terminals() -> None:
             "plantation_only_opens_the_gate",
             "low",
             "low: still plantation forest",
-            **{_PLANTATION_FOREST: "yes", _IND_7B: "yes"},
+            **{_IND_7B: "yes"},
         ),
         _timber_row(
-            "plantation_without_the_derived_column_stays_non_forest",
-            "more_info_needed",
-            "more-info: non-forest 2020, unclassified",
-            **{_IND_7B: "yes"},
+            # agriculture mapped in 2020 too does not hold plantation forest out of the forest half
+            "plantation_with_agriculture_2020_opens_the_gate",
+            "low",
+            "low: still plantation forest",
+            **{_IND_7B: "yes", _IND_2: "yes", _IND_15: "yes"},
         ),
         _timber_row(
             # still plantation forest is worked out from plantation forest 2020, so other land is not asked
@@ -407,7 +405,6 @@ def test_timber_decision_tree_terminals() -> None:
         ind_12_name=_IND_12,
         ind_13_name=_IND_13,
         ind_15_name=_IND_15,
-        plantation_forest_2020_name=_PLANTATION_FOREST,
         primary_2025_name=_PRIMARY_2025,
         regen_planted_still_2025_name=_REGEN_STILL,
     )
@@ -509,24 +506,25 @@ def test_timber_primary_leg_through_whisp_risk() -> None:
     assert "Ind_19_primary_change_after_2020" not in out.columns
 
 
-def test_plantation_opens_the_forest_gate_unless_agriculture_in_2020() -> None:
+def test_plantation_forest_opens_the_forest_gate() -> None:
     cases = [
         # (label, hectares, risk_timber, pathway)
         (
             "plantation_forest_stable",
-            {"IIASA_plantation_2020": 8.0, "ForTy_v2_plantation_latest": 8.0},
+            {"ForTy_v2_plantation_2020": 8.0},
             "low",
             "low: still plantation forest",
         ),
         (
             "plantation_forest_to_cropland",
-            {"IIASA_plantation_2020": 8.0, "ESRI_crop_gain_after_2020": 3.0},
+            {"ForTy_v2_plantation_2020": 8.0, "ESRI_crop_gain_after_2020": 3.0},
             "high",
             "high: deforestation",
         ),
         (
-            # oil palm that a plantation forest map also maps: stays agriculture, no deforestation high
-            "oil_palm_mapped_as_plantation",
+            # IIASA's plantation class also holds rubber and oil palm, so the timber decision tree does not read
+            # it: oil palm that IIASA calls plantation stays agriculture, with no deforestation high on replanting
+            "oil_palm_mapped_as_plantation_by_iiasa",
             {
                 "IIASA_plantation_2020": 8.0,
                 "Oil_palm_Descals": 8.0,
@@ -645,7 +643,6 @@ def test_timber_derived_columns_keep_each_row_when_index_labels_repeat() -> None
 _WORKING_COLS = [
     _PRIMARY_2025,
     _REGEN_STILL,
-    _PLANTATION_FOREST,
 ]
 
 
