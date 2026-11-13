@@ -64,11 +64,11 @@ calib_m3_0040,low,low,low,low: other land 2020 (stable)
 calib_m3_0061,low,low,low,low: other land 2020 (stable)
 calib_m3_0064,low,low,low,low: other land 2020 (stable)
 calib_m3_0072,low,low,low,low: other land 2020 (stable)
-calib_m6_0036,low,low,low,low: still plantation forest
-calib_m6_0077,low,low,low,low: still plantation forest
+calib_m6_0036,low,low,more_info_needed,"more-info: non-forest 2020, unclassified"
+calib_m6_0077,low,low,low,low: other land 2020 (stable)
 calib_m7_0044,low,more_info_needed,more_info_needed,"more-info: forest 2020, unclassified"
 calib_m8_0072,low,low,more_info_needed,"more-info: forest 2020, unclassified"
-calib_m8_0088,low,low,low,low: still plantation forest
+calib_m8_0088,low,low,more_info_needed,"more-info: non-forest 2020, unclassified"
 fixture_50_023,more_info_needed,more_info_needed,low,low: still plantation forest
 fixture_50_044,low,more_info_needed,low,low: still plantation forest
 miombo_100_030,high,high,more_info_needed,"more-info: forest 2020, unclassified"

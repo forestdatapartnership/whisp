@@ -141,7 +141,7 @@ https://doi.org/10.1038/s41893-021-00729-z</td></tr>
     <tr><td rowspan="3">IIASA_planted_2020</td><td rowspan="3">Planted forest class (31) of the IIASA Global Forest Management map. The map is from 2015 and stands in for 2020. Feeds planted forest in 2020 for timber.</td><td rowspan="2">Lesiv, M., et al. (2022). Global forest management data for 2015 at a 100 m resolution. Sci Data 9, 199. https://doi.org/10.1038/s41597-022-01332-3</td></tr>
     <tr></tr>
     <tr><td>ee.Image("projects/sat-io/open-datasets/GFM/FML_v3-2")</td></tr>
-    <tr><td rowspan="3">IIASA_plantation_2020</td><td rowspan="3">Short-rotation plantation class (32, plantation forest) of the IIASA Global Forest Management map. The map is from 2015 and stands in for 2020. Feeds plantation forest in 2020 for timber.</td><td rowspan="2">Lesiv, M., et al. (2022). Global forest management data for 2015 at a 100 m resolution. Sci Data 9, 199. https://doi.org/10.1038/s41597-022-01332-3</td></tr>
+    <tr><td rowspan="3">IIASA_plantation_2020</td><td rowspan="3">Short-rotation plantation class (32, plantation forest) of the IIASA Global Forest Management map. The map is from 2015 and stands in for 2020. Not read by the timber decision tree, as the class also holds rubber and oil palm (agricultural plantations).</td><td rowspan="2">Lesiv, M., et al. (2022). Global forest management data for 2015 at a 100 m resolution. Sci Data 9, 199. https://doi.org/10.1038/s41597-022-01332-3</td></tr>
     <tr></tr>
     <tr><td>ee.Image("projects/sat-io/open-datasets/GFM/FML_v3-2")</td></tr>
     <tr><td colspan="3"><b>Tree cover post 2020:</b></td></tr>

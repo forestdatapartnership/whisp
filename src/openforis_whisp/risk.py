@@ -292,8 +292,8 @@ def whisp_risk(
             keeping only context/metadata columns, datasets used in indicators, indicator columns,
             and final risk columns. Defaults to False (backward compatible).
         include_working_columns (bool, optional): If True, also returns the columns the timber decision tree
-            works out along the way from the shown indicators (primary_2025, regen_planted_still_2025,
-            plantation_forest_2020), e.g. for the pathway viewer. Defaults to False.
+            works out along the way from the shown indicators (primary_2025, regen_planted_still_2025), e.g.
+            for the pathway viewer. Defaults to False.
 
         Ind_07_planted_plantations_2020, Ind_08_planted_plantations_after_2020 and
         Ind_11_logging_concession_before_2020 are kept in the output for existing users; no decision tree
@@ -488,7 +488,6 @@ def whisp_risk(
     working_columns = [
         "primary_2025",
         "regen_planted_still_2025",
-        "plantation_forest_2020",
     ]
     previous_outputs = (
         names
@@ -553,23 +552,6 @@ def whisp_risk(
         )
     df_w_indicators["regen_planted_still_2025"] = regen_planted_still_2025
 
-    # Plantation forest in 2020 for the forest gate: plantation (Ind_21) with no agriculture in 2020
-    # (Ind_02 or Ind_15). The plantation forest maps (IIASA, ForTy V2) also fire on rubber and oil palm,
-    # which would then read as deforestation on replanting; with agriculture mapped in 2020 the plot stays in
-    # the non-forest half and reads "agriculture 2020".
-    plantation_forest_2020 = []
-    for _, row in df_w_indicators.iterrows():
-        plantation_forest_2020.append(
-            high_name
-            if (
-                row[ind_21_name] == high_name
-                and row[ind_2_name] == low_name
-                and row[ind_15_name] == low_name
-            )
-            else low_name
-        )
-    df_w_indicators["plantation_forest_2020"] = plantation_forest_2020
-
     # these "add_" functions modify the 'df_w_indicators' dataframe in place
     add_risk_pcrop_col(
         df=df_w_indicators,
@@ -607,7 +589,6 @@ def whisp_risk(
         ind_4_name=ind_4_name,
         primary_2025_name="primary_2025",
         regen_planted_still_2025_name="regen_planted_still_2025",
-        plantation_forest_2020_name="plantation_forest_2020",
         low_name=low_name,
         high_name=high_name,
     )
@@ -617,8 +598,8 @@ def whisp_risk(
         df_w_indicators = filter_to_risk_columns(df_w_indicators, input_cols, names)
 
     # The timber decision tree's working columns stay out of the output: they are worked out from the
-    # shown indicators (primary_2025, regen_planted_still_2025, plantation_forest_2020), so anyone can
-    # rebuild them. risk_timber_pathway says which way each plot went.
+    # shown indicators (primary_2025, regen_planted_still_2025), so anyone can rebuild them.
+    # risk_timber_pathway says which way each plot went.
     if not include_working_columns:
         df_w_indicators = df_w_indicators.drop(
             columns=[c for c in working_columns if c in df_w_indicators.columns]
@@ -866,7 +847,6 @@ def add_risk_timber_col(
     ind_15_name: str = "Ind_15_cropland_2020",
     ind_4_name: str = "Ind_04_disturbance_after_2020",
     regen_planted_still_2025_name: str = "regen_planted_still_2025",
-    plantation_forest_2020_name: str = "plantation_forest_2020",
     low_name: str = "no",
     high_name: str = "yes",
 ) -> data_lookup_type:
@@ -882,8 +862,7 @@ def add_risk_timber_col(
 
     The questions, in order:
     - Forest in 2020? Ind_01_treecover, Ind_05_primary_2020, Ind_06_nat_reg_forest_2020,
-      Ind_20_planted_forest_2020, or Ind_21_plantation_forest_2020 with no agriculture in 2020 (the derived
-      plantation_forest_2020).
+      Ind_20_planted_forest_2020 or Ind_21_plantation_forest_2020, each an indicator read as it is.
     - Not forest in 2020: other land 2020 (Ind_12_other_land_2020) gives low (still other land is worked
       out, as nothing after 2020 matters for land that was not forest in 2020); otherwise agriculture
       2020 (Ind_02_commodities or Ind_15_cropland_2020) gives low, else more info.
@@ -925,13 +904,11 @@ def add_risk_timber_col(
         plantation_2020 = row[ind_21_name] == high_name
         treecover_2020 = row[ind_1_name] == high_name
         # "Forest in 2020?" gate: tree cover (Ind_01, shared with the crop decision trees) OR a 2020 forest
-        # type (primary, regenerating, planted, or plantation without agriculture in 2020), so any forest
-        # evidence sends the plot to the forest half, where its deforestation and degradation are checked.
+        # type (primary, regenerating, planted or plantation forest), so any forest evidence sends the plot to
+        # the forest half, where its deforestation and degradation are checked. Each is an indicator read as it
+        # is, so anyone can rebuild the gate from the output columns.
         forest_2020 = (
-            treecover_2020
-            or primary_2020
-            or regen_planted_2020
-            or row[plantation_forest_2020_name] == high_name
+            treecover_2020 or primary_2020 or regen_planted_2020 or plantation_2020
         )
 
         yes_locals = {
@@ -1464,11 +1441,10 @@ def filter_to_risk_columns(
     risk_cols = ["risk_pcrop", "risk_acrop", "risk_timber", "risk_timber_pathway"]
 
     # Columns the timber decision tree works out in whisp_risk: primary_2025 (Ind_05 AND NOT Ind_04 AND NOT
-    # Ind_22), regen_planted_still_2025 (Ind_06 or Ind_20, AND NOT Ind_22) and plantation_forest_2020.
+    # Ind_22) and regen_planted_still_2025 (Ind_06 or Ind_20, AND NOT Ind_22).
     derived_cols = [
         "primary_2025",
         "regen_planted_still_2025",
-        "plantation_forest_2020",
     ]
 
     # Post-processing metadata columns (added after validation, not in schema CSV)

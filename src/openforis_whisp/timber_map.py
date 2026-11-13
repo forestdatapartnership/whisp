@@ -356,10 +356,8 @@ def build_timber_question_images(
     # --- the tree questions, mirroring add_risk_timber_col's yes_locals in ee.Image form ----------
     qimg = {
         # forest_2020 = treecover(Ind_01) OR primary(Ind_05) OR regen/planted(Ind_06 or Ind_20) OR
-        # plantation (Ind_21) with no agriculture 2020 (the derived plantation_forest_2020), as risk.py.
-        "forest_2020": tc20.Or(primary_2020)
-        .Or(regen_planted_2020)
-        .Or(plantation_2020.And(ag_2020.Not())),
+        # plantation forest (Ind_21), as risk.py.
+        "forest_2020": tc20.Or(primary_2020).Or(regen_planted_2020).Or(plantation_2020),
         "other_land_2020": other_land_2020,  # Ind_12_other_land_2020
         "other_land_2025": other_land_2025,  # Ind_13_other_land_gain_after_2020
         # still other land: worked out from other land 2020 (nothing after 2020 matters there)
@@ -506,13 +504,6 @@ TIMBER_BOOKMARKS = [
     ["Cerrado pasture-gain hotspot (Matopiba)", -9.5, -45.5, 9],
 ]
 
-# the derived questions, and the indicator each adds to the questions before it (its datasets are listed
-# under that question in the viewer). The worked-out "still" questions add none, so they list no
-# datasets of their own.
-_DERIVED_INPUTS = {
-    "plantation_forest_2020": "Ind_21_plantation_forest_2020",
-}
-
 
 def timber_input_layers(national_codes=None, lookup_df=None, max_workers=16):
     """Tile layers for every dataset the timber decision tree reads, to view the inputs one at a time.
@@ -530,14 +521,9 @@ def timber_input_layers(national_codes=None, lookup_df=None, max_workers=16):
     names = {}
     for cols in tx.TIMBER_SPEC.q_to_columns.values():
         for col in cols:
-            source = _DERIVED_INPUTS.get(col, col)
-            if col not in names and source in pools:
-                names[col] = pools[source]
-    layers = _ml.input_layers(names, lut, max_workers=max_workers)
-    for col, indicator in _DERIVED_INPUTS.items():
-        if col in layers:
-            layers[col] = {"indicator": indicator, "layers": layers[col]}
-    return layers
+            if col not in names and col in pools:
+                names[col] = pools[col]
+    return _ml.input_layers(names, lut, max_workers=max_workers)
 
 
 def build_timber_viewer(
