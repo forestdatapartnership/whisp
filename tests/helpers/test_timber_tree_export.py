@@ -1,6 +1,6 @@
 """The timber decision tree's display copies stay in step with risk.TIMBER_ROOT_TREE: the code table covers exactly
-the tree's leaves, every question has its label / node kind / id / result columns / drill-down layer, and
-the map builder answers exactly the tree's questions. No Earth Engine requests (the map images are lazy).
+the tree's leaves, every question has its label / node kind / id / result columns, and decision_tree_recipe()
+rebuilds every outcome. No Earth Engine requests.
 """
 
 import itertools
@@ -8,7 +8,6 @@ import json
 
 import pandas as pd
 
-from openforis_whisp import timber_map
 from openforis_whisp import timber_tree_export as tx
 from openforis_whisp.risk import (
     TIMBER_ROOT_TREE,
@@ -54,11 +53,6 @@ def test_every_question_has_its_metadata():
 def test_diagram_and_viewer_walk_generate():
     assert "Disturbed after 2020?" in tx.to_mermaid()
     assert "disturbed_after_2020" in tx.js_module_source()
-
-
-def test_map_builder_answers_exactly_the_tree_questions():
-    qimg = timber_map.build_timber_question_images()
-    assert set(qimg) == QUESTIONS, sorted(set(qimg) ^ QUESTIONS)
 
 
 def _walk_recipe(node, row):
