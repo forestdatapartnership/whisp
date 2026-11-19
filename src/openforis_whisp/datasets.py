@@ -368,6 +368,13 @@ def g_tmf_regrowth_prep():
     return Regrowth_TMF.rename("TMF_regrowth_latest").selfMask()
 
 
+# Released column kept as it was (2024) for existing users until the output column renames (#277, #304);
+# no indicator reads it, TMF_regrowth_latest feeds Ind_09_treecover_after_2020.
+def g_tmf_regrowth_2024_prep():
+    TMF_AC = ee.ImageCollection("projects/JRC/TMF/v1_2025/AnnualChanges").mosaic()
+    return TMF_AC.select("Dec2024").eq(4).rename("TMF_regrowth_2024").selfMask()
+
+
 ############tree crops
 
 
@@ -637,6 +644,32 @@ def g_esri_tc_latest_prep():
         esri_lulc10_raw.filterDate("2025-01-01", "2025-12-31").mosaic().eq(2)
     )
     return esri_lulc10_TC.rename("ESRI_TC_latest").selfMask()
+
+
+# Released columns kept as they were (2024) for existing users until the output column renames (#277, #304);
+# no indicator reads them, ESRI_TC_latest and ESRI_crop_gain_after_2020 feed the indicators.
+def g_esri_2024_tc_prep():
+    esri_lulc10_raw = ee.ImageCollection(
+        "projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS"
+    )
+    esri_lulc10_TC = (
+        esri_lulc10_raw.filterDate("2024-01-01", "2024-12-31").mosaic().eq(2)
+    )
+    return esri_lulc10_TC.rename("ESRI_2024_TC").selfMask()
+
+
+def g_esri_2020_2024_crop_prep():
+    esri_lulc10_raw = ee.ImageCollection(
+        "projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS"
+    )
+    esri_lulc10_crop_2020 = (
+        esri_lulc10_raw.filterDate("2020-01-01", "2020-12-31").mosaic().eq(5)
+    )
+    esri_lulc10_crop_2024 = (
+        esri_lulc10_raw.filterDate("2024-01-01", "2024-12-31").mosaic().eq(5)
+    )
+    newCrop = esri_lulc10_crop_2024.And(esri_lulc10_crop_2020.Not())
+    return newCrop.rename("ESRI_crop_gain_2020_2024").selfMask()
 
 
 # ESRI 2025 - Crop
