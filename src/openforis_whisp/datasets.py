@@ -1926,9 +1926,9 @@ def nbr_deter_amazon_before_2020_prep():
 
 ################ ### NBR Disturbances after 2020:########################################
 # [Official NFMS dataset] INPE PRODES data up to 2023
-# Subsetting criteria: DN = [21, 22, 23, 61, 62, 63];
+# Subsetting criteria: DN = [21, 22, 23, 61, 62, 63] (d2021-d2023 and residues r2021-r2023);
 
-# the resulting dataset shows deforestation and conversion of OWL and OL up to 2020 (mostly August 2020), including residues (omission errors corrections)
+# the resulting dataset shows deforestation and conversion of OWL and OL in the PRODES years 2021 to 2023 (from August 2020), including residues (omission errors corrections)
 
 
 def nbr_prodes_after_2020_prep():
