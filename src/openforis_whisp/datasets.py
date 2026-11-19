@@ -359,20 +359,13 @@ def g_forty_v2_tree_crop_gain_after_2020_prep():
     return gain.selfMask().rename("ForTy_v2_tree_crop_gain_after_2020")
 
 
-#########################TMF regrowth in 2025
+#########################TMF regrowth in 2024
 def g_tmf_regrowth_prep():
     # Load the TMF Degradation annual product
     TMF_AC = ee.ImageCollection("projects/JRC/TMF/v1_2025/AnnualChanges").mosaic()
-    TMF_AC_2025 = TMF_AC.select("Dec2025")
-    Regrowth_TMF = TMF_AC_2025.eq(4)
-    return Regrowth_TMF.rename("TMF_regrowth_latest").selfMask()
-
-
-# Released column kept as it was (2024) for existing users until the output column renames (#277, #304);
-# no indicator reads it, TMF_regrowth_latest feeds Ind_09_treecover_after_2020.
-def g_tmf_regrowth_2024_prep():
-    TMF_AC = ee.ImageCollection("projects/JRC/TMF/v1_2025/AnnualChanges").mosaic()
-    return TMF_AC.select("Dec2024").eq(4).rename("TMF_regrowth_2024").selfMask()
+    TMF_AC_2024 = TMF_AC.select("Dec2024")
+    Regrowth_TMF = TMF_AC_2024.eq(4)
+    return Regrowth_TMF.rename("TMF_regrowth_2024").selfMask()
 
 
 ############tree crops
@@ -632,22 +625,7 @@ def g_soy_song_2020_prep():
 
 
 ##############
-# ESRI 2025
-
-
-# ESRI 2025 - Tree Cover
-def g_esri_tc_latest_prep():
-    esri_lulc10_raw = ee.ImageCollection(
-        "projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS"
-    )
-    esri_lulc10_TC = (
-        esri_lulc10_raw.filterDate("2025-01-01", "2025-12-31").mosaic().eq(2)
-    )
-    return esri_lulc10_TC.rename("ESRI_TC_latest").selfMask()
-
-
-# Released columns kept as they were (2024) for existing users until the output column renames (#277, #304);
-# no indicator reads them, ESRI_TC_latest and ESRI_crop_gain_after_2020 feed the indicators.
+# ESRI 2024 - Tree Cover (feeds Ind_09_treecover_after_2020, which no decision tree reads)
 def g_esri_2024_tc_prep():
     esri_lulc10_raw = ee.ImageCollection(
         "projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS"
@@ -658,6 +636,8 @@ def g_esri_2024_tc_prep():
     return esri_lulc10_TC.rename("ESRI_2024_TC").selfMask()
 
 
+# Released column kept as it was (to 2024) for existing users until the output column renames (#277, #304);
+# no indicator reads it, ESRI_crop_gain_after_2020 (to 2025) feeds Ind_10_agri_after_2020.
 def g_esri_2020_2024_crop_prep():
     esri_lulc10_raw = ee.ImageCollection(
         "projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS"
