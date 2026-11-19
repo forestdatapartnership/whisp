@@ -103,17 +103,17 @@ CODE_COLOUR = {
 # happen (no disturbance or conversion), not from a map of the latest year.
 Q_LABEL = {
     "forest_2020": "Forest in 2020?<br/><small>(treecover / primary / regen / planted / plantation)</small>",
-    "other_land_2020": "Other land in 2020?<br/><small>(built / water / mining / bare)</small>",
-    "other_land_2025": "Became other land in 2025?",
+    "other_land_2020": "Other land in 2020?<br/><small>(built-up / water / mining ...)</small>",
+    "other_land_2025": "Became other land after 2020?",
     # non-forest side: worked out from other land 2020 (nothing after 2020 matters there)
-    "other_land_still_2025": "Still other land in 2025?",
+    "other_land_still_2025": "Still other land?",
     "agriculture_2020": "Agriculture in 2020?",
     "agriculture_2025": "Agriculture after 2020?<br/><small>(deforestation)</small>",
     "plantation_2020": "Plantation forest in 2020?",
     "primary_2020": "Primary forest in 2020?",
-    "plantation_2025": "Became plantation forest in 2025?<br/><small>(degradation)</small>",
+    "plantation_2025": "Converted into plantation forest after 2020?<br/><small>(degradation)</small>",
     "disturbed_after_2020": "Disturbed after 2020?<br/><small>(as for crops: TMF, Hansen loss, alerts)</small>",
-    "regen_planted_2020": "Regenerating / planted forest in 2020?",
+    "regen_planted_2020": "Naturally regenerating or planted forest in 2020?",
 }
 Q_KIND = {
     "forest_2020": "forest",

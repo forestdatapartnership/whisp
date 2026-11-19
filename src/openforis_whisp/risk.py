@@ -178,7 +178,7 @@ def whisp_risk(
     ind_6_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_7_pcent_threshold: float = 10,  # Ind_07, kept in the output for existing users; no decision tree reads it
     ind_8_pcent_threshold: float = 10,  # Ind_08, kept in the output for existing users; no decision tree reads it
-    ind_9_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
+    ind_9_pcent_threshold: float = 10,  # Ind_09, kept in the output for existing users; no decision tree reads it
     ind_10_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_11_pcent_threshold: float = 10,  # Ind_11, kept in the output for existing users; no decision tree reads it
     ind_12_pcent_threshold: float = 50,  # like Ind_02: other land in 2020 leads to a low risk outcome on the timber decision tree, so it must cover most of the plot
@@ -291,13 +291,13 @@ def whisp_risk(
         drop_unused_columns (bool, optional): If True, removes dataset columns not used in risk calculations,
             keeping only context/metadata columns, datasets used in indicators, indicator columns,
             and final risk columns. Defaults to False (backward compatible).
-        include_working_columns (bool, optional): If True, also returns the columns the timber decision tree
-            works out along the way from the shown indicators (primary_2025, regen_planted_still_2025), e.g.
-            for the pathway viewer. Defaults to False.
+        include_working_columns (bool, optional): If True, also returns primary_2025 and
+            regen_planted_still_2025, worked out from the shown indicators (the pathway viewer reads them); no
+            decision tree reads them. Defaults to False.
 
-        Ind_07_planted_plantations_2020, Ind_08_planted_plantations_after_2020 and
-        Ind_11_logging_concession_before_2020 are kept in the output for existing users; no decision tree
-        reads them (their thresholds, input columns and names can still be set as before).
+        Ind_07_planted_plantations_2020, Ind_08_planted_plantations_after_2020,
+        Ind_09_treecover_after_2020 and Ind_11_logging_concession_before_2020 are kept in the output for
+        existing users; no decision tree reads them (their thresholds, input columns and names can still be set as before).
 
     Returns:
         pd.DataFrame: DataFrame with added risk columns.
@@ -837,7 +837,7 @@ def add_risk_timber_col(
 ) -> data_lookup_type:
     """
     Adds the risk_timber column from the timber decision tree (TIMBER_ROOT_TREE above), which checks the
-    2020 state and the 2025 state of each plot, following the land-use transitions of the EUDR table (as
+    2020 state of each plot and the changes after 2020, following the land-use transitions of the EUDR table (as
     one example of a framework).
 
     Planted (Ind_14_planted_forest_2020) is grouped with naturally regenerating (Ind_06_nat_reg_forest_2020)
@@ -854,19 +854,19 @@ def add_risk_timber_col(
     - Forest in 2020: agriculture after 2020 (Ind_10_agri_after_2020) gives high (deforestation). Then by
       2020 class, primary first, then regenerating or planted, then plantation, so a plot mapped as two
       classes takes the first:
-      - primary: plantation gain (Ind_17_plantation_forest_gain_after_2020) high; disturbed after 2020
-        (Ind_04_disturbance_after_2020) more info; still primary (primary_2025) low, else more info;
-      - regenerating or planted: plantation gain high; still regenerating or planted
-        (regen_planted_still_2025, worked out) low; became other land (Ind_13) low; else more info;
-      - plantation: still plantation forest (worked out: agriculture after 2020 is asked before) low;
-        became other land (Ind_13) low; else more info;
-      - none of the three: became other land (Ind_13) low, else more info.
+      - primary: plantation forest gain (Ind_17_plantation_forest_gain_after_2020) high; became other land
+        (Ind_13_other_land_gain_after_2020) low; disturbed after 2020 (Ind_04_disturbance_after_2020) more
+        info; else low (still primary);
+      - regenerating or planted: plantation forest gain high; became other land low; else low (stayed
+        forest, as harvest is not a conversion);
+      - plantation: became other land low; else low (still plantation forest);
+      - none of the three: became other land low, else more info.
 
     After 2020 the decision tree asks only for changes: gains into agriculture, plantation forest and
     other land (Ind_10, Ind_17, Ind_13) and, on the primary branch only, disturbance (Ind_04). "Still
     primary", "regen stayed forest" and "still plantation forest" are what is left when none of them
-    happened, not a map of the latest year. (whisp_risk still writes primary_2025 and
-    regen_planted_still_2025 as working columns.)
+    happened, not a map of the latest year. (whisp_risk can still return primary_2025 and
+    regen_planted_still_2025 as working columns; no decision tree reads them.)
 
     Also writes risk_timber_pathway: the label of the end point reached, aligned with the map's pathway
     codes.
@@ -1342,6 +1342,114 @@ def get_cols_ind_13_other_land_gain_after_2020(lookup_gee_datasets_df):
             & (lookup_gee_datasets_df["theme_timber"] == "other_land_gain_after_2020")
         ]
     )
+
+
+def decision_tree_recipe(lookup_df=None) -> dict:
+    """
+    The recipe of each risk decision tree (pcrop, acrop and timber) as plain, JSON-ready data, built from the
+    code, so it always matches what whisp_risk does. The pathway viewers draw the same structure.
+
+    For each decision tree: its output columns, then the questions from the first one down. Each question
+    lists the indicator columns it reads (it is "yes" when any of them is "yes", the "combine" rule) and what
+    its yes and no lead to: the next question or an end point. An end point gives the risk value, the pathway
+    label (as in risk_timber_pathway) and a code that is never reused (retired codes are listed).
+
+    For each indicator: its default threshold (percent of the plot) and the datasets that feed it, with the
+    ISO2 code of national datasets (these count only when their country is in national_codes).
+
+    Example: ``json.dumps(decision_tree_recipe(), indent=1)``.
+    """
+    import inspect
+    import re
+
+    from openforis_whisp import acrop_tree_export, pcrop_tree_export, timber_tree_export
+    from openforis_whisp.decision_tree import annotate
+
+    lut = lookup_df if lookup_df is not None else lookup_gee_datasets_df
+    defaults = {
+        k: v.default for k, v in inspect.signature(whisp_risk).parameters.items()
+    }
+    getters = {
+        1: lambda df: get_cols_ind_01_treecover(df),
+        2: lambda df: _dedupe_keep_order(
+            get_cols_ind_02_commodities(df, risk_col="use_for_risk_pcrop")
+            + get_cols_ind_02_commodities(df, risk_col="use_for_risk_acrop")
+        ),
+        3: get_cols_ind_03_dist_before_2020,
+        4: get_cols_ind_04_dist_after_2020,
+        5: get_cols_ind_05_primary_2020,
+        6: get_cols_ind_06_nat_reg_2020,
+        7: get_cols_ind_07_planted_2020,
+        8: get_cols_ind_08_planted_after_2020,
+        9: get_cols_ind_09_treecover_after_2020,
+        10: get_cols_ind_10_agri_after_2020,
+        11: get_cols_ind_11_logging_before_2020,
+        12: get_cols_ind_12_other_land_2020,
+        13: get_cols_ind_13_other_land_gain_after_2020,
+        14: get_cols_ind_14_planted_forest_2020,
+        15: get_cols_ind_15_cropland_2020,
+        16: get_cols_ind_16_plantation_forest_2020,
+        17: get_cols_ind_17_plantation_forest_gain_after_2020,
+    }
+    iso2 = dict(zip(lut["name"], lut["ISO2_code"].fillna("").astype(str)))
+
+    def plain(label):
+        return re.sub(r"<[^>]+>", "", re.sub(r"<br\s*/?>.*$", "", label)).strip()
+
+    def node(n, spec):
+        if "q" not in n:
+            return {
+                "id": n["id"],
+                "risk": n["risk"],
+                "pathway": n["pathway"],
+                "code": n["code"],
+            }
+        return {
+            "id": n["id"],
+            "question": n["q"],
+            "label": plain(n["label"]),
+            "columns": list(spec.q_to_columns[n["q"]]),
+            "combine": "any",
+            "yes": node(n["yes"], spec),
+            "no": node(n["no"], spec),
+        }
+
+    trees = {}
+    for name, spec, risk_column, pathway_column in (
+        ("pcrop", pcrop_tree_export.PCROP_SPEC, "risk_pcrop", None),
+        ("acrop", acrop_tree_export.ACROP_SPEC, "risk_acrop", None),
+        (
+            "timber",
+            timber_tree_export.TIMBER_SPEC,
+            "risk_timber",
+            "risk_timber_pathway",
+        ),
+    ):
+        trees[name] = {
+            "risk_column": risk_column,
+            "pathway_column": pathway_column,
+            "retired_codes": sorted(spec.retired_codes),
+            "tree": node(annotate(spec), spec),
+        }
+
+    def columns_read(n):
+        if "question" not in n:
+            return set()
+        return set(n["columns"]) | columns_read(n["yes"]) | columns_read(n["no"])
+
+    indicators = {}
+    for i, getter in getters.items():
+        col = defaults["ind_%d_name" % i]
+        datasets = list(getter(lut))
+        indicators[col] = {
+            "default_pcent_threshold": defaults["ind_%d_pcent_threshold" % i],
+            "read_by": [t for t in trees if col in columns_read(trees[t]["tree"])],
+            "datasets": [
+                {"name": d, "iso2": iso2.get(d, "")} if iso2.get(d, "") else {"name": d}
+                for d in datasets
+            ],
+        }
+    return {"decision_trees": trees, "indicators": indicators}
 
 
 def clamp(
