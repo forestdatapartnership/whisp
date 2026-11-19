@@ -96,12 +96,6 @@ def test_recipe_rebuilds_every_outcome():
     df = pd.DataFrame(
         [dict(zip(cols, v)) for v in itertools.product(["yes", "no"], repeat=len(cols))]
     )
-    for unread in (
-        "Ind_09_treecover_after_2020",
-        "primary_2025",
-        "regen_planted_still_2025",
-    ):
-        df[unread] = "no"
     out = add_risk_timber_col(
         df=df.copy(),
         ind_1_name="Ind_01_treecover",
@@ -111,14 +105,11 @@ def test_recipe_rebuilds_every_outcome():
         ind_14_name="Ind_14_planted_forest_2020",
         ind_16_name="Ind_16_plantation_forest_2020",
         ind_17_name="Ind_17_plantation_forest_gain_after_2020",
-        ind_9_name="Ind_09_treecover_after_2020",
         ind_10_name="Ind_10_agri_after_2020",
         ind_12_name="Ind_12_other_land_2020",
         ind_13_name="Ind_13_other_land_gain_after_2020",
         ind_15_name="Ind_15_cropland_2020",
         ind_4_name="Ind_04_disturbance_after_2020",
-        primary_2025_name="primary_2025",
-        regen_planted_still_2025_name="regen_planted_still_2025",
     )
     assert len(df) == 2 ** len(cols)
     for i, row in df.iterrows():

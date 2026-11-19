@@ -205,10 +205,10 @@ European_Primary_Forest,1820,,NA,primary,0,0,1,0,float32,1,0,g_epfd_prep
 GFT_naturally_regenerating,1830,,NA,naturally_reg_2020,0,0,1,0,float32,1,0,g_gft_nat_reg_prep
 GFT_planted_plantation,1840,,NA,planted_2020,0,0,0,0,float32,1,0,g_gft_plantation_prep
 IIASA_planted_2020,1851,,,planted_2020,0,0,1,0,float32,1,0,g_iiasa_planted_2020_prep
-IIASA_planted_plantation,1850,,NA,,0,0,0,0,float32,1,0,g_iiasa_planted_plantation_prep
+IIASA_planted_plantation,1850,,NA,,0,0,0,0,float32,1,0,g_iiasa_planted_prep
 IIASA_plantation_2020,1853,,,plantation_2020,0,0,0,0,float32,1,0,g_iiasa_plantation_2020_prep
-TMF_regrowth_2024,1860,,NA,treecover_after_2020,0,0,1,0,float32,1,0,g_tmf_regrowth_prep
-ESRI_2024_TC,1870,,NA,treecover_after_2020,0,0,1,0,float32,1,0,g_esri_2024_tc_prep
+TMF_regrowth_2024,1860,,NA,treecover_after_2020,0,0,0,0,float32,1,0,g_tmf_regrowth_prep
+ESRI_2024_TC,1870,,NA,treecover_after_2020,0,0,0,0,float32,1,0,g_esri_2024_tc_prep
 Oil_palm_2024_FDaP,1880,,NA,agri_after_2020,0,0,0,0,float32,1,0,g_fdap_palm_2024_prep
 Rubber_2024_FDaP,1890,,NA,agri_after_2020,0,0,0,0,float32,1,0,g_fdap_rubber_2024_prep
 Coffee_FDaP_2024,1900,,NA,agri_after_2020,0,0,0,0,float32,1,0,g_fdap_coffee_2024_prep

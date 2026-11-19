@@ -164,7 +164,7 @@ Each risk column holds one of the values `low`, `high` or `more_info_needed` (sh
 
   For timber, Whisp applies a different decision logic compared to perennial and annual crops. In addition to the **deforestation risk**, Whisp also evaluates **degradation risk**, here primary or naturally regenerating forest converted into plantation forest. Tree crops such as oil palm and rubber are agricultural plantations, not plantation forest. It first asks whether the plot was forest in 2020: tree cover, primary, naturally regenerating, planted or plantation forest. This is wider than the tree cover question for crops, because much timber comes from planted and plantation forests, which some general forest maps leave out by design. For forest in 2020 it then asks only about changes after 2020, each measured within one dataset. The `risk_timber_pathway` column names the end point each plot reached.
 
-  The decision trees are defined in [risk.py](https://github.com/forestdatapartnership/whisp/blob/main/src/openforis_whisp/risk.py). `openforis_whisp.decision_tree_recipe()` returns each one as data (the questions, the columns each reads and the end points), for anyone rebuilding or displaying a decision tree.
+  The decision trees are defined in [risk.py](https://github.com/forestdatapartnership/whisp/blob/main/src/openforis_whisp/risk.py) (`DECISION_TREES`; the timber one is `TIMBER_ROOT_TREE`). `openforis_whisp.decision_tree_recipe()` returns each one as data (the questions, the columns each reads, the end points, and each indicator's default threshold and datasets), for anyone rebuilding or displaying a decision tree.
 
 
 

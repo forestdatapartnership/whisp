@@ -1,15 +1,7 @@
-"""ForTy forest-typology bands (V1 2020 and the V2 time series): emitted as output columns, neutral
-for the CROP trees.
-
-On main these bands are present-but-unused everywhere. On this branch the timber decision tree deliberately
-reads the ForTy V2 2020 classes (primary, naturally regenerating, planted, plantation) and the plantation
-forest and tree crop gains through theme_timber, so the timber-neutrality assertion from main is dropped
-here; the crop decision trees must still never see them.
-The tests are pure-Python (no Earth Engine): they check the shipped lookup table and the crop
-risk-column getters. The one exception checks the primary-change rule on constant class images.
+"""ForTy forest-typology bands (V1 2020 and the V2 time series): emitted as output columns and never read by
+the crop decision trees. The timber decision tree reads the ForTy V2 rows only (the 2020 classes and the gains
+after 2020). Pure Python (no Earth Engine): the tests check the shipped lookup table and the risk-column getters.
 """
-
-import ee
 
 import openforis_whisp.datasets as datasets
 from openforis_whisp.risk import (
@@ -35,25 +27,13 @@ FORTY_EXPECTED = {
     "ForTy_v2_tree_crop_gain_after_2020": "g_forty_v2_tree_crop_gain_after_2020_prep",
 }
 
-# which ForTy rows the TIMBER tree reads (use_for_risk_timber=1): V2 only, same model version for the
-# 2020 and 2025 states it compares; the V1 2020 rows stay present-but-unused
-FORTY_TIMBER_ON = {
-    "ForTy_v2_primary_2020",
-    "ForTy_v2_nat_reg_2020",
-    "ForTy_v2_planted_2020",
-    "ForTy_v2_plantation_2020",
-    "ForTy_v2_plantation_forest_gain_after_2020",
-    "ForTy_v2_tree_crop_gain_after_2020",
-}
-
 
 def _forty_rows(df):
     return df[df["name"].astype(str).str.startswith("ForTy_")]
 
 
 def test_forty_lookup_rows_are_crop_risk_neutral():
-    """Every ForTy band ticks no crop risk pathway; the V1 bands (released) and every band timber reads are
-    emitted, while the V2 bands no indicator reads are left out of the output."""
+    """Every ForTy band ticks no crop risk pathway yet is still emitted."""
     rows = _forty_rows(lookup_gee_datasets_df)
     assert not rows.empty, "no ForTy_ rows found in the lookup table"
     for col in ("use_for_risk_pcrop", "use_for_risk_acrop"):
@@ -61,12 +41,9 @@ def test_forty_lookup_rows_are_crop_risk_neutral():
             f"ForTy rows must have {col}==0 (present-but-unused); "
             f"offenders: {list(rows.loc[rows[col] != 0, 'name'])}"
         )
-    must_emit = rows[
-        (rows["use_for_risk_timber"] == 1) | ~rows["name"].str.startswith("ForTy_v2_")
-    ]
     assert (
-        must_emit["exclude_from_output"] == 0
-    ).all(), "ForTy V1 rows and the rows timber reads must be emitted (exclude_from_output==0)"
+        rows["exclude_from_output"] == 0
+    ).all(), "ForTy rows must be emitted (exclude_from_output==0)"
 
 
 def test_forty_bands_excluded_from_crop_indicators():
@@ -84,9 +61,10 @@ def test_forty_timber_flags_match_the_v2_switch():
     """Only the ForTy V2 rows feed the timber decision tree; every ForTy row is in the expected-name contract."""
     rows = _forty_rows(lookup_gee_datasets_df)
     on = set(rows.loc[rows["use_for_risk_timber"] == 1, "name"])
+    v2 = {n for n in rows["name"] if n.startswith("ForTy_v2_")}
     assert (
-        on == FORTY_TIMBER_ON
-    ), f"timber-flagged ForTy rows differ: {sorted(on ^ FORTY_TIMBER_ON)}"
+        on == v2
+    ), f"timber-flagged ForTy rows differ from the V2 rows: {sorted(on ^ v2)}"
     unexpected = set(rows["name"]) - set(FORTY_EXPECTED)
     assert (
         not unexpected

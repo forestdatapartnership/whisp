@@ -89,13 +89,7 @@ def test_whisp_stats_geojson_to_df() -> None:
         ), f"unexpected values in {col}"
     for col in EXPECTED_INDICATOR_COLS:
         assert col in df_stats_with_risk.columns, f"missing indicator column: {col}"
-    ind_cols = [c for c in df_stats_with_risk.columns if c.startswith("Ind_")]
-    extra_cols = ["risk_timber_pathway"]
-    print(df_stats_with_risk[["risk_timber"] + ind_cols + extra_cols].to_string())
-    print(
-        "\nrisk_timber distribution:\n",
-        df_stats_with_risk["risk_timber"].value_counts(),
-    )
+    print(df_stats_with_risk)
 
 
 # Indicator column names used directly by add_risk_timber_col (yes/no per-plot signals).
@@ -103,39 +97,35 @@ _IND_1 = "Ind_01_treecover"
 _IND_2 = "Ind_02_commodities"
 _IND_5 = "Ind_05_primary_2020"
 _IND_6 = "Ind_06_nat_reg_forest_2020"
-_IND_7A = "Ind_14_planted_forest_2020"
-_IND_7B = "Ind_16_plantation_forest_2020"
-_IND_8B = "Ind_17_plantation_forest_gain_after_2020"
+_IND_14 = "Ind_14_planted_forest_2020"
+_IND_16 = "Ind_16_plantation_forest_2020"
+_IND_17 = "Ind_17_plantation_forest_gain_after_2020"
 _IND_9 = "Ind_09_treecover_after_2020"
 _IND_10 = "Ind_10_agri_after_2020"
 _IND_12 = "Ind_12_other_land_2020"
 _IND_13 = "Ind_13_other_land_gain_after_2020"
 _IND_15 = "Ind_15_cropland_2020"
 _IND_4 = "Ind_04_disturbance_after_2020"
-_PRIMARY_2025 = "primary_2025"
-_REGEN_STILL = "regen_planted_still_2025"
 
 _TIMBER_INPUT_COLS = [
     _IND_1,
     _IND_2,
     _IND_5,
     _IND_6,
-    _IND_7A,
-    _IND_7B,
-    _IND_8B,
+    _IND_14,
+    _IND_16,
+    _IND_17,
     _IND_9,
     _IND_10,
     _IND_12,
     _IND_13,
     _IND_15,
     _IND_4,
-    _PRIMARY_2025,
-    _REGEN_STILL,
 ]
 
 
 def _timber_row(label, expected_risk, expected_pathway, **overrides):
-    """Build one synthetic plot. All Ind_/primary_2025 columns default to 'no'; override the
+    """Build one synthetic plot. All Ind_ columns default to 'no'; override the
     ones the terminal needs. Returns a dict carrying the case label and expectations alongside
     the yes/no signal columns."""
     row = {col: "no" for col in _TIMBER_INPUT_COLS}
@@ -171,7 +161,7 @@ def test_timber_decision_tree_terminals() -> None:
             **{_IND_15: "yes"},
         ),
         _timber_row(
-            "nonforest_unclassified",  # incl. afforestation (non-forest 2020 -> new plantation)
+            "nonforest_unclassified",  # incl. afforestation (non-forest 2020 -> new plantation forest)
             "more_info_needed",
             "more-info: non-forest 2020, unclassified",
         ),
@@ -183,10 +173,9 @@ def test_timber_decision_tree_terminals() -> None:
             **{_IND_1: "yes", _IND_10: "yes"},
         ),
         _timber_row(
-            # ROOT DELTA (exoneration closed): a plot that is BOTH forest-2020 (Ind_05) and pre-2020
-            # agriculture (Ind_15), cleared to ag after 2020, is no longer exonerated (agriculture-2020 now
-            # sits inside the non-forest half). It reaches the deforestation HIGH. Current tree read this
-            # "low: agriculture 2020".
+            # a plot that is both forest in 2020 (Ind_05) and agriculture in 2020 (Ind_15), cleared for
+            # agriculture after 2020, reaches the deforestation high (agriculture in 2020 is asked only in the
+            # non-forest half)
             "forest_and_ag2020_overlap_deforestation",
             "high",
             "high: deforestation",
@@ -197,60 +186,38 @@ def test_timber_decision_tree_terminals() -> None:
             "plantation_stable",  # still plantation forest is worked out -> LOW
             "low",
             "low: still plantation forest",
-            **{_IND_1: "yes", _IND_7B: "yes"},
+            **{_IND_1: "yes", _IND_16: "yes"},
         ),
         _timber_row(
             "plantation_only_opens_the_gate",
             "low",
             "low: still plantation forest",
-            **{_IND_7B: "yes"},
+            **{_IND_16: "yes"},
         ),
         _timber_row(
             # agriculture mapped in 2020 too does not hold plantation forest out of the forest half
             "plantation_with_agriculture_2020_opens_the_gate",
             "low",
             "low: still plantation forest",
-            **{_IND_7B: "yes", _IND_2: "yes", _IND_15: "yes"},
+            **{_IND_16: "yes", _IND_2: "yes", _IND_15: "yes"},
         ),
         _timber_row(
             # other land gain is asked on the plantation forest branch: still low, with its own label
             "plantation_to_other_land",
             "low",
             "low: plantation forest 2020 -> other land",
-            **{_IND_1: "yes", _IND_7B: "yes", _IND_13: "yes"},
-        ),
-        _timber_row(
-            "plantation_no_2025",
-            "low",
-            "low: still plantation forest",
-            **{_IND_1: "yes", _IND_7B: "yes"},
+            **{_IND_1: "yes", _IND_16: "yes", _IND_13: "yes"},
         ),
         # primary-2020 branch (checked BEFORE regen; plantation-2025 GAIN checked FIRST)
         _timber_row(
             "primary_to_plantation",
             "high",
             "high: primary -> plantation forest (degradation)",
-            **{_IND_5: "yes", _IND_8B: "yes"},
+            **{_IND_5: "yes", _IND_17: "yes"},
         ),
-        _timber_row(
-            # MISSED-HIGH still caught: still-primary but a NEW plantation -> HIGH, because plantation-2025
-            # is checked first (no `and not plantation_2025` guard needed anymore).
-            "primary_still_but_new_plantation",
-            "high",
-            "high: primary -> plantation forest (degradation)",
-            **{_IND_5: "yes", _PRIMARY_2025: "yes", _IND_8B: "yes"},
-        ),
-        _timber_row(
-            "primary_still",
-            "low",
-            "low: still primary",
-            **{_IND_5: "yes", _PRIMARY_2025: "yes"},
-        ),
-        # 2026-11-03: on the primary leg DISTURBANCE after 2020 (Ind_04, the crop decision trees' set) is asked right
-        # after the plantation gain, and a disturbed primary plot is MORE INFO: disturbance is not itself a
-        # non-compliant end state, but it must never read still primary -> LOW. The old LOW exits (became
-        # regenerating / planted, became other land) are gone: ForTy V2 still calls much cleared primary
-        # forest "primary" or "regenerating". HIGH still needs agriculture or a plantation gain.
+        # on the primary leg, disturbance after 2020 (Ind_04) gives more info: disturbance alone is not an end
+        # state, but a disturbed plot must not read still primary (low); high still needs agriculture or a
+        # plantation forest gain
         _timber_row(
             "primary_disturbed",
             "more_info_needed",
@@ -258,8 +225,8 @@ def test_timber_decision_tree_terminals() -> None:
             **{_IND_5: "yes", _IND_4: "yes"},
         ),
         _timber_row(
-            # other land gain (50%) is asked before disturbance since 2026-11-19: a disturbance explained by
-            # a new mine or built-up land reads LOW (code 16 revived); a regrowth state is still not asked
+            # became other land is asked before disturbance: a disturbance explained by a new mine or
+            # built-up land reads low
             "primary_disturbed_then_other_land",
             "low",
             "low: primary 2020 -> other land",
@@ -270,7 +237,7 @@ def test_timber_decision_tree_terminals() -> None:
             "primary_disturbed_and_new_plantation",
             "high",
             "high: primary -> plantation forest (degradation)",
-            **{_IND_5: "yes", _IND_4: "yes", _IND_8B: "yes"},
+            **{_IND_5: "yes", _IND_4: "yes", _IND_17: "yes"},
         ),
         _timber_row(
             # agriculture after 2020 is asked before the forest classes, so this stays deforestation
@@ -280,13 +247,6 @@ def test_timber_decision_tree_terminals() -> None:
             **{_IND_5: "yes", _IND_4: "yes", _IND_10: "yes"},
         ),
         _timber_row(
-            # a disturbed plot can never read still primary: disturbance is asked before the still-primary end
-            "primary_disturbed_even_if_still_primary",
-            "more_info_needed",
-            "more-info: primary 2020, disturbed after 2020",
-            **{_IND_5: "yes", _IND_4: "yes", _PRIMARY_2025: "yes"},
-        ),
-        _timber_row(
             # no gain and no disturbance: still primary (a change to regrowth or planted forest is not mapped)
             "primary_no_change",
             "low",
@@ -294,7 +254,7 @@ def test_timber_decision_tree_terminals() -> None:
             **{_IND_5: "yes"},
         ),
         _timber_row(
-            # other land gain is asked on the primary leg again (code 16 revived): outside the EUDR -> LOW
+            # became other land on the primary leg: low (outside the EUDR, as one example)
             "primary_to_other_land",
             "low",
             "low: primary 2020 -> other land",
@@ -312,22 +272,14 @@ def test_timber_decision_tree_terminals() -> None:
             "regen_to_plantation",
             "high",
             "high: regenerating -> plantation forest (degradation)",
-            **{_IND_6: "yes", _IND_8B: "yes"},
+            **{_IND_6: "yes", _IND_17: "yes"},
         ),
         _timber_row(
-            # no new plantation and still regenerating / planted in 2025 (the worked-out column: regen
-            # 2020 AND NOT Ind_17) -> stayed-forest LOW.
+            # no plantation forest gain and no other land gain -> stayed forest, low
             "regen_stayed_forest",
             "low",
             "low: regen stayed forest",
-            **{_IND_6: "yes", _REGEN_STILL: "yes"},
-        ),
-        _timber_row(
-            # the still-forest box is gone (it was always yes), so other land gain now gives its own label
-            "regen_still_forest_and_other_land",
-            "low",
-            "low: regen 2020 -> other land",
-            **{_IND_6: "yes", _REGEN_STILL: "yes", _IND_13: "yes"},
+            **{_IND_6: "yes"},
         ),
         _timber_row(
             "regen_to_other_land",
@@ -337,7 +289,7 @@ def test_timber_decision_tree_terminals() -> None:
         ),
         _timber_row(
             # disturbance is not asked on the regenerating branch: harvest and regrowth, or replanting, are
-            # compliant there, so with no gain the plot stayed forest
+            # neither deforestation nor degradation there, so with no gain the plot stayed forest
             "regen_disturbed",
             "low",
             "low: regen stayed forest",
@@ -351,26 +303,23 @@ def test_timber_decision_tree_terminals() -> None:
             **{_IND_1: "yes"},
         ),
         _timber_row(
-            # treecover-only forest (no primary/regen/plantation class) that became other land: keeps the
-            # other-land chance -> revived code 14 low, not more-info.
+            # tree cover only (no forest type) that became other land: low, not more info
             "forest_unclassified_to_other_land",
             "low",
             "low: forest 2020 -> other land",
             **{_IND_1: "yes", _IND_13: "yes"},
         ),
         _timber_row(
-            # CAVEAT-28 FIX (plantation checked LAST): a genuine primary-2020 plot that a broad plantation
-            # layer ALSO flags (Ind_16), with a NEW plantation gain (Ind_17). Under the old plantation-first
-            # order this was masked as "low: still plantation forest"; now primary wins the overlap and the
-            # degradation HIGH fires. Locks in the reorder.
+            # a primary plot that a plantation forest map also covers (Ind_16), with a plantation forest gain
+            # (Ind_17): primary is asked first, so the degradation high fires
             "primary_and_plantation2020_overlap_degradation",
             "high",
             "high: primary -> plantation forest (degradation)",
             **{
                 _IND_1: "yes",
                 _IND_5: "yes",
-                _IND_7B: "yes",
-                _IND_8B: "yes",
+                _IND_16: "yes",
+                _IND_17: "yes",
             },
         ),
     ]
@@ -383,16 +332,13 @@ def test_timber_decision_tree_terminals() -> None:
         ind_2_name=_IND_2,
         ind_5_name=_IND_5,
         ind_6_name=_IND_6,
-        ind_14_name=_IND_7A,
-        ind_16_name=_IND_7B,
-        ind_17_name=_IND_8B,
-        ind_9_name=_IND_9,
+        ind_14_name=_IND_14,
+        ind_16_name=_IND_16,
+        ind_17_name=_IND_17,
         ind_10_name=_IND_10,
         ind_12_name=_IND_12,
         ind_13_name=_IND_13,
         ind_15_name=_IND_15,
-        primary_2025_name=_PRIMARY_2025,
-        regen_planted_still_2025_name=_REGEN_STILL,
     )
 
     print(
@@ -425,111 +371,9 @@ def _synthetic_plot(**hectares):
     return row
 
 
-def test_timber_primary_leg_through_whisp_risk() -> None:
-    """The primary leg end to end through whisp_risk (no GEE): the lookup rows behind Ind_04 and Ind_17,
-    the derived primary_2025 (not disturbed, not converted into plantation forest) and the tree. Covers
-    the case a ForTy-only "still primary" rule got wrong (cleared forest ForTy still calls primary) and
-    primary that only TMF calls primary."""
-    cases = [
-        # (label, hectares, risk_timber, pathway)
-        (
-            "disturbed_by_hansen_loss",
-            {
-                "ForTy_v2_primary_2020": 8.0,
-                "ForTy_v2_primary_2025": 8.0,
-                "GFC_loss_after_2020": 2.0,
-            },
-            "more_info_needed",
-            "more-info: primary 2020, disturbed after 2020",
-        ),
-        (
-            "disturbed_by_tmf",
-            {"ForTy_v2_primary_2020": 8.0, "TMF_def_after_2020": 2.0},
-            "more_info_needed",
-            "more-info: primary 2020, disturbed after 2020",
-        ),
-        (
-            "converted_into_plantation_forest",
-            {
-                "ForTy_v2_primary_2020": 8.0,
-                "ForTy_v2_plantation_forest_gain_after_2020": 3.0,
-            },
-            "high",
-            "high: primary -> plantation forest (degradation)",
-        ),
-        (
-            "still_primary",
-            {"ForTy_v2_primary_2020": 8.0, "ForTy_v2_primary_2025": 8.0},
-            "low",
-            "low: still primary",
-        ),
-        (
-            "primary_only_per_tmf",
-            {"TMF_undist": 8.0, "ForTy_v2_regen_planted_latest": 8.0},
-            "low",
-            "low: still primary",
-        ),
-        (
-            # an alert layer counts too: timber reads the same disturbance as the crop decision trees
-            "disturbed_by_radd_alert",
-            {"ForTy_v2_primary_2020": 8.0, "RADD_after_2020": 2.0},
-            "more_info_needed",
-            "more-info: primary 2020, disturbed after 2020",
-        ),
-        (
-            # below the 10 % threshold: 0.5 ha of a 10 ha plot is not "disturbed"
-            "small_disturbance",
-            {"ForTy_v2_primary_2020": 8.0, "GFC_loss_after_2020": 0.5},
-            "low",
-            "low: still primary",
-        ),
-    ]
-    df = pd.DataFrame([_synthetic_plot(**ha) for _, ha, _, _ in cases])
-    out = whisp_risk(df)
-    for i, (label, _, risk, pathway) in enumerate(cases):
-        got = (out["risk_timber"].iloc[i], out["risk_timber_pathway"].iloc[i])
-        assert got == (risk, pathway), f"{label}: got {got}, expected {(risk, pathway)}"
-    assert "Ind_19_primary_change_after_2020" not in out.columns
-
-
-def test_plantation_forest_opens_the_forest_gate() -> None:
-    cases = [
-        # (label, hectares, risk_timber, pathway)
-        (
-            "plantation_forest_stable",
-            {"ForTy_v2_plantation_2020": 8.0},
-            "low",
-            "low: still plantation forest",
-        ),
-        (
-            "plantation_forest_to_cropland",
-            {"ForTy_v2_plantation_2020": 8.0, "ESRI_crop_gain_after_2020": 3.0},
-            "high",
-            "high: deforestation",
-        ),
-        (
-            # IIASA's plantation class also holds rubber and oil palm, so the timber decision tree does not read
-            # it: oil palm that IIASA calls plantation stays agriculture, with no deforestation high on replanting
-            "oil_palm_mapped_as_plantation_by_iiasa",
-            {
-                "IIASA_plantation_2020": 8.0,
-                "Oil_palm_Descals": 8.0,
-                "FDaP_tree_crop_gain_after_2020": 3.0,
-            },
-            "low",
-            "low: agriculture 2020",
-        ),
-    ]
-    df = pd.DataFrame([_synthetic_plot(**ha) for _, ha, _, _ in cases])
-    out = whisp_risk(df)
-    for i, (label, _, risk, pathway) in enumerate(cases):
-        got = (out["risk_timber"].iloc[i], out["risk_timber_pathway"].iloc[i])
-        assert got == (risk, pathway), f"{label}: got {got}, expected {(risk, pathway)}"
-
-
 # The EUDR transition table, as one example framework the timber decision tree approximates: the state in 2020
 # (rows) against the state after 2020 (columns). f = free of deforestation and degradation, o = outside the
-# regulation's scope (both compliant: low); D = deforestation, G = degradation (both high).
+# regulation's scope (both low); D = deforestation, G = degradation (both high).
 _EUDR_STATES = [
     "primary",
     "naturally regenerating",
@@ -559,8 +403,8 @@ _EUDR_STATE_2020 = {
     "other land": {"ESRI_other_land_2020": 8.0},
 }
 # what the data show of each change after 2020: forest that is cut and grows back, cleared and replanted, thinned to
-# scrub or cleared for a road or mine shows as forest loss (there is no planted forest gain, other wooded land or
-# global other land gain map yet)
+# scrub or cleared for a road or a small mine shows as forest loss (there is no planted forest gain or other wooded
+# land map yet, and other land gain counts only when it covers most of the plot)
 _LOSS = {"GFC_loss_after_2020": 3.0}
 _EUDR_CHANGE = {
     "primary": {},
@@ -586,7 +430,7 @@ _EUDR_DIFFERENCES = {
 
 def test_timber_decision_tree_against_the_eudr_transition_table() -> None:
     """Every cell of the EUDR transition table on a synthetic plot (no GEE). The timber outcome matches the
-    table (compliant -> low, deforestation or degradation -> high) except the listed differences, which are
+    table (f or o -> low, deforestation or degradation -> high) except the listed differences, which are
     pinned so that closing a gap, or opening a new one, shows up here."""
     cells, rows = [], []
     for before in _EUDR_STATES:
@@ -606,8 +450,8 @@ def test_timber_decision_tree_against_the_eudr_transition_table() -> None:
         ), f"{before} -> {after}: got {got}, expected {expected} (table: {table})"
 
 
-def test_timber_derived_columns_keep_each_row_when_index_labels_repeat() -> None:
-    # results joined together can share index labels; each plot must keep its own 2025 states
+def test_timber_outcome_keeps_each_row_when_index_labels_repeat() -> None:
+    # results joined together can share index labels; each plot must keep its own outcome
     cases = [
         ({"ForTy_v2_primary_2020": 8.0}, "low"),
         (
@@ -615,26 +459,22 @@ def test_timber_derived_columns_keep_each_row_when_index_labels_repeat() -> None
             "more_info_needed",
         ),
         (
-            {"ForTy_v2_nat_reg_2020": 8.0, "ForTy_v2_regen_planted_latest": 8.0},
-            "low",
+            {
+                "ForTy_v2_nat_reg_2020": 8.0,
+                "ForTy_v2_plantation_forest_gain_after_2020": 3.0,
+            },
+            "high",
         ),
         ({"ForTy_v2_nat_reg_2020": 8.0}, "low"),
     ]
     df = pd.DataFrame([_synthetic_plot(**ha) for ha, _ in cases], index=[0, 0, 1, 1])
-    out = whisp_risk(df, include_working_columns=True)
+    out = whisp_risk(df)
     assert list(out["risk_timber"]) == [risk for _, risk in cases]
-    assert list(out["primary_2025"]) == ["yes", "no", "no", "no"]
 
 
-_WORKING_COLS = [
-    _PRIMARY_2025,
-    _REGEN_STILL,
-]
-
-
-def test_released_timber_indicators_kept_and_working_columns_hidden() -> None:
-    # Ind_07, Ind_08 and Ind_11 stay in the output for existing users (Ind_07 = planted or plantation 2020,
-    # Ind_08 has no dataset so stays "no"); the decision tree's working columns are left out unless asked for
+def test_released_timber_indicators_kept() -> None:
+    # Ind_07, Ind_08 and Ind_11 stay in the output for existing users (Ind_07 = planted or plantation forest in
+    # 2020, Ind_08 has no dataset so stays "no")
     cases = [
         {"ForTy_v2_planted_2020": 8.0},
         {"ForTy_v2_plantation_2020": 8.0},
@@ -651,10 +491,6 @@ def test_released_timber_indicators_kept_and_working_columns_hidden() -> None:
         "yes",
         "no",
     ]
-    assert not [c for c in _WORKING_COLS if c in out.columns]
     assert set(c for c in out.columns if c.startswith("Ind_")) == set(
         EXPECTED_INDICATOR_COLS
     )
-    full = whisp_risk(df, include_working_columns=True)
-    assert all(c in full.columns for c in _WORKING_COLS)
-    assert list(full["risk_timber"]) == list(out["risk_timber"])
