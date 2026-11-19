@@ -307,9 +307,9 @@ def whisp_risk(
         Ind_07_planted_plantations_2020, Ind_08_planted_plantations_after_2020,
         Ind_09_treecover_after_2020 and Ind_11_logging_concession_before_2020 are kept in the output for
         existing users; no decision tree reads them (their thresholds, input columns and names can still be set as before).
-        The 2020 forest type indicators (5, 6, 14 and 16) keep 10%: they also open the timber decision tree's forest
-        gate, which stays sensitive so that any forest is checked for changes after 2020, and a yes leads to a low
-        outcome only when no change after 2020 is found.
+        The 2020 forest type indicators (5, 6, 14 and 16) keep 10%, like tree cover in the crop decision trees: they
+        also open the timber decision tree's forest gate, which stays sensitive so that any forest is checked for
+        changes after 2020, and a yes leads to a low outcome only when no change after 2020 is found.
 
     Returns:
         pd.DataFrame: DataFrame with added risk columns.
