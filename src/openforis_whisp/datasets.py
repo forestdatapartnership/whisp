@@ -136,15 +136,6 @@ def g_ifl_2020_prep():
     return IFL_2020.rename("IFL_2020").selfMask()
 
 
-# Intact Forest Landscape 2025 (extent as of 1 Jan 2025). Note the project-style asset path; the older
-# users/potapovpeter/IFL_YYYY naming does not carry to 2025. This is a primary-2025 / still-intact
-# candidate, added as an output band for now; wiring it into the timber decision tree's primary-2025 path is
-# pending (alongside the MapBiomas primary proxy and TMF undisturbed 2025).
-def g_ifl_2025_prep():
-    IFL_2025 = ee.Image("projects/ee-potapovpeter/assets/IFL/IFL_2025m")
-    return IFL_2025.rename("IFL_2025").selfMask()
-
-
 # European Primary Forest Dataset
 def g_epfd_prep():
     EPFD = ee.FeatureCollection("HU_BERLIN/EPFD/V2/polygons")
@@ -307,40 +298,6 @@ def g_forty_v2_planted_2020_prep():
 
 def g_forty_v2_plantation_2020_prep():
     return _forty_v2_present(2020, [4], "ForTy_v2_plantation_2020")
-
-
-def g_forty_v2_tree_crops_2020_prep():
-    return _forty_v2_present(2020, [5], "ForTy_v2_tree_crops_2020")
-
-
-def g_forty_v2_forest_2020_prep():
-    # any forest class in 2020 (primary mature or regrowing, naturally regenerating, planted, plantation)
-    return _forty_v2_present(2020, [1, 2, 3, 4, 7], "ForTy_v2_forest_2020")
-
-
-def g_forty_v2_primary_2025_prep():
-    return _forty_v2_present(2025, [1, 7], "ForTy_v2_primary_2025")
-
-
-# Naturally regenerating OR planted forest in 2025 (classes 2 and 3), a hidden building block: the timber
-# decision tree works out "still regenerating or planted" from no conversion. Plantation (4) is NOT included: a primary or
-# regenerating forest that became a plantation is degradation, handled by the plantation-gain question.
-def g_forty_v2_regen_planted_latest_prep():
-    return _forty_v2_present(2025, [2, 3], "ForTy_v2_regen_planted_latest")
-
-
-def g_forty_v2_plantation_latest_prep():
-    return _forty_v2_present(2025, [4], "ForTy_v2_plantation_latest")
-
-
-# "Other land" (class 6) is everything that is not a forest class or tree crops, so it includes cropland
-# and pasture: NOT the built / water / mining / bare sense of Ind_12 / Ind_13. Emitted for comparison only.
-def g_forty_v2_other_land_2020_prep():
-    return _forty_v2_present(2020, [6], "ForTy_v2_other_land_2020")
-
-
-def g_forty_v2_other_land_2025_prep():
-    return _forty_v2_present(2025, [6], "ForTy_v2_other_land_2025")
 
 
 # GAIN layers: the class present in 2025 but NOT that class in 2020 (the Ind_17 / Ind_10 convention).
@@ -592,13 +549,6 @@ def g_fdap_tree_crop_gain_prep():
     return gain.rename("FDaP_tree_crop_gain_after_2020").selfMask()
 
 
-# Combined FDaP tree-crop EXTENT in 2020, the union of palm/cocoa/rubber/coffee in 2020. DORMANT
-# background layer (all use_for_risk_* = 0 in the lookup): a single modelled year in the direction
-# that lowers outcomes, so it stays off, as ForTy's tree crops 2020 does.
-def g_fdap_tree_crops_2020_prep():
-    return _fdap_any_tree_crop(2020).rename("FDaP_tree_crops_2020").selfMask()
-
-
 # Rubber_RBGE_2020 - RBGE's 10m SEA rubber map (Ahrends et al. 2026), replacing the Wang et al. 2023
 # map Whisp carried as Rubber_RBGE, which its providers have marked superseded.
 # Called _2020 even though the imagery is 2021 for mainland SEA and 2019 for Indonesia: the authors
@@ -693,14 +643,6 @@ def g_glad_cropland_2020_prep():
         "projects/glad/Cropland_Annual_2015_2024/2020"
     ).mosaic()
     return glad_cropland_2020.gt(0).rename("GLAD_cropland_2020").selfMask()
-
-
-# GLAD global annual cropland 2024 (latest year), sibling of g_glad_cropland_2020_prep.
-def g_glad_cropland_2024_prep():
-    glad_cropland_2024 = ee.ImageCollection(
-        "projects/glad/Cropland_Annual_2015_2024/2024"
-    ).mosaic()
-    return glad_cropland_2024.gt(0).rename("GLAD_cropland_2024").selfMask()
 
 
 # GLAD global same-product cropland gain 2020 -> 2024 for the "agriculture after 2020" indicator
@@ -1606,29 +1548,6 @@ def nbr_mapbiomasc10_f20_prep():
     ).selfMask()
 
 
-# [non-official dataset by MapBiomas multisector initiative]
-# 2024 sibling of nbr_mapbiomasc10_f20_prep: same forest class codes, latest year band.
-# Subsetting criteria: classification_2024 = Forest formation (DN=3), Mangrove (DN=5),
-# Floodable Forest (DN=6), Wooded Sandbank veg (DN=49)
-# the resulting dataset shows forest cover in 2024 (matched 2020-vs-2024 change source).
-# 2024 is the latest MapBiomas Collection 10 year; no MapBiomas product reaches 2025.
-# Savanna Formation (DN=4) EXCLUDED 2026-07-28 to match the 2020 baseline (nbr_mapbiomasc10_f20_prep):
-# cerrado savanna is not FAO / EUDR forest; keeping it out of both endpoints keeps the change source consistent.
-def nbr_mapbiomasc10_f24_prep():
-    mapbiomasc10_24 = ee.Image(
-        "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
-    ).select("classification_2024")
-    mapbiomasc10_24_forest = (
-        mapbiomasc10_24.eq(3)
-        .Or(mapbiomasc10_24.eq(5))
-        .Or(mapbiomasc10_24.eq(6))
-        .Or(mapbiomasc10_24.eq(49))
-    )
-    return mapbiomasc10_24_forest.rename(
-        "nBR_MapBiomas_col10_forest_Brazil_2024"
-    ).selfMask()
-
-
 # ### ########################NBR plantation forest in 2020:#######################################
 
 
@@ -1670,52 +1589,10 @@ def nbr_mapbiomasc10_silv20_prep():
 
 
 # [non-official dataset by MapBiomas multisector initiative]
-# REAL post-2020 plantation signal for the timber decision tree (Ind_17 "plantation after 2020").
-# Reads the MapBiomas Brazil Collection 10 latest year (classification_2024) Forest plantation
-# class (DN=9 = silviculture; planted tree stands, eucalyptus/pine). This is "plantation present
-# in 2024", matching the demo proxy's semantics; the timber decision tree's branch structure already
-# handles the 2020 state, so this is the current-state input. It augments (does not replace) the
-# ForTy 2020-extent demo proxy and is Brazil-only (MapBiomas has no pixel outside its coverage).
-# 2024 is the latest MapBiomas year; no MapBiomas product reaches 2025.
-def nbr_mapbiomasc10_silv24_prep():
-    mapbiomasc10_24 = ee.Image(
-        "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
-    ).select("classification_2024")
-    mapbiomasc10_24_silviculture = mapbiomasc10_24.eq(9)
-    return mapbiomasc10_24_silviculture.rename(
-        "nBR_MapBiomas_col10_silviculture_2024"
-    ).selfMask()
-
-
-# [non-official dataset by MapBiomas multisector initiative]
-# MULTI-YEAR plantation PRESENCE (not gain), a hidden building block: the timber decision tree now works out
-# "still plantation forest" (agriculture after 2020 is asked before it). Reads MapBiomas Brazil Collection 10 Forest plantation
-# (DN=9 = silviculture) present in ANY year 2021-2024 (OR of classification_2021..classification_2024
-# == 9). A presence/not-loss layer, NOT the gain: a plantation already standing in 2020 stays detected
-# here, which is exactly what the Rule-3 "still a plantation in 2025?" stability test needs (the GAIN
-# layer Ind_17 is 0 on any 2020 plantation, so it wrongly fails stable plantations to MORE INFO). The
-# multi-year OR also rides over the harvest/replant cycle (a year that is bare/harvested in one snapshot
-# is still caught by an adjacent year). Modelled on nbr_mapbiomasc10_silv24_prep (silv-2024 presence);
-# Brazil-only (MapBiomas coverage), latest year 2024.
-def nbr_mapbiomasc10_silv_anyyear_after_2020_prep():
-    mapbiomasc10 = ee.Image(
-        "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
-    )
-    silv_2021 = mapbiomasc10.select("classification_2021").eq(9)
-    silv_2022 = mapbiomasc10.select("classification_2022").eq(9)
-    silv_2023 = mapbiomasc10.select("classification_2023").eq(9)
-    silv_2024 = mapbiomasc10.select("classification_2024").eq(9)
-    silv_anyyear = silv_2021.Or(silv_2022).Or(silv_2023).Or(silv_2024)
-    return silv_anyyear.rename(
-        "nBR_MapBiomas_col10_silviculture_anyyear_after_2020"
-    ).selfMask()
-
-
-# [non-official dataset by MapBiomas multisector initiative]
 # PLANTATION GAIN 2020 -> 2024 for the timber decision tree's degradation question (Ind_17): MapBiomas
 # C10 forest classes in 2020 (the forest 2020 row's classes 3, 5, 6, 49) that is forest plantation (DN=9,
-# silviculture) in 2024. A stand in rotation or new plantation on pasture is not counted. Brazil only,
-# latest year 2024. The presence layer (nbr_mapbiomasc10_silv24_prep) stays for the stability question.
+# silviculture) in 2024. A stand in rotation or new plantation forest on pasture is not counted. Brazil only,
+# latest year 2024.
 def nbr_mapbiomasc10_silv_gain_after_2020_prep():
     mapbiomasc10 = ee.Image(
         "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
@@ -1848,44 +1725,6 @@ def g_global_mining_2020_prep():
     return _global_mining_mask().rename("Global_mining_2020").selfMask()
 
 
-# [non-official dataset by MapBiomas multisector initiative]
-# PRIMARY PROXY 2024 (Brazil-only), PRESENT-but-unused output band (not wired into any risk getter).
-# Recipe: native forest in the latest year (2024) AND NOT mapped as secondary vegetation in 2024.
-#  - native forest = MapBiomas C10 LULC integration classification_2024 in {3,5,6,49}
-#    (Savanna Formation DN=4 EXCLUDED 2026-07-28, matching the forest-gate change: cerrado savanna is not
-#    FAO / EUDR forest, and it was ~76% of this proxy in a Cerrado test box; see nbr_mapbiomasc10_f20_prep)
-#  - secondary vegetation = MapBiomas C10 deforestation/secondary-vegetation product
-#    classification_2024 == 3 (code 3 = secondary vegetation; code 2 = primary/native vegetation,
-#    verified in EE by cross-tabbing against the C9 secondary-vegetation-age product and the C10 LULC).
-# This is a "stable mature native forest / no detected anthropogenic clearing-and-regrowth since the
-# 1985 baseline" proxy, NOT a true primary class. It cannot see pre-1985 disturbance. It is an
-# independent latest-year observation (not anchored to the 2020 primary layer), which is what a
-# "matured to primary" path would need. It was wired into an earlier primary_2025 indicator (since removed) and is DISABLED
-# (use_for_risk_timber=0). It formerly over-counted savanna (in a Cerrado test box ~76% of the proxy was
-# Savanna Formation, class 4); class 4 is now excluded (above), which addresses most of that. It stays off
-# pending a true-primary replacement (TerraClass 2024 upload, tracked in #233); if re-enabled as a STRICT
-# primary, consider also dropping DN=49 wooded sandbank to reach true-forest {3, 5, 6}.
-def nbr_mapbiomasc10_primary_proxy24_prep():
-    mapbiomasc10_24 = ee.Image(
-        "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
-    ).select("classification_2024")
-    forest_24 = (
-        mapbiomasc10_24.eq(3)
-        .Or(mapbiomasc10_24.eq(5))
-        .Or(mapbiomasc10_24.eq(6))
-        .Or(mapbiomasc10_24.eq(49))
-    )
-    secondary_24 = (
-        ee.Image(
-            "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_deforestation_secondary_vegetation_v2"
-        )
-        .select("classification_2024")
-        .eq(3)
-    )
-    primary_proxy_24 = forest_24.And(secondary_24.Not())
-    return primary_proxy_24.rename("nBR_MapBiomas_col10_primary_proxy_2024").selfMask()
-
-
 ################ ### NBR Disturbances before 2020:########################################
 
 
@@ -2001,18 +1840,6 @@ def nbr_mapbiomasc10_cof_prep():
 
 
 # [non-official dataset by MapBiomas multisector initiative]
-# 2024 sibling of nbr_mapbiomasc10_cof_prep: same coffee class code {46}, latest year band.
-# Subsetting criteria: classification_2024 = coffee (DN=46); shows coffee area in 2024.
-# 2024 is the latest MapBiomas Collection 10 year; no MapBiomas product reaches 2025.
-def nbr_mapbiomasc10_cof24_prep():
-    mapbiomasc10_24 = ee.Image(
-        "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
-    ).select("classification_2024")
-    mapbiomasc10_24_coffee = mapbiomasc10_24.eq(46)
-    return mapbiomasc10_24_coffee.rename("nBR_MapBiomas_col10_coffee_2024").selfMask()
-
-
-# [non-official dataset by MapBiomas multisector initiative]
 # land use/cover from 1985 up to 2024, collection 10
 # Subsetting criteria: 'classification_2020' = palm oil (DN=35) <================= PALM OIL
 # the resulting dataset shows palm oil area in 2020
@@ -2023,18 +1850,6 @@ def nbr_mapbiomasc10_po_prep():
     ).select("classification_2020")
     mapbiomasc10_20_palm = mapbiomasc10_20.eq(35)
     return mapbiomasc10_20_palm.rename("nBR_MapBiomas_col10_palmoil_2020").selfMask()
-
-
-# [non-official dataset by MapBiomas multisector initiative]
-# 2024 sibling of nbr_mapbiomasc10_po_prep: same palm oil class code {35}, latest year band.
-# Subsetting criteria: classification_2024 = palm oil (DN=35); shows palm oil area in 2024.
-# 2024 is the latest MapBiomas Collection 10 year; no MapBiomas product reaches 2025.
-def nbr_mapbiomasc10_po24_prep():
-    mapbiomasc10_24 = ee.Image(
-        "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
-    ).select("classification_2024")
-    mapbiomasc10_24_palm = mapbiomasc10_24.eq(35)
-    return mapbiomasc10_24_palm.rename("nBR_MapBiomas_col10_palmoil_2024").selfMask()
 
 
 # [non-official dataset by MapBiomas multisector initiative]
@@ -2049,18 +1864,6 @@ def nbr_mapbiomasc10_pc_prep():
     ).select("classification_2020")
     mapbiomasc10_20_pc = mapbiomasc10_20.eq(47).Or(mapbiomasc10_20.eq(48))
     return mapbiomasc10_20_pc.rename("nBR_MapBiomas_col10_pc_2020").selfMask()
-
-
-# [non-official dataset by MapBiomas multisector initiative]
-# 2024 sibling of nbr_mapbiomasc10_pc_prep: same class codes {47,48} (citrus + other perennial
-# crops), latest year band, kept identical for a matched 2020-vs-2024 comparison.
-# 2024 is the latest MapBiomas Collection 10 year; no MapBiomas product reaches 2025.
-def nbr_mapbiomasc10_pc24_prep():
-    mapbiomasc10_24 = ee.Image(
-        "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
-    ).select("classification_2024")
-    mapbiomasc10_24_pc = mapbiomasc10_24.eq(47).Or(mapbiomasc10_24.eq(48))
-    return mapbiomasc10_24_pc.rename("nBR_MapBiomas_col10_pc_2024").selfMask()
 
 
 # ######################## NBR commodities - annual crops in 2020:##############################
@@ -2094,18 +1897,6 @@ def nbr_mapbiomasc10_soy_prep():
 
 
 # [non-official dataset by MapBiomas multisector initiative]
-# 2024 sibling of nbr_mapbiomasc10_soy_prep: same soybean class code {39}, latest year band.
-# Subsetting criteria: classification_2024 = soybean (DN=39); shows soybean area in 2024.
-# 2024 is the latest MapBiomas Collection 10 year; no MapBiomas product reaches 2025.
-def nbr_mapbiomasc10_soy24_prep():
-    mapbiomasc10_24 = ee.Image(
-        "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
-    ).select("classification_2024")
-    mapbiomasc10_24_soy = mapbiomasc10_24.eq(39)
-    return mapbiomasc10_24_soy.rename("nBR_MapBiomas_col10_soy_2024").selfMask()
-
-
-# [non-official dataset by MapBiomas multisector initiative]
 # land use/cover from 1985 up to 2024, collection 10
 # Subsetting criteria: 'classification_2020' = other temporary crops (DN=41)
 # Subsetting criteria: 'classification_2020' = sugar cane (DN=20)
@@ -2124,23 +1915,6 @@ def nbr_mapbiomasc10_ac_prep():
         .Or(mapbiomasc10_20.eq(62))
     )
     return mapbiomasc10_20_ac.rename("nBR_MapBiomas_col10_annual_crops_2020").selfMask()
-
-
-# [non-official dataset by MapBiomas multisector initiative]
-# 2024 sibling of nbr_mapbiomasc10_ac_prep: same class codes {41,20,40,62} (other temporary crops,
-# sugar cane, rice, cotton-beta), latest year band; shows temporary crop area other than soy in 2024.
-# 2024 is the latest MapBiomas Collection 10 year; no MapBiomas product reaches 2025.
-def nbr_mapbiomasc10_ac24_prep():
-    mapbiomasc10_24 = ee.Image(
-        "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
-    ).select("classification_2024")
-    mapbiomasc10_24_ac = (
-        mapbiomasc10_24.eq(41)
-        .Or(mapbiomasc10_24.eq(20))
-        .Or(mapbiomasc10_24.eq(40))
-        .Or(mapbiomasc10_24.eq(62))
-    )
-    return mapbiomasc10_24_ac.rename("nBR_MapBiomas_col10_annual_crops_2024").selfMask()
 
 
 # ################################### NBR commodities - pasture/livestock in 2020:##############################
@@ -2181,18 +1955,6 @@ def nbr_mapbiomasc10_pasture_prep():
     ).select("classification_2020")
     mapbiomasc10_20_pasture = mapbiomasc10_20.eq(15)
     return mapbiomasc10_20_pasture.rename("nBR_MapBiomas_col10_pasture_2020").selfMask()
-
-
-# [non-official dataset by MapBiomas multisector initiative]
-# 2024 sibling of nbr_mapbiomasc10_pasture_prep: same pasture class code {15}, latest year band.
-# Subsetting criteria: classification_2024 = pasture (DN=15); shows pasture area in 2024 in Brazil.
-# 2024 is the latest MapBiomas Collection 10 year; no MapBiomas product reaches 2025.
-def nbr_mapbiomasc10_pasture24_prep():
-    mapbiomasc10_24 = ee.Image(
-        "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
-    ).select("classification_2024")
-    mapbiomasc10_24_pasture = mapbiomasc10_24.eq(15)
-    return mapbiomasc10_24_pasture.rename("nBR_MapBiomas_col10_pasture_2024").selfMask()
 
 
 ###################################################################

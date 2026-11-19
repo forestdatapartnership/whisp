@@ -2,9 +2,9 @@
 for the CROP trees.
 
 On main these bands are present-but-unused everywhere. On this branch the timber decision tree deliberately
-reads the ForTy V2 2020 classes (primary, naturally regenerating, planted, plantation) and 2025 states
-(primary, regenerating / planted, plantation presence and gain) through theme_timber, so the
-timber-neutrality assertion from main is dropped here; the crop decision trees must still never see them.
+reads the ForTy V2 2020 classes (primary, naturally regenerating, planted, plantation) and the plantation
+forest and tree crop gains through theme_timber, so the timber-neutrality assertion from main is dropped
+here; the crop decision trees must still never see them.
 The tests are pure-Python (no Earth Engine): they check the shipped lookup table and the crop
 risk-column getters. The one exception checks the primary-change rule on constant class images.
 """
@@ -26,20 +26,13 @@ FORTY_EXPECTED = {
     "ForTy_plantation_2020": "g_forty_plantation_2020_prep",
     "ForTy_tree_crops_2020": "g_forty_tree_crops_2020_prep",
     "ForTy_forest_2020": "g_forty_forest_2020_prep",
-    # ForTy V2 Beta time series (2026-10-23): the timber 2020 baselines and observed 2025 states
+    # ForTy V2 Beta time series (2026-10-23): the timber 2020 baselines and the gains after 2020
     "ForTy_v2_primary_2020": "g_forty_v2_primary_2020_prep",
     "ForTy_v2_nat_reg_2020": "g_forty_v2_nat_reg_2020_prep",
     "ForTy_v2_planted_2020": "g_forty_v2_planted_2020_prep",
     "ForTy_v2_plantation_2020": "g_forty_v2_plantation_2020_prep",
-    "ForTy_v2_tree_crops_2020": "g_forty_v2_tree_crops_2020_prep",
-    "ForTy_v2_forest_2020": "g_forty_v2_forest_2020_prep",
-    "ForTy_v2_primary_2025": "g_forty_v2_primary_2025_prep",
-    "ForTy_v2_regen_planted_latest": "g_forty_v2_regen_planted_latest_prep",
-    "ForTy_v2_plantation_latest": "g_forty_v2_plantation_latest_prep",
     "ForTy_v2_plantation_forest_gain_after_2020": "g_forty_v2_plantation_forest_gain_after_2020_prep",
     "ForTy_v2_tree_crop_gain_after_2020": "g_forty_v2_tree_crop_gain_after_2020_prep",
-    "ForTy_v2_other_land_2020": "g_forty_v2_other_land_2020_prep",
-    "ForTy_v2_other_land_2025": "g_forty_v2_other_land_2025_prep",
 }
 
 # which ForTy rows the TIMBER tree reads (use_for_risk_timber=1): V2 only, same model version for the
