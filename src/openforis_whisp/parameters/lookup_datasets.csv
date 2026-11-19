@@ -232,9 +232,8 @@ ForTy_nat_reg_2020,1857,,,naturally_reg_2020,0,0,0,0,float32,1,0,g_forty_nat_reg
 ESRI_other_land_2020,1855,,,other_land_2020,0,0,1,0,float32,1,0,g_esri_other_land_2020_prep
 nBR_MapBiomas_col10_other_land_2020,1856,BR,,other_land_2020,0,0,1,0,float32,1,0,nbr_mapbiomasc10_other_land_2020_prep
 Global_mining_2020,1859,,,other_land_2020,0,0,1,0,float32,1,0,g_global_mining_2020_prep
-nBR_MapBiomas_col10_other_land_latest,1857,BR,,,0,0,0,1,float32,1,0,nbr_mapbiomasc10_other_land_latest_prep
-nBR_MapBiomas_col10_mining_gain_after_2020,1858,BR,,other_land_gain_after_2020,0,0,1,0,float32,1,0,nbr_mapbiomasc10_mining_gain_after_2020_prep
-ESRI_other_land_latest,1875,,,,0,0,0,1,float32,1,0,g_esri_other_land_latest_prep
+nBR_MapBiomas_col10_other_land_gain_after_2020,1858,BR,,other_land_gain_after_2020,0,0,1,0,float32,1,0,nbr_mapbiomasc10_other_land_gain_after_2020_prep
+ESRI_other_land_gain_after_2020,1857,,,other_land_gain_after_2020,0,0,1,0,float32,1,0,g_esri_other_land_gain_after_2020_prep
 IIASA_planted_plantation,1849,,,,0,0,0,0,float32,1,0,g_iiasa_planted_plantation_prep
 IIASA_plantation_2020,1851,,,plantation_2020,0,0,0,0,float32,1,0,g_iiasa_plantation_2020_prep
 ForTy_plantation_2020,1853,,,plantation_2020,0,0,0,0,float32,1,0,g_forty_plantation_2020_prep

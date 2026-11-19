@@ -1330,8 +1330,8 @@ def get_cols_ind_13_other_land_gain_after_2020(lookup_gee_datasets_df):
     """
     Dataset names for other land gained after 2020 (theme_timber=other_land_gain_after_2020): pixels that
     became other land within one product, for the timber decision tree's "Became other land?" on the
-    forest side. For now MapBiomas's dated mining gain in Brazil; the ESRI and MapBiomas other land gains
-    join once checked (water needs a permanence rule).
+    forest side: ESRI (global) and MapBiomas (Brazil), each the sure other land classes (built-up, water and
+    the like) in the two latest years and in neither 2019 nor 2020.
     """
     lookup_gee_datasets_df = lookup_gee_datasets_df[
         lookup_gee_datasets_df["exclude_from_output"] != 1

@@ -765,8 +765,13 @@ def g_esri_other_land_2020_prep():
     return _esri_other_land(2020).rename("ESRI_other_land_2020").selfMask()
 
 
-def g_esri_other_land_latest_prep():
-    return _esri_other_land(2025).rename("ESRI_other_land_latest").selfMask()
+# Other land gain after 2020 inside ESRI's own time series (Ind_13): the classes above in each of the two
+# latest years and in neither 2019 nor 2020, so a class that shows for one year only is not a change. The
+# latest year moves with each ESRI update.
+def g_esri_other_land_gain_after_2020_prep():
+    before = _esri_other_land(2019).Or(_esri_other_land(2020))
+    gain = _esri_other_land(2024).And(_esri_other_land(2025)).And(before.Not())
+    return gain.rename("ESRI_other_land_gain_after_2020").selfMask()
 
 
 # PLACEHOLDER (coded out): Copernicus LCFM LCM-10 "other land" to corroborate ESRI for Ind_12/Ind_13 so
@@ -1758,7 +1763,7 @@ def nbr_mapbiomasc10_ag_gain_after_2020_prep():
 # commodity / agriculture-2020 node); native forest + silviculture (the forest branches); and the AMBIGUOUS
 # vegetated / bare classes (grassland 12, wetland 11, other-non-vegetated/bare 25, aquaculture 31), which we
 # are not confident are non-forest, so they fall through to MORE INFO rather than being called LOW
-# other-land. 2020 -> Ind_12 (Rule 0 -> LOW); 2024 is kept as a building block for an other land gain. A forest ->
+# other-land. 2020 -> Ind_12 (Rule 0 -> LOW); the gain after 2020 -> Ind_13 (LOW on the forest side). A forest ->
 # mining/built/water change reads as other land (compliant, outside the EUDR forest -> agriculture
 # definition). Mining is captured both here (class 30) and by the global Tang & Werner + Maus footprint.
 def _mapbiomasc10_other_land(year):
@@ -1785,32 +1790,20 @@ def nbr_mapbiomasc10_other_land_2020_prep():
     )
 
 
-# 2024 state, hidden: a building block for an other land gain (Ind_13) once checked; not read today.
-def nbr_mapbiomasc10_other_land_latest_prep():
-    return (
-        _mapbiomasc10_other_land(2024)
-        .rename("nBR_MapBiomas_col10_other_land_latest")
-        .selfMask()
-    )
-
-
 # [non-official dataset by MapBiomas multisector initiative]
-# MINING EXPANSION 2020 -> 2024 for Brazil (MapBiomas C10 class 30 = mining). Same-product gain: mined in
-# 2024 AND NOT in 2020 = NEW mining after 2020. Forest -> mining is forest loss to a NON-agricultural use,
-# which under EUDR is outside the deforestation definition (the transition matrix puts mining in "Other
-# land use" = compliant), so this feeds the other land gain (Ind_13) -> LOW, routing forest -> mining
-# correctly to LOW rather than more-info or a false HIGH. Country-specific (Brazil; MapBiomas is paired/
-# annual, so it can detect the EXPANSION); a separate GLOBAL mining EXTENT layer covers the state
-# elsewhere. NB mining (30) is also inside the broad non-forest layer, so this is an explicit, auditable
-# expansion signal feeding the same node.
-def nbr_mapbiomasc10_mining_gain_after_2020_prep():
-    mapbiomasc10 = ee.Image(
-        "projects/mapbiomas-public/assets/brazil/lulc/collection10/mapbiomas_brazil_collection10_integration_v1"
+# Other land gain after 2020 inside MapBiomas's own time series (Ind_13), Brazil only: the classes above
+# (built, water, mining, rock, sand, salt flat) in each of the two latest years and in neither 2019 nor 2020,
+# so a class that shows for one year only is not a change. Forest -> mining, built-up or water is conversion
+# to a non-agricultural use (other land in the EUDR transition table, one example framework), so a yes leads
+# to low on the forest side. Replaces the mining-only gain (mining is one of the classes).
+def nbr_mapbiomasc10_other_land_gain_after_2020_prep():
+    before = _mapbiomasc10_other_land(2019).Or(_mapbiomasc10_other_land(2020))
+    gain = (
+        _mapbiomasc10_other_land(2023)
+        .And(_mapbiomasc10_other_land(2024))
+        .And(before.Not())
     )
-    mining_2020 = mapbiomasc10.select("classification_2020").eq(30)
-    mining_2024 = mapbiomasc10.select("classification_2024").eq(30)
-    gain = mining_2024.And(mining_2020.Not())
-    return gain.rename("nBR_MapBiomas_col10_mining_gain_after_2020").selfMask()
+    return gain.rename("nBR_MapBiomas_col10_other_land_gain_after_2020").selfMask()
 
 
 # Global industrial-mining footprint (Tang & Werner 2023, unioned with Maus et al. V1 for recall) as a
