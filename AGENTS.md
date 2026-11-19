@@ -66,7 +66,7 @@ Whisp supports both **hectares** and **percent** units:
 - Unit type stored in column defined by `stats_unit_type_column` (default: `"Unit"`)
 - [`risk.py::detect_unit_type()`](src/openforis_whisp/risk.py) auto-detects or accepts `explicit_unit_type` override
 - All rows in a DataFrame **must** use same unit type (no mixing)
-- Risk thresholds (e.g., `ind_1_pcent_threshold`) are percentage thresholds regardless of unit type. Default is 10 for all indicators except `ind_2_pcent_threshold` (commodities in 2020), `ind_3_pcent_threshold` (disturbance before 2020) and, for timber, `ind_12_pcent_threshold` (other land in 2020), `ind_13_pcent_threshold` (other land gain after 2020) and `ind_15_pcent_threshold` (cropland in 2020), which default to 50 because a "yes" there leads to a low risk outcome
+- Risk thresholds (e.g., `ind_1_pcent_threshold`) are percentage thresholds regardless of unit type. Default is 10 for all indicators except `ind_2_pcent_threshold` (commodities in 2020), `ind_3_pcent_threshold` (disturbance before 2020) and, for timber, `ind_12_pcent_threshold` (other land in 2020), `ind_13_pcent_threshold` (other land gain after 2020) and `ind_15_pcent_threshold` (cropland in 2020), which default to 50 because a "yes" there leads to a low risk outcome. The 2020 forest type thresholds (`ind_5`, `ind_6`, `ind_14`, `ind_16`) stay at 10%: they also open the timber decision tree's forest gate, and lead to low only when no change after 2020 is found
 
 ### Risk Assessment Logic
 [`risk.py::whisp_risk()`](src/openforis_whisp/risk.py) implements commodity-specific decision trees:

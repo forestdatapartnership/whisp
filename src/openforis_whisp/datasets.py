@@ -596,7 +596,8 @@ def g_esri_2020_2024_crop_prep():
     return newCrop.rename("ESRI_crop_gain_2020_2024").selfMask()
 
 
-# ESRI crop gain after 2020 (Ind_10_agri_after_2020): crops (class 5) in 2025 and not in 2020.
+# ESRI crop gain after 2020 (Ind_10_agri_after_2020): crops (class 5) in 2025 and not in 2020 (no two-year rule:
+# see get_cols_ind_10_agri_after_2020 in risk.py).
 def g_esri_crop_gain_after_2020_prep():
     esri_lulc10_raw = ee.ImageCollection(
         "projects/sat-io/open-datasets/landcover/ESRI_Global-LULC_10m_TS"

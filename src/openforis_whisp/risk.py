@@ -307,6 +307,9 @@ def whisp_risk(
         Ind_07_planted_plantations_2020, Ind_08_planted_plantations_after_2020,
         Ind_09_treecover_after_2020 and Ind_11_logging_concession_before_2020 are kept in the output for
         existing users; no decision tree reads them (their thresholds, input columns and names can still be set as before).
+        The 2020 forest type indicators (5, 6, 14 and 16) keep 10%: they also open the timber decision tree's forest
+        gate, which stays sensitive so that any forest is checked for changes after 2020, and a yes leads to a low
+        outcome only when no change after 2020 is found.
 
     Returns:
         pd.DataFrame: DataFrame with added risk columns.
@@ -1319,7 +1322,10 @@ def get_cols_ind_10_agri_after_2020(lookup_gee_datasets_df):
     forest side. Each is a gain within one product, in its latest year (2024 or 2025) and not in 2020.
     FDaP_tree_crop_gain_after_2020 also needs no tree crop in 2018 and a tree crop in both 2022 and 2024,
     and GPW_cultiv_pasture_gain_after_2020 no cultivated grassland in 2019; the other gains compare two
-    single years.
+    single years. No two-year rule, unlike the other land gains: on the 630 driver test plots it lost 19 farming
+    highs and removed few false highs (a harvested stand stays grassy or crop-like for more than a year), and the
+    main error is one map's commission rather than flicker (crop in 2 of 3 years cut the crop gains by under 3%).
+    Agreement between two maps is planned as its own change (#306), as the maps differ in definitions and extents.
     """
     lookup_gee_datasets_df = lookup_gee_datasets_df[
         lookup_gee_datasets_df["exclude_from_output"] != 1
