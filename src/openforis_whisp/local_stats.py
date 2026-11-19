@@ -526,6 +526,8 @@ def download_geotiff_for_feature(
             _whisp_logger.warning(
                 f"Failed to download tile {tile_idx} for feature {feature_id}"
             )
+            # A missing tile leaves part of the plot without data, so the feature fails
+            return None
 
     if not tile_paths:
         _whisp_logger.error(f"Failed to download any tiles for feature {feature_id}")
@@ -761,6 +763,10 @@ def download_geotiffs_for_feature_collection(
                     _whisp_logger.error(
                         f"Exception occurred while processing feature {index+1}: {str(e)}"
                     )
+                if failed_indexes:
+                    # The run fails anyway: drop the queued downloads instead of finishing them
+                    executor.shutdown(wait=False, cancel_futures=True)
+                    break
     else:
         # Sequential processing
         _whisp_logger.debug(f"Downloading {collection_size} features sequentially...")
@@ -775,6 +781,7 @@ def download_geotiffs_for_feature_collection(
                 successful_features += 1
             else:
                 failed_indexes.append(i + 1)  # 1-based for user display
+                break
             completed += 1
 
             # Log progress at milestones
@@ -801,10 +808,9 @@ def download_geotiffs_for_feature_collection(
                 ", ".join(str(idx) for idx in failed_indexes[:10])
                 + f", ... (+{len(failed_indexes) - 10} more)"
             )
-        _whisp_logger.error(
+        raise RuntimeError(
             f"Download incomplete: {len(failed_indexes)}/{collection_size} features failed to download. "
-            f"Failed feature numbers: {failed_list}. "
-            f"Results may be missing data - do not assume empty results mean no risk."
+            f"Failed feature numbers: {failed_list}."
         )
 
     return results
@@ -1348,7 +1354,7 @@ def exact_extract_in_chunks_parallel(
         vector_file: Path to vector file (GeoJSON, shapefile, etc.)
         chunk_size: Number of features to process in each chunk
         ops: List of operations to perform (default: ["sum"])
-        max_workers: Maximum number of parallel processes to use
+        max_workers: Maximum number of parallel processes to use; 1 runs without child processes
         band_names: List of band names for column renaming (default: auto-detect from raster)
         verbose: If True, print progress messages (default: True)
 
@@ -1427,10 +1433,15 @@ def exact_extract_in_chunks_parallel(
     # The workers only read the downloaded files, so they skip Whisp's Earth Engine start-up (#322)
     previous_skip = os.environ.get("WHISP_SKIP_EE_INIT")
     os.environ["WHISP_SKIP_EE_INIT"] = "1"
+    # A single worker runs in a thread: no child processes, which a daemonic process (e.g. a
+    # Celery prefork worker) can't start
+    pool = (
+        concurrent.futures.ThreadPoolExecutor
+        if max_workers == 1
+        else concurrent.futures.ProcessPoolExecutor
+    )
     try:
-        with concurrent.futures.ProcessPoolExecutor(
-            max_workers=max_workers
-        ) as executor:
+        with pool(max_workers=max_workers) as executor:
             future_to_chunk = {
                 executor.submit(
                     _process_chunk_df, chunk, rasters, ops, i, num_chunks
@@ -1579,7 +1590,8 @@ def whisp_stats_local(
         scale: Download resolution in meters (default 10m)
         max_download_workers: Number of parallel download threads (default: 10, higher
             values may trigger EE rate limits)
-        max_extract_workers: Number of parallel extract processes (default: CPU count - 1)
+        max_extract_workers: Number of parallel extract processes (default: CPU count - 1);
+            1 runs without child processes, e.g. inside a Celery prefork worker
         chunk_size: Features per chunk for parallel extraction
         ops: Statistics operations for exactextract (default: ['sum', 'majority'] to match
             concurrent mode's combined reducer). The sum is used for area statistics,
