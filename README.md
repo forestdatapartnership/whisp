@@ -60,8 +60,7 @@ Additional categories are specific for the timber (wood) commodity, comparing 20
   8) Plantation forests in 2020;
   9) Other land in 2020 (e.g. built-up, water, mining, bare);
   10) Cropland in 2020;
-  11) Changes after 2020: agricultural expansion, primary or naturally regenerating forest converted into plantation forest, primary forest that changed type;
-  12) Forest type and other land in the latest year mapped.
+  11) Changes after 2020: agricultural expansion, primary or naturally regenerating forest converted into plantation forest, and forest that became other land (e.g. built-up, water, mining).
 
 
   There are multiple datasets for each category. Find the full current [list of datasets used in Whisp here](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md).
@@ -85,11 +84,10 @@ And specifically for the timber commodity:
   10) Was there cropland in 2020?
   11) Did agriculture expand after 2020?
   12) Did primary or naturally regenerating forest become plantation forest after 2020?
-  13) Did primary forest change type after 2020?
-  14) In the latest year mapped, is the plot still the same forest type, or other land?
+  13) Did the plot become other land (e.g. built-up, water, mining) after 2020?
 
 
-  Each question is answered "yes" for a plot when any one of the relevant datasets covers more than a set share of the plot area. By default this share is 10% for all indicators except commodities in 2020, disturbances before 2020-12-31 and, for timber, cropland in 2020, where it is 50%: because a "yes" to either lowers the risk category (see the logic below), Whisp only counts them when they cover most of the plot rather than a small corner. For commodities this also guards against commodity maps over-predicting (commission errors), where a small patch of mapped commodity on a forested plot would otherwise be enough for a low risk outcome. For point locations any non-zero value counts. All thresholds can be changed via the `ind_N_pcent_threshold` arguments of `whisp_risk` in the python package.
+  Each question is answered "yes" for a plot when any one of the relevant datasets covers more than a set share of the plot area. By default this share is 10% for all indicators except commodities in 2020, disturbances before 2020-12-31 and, for timber, cropland in 2020, other land in 2020 and other land after 2020, where it is 50%: because a "yes" to any of these lowers the risk category (see the logic below), Whisp only counts them when they cover most of the plot rather than a small corner. For commodities this also guards against commodity maps over-predicting (commission errors), where a small patch of mapped commodity on a forested plot would otherwise be enough for a low risk outcome. For point locations any non-zero value counts. All thresholds can be changed via the `ind_N_pcent_threshold` arguments of `whisp_risk` in the python package.
 
   The Whisp algorithm outputs multiple statistical columns with disaggregated data from the input datasets, followed by aggregated indicator columns, and the final risk assessment columns.
     All output columns from Whisp are described in the [result fields reference](https://whisp.openforis.org/docs/reference/result-fields).
@@ -168,10 +166,12 @@ Each risk column holds one of the values `low`, `high` or `more_info_needed` (sh
 
   - Not forest in 2020: other land in 2020 gives **low**; otherwise agriculture in 2020 gives **low**, and anything else **"More info needed"**.
   - Forest in 2020 and agriculture after 2020 gives **high** (deforestation).
-  - Primary forest in 2020: converted into plantation forest gives **high** (degradation); disturbed after 2020 gives **"More info needed"**; otherwise **low**.
-  - Naturally regenerating or planted forest in 2020: converted into plantation forest gives **high**; otherwise **low**, as harvest is not a conversion.
-  - Plantation forest in 2020: **low**.
-  - Forest in 2020 with none of these types mapped: now other land gives **low**; otherwise **"More info needed"**.
+  - Primary forest in 2020: converted into plantation forest gives **high** (degradation); became other land after 2020 gives **low**; disturbed after 2020 gives **"More info needed"**; otherwise **low**.
+  - Naturally regenerating or planted forest in 2020: converted into plantation forest gives **high**; otherwise **low** (became other land, or stayed forest, as harvest is not a conversion).
+  - Plantation forest in 2020: **low** (became other land, or still plantation forest).
+  - Forest in 2020 with none of these types mapped: became other land after 2020 gives **low**; otherwise **"More info needed"**.
+
+  Changes after 2020 are each measured within one dataset (for example a pixel that is other land in that map's latest years but was not in 2020), so differences between two maps are not read as change.
 
   The `risk_timber_pathway` column names the end point each plot reached. Every indicator the timber decision tree reads is in the output, so it can be rerun from the results.
 

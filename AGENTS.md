@@ -66,14 +66,14 @@ Whisp supports both **hectares** and **percent** units:
 - Unit type stored in column defined by `stats_unit_type_column` (default: `"Unit"`)
 - [`risk.py::detect_unit_type()`](src/openforis_whisp/risk.py) auto-detects or accepts `explicit_unit_type` override
 - All rows in a DataFrame **must** use same unit type (no mixing)
-- Risk thresholds (e.g., `ind_1_pcent_threshold`) are percentage thresholds regardless of unit type. Default is 10 for all indicators except `ind_2_pcent_threshold` (commodities in 2020) and `ind_3_pcent_threshold` (disturbance before 2020), which default to 50 because a "yes" there leads to a low risk outcome
+- Risk thresholds (e.g., `ind_1_pcent_threshold`) are percentage thresholds regardless of unit type. Default is 10 for all indicators except `ind_2_pcent_threshold` (commodities in 2020), `ind_3_pcent_threshold` (disturbance before 2020) and, for timber, `ind_12_pcent_threshold` (other land in 2020), `ind_13_pcent_threshold` (other land gain after 2020) and `ind_15_pcent_threshold` (cropland in 2020), which default to 50 because a "yes" there leads to a low risk outcome
 
 ### Risk Assessment Logic
 [`risk.py::whisp_risk()`](src/openforis_whisp/risk.py) implements commodity-specific decision trees:
 - **Perennial crops** (coffee, cocoa, rubber, palm): Uses `risk_pcrop` output
 - **Annual crops** (soy): Uses `risk_acrop`
 - **Cattle**: `risk_cattle`, coming soon (placeholder on branch `feat/cattle-risk`, not on main)
-- **Timber**: Uses `risk_timber` (includes additional categories like primary forests, logging concessions)
+- **Timber**: Uses `risk_timber`, from its own decision tree (`TIMBER_ROOT_TREE` in risk.py): forest types in 2020, then only changes after 2020 (agriculture, conversion into plantation forest, other land gain, disturbance on primary forest); `risk_timber_pathway` names the end point
 
 Decision tree checks in order:
 1. Treecover in 2020? (Indicator 1)

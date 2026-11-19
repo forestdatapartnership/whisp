@@ -354,9 +354,9 @@ def g_forty_v2_plantation_forest_gain_after_2020_prep():
     return gain.selfMask().rename("ForTy_v2_plantation_forest_gain_after_2020")
 
 
-def g_forty_v2_tree_crop_gain_2020_2025_prep():
+def g_forty_v2_tree_crop_gain_after_2020_prep():
     gain = _forty_v2_class(2025).eq(5).And(_forty_v2_class(2020).neq(5))
-    return gain.selfMask().rename("ForTy_v2_tree_crop_gain_2020_2025")
+    return gain.selfMask().rename("ForTy_v2_tree_crop_gain_after_2020")
 
 
 #########################TMF regrowth in 2025

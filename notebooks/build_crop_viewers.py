@@ -17,7 +17,9 @@ import pathlib
 
 from openforis_whisp import crop_map as cm
 
-EE_PROJECT = os.environ.get("EE_PROJECT", "ee-andyarnellgee")
+EE_PROJECT = os.environ.get(
+    "EE_PROJECT"
+)  # your Earth Engine project; without it the page has no map layers
 OUT_DIR = pathlib.Path(__file__).resolve().parent
 NATIONAL = [
     "br"
