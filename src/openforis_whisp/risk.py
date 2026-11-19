@@ -292,8 +292,8 @@ def whisp_risk(
             keeping only context/metadata columns, datasets used in indicators, indicator columns,
             and final risk columns. Defaults to False (backward compatible).
         include_working_columns (bool, optional): If True, also returns primary_2025 and
-            regen_planted_still_2025, worked out from the shown indicators (the pathway viewer reads them); no
-            decision tree reads them. Defaults to False.
+            regen_planted_still_2025, worked out from the shown indicators; no decision tree reads them.
+            Defaults to False.
 
         Ind_07_planted_plantations_2020, Ind_08_planted_plantations_after_2020,
         Ind_09_treecover_after_2020 and Ind_11_logging_concession_before_2020 are kept in the output for
@@ -697,8 +697,7 @@ def add_risk_acrop_col(
 # ---- ROOT timber decision tree, declarative spec (single source of truth) --------------------------
 # Each node is a LEAF {"risk", "pathway"} or a DECISION {"q": <derived-boolean name>, "yes": node,
 # "no": node}. _eval_timber_tree walks it against the per-plot booleans built in add_risk_timber_col.
-# The tree is DATA (no lambdas), so a later generator can walk the SAME structure to emit the Mermaid
-# diagram, the viewer JS walk and the map pathway(), keeping the display copies from drifting.
+# The tree is data (no lambdas), so decision_tree_recipe() can hand the same structure to apps.
 def _timber_leaf(risk, pathway):
     return {"risk": risk, "pathway": pathway}
 
@@ -803,6 +802,161 @@ TIMBER_ROOT_TREE = {
                 },
             },
         },
+    },
+}
+
+
+# ---- All three decision trees as data, for decision_tree_recipe() ---------------------------------
+# The crop decision trees mirror add_risk_pcrop_col and add_risk_acrop_col (a test walks them over every
+# yes/no combination); the timber decision tree is TIMBER_ROOT_TREE itself. For each: every question's
+# label and the indicator columns it reads (yes when any of them is "yes"), and a code per end point.
+# Codes are never reused; retired codes are listed.
+PCROP_ROOT_TREE = {
+    "q": "treecover_2020",
+    "no": {"risk": "low", "pathway": "low: no treecover 2020"},
+    "yes": {
+        "q": "commodities_2020",
+        "yes": {"risk": "low", "pathway": "low: commodity 2020"},
+        "no": {
+            "q": "disturbance_before_2020",
+            "yes": {"risk": "low", "pathway": "low: disturbance before 2020"},
+            "no": {
+                "q": "disturbance_after_2020",
+                "yes": {
+                    "risk": "high",
+                    "pathway": "high: treecover 2020, disturbance after 2020",
+                },
+                "no": {
+                    "risk": "more_info_needed",
+                    "pathway": "more-info: treecover 2020, no disturbance after 2020",
+                },
+            },
+        },
+    },
+}
+
+ACROP_ROOT_TREE = {
+    "q": "treecover_2020",
+    "no": {"risk": "low", "pathway": "low: no treecover 2020"},
+    "yes": {
+        "q": "commodities_2020",
+        "yes": {"risk": "low", "pathway": "low: commodity 2020"},
+        "no": {
+            "q": "disturbance_after_2020",
+            "yes": {
+                "risk": "high",
+                "pathway": "high: treecover 2020, disturbance after 2020",
+            },
+            "no": {
+                "risk": "more_info_needed",
+                "pathway": "more-info: treecover 2020, no disturbance after 2020",
+            },
+        },
+    },
+}
+
+_CROP_LABELS = {
+    "treecover_2020": "Tree cover in 2020?",
+    "commodities_2020": "Commodity / agriculture in 2020?",
+    "disturbance_before_2020": "Disturbance before 2020?",
+    "disturbance_after_2020": "Disturbance after 2020?",
+}
+_CROP_COLUMNS = {
+    "treecover_2020": ["Ind_01_treecover"],
+    "commodities_2020": ["Ind_02_commodities"],
+    "disturbance_before_2020": ["Ind_03_disturbance_before_2020"],
+    "disturbance_after_2020": ["Ind_04_disturbance_after_2020"],
+}
+
+DECISION_TREES = {
+    "pcrop": {
+        "risk_column": "risk_pcrop",
+        "pathway_column": None,
+        "tree": PCROP_ROOT_TREE,
+        "labels": _CROP_LABELS,
+        "columns": _CROP_COLUMNS,
+        "codes": {
+            "low: no treecover 2020": 1,
+            "low: commodity 2020": 2,
+            "low: disturbance before 2020": 3,
+            "more-info: treecover 2020, no disturbance after 2020": 4,
+            "high: treecover 2020, disturbance after 2020": 5,
+        },
+        "retired_codes": [],
+    },
+    "acrop": {
+        "risk_column": "risk_acrop",
+        "pathway_column": None,
+        "tree": ACROP_ROOT_TREE,
+        "labels": _CROP_LABELS,
+        "columns": _CROP_COLUMNS,
+        "codes": {
+            "low: no treecover 2020": 1,
+            "low: commodity 2020": 2,
+            "more-info: treecover 2020, no disturbance after 2020": 3,
+            "high: treecover 2020, disturbance after 2020": 4,
+        },
+        "retired_codes": [],
+    },
+    "timber": {
+        "risk_column": "risk_timber",
+        "pathway_column": "risk_timber_pathway",
+        "tree": TIMBER_ROOT_TREE,
+        "labels": {
+            "forest_2020": "Forest in 2020?",
+            "agriculture_2025": "Agriculture after 2020?",
+            "primary_2020": "Primary forest in 2020?",
+            "plantation_2025": "Converted into plantation forest after 2020?",
+            "other_land_2025": "Became other land after 2020?",
+            "disturbed_after_2020": "Disturbed after 2020?",
+            "regen_planted_2020": "Naturally regenerating or planted forest in 2020?",
+            "plantation_2020": "Plantation forest in 2020?",
+            "other_land_2020": "Other land in 2020?",
+            "other_land_still_2025": "Still other land?",
+            "agriculture_2020": "Agriculture in 2020?",
+        },
+        "columns": {
+            "forest_2020": [
+                "Ind_01_treecover",
+                "Ind_05_primary_2020",
+                "Ind_06_nat_reg_forest_2020",
+                "Ind_14_planted_forest_2020",
+                "Ind_16_plantation_forest_2020",
+            ],
+            "agriculture_2025": ["Ind_10_agri_after_2020"],
+            "primary_2020": ["Ind_05_primary_2020"],
+            "plantation_2025": ["Ind_17_plantation_forest_gain_after_2020"],
+            "other_land_2025": ["Ind_13_other_land_gain_after_2020"],
+            "disturbed_after_2020": ["Ind_04_disturbance_after_2020"],
+            "regen_planted_2020": [
+                "Ind_06_nat_reg_forest_2020",
+                "Ind_14_planted_forest_2020",
+            ],
+            "plantation_2020": ["Ind_16_plantation_forest_2020"],
+            "other_land_2020": ["Ind_12_other_land_2020"],
+            # nothing after 2020 matters on the non-forest side, so this asks other land 2020 again (always yes)
+            "other_land_still_2025": ["Ind_12_other_land_2020"],
+            "agriculture_2020": ["Ind_02_commodities", "Ind_15_cropland_2020"],
+        },
+        "codes": {
+            "low: agriculture 2020": 1,
+            "low: still primary": 2,
+            "low: regen stayed forest": 3,
+            "low: still plantation forest": 4,
+            "more-info: non-forest 2020, unclassified": 5,
+            "high: deforestation": 6,
+            "high: regenerating -> plantation forest (degradation)": 7,
+            "low: other land 2020 (stable)": 11,
+            "high: primary -> plantation forest (degradation)": 12,
+            "more-info: other land 2020 changed": 13,
+            "low: forest 2020 -> other land": 14,
+            "low: primary 2020 -> other land": 16,
+            "low: regen 2020 -> other land": 17,
+            "low: plantation forest 2020 -> other land": 18,
+            "more-info: forest 2020, unclassified": 19,
+            "more-info: primary 2020, disturbed after 2020": 21,
+        },
+        "retired_codes": [8, 9, 10, 15, 20, 22],
     },
 }
 
@@ -1346,8 +1500,9 @@ def get_cols_ind_13_other_land_gain_after_2020(lookup_gee_datasets_df):
 
 def decision_tree_recipe(lookup_df=None) -> dict:
     """
-    The recipe of each risk decision tree (pcrop, acrop and timber) as plain, JSON-ready data, built from the
-    code, so it always matches what whisp_risk does. The pathway viewers draw the same structure.
+    The recipe of each risk decision tree (pcrop, acrop and timber) as plain, JSON-ready data, built from
+    DECISION_TREES above, so it always matches what whisp_risk does (a test walks it over every yes/no
+    combination).
 
     For each decision tree: its output columns, then the questions from the first one down. Each question
     lists the indicator columns it reads (it is "yes" when any of them is "yes", the "combine" rule) and what
@@ -1360,10 +1515,6 @@ def decision_tree_recipe(lookup_df=None) -> dict:
     Example: ``json.dumps(decision_tree_recipe(), indent=1)``.
     """
     import inspect
-    import re
-
-    from openforis_whisp import acrop_tree_export, pcrop_tree_export, timber_tree_export
-    from openforis_whisp.decision_tree import annotate
 
     lut = lookup_df if lookup_df is not None else lookup_gee_datasets_df
     defaults = {
@@ -1393,43 +1544,34 @@ def decision_tree_recipe(lookup_df=None) -> dict:
     }
     iso2 = dict(zip(lut["name"], lut["ISO2_code"].fillna("").astype(str)))
 
-    def plain(label):
-        return re.sub(r"<[^>]+>", "", re.sub(r"<br\s*/?>.*$", "", label)).strip()
-
-    def node(n, spec):
+    def node(n, spec, seen):
         if "q" not in n:
+            code = spec["codes"][n["pathway"]]
             return {
-                "id": n["id"],
+                "id": "end_%d" % code,
                 "risk": n["risk"],
                 "pathway": n["pathway"],
-                "code": n["code"],
+                "code": code,
             }
+        q = n["q"]
+        seen[q] = seen.get(q, 0) + 1
         return {
-            "id": n["id"],
-            "question": n["q"],
-            "label": plain(n["label"]),
-            "columns": list(spec.q_to_columns[n["q"]]),
+            "id": q if seen[q] == 1 else "%s_%d" % (q, seen[q]),
+            "question": q,
+            "label": spec["labels"][q],
+            "columns": list(spec["columns"][q]),
             "combine": "any",
-            "yes": node(n["yes"], spec),
-            "no": node(n["no"], spec),
+            "yes": node(n["yes"], spec, seen),
+            "no": node(n["no"], spec, seen),
         }
 
     trees = {}
-    for name, spec, risk_column, pathway_column in (
-        ("pcrop", pcrop_tree_export.PCROP_SPEC, "risk_pcrop", None),
-        ("acrop", acrop_tree_export.ACROP_SPEC, "risk_acrop", None),
-        (
-            "timber",
-            timber_tree_export.TIMBER_SPEC,
-            "risk_timber",
-            "risk_timber_pathway",
-        ),
-    ):
+    for name, spec in DECISION_TREES.items():
         trees[name] = {
-            "risk_column": risk_column,
-            "pathway_column": pathway_column,
-            "retired_codes": sorted(spec.retired_codes),
-            "tree": node(annotate(spec), spec),
+            "risk_column": spec["risk_column"],
+            "pathway_column": spec["pathway_column"],
+            "retired_codes": list(spec["retired_codes"]),
+            "tree": node(spec["tree"], spec, {}),
         }
 
     def columns_read(n):

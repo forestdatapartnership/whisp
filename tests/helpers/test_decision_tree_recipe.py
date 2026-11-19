@@ -1,6 +1,6 @@
-"""The timber decision tree's display copies stay in step with risk.TIMBER_ROOT_TREE: the code table covers exactly
-the tree's leaves, every question has its label / node kind / id / result columns, and decision_tree_recipe()
-rebuilds every outcome. No Earth Engine requests.
+"""decision_tree_recipe() and the DECISION_TREES data behind it stay in step with risk.py: every end point has its own
+code (none retired), every question has a label and columns, every column read is a described indicator, and a walker
+that reads only the recipe gives the same outcome as risk.py for every yes/no combination. No Earth Engine requests.
 """
 
 import itertools
@@ -8,9 +8,8 @@ import json
 
 import pandas as pd
 
-from openforis_whisp import timber_tree_export as tx
 from openforis_whisp.risk import (
-    TIMBER_ROOT_TREE,
+    DECISION_TREES,
     add_risk_acrop_col,
     add_risk_pcrop_col,
     add_risk_timber_col,
@@ -24,35 +23,31 @@ def _questions(node):
     return {node["q"]} | _questions(node["yes"]) | _questions(node["no"])
 
 
-QUESTIONS = _questions(TIMBER_ROOT_TREE)
+def _end_points(node):
+    if "q" not in node:
+        return [node["pathway"]]
+    return _end_points(node["yes"]) + _end_points(node["no"])
 
 
-def test_code_table_matches_the_tree_leaves():
-    summary = tx.selfcheck()
-    assert (
-        not set(summary["codes"]) & tx.RETIRED_CODES
-    ), "a retired code is emitted again"
-    assert tx.RETIRED_CODES <= set(
-        tx.CODE_COLOUR
-    ), "retired codes keep their palette colour"
+def test_every_end_point_has_its_own_code():
+    for name, spec in DECISION_TREES.items():
+        ends = _end_points(spec["tree"])
+        assert len(ends) == len(set(ends)), f"{name}: an end point appears twice"
+        assert set(ends) == set(
+            spec["codes"]
+        ), f"{name}: codes differ from the end points"
+        codes = list(spec["codes"].values())
+        assert len(codes) == len(set(codes)), f"{name}: a code is used twice"
+        assert not set(codes) & set(
+            spec["retired_codes"]
+        ), f"{name}: a retired code is used again"
 
 
-def test_every_question_has_its_metadata():
-    for name, table in [
-        ("Q_LABEL", tx.Q_LABEL),
-        ("Q_KIND", tx.Q_KIND),
-        ("_ABBREV", tx._ABBREV),
-        ("Q_TO_COLUMNS", tx.Q_TO_COLUMNS),
-        ("_Q_TO_LAYER", tx._Q_TO_LAYER),
-    ]:
-        assert (
-            set(table) == QUESTIONS
-        ), f"{name} differs from the tree's questions: {sorted(set(table) ^ QUESTIONS)}"
-
-
-def test_diagram_and_viewer_walk_generate():
-    assert "Disturbed after 2020?" in tx.to_mermaid()
-    assert "disturbed_after_2020" in tx.js_module_source()
+def test_every_question_has_a_label_and_columns():
+    for name, spec in DECISION_TREES.items():
+        for q in _questions(spec["tree"]):
+            assert spec["labels"].get(q), f"{name}: no label for {q}"
+            assert spec["columns"].get(q), f"{name}: no columns for {q}"
 
 
 def _walk_recipe(node, row):
@@ -74,6 +69,21 @@ def _recipe_columns(node):
         | _recipe_columns(node["yes"])
         | _recipe_columns(node["no"])
     )
+
+
+def _recipe_ids(node):
+    if "question" not in node:
+        return [node["id"]]
+    return [node["id"]] + _recipe_ids(node["yes"]) + _recipe_ids(node["no"])
+
+
+def test_recipe_ids_unique_and_columns_described():
+    recipe = json.loads(json.dumps(decision_tree_recipe()))
+    for name, tree in recipe["decision_trees"].items():
+        ids = _recipe_ids(tree["tree"])
+        assert len(ids) == len(set(ids)), f"{name}: an id is used twice"
+        for col in _recipe_columns(tree["tree"]):
+            assert name in recipe["indicators"][col]["read_by"], (name, col)
 
 
 def test_recipe_rebuilds_every_outcome():
