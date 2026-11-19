@@ -220,10 +220,10 @@ def test_timber_decision_tree_terminals() -> None:
             **{_IND_7B: "yes", _IND_2: "yes", _IND_15: "yes"},
         ),
         _timber_row(
-            # still plantation forest is worked out from plantation forest 2020, so other land is not asked
+            # other land gain is asked on the plantation forest branch: still low, with its own label
             "plantation_to_other_land",
             "low",
-            "low: still plantation forest",
+            "low: plantation forest 2020 -> other land",
             **{_IND_1: "yes", _IND_7B: "yes", _IND_13: "yes"},
         ),
         _timber_row(
@@ -265,10 +265,11 @@ def test_timber_decision_tree_terminals() -> None:
             **{_IND_5: "yes", _IND_4: "yes"},
         ),
         _timber_row(
-            # formerly LOW (code 20 / 16): disturbance now wins over a regen or other-land 2025 state
-            "primary_disturbed_then_regen_or_other_land",
-            "more_info_needed",
-            "more-info: primary 2020, disturbed after 2020",
+            # other land gain (50%) is asked before disturbance since 2026-11-19: a disturbance explained by
+            # a new mine or built-up land reads LOW (code 16 revived); a regrowth state is still not asked
+            "primary_disturbed_then_other_land",
+            "low",
+            "low: primary 2020 -> other land",
             **{_IND_5: "yes", _IND_4: "yes", _IND_13: "yes"},
         ),
         _timber_row(
@@ -286,39 +287,32 @@ def test_timber_decision_tree_terminals() -> None:
             **{_IND_5: "yes", _IND_4: "yes", _IND_10: "yes"},
         ),
         _timber_row(
-            # a disturbed plot can never read still primary: the tree asks disturbance before primary_2025
+            # a disturbed plot can never read still primary: disturbance is asked before the still-primary end
             "primary_disturbed_even_if_still_primary",
             "more_info_needed",
             "more-info: primary 2020, disturbed after 2020",
             **{_IND_5: "yes", _IND_4: "yes", _PRIMARY_2025: "yes"},
         ),
         _timber_row(
-            # still primary = no with no disturbance: not reachable through whisp_risk today (still primary
-            # is not disturbed and not converted), kept for when planted forest is split out
-            "primary_changed_to_regen_without_disturbance",
-            "more_info_needed",
-            "more-info: primary 2020, changed without disturbance",
+            # no gain and no disturbance: still primary (a change to regrowth or planted forest is not mapped)
+            "primary_no_change",
+            "low",
+            "low: still primary",
             **{_IND_5: "yes"},
         ),
         _timber_row(
-            # other land 2025 is no longer asked on the primary leg (was LOW, code 16)
-            "primary_changed_to_other_land_without_disturbance",
-            "more_info_needed",
-            "more-info: primary 2020, changed without disturbance",
+            # other land gain is asked on the primary leg again (code 16 revived): outside the EUDR -> LOW
+            "primary_to_other_land",
+            "low",
+            "low: primary 2020 -> other land",
             **{_IND_5: "yes", _IND_13: "yes"},
         ),
         _timber_row(
-            # Ind_09_treecover_after_2020 stays out of the primary branch: canopy alone rescues nothing
-            "primary_changed_canopy_only",
-            "more_info_needed",
-            "more-info: primary 2020, changed without disturbance",
+            # Ind_09_treecover_after_2020 stays out of the primary branch: canopy alone changes nothing
+            "primary_canopy_only",
+            "low",
+            "low: still primary",
             **{_IND_5: "yes", _IND_9: "yes"},
-        ),
-        _timber_row(
-            "primary_more_info",
-            "more_info_needed",
-            "more-info: primary 2020, changed without disturbance",
-            **{_IND_5: "yes"},
         ),
         # regen-2020 branch (plantation-2025 GAIN checked FIRST)
         _timber_row(
@@ -336,11 +330,10 @@ def test_timber_decision_tree_terminals() -> None:
             **{_IND_6: "yes", _REGEN_STILL: "yes"},
         ),
         _timber_row(
-            # 2026-07-29 planned diagram: the still-forest question comes BEFORE other land, so a regen plot
-            # that is still forest AND also flags other land 2025 reads stayed-forest (code 3), not 17.
+            # the still-forest box is gone (it was always yes), so other land gain now gives its own label
             "regen_still_forest_and_other_land",
             "low",
-            "low: regen stayed forest",
+            "low: regen 2020 -> other land",
             **{_IND_6: "yes", _REGEN_STILL: "yes", _IND_13: "yes"},
         ),
         _timber_row(
@@ -350,11 +343,11 @@ def test_timber_decision_tree_terminals() -> None:
             **{_IND_6: "yes", _IND_13: "yes"},
         ),
         _timber_row(
-            # still regenerating = no (reachable only by passing the column in: whisp_risk works it out as
-            # yes once the gain question is no) and no other land -> more-info.
+            # disturbance is not asked on the regenerating branch: harvest and regrowth, or replanting, are
+            # compliant there, so with no gain the plot stayed forest
             "regen_disturbed",
-            "more_info_needed",
-            "more-info: regen 2020, no later state",
+            "low",
+            "low: regen stayed forest",
             **{_IND_6: "yes", _IND_4: "yes"},
         ),
         # forest-gate plot with no recognised class or change -> more info

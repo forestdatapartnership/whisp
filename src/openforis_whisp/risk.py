@@ -181,8 +181,8 @@ def whisp_risk(
     ind_9_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_10_pcent_threshold: float = 10,  # default values (draft decision tree and parameters)
     ind_11_pcent_threshold: float = 10,  # Ind_11, kept in the output for existing users; no decision tree reads it
-    ind_12_pcent_threshold: float = 10,
-    ind_13_pcent_threshold: float = 10,
+    ind_12_pcent_threshold: float = 50,  # like Ind_02: other land in 2020 leads to a low risk outcome on the timber decision tree, so it must cover most of the plot
+    ind_13_pcent_threshold: float = 50,  # likewise: became other land after 2020 leads to a low risk outcome
     ind_14_pcent_threshold: float = 10,
     ind_15_pcent_threshold: float = 50,  # like Ind_02: agriculture in 2020 leads to a low risk outcome on the timber decision tree, so it must cover most of the plot
     ind_16_pcent_threshold: float = 10,
@@ -737,29 +737,28 @@ TIMBER_ROOT_TREE = {
                 "yes": _timber_leaf(
                     "high", "high: primary -> plantation forest (degradation)"
                 ),
-                # Then DISTURBANCE after 2020 (Ind_04) -> MORE INFO. Disturbance alone is not a non-compliant
-                # end state (in the EUDR transition table, as one example, primary forest that is logged or
-                # burnt and regrows naturally is deforestation- and degradation-free); HIGH needs evidence of
-                # the end state (agriculture above, plantation gain just before). But ForTy V2 still calls a
-                # third or more of cleared primary "primary" in some regions, so a disturbed plot must never
-                # read still primary -> LOW: it goes to more-info for a closer look. A driver layer could
-                # later separate natural disturbance (#241).
+                # Then BECAME OTHER LAND after 2020 (Ind_13, a gain; 50%, as a yes lowers the risk) -> LOW:
+                # primary forest to other land use (mining, built-up, water) is outside the EUDR, as one
+                # example. Regrowth is NOT asked: it cannot be told from planted forest, and primary -> planted
+                # forest is degradation.
                 "no": {
-                    "q": "disturbed_after_2020",
-                    "yes": _timber_leaf(
-                        "more_info_needed",
-                        "more-info: primary 2020, disturbed after 2020",
-                    ),
-                    # Undisturbed: still primary (no change in ForTy V2's own 2020 -> 2025 primary class) -> LOW;
-                    # a ForTy change with no disturbance behind it -> more-info (a modelled change alone neither
-                    # clears nor condemns the plot).
+                    "q": "other_land_2025",
+                    "yes": _timber_leaf("low", "low: primary 2020 -> other land"),
+                    # Then DISTURBANCE after 2020 (Ind_04) -> MORE INFO. Disturbance alone is not a non-compliant
+                    # end state (in the EUDR transition table, as one example, primary forest that is logged or
+                    # burnt and regrows naturally is deforestation- and degradation-free); HIGH needs evidence of
+                    # the end state (agriculture above, plantation gain just before). But ForTy V2 still calls a
+                    # third or more of cleared primary "primary" in some regions, so a disturbed plot must never
+                    # read still primary -> LOW: it goes to more-info for a closer look. A driver layer could
+                    # later separate natural disturbance (#241).
                     "no": {
-                        "q": "primary_2025",
-                        "yes": _timber_leaf("low", "low: still primary"),
-                        "no": _timber_leaf(
+                        "q": "disturbed_after_2020",
+                        "yes": _timber_leaf(
                             "more_info_needed",
-                            "more-info: primary 2020, changed without disturbance",
+                            "more-info: primary 2020, disturbed after 2020",
                         ),
+                        # no gain and no disturbance: nothing changed after 2020 -> still primary
+                        "no": _timber_leaf("low", "low: still primary"),
                     },
                 },
             },
@@ -770,21 +769,14 @@ TIMBER_ROOT_TREE = {
                     "yes": _timber_leaf(
                         "high", "high: regenerating -> plantation forest (degradation)"
                     ),
-                    # Per the 2026-07-29 planned diagram: still regenerating / planted forest in 2025?
-                    # Worked out upstream as regen_planted_2020 AND NOT converted into plantation forest
-                    # (Ind_17), so after the gain question it reads yes; its no (other land, more info)
-                    # waits for more conversions (into other wooded land) to join it.
+                    # Then became other land after 2020 (Ind_13) -> LOW with its own label. Otherwise nothing
+                    # non-compliant was mapped: harvest and regrowth, or replanting, are compliant from
+                    # naturally regenerating or planted forest, so disturbance is not asked. (Other wooded land
+                    # joins here once mapped: degradation from naturally regenerating, compliant from planted.)
                     "no": {
-                        "q": "regen_planted_still_2025",
-                        "yes": _timber_leaf("low", "low: regen stayed forest"),
-                        "no": {
-                            "q": "other_land_2025",
-                            "yes": _timber_leaf("low", "low: regen 2020 -> other land"),
-                            "no": _timber_leaf(
-                                "more_info_needed",
-                                "more-info: regen 2020, no later state",
-                            ),
-                        },
+                        "q": "other_land_2025",
+                        "yes": _timber_leaf("low", "low: regen 2020 -> other land"),
+                        "no": _timber_leaf("low", "low: regen stayed forest"),
                     },
                 },
                 # PLANTATION checked LAST: only a plot that is NOT primary and NOT regen reaches here, so a
@@ -793,18 +785,11 @@ TIMBER_ROOT_TREE = {
                 "no": {
                     "q": "plantation_2020",
                     "yes": {  # existing plantation: no degradation HIGH here
-                        "q": "plantation_presence_2025",
-                        "yes": _timber_leaf("low", "low: still plantation forest"),
-                        "no": {
-                            "q": "other_land_2025",
-                            "yes": _timber_leaf(
-                                "low", "low: plantation forest 2020 -> other land"
-                            ),
-                            "no": _timber_leaf(
-                                "more_info_needed",
-                                "more-info: plantation forest 2020, no later state",
-                            ),
-                        },
+                        "q": "other_land_2025",
+                        "yes": _timber_leaf(
+                            "low", "low: plantation forest 2020 -> other land"
+                        ),
+                        "no": _timber_leaf("low", "low: still plantation forest"),
                     },
                     # forest by treecover but no primary/regen/plantation class: give it the other-land
                     # chance before defaulting to more-info (revives code 14, the generic forest -> other land).
@@ -877,10 +862,11 @@ def add_risk_timber_col(
         became other land (Ind_13) low; else more info;
       - none of the three: became other land (Ind_13) low, else more info.
 
-    The "still" answers are worked out in whisp_risk from what did not happen, not from a map of the
-    latest year: primary_2025 = Ind_05 AND NOT Ind_04 AND NOT Ind_17_plantation_forest_gain_after_2020;
-    regen_planted_still_2025 = (Ind_06 OR Ind_14) AND NOT Ind_17; still plantation forest = plantation
-    forest in 2020, as agriculture after 2020 is asked before it.
+    After 2020 the decision tree asks only for changes: gains into agriculture, plantation forest and
+    other land (Ind_10, Ind_17, Ind_13) and, on the primary branch only, disturbance (Ind_04). "Still
+    primary", "regen stayed forest" and "still plantation forest" are what is left when none of them
+    happened, not a map of the latest year. (whisp_risk still writes primary_2025 and
+    regen_planted_still_2025 as working columns.)
 
     Also writes risk_timber_pathway: the label of the end point reached, aligned with the map's pathway
     codes.
@@ -922,18 +908,14 @@ def add_risk_timber_col(
             or (row[ind_15_name] == high_name),
             "agriculture_2025": row[ind_10_name] == high_name,
             "plantation_2020": plantation_2020,
-            # still plantation forest: worked out (agriculture after 2020 is asked before it)
-            "plantation_presence_2025": plantation_2020,
             "primary_2020": primary_2020,
             # Ind_04 asked directly on the primary leg: disturbed primary -> more-info.
             "disturbed_after_2020": row[ind_4_name] == high_name,
-            # primary_2025 derived upstream = Ind_05 AND NOT Ind_04 AND NOT Ind_17.
-            "primary_2025": row[primary_2025_name] == high_name,
             # Ind_09_treecover_after_2020 stays out of the tree (too broad: generic ESRI canopy; and
-            # regionally uneven: TMF regrowth is tropics-only). Still regenerating / planted forest in 2025
-            # is worked out upstream as regen_planted_2020 AND NOT Ind_17. (ind_9_name is kept for
-            # signature stability.)
-            "regen_planted_still_2025": row[regen_planted_still_2025_name] == high_name,
+            # regionally uneven: TMF regrowth is tropics-only). The "still" answers are not asked: still
+            # primary, regen stayed forest and still plantation forest are what is left when no gain (and,
+            # on the primary leg, no disturbance) was found. (ind_9_name, primary_2025_name and
+            # regen_planted_still_2025_name are kept for signature stability.)
             "regen_planted_2020": regen_planted_2020,
             # Ind_17 GAIN (new plantation) = degradation -> HIGH, checked FIRST in the primary/regen branches.
             "plantation_2025": row[ind_17_name] == high_name,
