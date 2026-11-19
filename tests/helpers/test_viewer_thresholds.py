@@ -30,7 +30,7 @@ def test_timber_sliders_send_only_thresholds_whisp_risk_accepts():
     for s in sliders:
         assert s["default"] == params[s["param"]].default
     sent = {s["param"]: s["default"] for s in sliders}
-    sent.update({"ind_14_pcent_threshold": 5, "national_codes": "xx"})
+    sent.update({"ind_99_pcent_threshold": 5, "national_codes": "xx"})
     assert _clean_thresholds(sent) == {s["param"]: float(s["default"]) for s in sliders}
 
 
@@ -80,6 +80,6 @@ def test_timber_page_built_without_earth_engine_uses_every_national_dataset():
 def test_the_forest_gate_lists_plantation_forest_datasets():
     from openforis_whisp.timber_tree_export import TIMBER_SPEC
 
-    ind = "Ind_21_plantation_forest_2020"
+    ind = "Ind_16_plantation_forest_2020"
     groups = pathway_viewer._input_groups(TIMBER_SPEC, {ind: [{"name": "ForTy"}]})
     assert any(g["q"] == "forest_2020" and g["indicator"] == ind for g in groups)

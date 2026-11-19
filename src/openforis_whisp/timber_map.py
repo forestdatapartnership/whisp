@@ -86,9 +86,9 @@ from .risk import (
     get_cols_ind_04_dist_after_2020,
     get_cols_ind_05_primary_2020,
     get_cols_ind_06_nat_reg_2020,
-    get_cols_ind_20_planted_forest_2020,
-    get_cols_ind_21_plantation_forest_2020,
-    get_cols_ind_22_plantation_forest_gain_after_2020,
+    get_cols_ind_14_planted_forest_2020,
+    get_cols_ind_16_plantation_forest_2020,
+    get_cols_ind_17_plantation_forest_gain_after_2020,
     get_cols_ind_10_agri_after_2020,
     get_cols_ind_12_other_land_2020,
     get_cols_ind_13_other_land_gain_after_2020,
@@ -120,9 +120,9 @@ def _indicator_names(lut):
         "Ind_04_disturbance_after_2020": get_cols_ind_04_dist_after_2020(lut),
         "Ind_05_primary_2020": get_cols_ind_05_primary_2020(lut),
         "Ind_06_nat_reg_forest_2020": get_cols_ind_06_nat_reg_2020(lut),
-        "Ind_20_planted_forest_2020": get_cols_ind_20_planted_forest_2020(lut),
-        "Ind_21_plantation_forest_2020": get_cols_ind_21_plantation_forest_2020(lut),
-        "Ind_22_plantation_forest_gain_after_2020": get_cols_ind_22_plantation_forest_gain_after_2020(
+        "Ind_14_planted_forest_2020": get_cols_ind_14_planted_forest_2020(lut),
+        "Ind_16_plantation_forest_2020": get_cols_ind_16_plantation_forest_2020(lut),
+        "Ind_17_plantation_forest_gain_after_2020": get_cols_ind_17_plantation_forest_gain_after_2020(
             lut
         ),
         "Ind_10_agri_after_2020": get_cols_ind_10_agri_after_2020(lut),
@@ -291,10 +291,10 @@ def build_timber_question_images(
     n_ind02 = names["Ind_02_commodities"]
     n_ind05 = names["Ind_05_primary_2020"]
     n_ind06 = names["Ind_06_nat_reg_forest_2020"]
-    n_ind20 = names["Ind_20_planted_forest_2020"]
-    n_ind21 = names["Ind_21_plantation_forest_2020"]
+    n_ind14 = names["Ind_14_planted_forest_2020"]
+    n_ind16 = names["Ind_16_plantation_forest_2020"]
     # plantation GAIN = degradation
-    n_ind22 = names["Ind_22_plantation_forest_gain_after_2020"]
+    n_ind17 = names["Ind_17_plantation_forest_gain_after_2020"]
     n_ind10 = names["Ind_10_agri_after_2020"]
     n_ind12 = names["Ind_12_other_land_2020"]
     n_ind13 = names["Ind_13_other_land_gain_after_2020"]
@@ -307,11 +307,11 @@ def build_timber_question_images(
     tc20 = _union(lut, n_ind01)  # Ind_01_treecover
     # Ind_02_commodities OR Ind_15_cropland_2020 (the Rule-1 agriculture-2020 pool).
     ag_2020 = _union(lut, list(n_ind02) + list(n_ind15))
-    # Ind_06_nat_reg_forest_2020 OR Ind_20_planted_forest_2020 (plain, no "and not primary" carve-out).
-    regen_planted_2020 = _union(lut, list(n_ind06) + list(n_ind20))
-    plantation_2020 = _union(lut, n_ind21)  # Ind_21_plantation_forest_2020
-    # Ind_22_plantation_forest_gain_after_2020 (plantation GAIN = degradation).
-    plantation_gain_2025 = _union(lut, n_ind22)
+    # Ind_06_nat_reg_forest_2020 OR Ind_14_planted_forest_2020 (plain, no "and not primary" carve-out).
+    regen_planted_2020 = _union(lut, list(n_ind06) + list(n_ind14))
+    plantation_2020 = _union(lut, n_ind16)  # Ind_16_plantation_forest_2020
+    # Ind_17_plantation_forest_gain_after_2020 (plantation GAIN = degradation).
+    plantation_gain_2025 = _union(lut, n_ind17)
     # still plantation forest: worked out (agriculture after 2020 is asked before it)
     plantation_presence_2025 = plantation_2020
     other_land_2025 = _union(lut, n_ind13)  # Ind_13_other_land_gain_after_2020
@@ -346,7 +346,7 @@ def build_timber_question_images(
     agriculture_2025 = _folded(n_ind10, "Ind_10", lambda: _count(lut, n_ind10).gte(k))
 
     # Worked-out 2025 forest states, mirroring whisp_risk: still primary = primary 2020 AND NOT disturbance
-    # AND NOT plantation forest gain (Ind_22); still regen / planted = regen 2020 AND NOT Ind_22 (harvest
+    # AND NOT plantation forest gain (Ind_17); still regen / planted = regen 2020 AND NOT Ind_17 (harvest
     # is not a conversion, so disturbance is not asked).
     still_primary_2025 = primary_2020.And(disturbance_2025.Not()).And(
         plantation_gain_2025.Not()
@@ -355,8 +355,8 @@ def build_timber_question_images(
 
     # --- the tree questions, mirroring add_risk_timber_col's yes_locals in ee.Image form ----------
     qimg = {
-        # forest_2020 = treecover(Ind_01) OR primary(Ind_05) OR regen/planted(Ind_06 or Ind_20) OR
-        # plantation forest (Ind_21), as risk.py.
+        # forest_2020 = treecover(Ind_01) OR primary(Ind_05) OR regen/planted(Ind_06 or Ind_14) OR
+        # plantation forest (Ind_16), as risk.py.
         "forest_2020": tc20.Or(primary_2020).Or(regen_planted_2020).Or(plantation_2020),
         "other_land_2020": other_land_2020,  # Ind_12_other_land_2020
         "other_land_2025": other_land_2025,  # Ind_13_other_land_gain_after_2020
@@ -365,14 +365,14 @@ def build_timber_question_images(
         # agriculture_2020 = Ind_02_commodities OR Ind_15_cropland_2020.
         "agriculture_2020": ag_2020,
         "agriculture_2025": agriculture_2025,  # Ind_10_agri_after_2020 (deforestation)
-        "plantation_2020": plantation_2020,  # Ind_21_plantation_forest_2020
+        "plantation_2020": plantation_2020,  # Ind_16_plantation_forest_2020
         "plantation_presence_2025": plantation_presence_2025,  # worked out: plantation forest 2020
         "primary_2020": primary_2020,  # Ind_05_primary_2020
-        "plantation_2025": plantation_gain_2025,  # Ind_22_plantation_forest_gain_after_2020 (GAIN = degradation)
+        "plantation_2025": plantation_gain_2025,  # Ind_17_plantation_forest_gain_after_2020 (GAIN = degradation)
         "disturbed_after_2020": disturbance_2025,  # Ind_04 (primary leg: disturbed primary -> more-info)
-        "primary_2025": still_primary_2025,  # Ind_05 AND NOT Ind_04 AND NOT Ind_22
-        "regen_planted_still_2025": regen_planted_still_2025,  # (Ind_06 OR Ind_20) AND NOT Ind_22
-        # regen_planted_2020 = plain Ind_06 OR Ind_20, NO "and not primary" carve-out: the decision tree checks
+        "primary_2025": still_primary_2025,  # Ind_05 AND NOT Ind_04 AND NOT Ind_17
+        "regen_planted_still_2025": regen_planted_still_2025,  # (Ind_06 OR Ind_14) AND NOT Ind_17
+        # regen_planted_2020 = plain Ind_06 OR Ind_14, NO "and not primary" carve-out: the decision tree checks
         # primary BEFORE regen, so ORDER (not exclusion) resolves a primary+regen overlap.
         "regen_planted_2020": regen_planted_2020,
     }

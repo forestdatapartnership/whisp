@@ -204,8 +204,8 @@ Q_TO_COLUMNS = {
         "Ind_01_treecover",
         "Ind_05_primary_2020",
         "Ind_06_nat_reg_forest_2020",
-        "Ind_20_planted_forest_2020",
-        "Ind_21_plantation_forest_2020",
+        "Ind_14_planted_forest_2020",
+        "Ind_16_plantation_forest_2020",
     ],
     "other_land_2020": ["Ind_12_other_land_2020"],
     "other_land_2025": ["Ind_13_other_land_gain_after_2020"],
@@ -213,16 +213,16 @@ Q_TO_COLUMNS = {
     "other_land_still_2025": ["Ind_12_other_land_2020"],
     "agriculture_2020": ["Ind_02_commodities", "Ind_15_cropland_2020"],
     "agriculture_2025": ["Ind_10_agri_after_2020"],
-    "plantation_2020": ["Ind_21_plantation_forest_2020"],
+    "plantation_2020": ["Ind_16_plantation_forest_2020"],
     # worked out: plantation forest 2020 (agriculture after 2020 is asked before it)
-    "plantation_presence_2025": ["Ind_21_plantation_forest_2020"],
+    "plantation_presence_2025": ["Ind_16_plantation_forest_2020"],
     "primary_2020": ["Ind_05_primary_2020"],
-    "plantation_2025": ["Ind_22_plantation_forest_gain_after_2020"],
+    "plantation_2025": ["Ind_17_plantation_forest_gain_after_2020"],
     "disturbed_after_2020": ["Ind_04_disturbance_after_2020"],
-    # derived in whisp_risk: Ind_05 AND NOT Ind_04 AND NOT Ind_22 (not disturbed, not converted)
+    # derived in whisp_risk: Ind_05 AND NOT Ind_04 AND NOT Ind_17 (not disturbed, not converted)
     "primary_2025": ["primary_2025"],
-    "regen_planted_2020": ["Ind_06_nat_reg_forest_2020", "Ind_20_planted_forest_2020"],
-    # worked out in whisp_risk: (Ind_06 OR Ind_20) AND NOT Ind_22 (not converted)
+    "regen_planted_2020": ["Ind_06_nat_reg_forest_2020", "Ind_14_planted_forest_2020"],
+    # worked out in whisp_risk: (Ind_06 OR Ind_14) AND NOT Ind_17 (not converted)
     "regen_planted_still_2025": ["regen_planted_still_2025"],
 }
 

@@ -39,9 +39,9 @@ EXPECTED_INDICATOR_COLS = [
     "Ind_12_other_land_2020",
     "Ind_13_other_land_gain_after_2020",
     "Ind_15_cropland_2020",
-    "Ind_20_planted_forest_2020",
-    "Ind_21_plantation_forest_2020",
-    "Ind_22_plantation_forest_gain_after_2020",
+    "Ind_14_planted_forest_2020",
+    "Ind_16_plantation_forest_2020",
+    "Ind_17_plantation_forest_gain_after_2020",
 ]
 
 
@@ -109,9 +109,9 @@ _IND_1 = "Ind_01_treecover"
 _IND_2 = "Ind_02_commodities"
 _IND_5 = "Ind_05_primary_2020"
 _IND_6 = "Ind_06_nat_reg_forest_2020"
-_IND_7A = "Ind_20_planted_forest_2020"
-_IND_7B = "Ind_21_plantation_forest_2020"
-_IND_8B = "Ind_22_plantation_forest_gain_after_2020"
+_IND_7A = "Ind_14_planted_forest_2020"
+_IND_7B = "Ind_16_plantation_forest_2020"
+_IND_8B = "Ind_17_plantation_forest_gain_after_2020"
 _IND_9 = "Ind_09_treecover_after_2020"
 _IND_10 = "Ind_10_agri_after_2020"
 _IND_12 = "Ind_12_other_land_2020"
@@ -199,7 +199,7 @@ def test_timber_decision_tree_terminals() -> None:
             "high: deforestation",
             **{_IND_5: "yes", _IND_15: "yes", _IND_10: "yes"},
         ),
-        # plantation-2020 branch: Ind_21 opens the forest gate like the other forest classes, read as it is
+        # plantation-2020 branch: Ind_16 opens the forest gate like the other forest classes, read as it is
         _timber_row(
             "plantation_stable",  # still plantation forest is worked out -> LOW
             "low",
@@ -329,7 +329,7 @@ def test_timber_decision_tree_terminals() -> None:
         ),
         _timber_row(
             # no new plantation and still regenerating / planted in 2025 (the worked-out column: regen
-            # 2020 AND NOT Ind_22) -> stayed-forest LOW.
+            # 2020 AND NOT Ind_17) -> stayed-forest LOW.
             "regen_stayed_forest",
             "low",
             "low: regen stayed forest",
@@ -374,7 +374,7 @@ def test_timber_decision_tree_terminals() -> None:
         ),
         _timber_row(
             # CAVEAT-28 FIX (plantation checked LAST): a genuine primary-2020 plot that a broad plantation
-            # layer ALSO flags (Ind_21), with a NEW plantation gain (Ind_22). Under the old plantation-first
+            # layer ALSO flags (Ind_16), with a NEW plantation gain (Ind_17). Under the old plantation-first
             # order this was masked as "low: still plantation forest"; now primary wins the overlap and the
             # degradation HIGH fires. Locks in the reorder.
             "primary_and_plantation2020_overlap_degradation",
@@ -397,9 +397,9 @@ def test_timber_decision_tree_terminals() -> None:
         ind_2_name=_IND_2,
         ind_5_name=_IND_5,
         ind_6_name=_IND_6,
-        ind_20_name=_IND_7A,
-        ind_21_name=_IND_7B,
-        ind_22_name=_IND_8B,
+        ind_14_name=_IND_7A,
+        ind_16_name=_IND_7B,
+        ind_17_name=_IND_8B,
         ind_9_name=_IND_9,
         ind_10_name=_IND_10,
         ind_12_name=_IND_12,
@@ -440,7 +440,7 @@ def _synthetic_plot(**hectares):
 
 
 def test_timber_primary_leg_through_whisp_risk() -> None:
-    """The primary leg end to end through whisp_risk (no GEE): the lookup rows behind Ind_04 and Ind_22,
+    """The primary leg end to end through whisp_risk (no GEE): the lookup rows behind Ind_04 and Ind_17,
     the derived primary_2025 (not disturbed, not converted into plantation forest) and the tree. Covers
     the case a ForTy-only "still primary" rule got wrong (cleared forest ForTy still calls primary) and
     primary that only TMF calls primary."""
