@@ -69,22 +69,22 @@ Additional categories are specific for the timber (wood) commodity, comparing 20
 
 Whisp checks the plots provided by the user by running zonal statistics on them to answer the following questions:
 
-  1) Was there tree cover in 2020? (`Ind_01_treecover`)
-  2) Were there commodity plantations or other agricultural uses in 2020? (`Ind_02_commodities`)
-  3) Were there disturbances until 2020-12-31? (`Ind_03_disturbance_before_2020`)
-  4) Were there disturbances after 2020-12-31 / starting 2021-01-01? (`Ind_04_disturbance_after_2020`)
+  1) Was there tree cover in 2020?
+  2) Were there commodity plantations or other agricultural uses in 2020?
+  3) Were there disturbances until 2020-12-31?
+  4) Were there disturbances after 2020-12-31 / starting 2021-01-01?
 
 And specifically for the timber commodity:
 
-  5) Was there primary forest in 2020? (`Ind_05_primary_2020`)
-  6) Was there naturally regenerating forest in 2020? (`Ind_06_nat_reg_forest_2020`)
-  7) Was there planted forest in 2020? (`Ind_14_planted_forest_2020`)
-  8) Was there plantation forest in 2020? (`Ind_16_plantation_forest_2020`)
-  9) Was there other land in 2020? (`Ind_12_other_land_2020`)
-  10) Was there cropland in 2020? (`Ind_15_cropland_2020`)
-  11) Did agriculture expand after 2020? (`Ind_10_agri_after_2020`)
-  12) Did primary or naturally regenerating forest become plantation forest after 2020? (`Ind_17_plantation_forest_gain_after_2020`)
-  13) Did the plot become other land (e.g. built-up or water; in Brazil also mining) after 2020? (`Ind_13_other_land_gain_after_2020`)
+  5) Was there primary forest in 2020?
+  6) Was there naturally regenerating forest in 2020?
+  7) Was there planted forest in 2020?
+  8) Was there plantation forest in 2020?
+  9) Was there other land in 2020?
+  10) Was there cropland in 2020?
+  11) Did agriculture expand after 2020?
+  12) Did primary or naturally regenerating forest become plantation forest after 2020?
+  13) Did the plot become other land (e.g. built-up or water; in Brazil also mining) after 2020?
 
 
   Each question is answered "yes" for a plot when any one of the relevant datasets covers more than a set share of the plot area. By default this share is 10% for all indicators except commodities in 2020, disturbances before 2020-12-31 and, for timber, cropland in 2020, other land in 2020 and other land after 2020, where it is 50%: because a "yes" to any of these lowers the risk category (see the logic below), Whisp only counts them when they cover most of the plot rather than a small corner. For commodities this also guards against commodity maps over-predicting (commission errors), where a small patch of mapped commodity on a forested plot would otherwise be enough for a low risk outcome. For point locations any non-zero value counts. All thresholds can be changed via the `ind_N_pcent_threshold` arguments of `whisp_risk` in the python package.
@@ -162,20 +162,9 @@ Each risk column holds one of the values `low`, `high` or `more_info_needed` (sh
   *The Whisp algorithm for **Timber** visualized:*
   ![timber_graphic](https://github.com/user-attachments/assets/c3da6e05-37a1-4790-ac86-90412f645071)
 
-  For timber, Whisp applies a different decision logic compared to perennial and annual crops. In addition to the **deforestation risk**, Whisp also evaluates **degradation risk**, here primary or naturally regenerating forest converted into plantation forest. Tree crops such as oil palm and rubber are agricultural plantations, not plantation forest. It first asks whether the plot was forest in 2020: tree cover, primary, naturally regenerating, planted or plantation forest. This is wider than the tree cover question for crops, because much timber comes from planted and plantation forests, which some general forest maps leave out by design. A plot mapped as more than one forest type follows the first in this order: primary, naturally regenerating or planted, plantation forest.
+  For timber, Whisp applies a different decision logic compared to perennial and annual crops. In addition to the **deforestation risk**, Whisp also evaluates **degradation risk**, here primary or naturally regenerating forest converted into plantation forest. Tree crops such as oil palm and rubber are agricultural plantations, not plantation forest. It first asks whether the plot was forest in 2020: tree cover, primary, naturally regenerating, planted or plantation forest. This is wider than the tree cover question for crops, because much timber comes from planted and plantation forests, which some general forest maps leave out by design. For forest in 2020 it then asks only about changes after 2020, each measured within one dataset. The `risk_timber_pathway` column names the end point each plot reached.
 
-  - Not forest in 2020: other land in 2020 gives **low**; otherwise agriculture in 2020 gives **low**, and anything else **"More info needed"**.
-  - Forest in 2020 and agriculture after 2020 gives **high** (deforestation).
-  - Primary forest in 2020: converted into plantation forest gives **high** (degradation); became other land after 2020 gives **low**; disturbed after 2020 gives **"More info needed"**; otherwise **low**.
-  - Naturally regenerating or planted forest in 2020: converted into plantation forest gives **high**; otherwise **low** (became other land, or stayed forest, as harvest is not a conversion).
-  - Plantation forest in 2020: **low** (became other land, or still plantation forest).
-  - Forest in 2020 with none of these types mapped: became other land after 2020 gives **low**; otherwise **"More info needed"**.
-
-  Changes after 2020 are each measured within one dataset (for example a pixel that is other land in that map's latest years but was not in 2020), so differences between two maps are not read as change.
-
-  The `risk_timber_pathway` column names the end point each plot reached. Every indicator the timber decision tree reads is in the output, so it can be rerun from results of this version.
-
-  All three decision trees are defined in [risk.py](https://github.com/forestdatapartnership/whisp/blob/main/src/openforis_whisp/risk.py): the crop decision trees in `add_risk_pcrop_col` and `add_risk_acrop_col`, the timber decision tree in `TIMBER_ROOT_TREE`. `openforis_whisp.decision_tree_recipe()` returns each of them as plain data (ready for JSON): the questions in order, the indicator columns each question reads (a question is "yes" when any of them is "yes"), where yes and no lead, and every end point with its risk value, pathway label and code, plus each indicator's default threshold and datasets. The pathway viewers draw from the same structure. Use it to rebuild or display a decision tree rather than copying the logic.
+  The decision trees are defined in [risk.py](https://github.com/forestdatapartnership/whisp/blob/main/src/openforis_whisp/risk.py). `openforis_whisp.decision_tree_recipe()` returns each one as data (the questions, the columns each reads and the end points), for anyone rebuilding or displaying a decision tree.
 
 
 
