@@ -1,3 +1,5 @@
+import itertools
+import json
 import re
 from pathlib import Path
 
@@ -5,7 +7,11 @@ from openforis_whisp.stats import whisp_formatted_stats_geojson_to_df
 from openforis_whisp.risk import (
     whisp_risk,
     add_risk_timber_col,
+    add_risk_pcrop_col,
+    add_risk_acrop_col,
     lookup_gee_datasets_df,
+    DECISION_TREES,
+    decision_tree_recipe,
 )
 
 import pandas as pd
@@ -494,3 +500,185 @@ def test_released_timber_indicators_kept() -> None:
     assert set(c for c in out.columns if c.startswith("Ind_")) == set(
         EXPECTED_INDICATOR_COLS
     )
+
+
+# ---- decision_tree_recipe() and the DECISION_TREES data behind it stay in step with risk.py: every end point has
+# its own code (none retired), every question has a label and columns, every column read is a described indicator,
+# and a walker that reads only the recipe gives the same outcome as risk.py for every yes/no combination.
+def _questions(node):
+    if "q" not in node:
+        return set()
+    return {node["q"]} | _questions(node["yes"]) | _questions(node["no"])
+
+
+def _end_points(node):
+    if "q" not in node:
+        return [node["pathway"]]
+    return _end_points(node["yes"]) + _end_points(node["no"])
+
+
+def test_every_end_point_has_its_own_code():
+    for name, spec in DECISION_TREES.items():
+        ends = _end_points(spec["tree"])
+        assert len(ends) == len(set(ends)), f"{name}: an end point appears twice"
+        assert set(ends) == set(
+            spec["codes"]
+        ), f"{name}: codes differ from the end points"
+        codes = list(spec["codes"].values())
+        assert len(codes) == len(set(codes)), f"{name}: a code is used twice"
+        assert not set(codes) & set(
+            spec["retired_codes"]
+        ), f"{name}: a retired code is used again"
+
+
+def test_every_question_has_a_label_and_columns():
+    for name, spec in DECISION_TREES.items():
+        for q in _questions(spec["tree"]):
+            assert spec["labels"].get(q), f"{name}: no label for {q}"
+            assert spec["columns"].get(q), f"{name}: no columns for {q}"
+
+
+def _walk_recipe(node, row):
+    # what an app would do with the recipe: at each question, yes when any of its columns is "yes"
+    while "question" in node:
+        node = (
+            node["yes"]
+            if any(row.get(c) == "yes" for c in node["columns"])
+            else node["no"]
+        )
+    return node
+
+
+def _recipe_columns(node):
+    if "question" not in node:
+        return set()
+    return (
+        set(node["columns"])
+        | _recipe_columns(node["yes"])
+        | _recipe_columns(node["no"])
+    )
+
+
+def _recipe_ids(node):
+    if "question" not in node:
+        return [node["id"]]
+    return [node["id"]] + _recipe_ids(node["yes"]) + _recipe_ids(node["no"])
+
+
+def test_recipe_ids_unique_and_columns_described():
+    recipe = json.loads(json.dumps(decision_tree_recipe()))
+    for name, tree in recipe["decision_trees"].items():
+        ids = _recipe_ids(tree["tree"])
+        assert len(ids) == len(set(ids)), f"{name}: an id is used twice"
+        for col in _recipe_columns(tree["tree"]):
+            assert name in recipe["indicators"][col]["read_by"], (name, col)
+
+
+def test_recipe_rebuilds_every_outcome():
+    """A walker that reads only decision_tree_recipe() (the copy apps can use instead of hard-coding the
+    decision trees) gives the same risk as risk.py, and for timber the same pathway, for every yes/no
+    combination of the indicators each decision tree reads."""
+    trees = json.loads(json.dumps(decision_tree_recipe()))["decision_trees"]
+
+    cols = sorted(_recipe_columns(trees["timber"]["tree"]))
+    df = pd.DataFrame(
+        [dict(zip(cols, v)) for v in itertools.product(["yes", "no"], repeat=len(cols))]
+    )
+    out = add_risk_timber_col(
+        df=df.copy(),
+        ind_1_name="Ind_01_treecover",
+        ind_2_name="Ind_02_commodities",
+        ind_5_name="Ind_05_primary_2020",
+        ind_6_name="Ind_06_nat_reg_forest_2020",
+        ind_14_name="Ind_14_planted_forest_2020",
+        ind_16_name="Ind_16_plantation_forest_2020",
+        ind_17_name="Ind_17_plantation_forest_gain_after_2020",
+        ind_10_name="Ind_10_agri_after_2020",
+        ind_12_name="Ind_12_other_land_2020",
+        ind_13_name="Ind_13_other_land_gain_after_2020",
+        ind_15_name="Ind_15_cropland_2020",
+        ind_4_name="Ind_04_disturbance_after_2020",
+    )
+    assert len(df) == 2 ** len(cols)
+    for i, row in df.iterrows():
+        leaf = _walk_recipe(trees["timber"]["tree"], row.to_dict())
+        assert (leaf["risk"], leaf["pathway"]) == (
+            out.loc[i, "risk_timber"],
+            out.loc[i, "risk_timber_pathway"],
+        ), dict(row)
+
+    for name, add_col, inds in (
+        (
+            "pcrop",
+            add_risk_pcrop_col,
+            [
+                "Ind_01_treecover",
+                "Ind_02_commodities",
+                "Ind_03_disturbance_before_2020",
+                "Ind_04_disturbance_after_2020",
+            ],
+        ),
+        (
+            "acrop",
+            add_risk_acrop_col,
+            ["Ind_01_treecover", "Ind_02_commodities", "Ind_04_disturbance_after_2020"],
+        ),
+    ):
+        assert _recipe_columns(trees[name]["tree"]) == set(inds)
+        for vals in itertools.product(["yes", "no"], repeat=len(inds)):
+            row = dict(zip(inds, vals))
+            df = pd.DataFrame([row])
+            add_col(df, *inds)
+            assert (
+                _walk_recipe(trees[name]["tree"], row)["risk"]
+                == df.iloc[0][trees[name]["risk_column"]]
+            ), (name, row)
+
+
+# ---- Timber and crop outcomes on 75 saved test plots, so that any change to the decision trees shows up. The
+# plots are zonal statistics saved from a 564-plot test run (dataset columns only, no geometry), chosen to cover
+# every timber end point those plots reach and every crop outcome pair; the expected_* columns hold their
+# outcomes. A dataset added to the lookup after the snapshot reads 0 here, so a new dataset alone does not fail
+# the test; a changed rule, threshold or indicator does. After a deliberate change, rewrite the expected_*
+# columns with `python tests/helpers/test_assess_risk.py` (with the code to test on PYTHONPATH) and list the
+# changed plots under "Changes to results:" in the PR.
+_SNAPSHOT = Path(__file__).parents[1] / "fixtures" / "timber_snapshot.csv"
+_SNAPSHOT_NATIONAL_CODES = ["br", "ci", "co", "cm"]
+_SNAPSHOT_OUTCOMES = ["risk_pcrop", "risk_acrop", "risk_timber", "risk_timber_pathway"]
+
+
+def _snapshot_outcomes():
+    df = pd.read_csv(_SNAPSHOT)
+    df = df.drop(columns=["expected_" + c for c in _SNAPSHOT_OUTCOMES])
+    lut = lookup_gee_datasets_df
+    for name in lut[lut["theme"] != "context_and_metadata"]["name"]:
+        if name not in df.columns:
+            df[name] = 0.0
+    out = whisp_risk(df, national_codes=_SNAPSHOT_NATIONAL_CODES)
+    return out[["external_id"] + _SNAPSHOT_OUTCOMES]
+
+
+def test_timber_and_crop_outcomes_match_the_snapshot() -> None:
+    got = _snapshot_outcomes().set_index("external_id")
+    expected = pd.read_csv(_SNAPSHOT).set_index("external_id")
+    changed = [
+        f"{eid} {col}: {row['expected_' + col]} -> {got.loc[eid, col]}"
+        for eid, row in expected.iterrows()
+        for col in _SNAPSHOT_OUTCOMES
+        if str(got.loc[eid, col]) != str(row["expected_" + col])
+    ]
+    assert not changed, (
+        f"{len(changed)} outcome(s) changed on the snapshot plots. If deliberate, rewrite the expected_* columns "
+        "(python tests/helpers/test_assess_risk.py) and list them under Changes to results in the PR:\n"
+        + "\n".join(changed[:30])
+    )
+
+
+if __name__ == "__main__":
+    # rewrite the snapshot's expected_* columns; the other columns keep their text
+    got = _snapshot_outcomes().set_index("external_id")
+    df = pd.read_csv(_SNAPSHOT, dtype=str, keep_default_na=False)
+    for col in _SNAPSHOT_OUTCOMES:
+        df["expected_" + col] = [str(got.loc[eid, col]) for eid in df["external_id"]]
+    df.to_csv(_SNAPSHOT, index=False, lineterminator="\n")
+    print("rewrote", _SNAPSHOT)
