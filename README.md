@@ -68,7 +68,7 @@
   12) Was primary or naturally regenerating forest converted into plantation forest after 2020? (`Ind_17_plantation_forest_gain_after_2020`)
   13) Did the plot become other land (e.g. built-up or water; in Brazil also mining) after 2020? (`Ind_13_other_land_gain_after_2020`)
 
-  The output also keeps `Ind_07_planted_plantations_2020`, `Ind_08_planted_plantations_after_2020`, `Ind_09_treecover_after_2020` and `Ind_11_logging_concession_before_2020` for existing users; no decision tree reads them.
+  The output also keeps four older columns, `Ind_07_planted_plantations_2020`, `Ind_08_planted_plantations_after_2020`, `Ind_09_treecover_after_2020` and `Ind_11_logging_concession_before_2020` for existing users; no decision tree reads them.
 
   Each question is answered "yes" for a plot when any one of the relevant datasets covers more than a set share of the plot area. By default this share is 10% for all indicators except commodities in 2020, disturbances before 2020-12-31 and, for timber, cropland in 2020, other land in 2020 and other land after 2020, where it is 50%: because a "yes" to any of these lowers the risk category (see the logic below), Whisp only counts them when they cover most of the plot rather than a small corner. For commodities this also guards against commodity maps over-predicting (commission errors), where a small patch of mapped commodity on a forested plot would otherwise be enough for a low risk outcome. For point locations any non-zero value counts. All thresholds can be changed via the `ind_N_pcent_threshold` arguments of `whisp_risk` in the python package.
 
@@ -117,20 +117,30 @@ Each risk column holds one of the values `low`, `high` or `more_info_needed` (sh
   *The Whisp algorithm for **Perennial Crops** visualized:*
   ![CoE_Graphic 5](https://github.com/user-attachments/assets/007b5f50-3939-4707-95fa-98be4d56745f)
 
-  For perennial crops, Whisp assesses deforestation risk from questions 1–4. The end of 2020 is the cutoff used by regulations such as the EU Deforestation Regulation (EUDR), as one example.
+  For perennial crops, Whisp assesses a deforestation risk for a plot of land based on the datasets for questions 1–4 on the presence of tree cover, agricultural use, and disturbances before and after 2020. The end-of-2020 date is used as the cutoff for regulatory frameworks such as the EU Deforestation Regulation (EUDR).
 
-  - No tree cover in 2020: **low**.
-  - Tree cover, but agriculture in 2020: **low**.
-  - Tree cover, no agriculture, but disturbance before 2021: **low**. Crops such as coffee and cocoa can be planted under forest canopy, so earlier disturbance can mean the crop was there before the cutoff. As this lowers the risk, it needs 50% of the plot rather than 10%.
-  - Otherwise, disturbance after 2020: **high**; no disturbance: **more info needed** (for example cocoa or coffee grown under shade trees).
+  If no treecover dataset indicates any tree cover for a plot by the end of 2020, **Whisp will categorize the deforestation risk as low.**
+
+  If one or more treecover datasets indicate tree cover on a plot by the end of 2020, but a commodity dataset indicates agricultural use by the end of 2020, **Whisp will categorize the deforestation risk as low.**
+
+  If one or more treecover datasets indicate tree cover on a plot by the end of 2020, no commodity datasets indicate agricultural use, but a disturbance dataset indicates disturbances before the end of 2020, **Whisp will categorize the deforestation risk as <u>low</u>.** This approach accounts for the characteristics of some perennial crops, which can be established under significant canopy cover (e.g. coffee, cocoa); disturbances prior to 2020 are interpreted as potential evidence of crop establishment before the end of 2020, and thus not considered high risk. Because this step lowers the risk category, it uses a higher default threshold (50% of the plot area) than most other indicators (10%).
+
+  Now, if the datasets for questions 1–3 indicate that there was tree cover, but no agriculture and no disturbances before or by the end of 2020, the Whisp algorithm checks whether degradation or deforestation have been reported in a disturbance dataset after 2020-12-31. If they have, **Whisp will categorize the deforestation risk as <u>high</u>.** <br>
+  However, under the same circumstances but with <u>no</u> disturbances reported after 2020-12-31 there is insufficient evidence and the **Whisp output will be "More info needed".** Such can be the case for, e.g., cocoa or coffee grown under the shade of treecover or agroforestry.
+
 
   *The Whisp algorithm for **Annual Crops** visualized:*
   ![annual_decision_tree](https://github.com/user-attachments/assets/0148736f-d9a1-4511-a8f8-8b32287483cb)
 
-  For annual crops, the same, except that disturbance before 2021 is not asked, as annual crops are rarely grown under forest canopy:
+  For annual crops, Whisp applies the same general framework based on tree cover, commodity, and disturbance datasets. However, disturbances before 2020-12-31 are not considered relevant, since annual crops are not typically established under significant canopy cover.
 
-  - No tree cover in 2020, or agriculture in 2020: **low**.
-  - Otherwise, disturbance after 2020: **high**; no disturbance: **more info needed**.
+  If no tree cover is indicated for a plot by the end of 2020, **Whisp will categorize the deforestation risk as low.**
+
+  If one or more tree cover datasets indicate tree cover on a plot by the end of 2020, and commodity datasets indicate agricultural use by the same date, **Whisp will categorize the deforestation risk as low.**
+
+  If tree cover is present and no agricultural use is recorded by the end of 2020, Whisp evaluates disturbance datasets after 2020-12-31:
+  - If deforestation or degradation is detected, **Whisp will categorize the deforestation risk as high.**
+  - If no such disturbances are detected, the **Whisp output will be "More info needed"**, as the available evidence is insufficient for a definitive classification.
 
   *The Whisp algorithm for **Timber** visualized:*
   ![timber_graphic](https://github.com/user-attachments/assets/497d4137-d4c3-4e35-a87b-3abc2977f1ce)
@@ -145,6 +155,8 @@ Each risk column holds one of the values `low`, `high` or `more_info_needed` (sh
   - Forest with no forest type mapped: **more info needed**.
 
   The decision trees are defined in [risk.py](https://github.com/forestdatapartnership/whisp/blob/main/src/openforis_whisp/risk.py) (`DECISION_TREES`; the timber one is `TIMBER_ROOT_TREE`). `openforis_whisp.decision_tree_recipe()` returns each one as data (the questions, the columns each reads, the end points, and each indicator's default threshold and datasets), for anyone rebuilding or displaying a decision tree.
+
+  The decision trees will change over time as data and methods improve (as the timber one has in 3.0.0a24). Indicator and risk columns may change too: new columns are added alongside the old ones, which are kept for a while and flagged as deprecated in the release notes before they are removed.
 
 
 
