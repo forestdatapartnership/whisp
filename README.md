@@ -48,19 +48,20 @@
   ***Whisp***  implements the convergence of evidence approach by providing a transparent and public processing flow using datasets covering the following categories:
 
   1) Tree and forest cover (at the end of 2020);
-  2) Commodities (i.e., crop plantations and other agricultural uses at the end of 2020);
+  2) Commodities (i.e., agricultural plantations and other agricultural uses at the end of 2020);
   3) Disturbances **before 2020** (i.e., degradation or deforestation until 2020-12-31);
   4) Disturbances **after 2020** (i.e., degradation or deforestation from 2021-01-01 onward).
 
-Additional categories are specific for the timber (wood) commodity, considering a harvesting date in 2024:
+Additional categories are specific for the timber (wood) commodity, comparing 2020 with each map's latest year (2024 or 2025 at present):
 
   5) Primary forests in 2020;
   6) Naturally regenerating forests in 2020;
-  7) Planted and plantation forests in 2020;
-  8) Planted and plantation forests in 2024;
-  9) Treecover in 2024;
-  10) Commodities or croplands in 2024.
-  11) Logging concessions;
+  7) Planted forests in 2020;
+  8) Plantation forests in 2020;
+  9) Other land in 2020 (e.g. built-up, water, mines; in Brazil also sand and rock);
+  10) Cropland in 2020;
+  11) Changes after 2020: agricultural expansion, primary or naturally regenerating forest converted into plantation forest, and forest that became other land (e.g. built-up or water; in Brazil also mining).
+
 
   There are multiple datasets for each category. Find the full current [list of datasets used in Whisp here](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md).
 
@@ -73,17 +74,20 @@ Whisp checks the plots provided by the user by running zonal statistics on them 
   3) Were there disturbances until 2020-12-31?
   4) Were there disturbances after 2020-12-31 / starting 2021-01-01?
 
-And specifically for the timber commodity, considering a harvesting date in 2024:
+And specifically for the timber commodity:
 
-  5) Were there primary forests in 2020?
-  6) Were there naturally regenerating forests in 2020?
-  7) Were there planted and plantation forests in 2020?
-  8) Were there planted and plantation forests in 2024?
-  9) Was there treecover in 2024?
-  10) Were there commodity plantations or other agricultural uses in 2024?
-  11) Is it part of a logging concession?
+  5) Was there primary forest in 2020?
+  6) Was there naturally regenerating forest in 2020?
+  7) Was there planted forest in 2020?
+  8) Was there plantation forest in 2020?
+  9) Was there other land in 2020?
+  10) Was there cropland in 2020?
+  11) Did agriculture expand after 2020?
+  12) Did primary or naturally regenerating forest become plantation forest after 2020?
+  13) Did the plot become other land (e.g. built-up or water; in Brazil also mining) after 2020?
 
-  Each question is answered "yes" for a plot when any one of the relevant datasets covers more than a set share of the plot area. By default this share is 10% for all indicators except commodities in 2020 and disturbances before 2020-12-31, where it is 50%: because a "yes" to either lowers the risk category (see the logic below), Whisp only counts them when they cover most of the plot rather than a small corner. For commodities this also guards against commodity maps over-predicting (commission errors), where a small patch of mapped commodity on a forested plot would otherwise be enough for a low risk outcome. For point locations any non-zero value counts. All thresholds can be changed via the `ind_N_pcent_threshold` arguments of `whisp_risk` in the python package.
+
+  Each question is answered "yes" for a plot when any one of the relevant datasets covers more than a set share of the plot area. By default this share is 10% for all indicators except commodities in 2020, disturbances before 2020-12-31 and, for timber, cropland in 2020, other land in 2020 and other land after 2020, where it is 50%: because a "yes" to any of these lowers the risk category (see the logic below), Whisp only counts them when they cover most of the plot rather than a small corner. For commodities this also guards against commodity maps over-predicting (commission errors), where a small patch of mapped commodity on a forested plot would otherwise be enough for a low risk outcome. For point locations any non-zero value counts. All thresholds can be changed via the `ind_N_pcent_threshold` arguments of `whisp_risk` in the python package.
 
   The Whisp algorithm outputs multiple statistical columns with disaggregated data from the input datasets, followed by aggregated indicator columns, and the final risk assessment columns.
     All output columns from Whisp are described in the [result fields reference](https://whisp.openforis.org/docs/reference/result-fields).
@@ -119,7 +123,7 @@ The **relevant risk assessment column depends on the commodity** in question:
   <tr>
     <td>Timber</td>
     <td><code>risk_timber</code></td>
-    <td>Timber extraction deforestation risk</td>
+    <td>Timber deforestation and degradation risk</td>
   </tr>
 </table>
 
@@ -155,19 +159,13 @@ Each risk column holds one of the values `low`, `high` or `more_info_needed` (sh
   - If deforestation or degradation is detected, **Whisp will categorize the deforestation risk as high.**
   - If no such disturbances are detected, the **Whisp output will be "More info needed"**, as the available evidence is insufficient for a definitive classification.
 
-
   *The Whisp algorithm for **Timber** visualized:*
-  ![CoE_Graphic_timber 7](https://github.com/user-attachments/assets/44a0d21e-8d41-4950-975d-7ea8e12f1fe1)
+  ![timber_graphic](https://github.com/user-attachments/assets/497d4137-d4c3-4e35-a87b-3abc2977f1ce)
 
-  For timber, Whisp applies a different decision logic compared to perennial and annual crops. In addition to the **deforestation risk**, Whisp also evaluates **degradation risk**, defined as a change in forest structure. In addition, different decision rules apply depending on whether the forest at the end of 2020 is identified as a **planted/plantation forest** or a **natural forest** (primary or naturally regenerating). The analysis is based on datasets from categories 2 and 5–11.
+  For timber, Whisp applies a different decision logic compared to perennial and annual crops. In addition to the **deforestation risk**, Whisp also evaluates **degradation risk**, here primary or naturally regenerating forest converted into plantation forest. Tree crops such as oil palm and rubber are agricultural plantations, not plantation forest. It first asks whether the plot was forest in 2020: tree cover, primary, naturally regenerating, planted or plantation forest. This is wider than the tree cover question for crops, because much timber comes from planted and plantation forests, which some general forest maps leave out by design. For forest in 2020 it then asks only about changes after 2020, each measured within one dataset. The `risk_timber_pathway` column names the end point each plot reached.
 
-  If commodity datasets indicate agricultural use by the end of 2020, **Whisp will categorize the deforestation risk as low.**
+  The decision trees are defined in [risk.py](https://github.com/forestdatapartnership/whisp/blob/main/src/openforis_whisp/risk.py) (`DECISION_TREES`; the timber one is `TIMBER_ROOT_TREE`). `openforis_whisp.decision_tree_recipe()` returns each one as data (the questions, the columns each reads, the end points, and each indicator's default threshold and datasets), for anyone rebuilding or displaying a decision tree.
 
-  If datasets indicate planted or plantation forest at the end of 2020 and no agricultural use is detected after 2020, **Whisp will categorize the deforestation risk as low.** If any dataset indicates an agricultural use after 2020, **Whisp will categorize the deforestation risk as high.**
-
-  If datasets indicate a natural forest at the end of 2020, and either agricultural use or conversion to a planted/plantation forest is detected after 2020, **Whisp will categorize the deforestation risk as high.** If neither of those is detected, Whisp checks for evidence of tree cover, regrowth after 2020, or the presence of the plot in a known logging concession. If any of these are found, **Whisp will categorize the deforestation risk as low.** If no additional information is available, **the Whisp output will be "More info needed".**
-
-  If datasets indicate no agricultural use, no planted or plantation forest, and no natural forest by the end of 2020, **Whisp will categorize the deforestation risk as low.**
 
 
   ## Run Whisp python package from a notebook <a name="whisp_notebooks"></a>

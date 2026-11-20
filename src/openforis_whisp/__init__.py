@@ -178,7 +178,7 @@ from openforis_whisp.data_conversion import (
     split_multipart_geojson,
 )
 
-from openforis_whisp.risk import whisp_risk, detect_unit_type
+from openforis_whisp.risk import whisp_risk, detect_unit_type, decision_tree_recipe
 
 from openforis_whisp.utils import (
     get_example_data_path,
