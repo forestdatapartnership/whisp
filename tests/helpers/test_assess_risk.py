@@ -636,13 +636,13 @@ def test_recipe_rebuilds_every_outcome():
             ), (name, row)
 
 
-# ---- Timber and crop outcomes on 75 saved test plots, so that any change to the decision trees shows up. The
-# plots are zonal statistics saved from a 564-plot test run (dataset columns only, no geometry), chosen to cover
-# every timber end point those plots reach and every crop outcome pair; the expected_* columns hold their
-# outcomes. A dataset added to the lookup after the snapshot reads 0 here, so a new dataset alone does not fail
-# the test; a changed rule, threshold or indicator does. After a deliberate change, rewrite the expected_*
-# columns with `python tests/helpers/test_assess_risk.py` (with the code to test on PYTHONPATH) and list the
-# changed plots under "Changes to results:" in the PR.
+# ---- Timber and crop outcomes on the 50 standard test plots (the GeoJSON fixture above), so that any change to the
+# decision trees shows up. Their zonal statistics are saved (dataset columns only, no geometry), so the test runs
+# offline and live data updates cannot change it; the expected_* columns hold their outcomes. A dataset added to
+# the lookup after the snapshot reads 0 here, so a new dataset alone does not fail the test; a changed rule,
+# threshold or indicator does. After a deliberate change, rewrite the expected_* columns with
+# `python tests/helpers/test_assess_risk.py` (with the code to test on PYTHONPATH) and list the changed plots under
+# "Changes to results:" in the PR.
 _SNAPSHOT = Path(__file__).parents[1] / "fixtures" / "timber_snapshot.csv"
 _SNAPSHOT_NATIONAL_CODES = ["br", "ci", "co", "cm"]
 _SNAPSHOT_OUTCOMES = ["risk_pcrop", "risk_acrop", "risk_timber", "risk_timber_pathway"]
