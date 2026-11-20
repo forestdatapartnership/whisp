@@ -189,29 +189,29 @@ def test_timber_decision_tree_terminals() -> None:
         ),
         # plantation-2020 branch: Ind_16 opens the forest gate like the other forest classes, read as it is
         _timber_row(
-            "plantation_stable",  # still plantation forest is worked out -> LOW
+            "plantation_stable",
             "low",
-            "low: still plantation forest",
+            "low: plantation forest 2020",
             **{_IND_1: "yes", _IND_16: "yes"},
         ),
         _timber_row(
             "plantation_only_opens_the_gate",
             "low",
-            "low: still plantation forest",
+            "low: plantation forest 2020",
             **{_IND_16: "yes"},
         ),
         _timber_row(
             # agriculture mapped in 2020 too does not hold plantation forest out of the forest half
             "plantation_with_agriculture_2020_opens_the_gate",
             "low",
-            "low: still plantation forest",
+            "low: plantation forest 2020",
             **{_IND_16: "yes", _IND_2: "yes", _IND_15: "yes"},
         ),
         _timber_row(
-            # other land gain is asked on the plantation forest branch: still low, with its own label
+            # other land is not asked on the plantation forest branch: low either way
             "plantation_to_other_land",
             "low",
-            "low: plantation forest 2020 -> other land",
+            "low: plantation forest 2020",
             **{_IND_1: "yes", _IND_16: "yes", _IND_13: "yes"},
         ),
         # primary-2020 branch (checked BEFORE regen; plantation-2025 GAIN checked FIRST)
@@ -281,24 +281,25 @@ def test_timber_decision_tree_terminals() -> None:
             **{_IND_6: "yes", _IND_17: "yes"},
         ),
         _timber_row(
-            # no plantation forest gain and no other land gain -> stayed forest, low
+            # no plantation forest gain -> low
             "regen_stayed_forest",
             "low",
-            "low: regen stayed forest",
+            "low: regen or planted forest 2020",
             **{_IND_6: "yes"},
         ),
         _timber_row(
+            # other land is not asked on the regenerating branch: low either way
             "regen_to_other_land",
             "low",
-            "low: regen 2020 -> other land",
+            "low: regen or planted forest 2020",
             **{_IND_6: "yes", _IND_13: "yes"},
         ),
         _timber_row(
             # disturbance is not asked on the regenerating branch: harvest and regrowth, or replanting, are
-            # neither deforestation nor degradation there, so with no gain the plot stayed forest
+            # neither deforestation nor degradation there, so with no gain the plot is low
             "regen_disturbed",
             "low",
-            "low: regen stayed forest",
+            "low: regen or planted forest 2020",
             **{_IND_6: "yes", _IND_4: "yes"},
         ),
         # forest-gate plot with no recognised class or change -> more info
@@ -309,10 +310,10 @@ def test_timber_decision_tree_terminals() -> None:
             **{_IND_1: "yes"},
         ),
         _timber_row(
-            # tree cover only (no forest type) that became other land: low, not more info
+            # tree cover only (no forest type mapped): more info, even if it became other land
             "forest_unclassified_to_other_land",
-            "low",
-            "low: forest 2020 -> other land",
+            "more_info_needed",
+            "more-info: forest 2020, unclassified",
             **{_IND_1: "yes", _IND_13: "yes"},
         ),
         _timber_row(
