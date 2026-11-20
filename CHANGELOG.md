@@ -10,10 +10,10 @@ New entries are added by the release workflow, from the "Changes to results" and
 
 ## v3.0.0a25 (2026-11-20)
 
-Removes the risk_timber_pathway column added in 3.0.0a24.
+A hotfix for v3.0.0a24: it removes the `risk_timber_pathway` column added there, and nothing else changes. v3.0.0a24 was a big update (a new timber decision tree, new indicator columns and breaking changes), so if you are coming from 3.0.0a23 or earlier, read the [v3.0.0a24 release notes](https://github.com/forestdatapartnership/whisp/releases/tag/v3.0.0a24) too.
 
 **Breaking changes:**
-- risk_timber_pathway (added in 3.0.0a24) is no longer in the output; risk_timber is unchanged
+- `risk_timber_pathway` (added in 3.0.0a24) is no longer in the output; `risk_timber` (risk column) is unchanged
 
 Pull requests: #345
 
@@ -22,24 +22,24 @@ Pull requests: #345
 A new timber decision tree, and local mode fixes.
 
 **Changes to results:**
-- risk_timber: worked out by a new timber decision tree, so many plots change (on 564 test plots, low / more info needed / high goes from 527 / 24 / 13 to 405 / 126 / 33)
-- risk_timber_pathway: new column naming the end point each plot reached in the timber decision tree (it will be removed again in 3.0.0a25, see #343)
-- Ind_12_other_land_2020 to Ind_17_plantation_forest_gain_after_2020: new indicator columns for the timber decision tree, with the dataset columns behind them
-- Ind_05_primary_2020: adds ForTy V2, and no longer reads GLAD_Primary, IFL_2020 or the INPE Amazon primary forest layer
-- Ind_06_nat_reg_forest_2020: reads GFT and ForTy V2 only
-- Ind_07_planted_plantations_2020: reads the layers of Ind_14_planted_forest_2020 and Ind_16_plantation_forest_2020
-- Ind_10_agri_after_2020: reads five gain layers (six in Brazil) instead of the ESRI crop gain to 2024 only
-- GFT_primary, GFT_naturally_regenerating and GFT_planted_plantation: now from JRC Global Forest Types V2
-- Brazil (national_codes "br"): MapBiomas collection 10 replaces collection 9, and savanna is left out of the forest layer (#247), so risk_pcrop and risk_acrop change for some Cerrado plots
-- geo (each plot's shape as text): JSON with double quotes in every mode
-- whisp_processing_metadata (column with details of the run): local mode now lists unavailable_datasets, as the other modes do
+- `risk_timber` (risk column): worked out by a new timber decision tree, so it changes for many plots
+- `risk_timber_pathway`: new column naming the end point each plot reached in the timber decision tree (removed again in 3.0.0a25, see #343)
+- Six new indicator columns (indicator column names start with `Ind_`) for the timber decision tree, with the dataset columns behind them: `Ind_12_other_land_2020`, `Ind_13_other_land_gain_after_2020`, `Ind_14_planted_forest_2020`, `Ind_15_cropland_2020`, `Ind_16_plantation_forest_2020` and `Ind_17_plantation_forest_gain_after_2020`
+- `Ind_05_primary_2020`: adds ForTy V2 (a forest typology map), and no longer reads `GLAD_Primary`, `IFL_2020` or the INPE Amazon primary forest layer
+- `Ind_06_nat_reg_forest_2020`: reads GFT (JRC Global Forest Types) and ForTy V2 only
+- `Ind_07_planted_plantations_2020`: reads the layers of `Ind_14_planted_forest_2020` and `Ind_16_plantation_forest_2020`
+- `Ind_10_agri_after_2020`: reads five gain layers (six in Brazil) instead of the ESRI crop gain to 2024 only
+- `GFT_primary`, `GFT_naturally_regenerating` and `GFT_planted_plantation` (dataset columns from JRC Global Forest Types): now from version 2 of that map
+- Brazil (`national_codes` "br"): MapBiomas collection 10 replaces collection 9, and savanna is left out of the forest layer (#247), so `risk_pcrop` and `risk_acrop` change for some Cerrado plots
+- `geo` (each plot's shape as text): now valid JSON with double quotes in every mode, so any tool can read it (in Python, `json.loads`). This changes the concurrent and sequential modes and the `whisp_formatted_stats_ee_to_df` function, which wrote it with single quotes; local mode already wrote JSON. Code that reads it with `ast.literal_eval` keeps working
+- `whisp_processing_metadata` (column with details of the run): local mode now lists `unavailable_datasets`, as the other modes do
 
 **Breaking changes:**
-- The eight nBR_MapBiomas_col9_* columns are now nBR_MapBiomas_col10_* columns
-- Tools that rebuild risk_timber need the new timber decision tree (TIMBER_ROOT_TREE in risk.py, or decision_tree_recipe())
-- whisp_risk needs stats from this version: rerun the stats for results saved with 3.0.0a23 or earlier before rescoring
-- Custom bands with theme_timber planted_plantation_2020, planted_plantation_after_2020 or logging_concession no longer change risk_timber; use planted_2020, plantation_2020 or plantation_forest_gain_after_2020
-- New whisp_risk thresholds sit in the middle of its arguments, so pass everything after df by name
+- The eight `nBR_MapBiomas_col9_*` columns are now `nBR_MapBiomas_col10_*` columns
+- Tools that rebuild `risk_timber` themselves need the new timber decision tree. The `decision_tree_recipe()` function returns it as plain data for other tools to read; it is the same decision tree that risk.py holds as `TIMBER_ROOT_TREE`
+- The `whisp_risk` function needs stats from this version: rerun the stats for results saved with 3.0.0a23 or earlier before rescoring
+- Custom bands with `theme_timber` `planted_plantation_2020`, `planted_plantation_after_2020` or `logging_concession` no longer change `risk_timber`; instead use `planted_2020`, `plantation_2020` or `plantation_forest_gain_after_2020`
+- New thresholds sit in the middle of the `whisp_risk` function's arguments, so pass everything after `df` by name
 - Local mode stops with an error when a download fails, instead of returning results with missing data
 
 ## v3.0.0a23 (2026-11-06)
