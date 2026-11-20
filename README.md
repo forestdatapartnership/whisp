@@ -160,7 +160,7 @@ Each risk column holds one of the values `low`, `high` or `more_info_needed` (sh
   - If no such disturbances are detected, the **Whisp output will be "More info needed"**, as the available evidence is insufficient for a definitive classification.
 
   *The Whisp algorithm for **Timber** visualized:*
-  ![timber_graphic](https://github.com/user-attachments/assets/c3da6e05-37a1-4790-ac86-90412f645071)
+  ![timber_graphic](https://github.com/user-attachments/assets/497d4137-d4c3-4e35-a87b-3abc2977f1ce)
 
   For timber, Whisp applies a different decision logic compared to perennial and annual crops. In addition to the **deforestation risk**, Whisp also evaluates **degradation risk**, here primary or naturally regenerating forest converted into plantation forest. Tree crops such as oil palm and rubber are agricultural plantations, not plantation forest. It first asks whether the plot was forest in 2020: tree cover, primary, naturally regenerating, planted or plantation forest. This is wider than the tree cover question for crops, because much timber comes from planted and plantation forests, which some general forest maps leave out by design. For forest in 2020 it then asks only about changes after 2020, each measured within one dataset. The `risk_timber_pathway` column names the end point each plot reached.
 
