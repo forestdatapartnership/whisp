@@ -188,6 +188,7 @@ def whisp_risk(
     ind_16_pcent_threshold: float = 10,
     ind_17_pcent_threshold: float = 10,
     ind_18_pcent_threshold: float = 10,  # a yes leads to more info, not low, so the usual 10%
+    ind_19_pcent_threshold: float = 10,
     ind_1_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_2_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
     ind_3_input_columns: pd.Series = None,  # see lookup_gee_datasets for details
@@ -206,6 +207,7 @@ def whisp_risk(
     ind_16_input_columns: pd.Series = None,
     ind_17_input_columns: pd.Series = None,
     ind_18_input_columns: pd.Series = None,
+    ind_19_input_columns: pd.Series = None,
     ind_1_name: str = "Ind_01_treecover",
     ind_2_name: str = "Ind_02_commodities",
     ind_3_name: str = "Ind_03_disturbance_before_2020",
@@ -224,6 +226,7 @@ def whisp_risk(
     ind_16_name: str = "Ind_16_plantation_forest_2020",
     ind_17_name: str = "Ind_17_plantation_forest_gain_after_2020",
     ind_18_name: str = "Ind_18_non_forest_gain_after_2020",
+    ind_19_name: str = "Ind_19_agri_after_2020_strict",
     low_name: str = "no",
     high_name: str = "yes",
     explicit_unit_type: str = None,
@@ -254,6 +257,7 @@ def whisp_risk(
         ind_16_pcent_threshold (float, optional): Percentage threshold for indicator 16 (plantation forest 2020). Defaults to 10.
         ind_17_pcent_threshold (float, optional): Percentage threshold for indicator 17 (plantation forest gain after 2020, from primary or naturally regenerating forest in 2020). Defaults to 10.
         ind_18_pcent_threshold (float, optional): Percentage threshold for indicator 18 (non-forest gain after 2020, from naturally regenerating or planted forest in 2020). Defaults to 10.
+        ind_19_pcent_threshold (float, optional): Percentage threshold for indicator 19 (agriculture after 2020, without the general land cover maps). Defaults to 10.
         ind_1_input_columns (pd.Series, optional): Input columns for indicator 1. Defaults to columns for the treecover theme.
         ind_2_input_columns (pd.Series, optional): Input columns for indicator 2. Defaults to columns for the commodities theme.
         ind_3_input_columns (pd.Series, optional): Input columns for indicator 3. Defaults to columns for disturbance before 2020.
@@ -272,6 +276,7 @@ def whisp_risk(
         ind_16_input_columns (pd.Series, optional): Input columns for indicator 16. Defaults to columns for plantation forest 2020.
         ind_17_input_columns (pd.Series, optional): Input columns for indicator 17. Defaults to the plantation forest gain columns (theme_timber=plantation_forest_gain_after_2020).
         ind_18_input_columns (pd.Series, optional): Input columns for indicator 18. Defaults to the non-forest gain columns (theme_timber=non_forest_gain_after_2020).
+        ind_19_input_columns (pd.Series, optional): Input columns for indicator 19. Defaults to the agriculture gain columns of indicator 10 without the general land cover maps (theme_timber=agri_after_2020 only).
         ind_1_name (str, optional): Name of indicator 1 column. Defaults to "Ind_01_treecover".
         ind_2_name (str, optional): Name of indicator 2 column. Defaults to "Ind_02_commodities".
         ind_3_name (str, optional): Name of indicator 3 column. Defaults to "Ind_03_disturbance_before_2020".
@@ -290,6 +295,7 @@ def whisp_risk(
         ind_16_name (str, optional): Name of indicator 16 column. Defaults to "Ind_16_plantation_forest_2020".
         ind_17_name (str, optional): Name of indicator 17 column. Defaults to "Ind_17_plantation_forest_gain_after_2020".
         ind_18_name (str, optional): Name of indicator 18 column. Defaults to "Ind_18_non_forest_gain_after_2020".
+        ind_19_name (str, optional): Name of indicator 19 column. Defaults to "Ind_19_agri_after_2020_strict".
         low_name (str, optional): Value shown in table if less than or equal to the threshold. Defaults to "no".
         high_name (str, optional): Value shown in table if more than the threshold. Defaults to "yes".
         explicit_unit_type (str, optional): Override the autodetected unit type ('ha' or 'percent').
@@ -428,6 +434,10 @@ def whisp_risk(
         ind_18_input_columns = get_cols_ind_18_non_forest_gain_after_2020(
             filtered_lookup_gee_datasets_df
         )
+    if ind_19_input_columns is None:
+        ind_19_input_columns = get_cols_ind_19_agri_after_2020_strict(
+            filtered_lookup_gee_datasets_df
+        )
 
     # Check range of values
     check_range(ind_1_pcent_threshold)
@@ -448,6 +458,7 @@ def whisp_risk(
     check_range(ind_16_pcent_threshold)
     check_range(ind_17_pcent_threshold)
     check_range(ind_18_pcent_threshold)
+    check_range(ind_19_pcent_threshold)
 
     input_cols = [
         ind_1_input_columns,
@@ -468,6 +479,7 @@ def whisp_risk(
         ind_16_input_columns,
         ind_17_input_columns,
         ind_18_input_columns,
+        ind_19_input_columns,
     ]
     thresholds = [
         ind_1_pcent_threshold,
@@ -488,6 +500,7 @@ def whisp_risk(
         ind_16_pcent_threshold,
         ind_17_pcent_threshold,
         ind_18_pcent_threshold,
+        ind_19_pcent_threshold,
     ]
     names = [
         ind_1_name,
@@ -508,6 +521,7 @@ def whisp_risk(
         ind_16_name,
         ind_17_name,
         ind_18_name,
+        ind_19_name,
     ]
 
     # Work on a copy, without the indicator and risk columns of an earlier whisp_risk run
@@ -565,6 +579,7 @@ def whisp_risk(
         ind_16_name=ind_16_name,
         ind_17_name=ind_17_name,
         ind_18_name=ind_18_name,
+        ind_19_name=ind_19_name,
         ind_10_name=ind_10_name,
         ind_12_name=ind_12_name,
         ind_13_name=ind_13_name,
@@ -700,7 +715,27 @@ TIMBER_ROOT_TREE = {
     },
     "yes": {  # forest half: was forest in 2020
         "q": "agriculture_2025",
-        "yes": _timber_leaf("high", "high: deforestation"),
+        # Agriculture after 2020 is high, except where the plot had planted or plantation forest in 2020 and
+        # only a general land cover map saw the gain (GPW cultivated pasture, ESRI crop: theme_timber
+        # agri_after_2020_general). Those maps read a harvested stand as pasture or cropland, as the ground is
+        # bare or grassy until the replanted trees close canopy, so there the answer is more info, not high
+        # (harvest is not farming) and not low (it could still be a real conversion). A map that keeps planted
+        # forest through harvest (Ind_19: MapBiomas, GLAD crop gain, the tree crop gains, national maps like
+        # them) still gives high.
+        "yes": {
+            "q": "planted_plantation_2020",
+            "yes": {
+                "q": "agriculture_2025_strict",
+                "yes": _timber_leaf(
+                    "high", "high: deforestation, planted or plantation forest 2020"
+                ),
+                "no": _timber_leaf(
+                    "more_info_needed",
+                    "more-info: planted or plantation forest 2020, agriculture on general maps only",
+                ),
+            },
+            "no": _timber_leaf("high", "high: deforestation"),
+        },
         "no": {
             # forest types in order: primary, then naturally regenerating or planted, then plantation
             # forest, so a plot mapped as two takes the first, and a plantation forest map that also
@@ -878,6 +913,8 @@ DECISION_TREES = {
         "labels": {
             "forest_2020": "Forest in 2020?",
             "agriculture_2025": "Agriculture after 2020?",
+            "planted_plantation_2020": "Planted or plantation forest in 2020?",
+            "agriculture_2025_strict": "Agriculture after 2020 on a map that keeps planted forest through harvest?",
             "primary_2020": "Primary forest in 2020?",
             "plantation_2025": "Converted into plantation forest after 2020?",
             "other_land_2025": "Became other land after 2020?",
@@ -898,6 +935,11 @@ DECISION_TREES = {
                 "Ind_16_plantation_forest_2020",
             ],
             "agriculture_2025": ["Ind_10_agri_after_2020"],
+            "planted_plantation_2020": [
+                "Ind_14_planted_forest_2020",
+                "Ind_16_plantation_forest_2020",
+            ],
+            "agriculture_2025_strict": ["Ind_19_agri_after_2020_strict"],
             "primary_2020": ["Ind_05_primary_2020"],
             "plantation_2025": ["Ind_17_plantation_forest_gain_after_2020"],
             "other_land_2025": ["Ind_13_other_land_gain_after_2020"],
@@ -928,6 +970,8 @@ DECISION_TREES = {
             "more-info: forest 2020, unclassified": 19,
             "more-info: primary 2020, disturbed after 2020": 21,
             "more-info: regen or planted forest 2020, became non-forest": 23,
+            "high: deforestation, planted or plantation forest 2020": 24,
+            "more-info: planted or plantation forest 2020, agriculture on general maps only": 25,
         },
         "retired_codes": [8, 9, 10, 14, 15, 17, 18, 20, 22],
     },
@@ -955,6 +999,7 @@ def add_risk_timber_col(
     ind_10_name: str,
     ind_13_name: str,
     ind_18_name: str = "Ind_18_non_forest_gain_after_2020",
+    ind_19_name: str = "Ind_19_agri_after_2020_strict",
     ind_15_name: str = "Ind_15_cropland_2020",
     ind_4_name: str = "Ind_04_disturbance_after_2020",
     low_name: str = "no",
@@ -976,8 +1021,10 @@ def add_risk_timber_col(
     - Not forest in 2020: other land 2020 (Ind_12_other_land_2020) gives low (still other land is worked
       out, as nothing after 2020 matters for land that was not forest in 2020); otherwise agriculture
       2020 (Ind_02_commodities or Ind_15_cropland_2020) gives low, else more info.
-    - Forest in 2020: agriculture after 2020 (Ind_10_agri_after_2020) gives high (deforestation). Then by
-      2020 class, primary first, then regenerating or planted, then plantation forest, so a plot mapped as two
+    - Forest in 2020: agriculture after 2020 (Ind_10_agri_after_2020) gives high (deforestation), except on
+      planted or plantation forest in 2020 (Ind_14_planted_forest_2020 or Ind_16_plantation_forest_2020) when
+      only a general land cover map saw it (Ind_19_agri_after_2020_strict is no): more info, as those maps
+      read a harvested stand as pasture or cropland. Then by 2020 class, primary first, then regenerating or planted, then plantation forest, so a plot mapped as two
       classes takes the first:
       - primary: plantation forest gain (Ind_17_plantation_forest_gain_after_2020) high; became other land
         (Ind_13_other_land_gain_after_2020) low; disturbed after 2020 (Ind_04_disturbance_after_2020) more
@@ -1030,6 +1077,11 @@ def add_risk_timber_col(
             "agriculture_2020": (row[ind_2_name] == high_name)
             or (row[ind_15_name] == high_name),
             "agriculture_2025": row[ind_10_name] == high_name,
+            # asked only after agriculture after 2020 is yes: on planted or plantation forest 2020, was the
+            # gain seen by a map that keeps planted forest through harvest (Ind_19)? If not, more info
+            "planted_plantation_2020": (row[ind_14_name] == high_name)
+            or plantation_2020,
+            "agriculture_2025_strict": row[ind_19_name] == high_name,
             "plantation_2020": plantation_2020,
             "primary_2020": primary_2020,
             # Ind_04 asked directly on the primary leg: disturbed primary -> more-info.
@@ -1337,7 +1389,8 @@ def get_cols_ind_09_treecover_after_2020(lookup_gee_datasets_df):
 
 def get_cols_ind_10_agri_after_2020(lookup_gee_datasets_df):
     """
-    Dataset names for Ind_10_agri_after_2020 (theme_timber=agri_after_2020): crops, tree crops and
+    Dataset names for Ind_10_agri_after_2020 (theme_timber=agri_after_2020, or agri_after_2020_general for
+    the general land cover maps, see get_cols_ind_19_agri_after_2020_strict): crops, tree crops and
     cultivated pasture gained after 2020, for the timber decision tree's "Agriculture after 2020?" on the
     forest side. Each is a gain within one product, in its latest year (2024 or 2025) and not in 2020.
     FDaP_tree_crop_gain_after_2020 also needs no tree crop in 2018 and a tree crop in both 2022 and 2024,
@@ -1353,7 +1406,11 @@ def get_cols_ind_10_agri_after_2020(lookup_gee_datasets_df):
     return list(
         lookup_gee_datasets_df["name"][
             (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
-            & (lookup_gee_datasets_df["theme_timber"] == "agri_after_2020")
+            & (
+                lookup_gee_datasets_df["theme_timber"].isin(
+                    ["agri_after_2020", "agri_after_2020_general"]
+                )
+            )
         ]
     )
 
@@ -1476,6 +1533,28 @@ def get_cols_ind_17_plantation_forest_gain_after_2020(lookup_gee_datasets_df):
     )
 
 
+def get_cols_ind_19_agri_after_2020_strict(lookup_gee_datasets_df):
+    """
+    Dataset names for Ind_19_agri_after_2020_strict (theme_timber=agri_after_2020): the agriculture gains of
+    Ind_10_agri_after_2020 without the general land cover maps (theme_timber=agri_after_2020_general:
+    GPW_cultiv_pasture_gain_after_2020 and ESRI_crop_gain_after_2020). The general maps read a harvested
+    planted or plantation forest stand as pasture or cropland (bare or grassy ground until the replanted trees
+    close canopy); the maps kept here hold planted forest through harvest, or map a crop. Asked by the timber
+    decision tree only where agriculture after 2020 is yes on planted or plantation forest in 2020: a no gives
+    more info instead of high. A national agriculture map that keeps planted forest through harvest takes
+    theme_timber=agri_after_2020 and so counts here too.
+    """
+    lookup_gee_datasets_df = lookup_gee_datasets_df[
+        lookup_gee_datasets_df["exclude_from_output"] != 1
+    ]
+    return list(
+        lookup_gee_datasets_df["name"][
+            (lookup_gee_datasets_df["use_for_risk_timber"] == 1)
+            & (lookup_gee_datasets_df["theme_timber"] == "agri_after_2020")
+        ]
+    )
+
+
 def get_cols_ind_18_non_forest_gain_after_2020(lookup_gee_datasets_df):
     """
     Dataset names for non-forest gain after 2020 (theme_timber=non_forest_gain_after_2020):
@@ -1540,6 +1619,7 @@ def decision_tree_recipe(lookup_df=None) -> dict:
         16: get_cols_ind_16_plantation_forest_2020,
         17: get_cols_ind_17_plantation_forest_gain_after_2020,
         18: get_cols_ind_18_non_forest_gain_after_2020,
+        19: get_cols_ind_19_agri_after_2020_strict,
     }
     iso2 = dict(zip(lut["name"], lut["ISO2_code"].fillna("").astype(str)))
 

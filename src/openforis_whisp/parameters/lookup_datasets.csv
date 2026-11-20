@@ -2,7 +2,7 @@ name,order,ISO2_code,theme,theme_timber,use_for_risk_pcrop,use_for_risk_acrop,us
 nBR_MapBiomas_col10_ag_gain_after_2020,2230,BR,commodities,agri_after_2020,0,0,1,0,float32,1,0,nbr_mapbiomasc10_ag_gain_after_2020_prep
 GLAD_crop_gain_after_2020,2240,,commodities,agri_after_2020,0,0,1,0,float32,1,0,g_glad_crop_gain_after_2020_prep
 FDaP_tree_crop_gain_after_2020,2270,,commodities,agri_after_2020,0,0,1,0,float32,1,0,g_fdap_tree_crop_gain_prep
-GPW_cultiv_pasture_gain_after_2020,2280,,commodities,agri_after_2020,0,0,1,0,float32,1,0,g_gpw_cultiv_pasture_gain_after_2020_prep
+GPW_cultiv_pasture_gain_after_2020,2280,,commodities,agri_after_2020_general,0,0,1,0,float32,1,0,g_gpw_cultiv_pasture_gain_after_2020_prep
 plotId,-10,,context_and_metadata,context_and_metadata,,,NA,0,string,1,0,plot_id_column
 external_id,-9,,context_and_metadata,context_and_metadata,,,NA,0,string,1,0,external_id_column
 Area,-8,,context_and_metadata,context_and_metadata,,,NA,0,float32,1,1,geometry_area_column
@@ -213,7 +213,7 @@ Oil_palm_2024_FDaP,1880,,NA,agri_after_2020,0,0,0,0,float32,1,0,g_fdap_palm_2024
 Rubber_2024_FDaP,1890,,NA,agri_after_2020,0,0,0,0,float32,1,0,g_fdap_rubber_2024_prep
 Coffee_FDaP_2024,1900,,NA,agri_after_2020,0,0,0,0,float32,1,0,g_fdap_coffee_2024_prep
 Cocoa_2024_FDaP,1910,,NA,agri_after_2020,0,0,0,0,float32,1,0,g_fdap_cocoa_2024_prep
-ESRI_crop_gain_after_2020,1921,,,agri_after_2020,0,0,1,0,float32,1,0,g_esri_crop_gain_after_2020_prep
+ESRI_crop_gain_after_2020,1921,,,agri_after_2020_general,0,0,1,0,float32,1,0,g_esri_crop_gain_after_2020_prep
 ESRI_crop_gain_2020_2024,1920,,NA,,0,0,0,0,float32,1,0,g_esri_2020_2024_crop_prep
 GFW_logging_before_2020,1930,,NA,logging_concession,0,0,0,0,float32,1,0,g_logging_concessions_before_2020_prep
 nCO_ideam_forest_2020,1940,CO,treecover,NA,1,1,1,0,float32,1,0,nco_ideam_forest_2020_prep

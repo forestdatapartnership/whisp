@@ -43,6 +43,7 @@ EXPECTED_INDICATOR_COLS = [
     "Ind_16_plantation_forest_2020",
     "Ind_17_plantation_forest_gain_after_2020",
     "Ind_18_non_forest_gain_after_2020",
+    "Ind_19_agri_after_2020_strict",
 ]
 
 
@@ -108,6 +109,7 @@ _IND_14 = "Ind_14_planted_forest_2020"
 _IND_16 = "Ind_16_plantation_forest_2020"
 _IND_17 = "Ind_17_plantation_forest_gain_after_2020"
 _IND_18 = "Ind_18_non_forest_gain_after_2020"
+_IND_19 = "Ind_19_agri_after_2020_strict"
 _IND_9 = "Ind_09_treecover_after_2020"
 _IND_10 = "Ind_10_agri_after_2020"
 _IND_12 = "Ind_12_other_land_2020"
@@ -124,6 +126,7 @@ _TIMBER_INPUT_COLS = [
     _IND_16,
     _IND_17,
     _IND_18,
+    _IND_19,
     _IND_9,
     _IND_10,
     _IND_12,
@@ -256,6 +259,42 @@ def test_timber_decision_tree_terminals() -> None:
             **{_IND_5: "yes", _IND_4: "yes", _IND_10: "yes"},
         ),
         _timber_row(
+            # harvest is not farming: on planted forest in 2020, agriculture after 2020 seen only by a general
+            # land cover map (Ind_19 "no") is more info, as those maps read a harvested stand as pasture or cropland
+            "planted_agriculture_general_maps_only",
+            "more_info_needed",
+            "more-info: planted or plantation forest 2020, agriculture on general maps only",
+            **{_IND_14: "yes", _IND_10: "yes"},
+        ),
+        _timber_row(
+            "plantation_agriculture_general_maps_only",
+            "more_info_needed",
+            "more-info: planted or plantation forest 2020, agriculture on general maps only",
+            **{_IND_16: "yes", _IND_10: "yes"},
+        ),
+        _timber_row(
+            # a map that keeps planted forest through harvest saw the gain: still deforestation
+            "planted_agriculture_strict",
+            "high",
+            "high: deforestation, planted or plantation forest 2020",
+            **{_IND_14: "yes", _IND_10: "yes", _IND_19: "yes"},
+        ),
+        _timber_row(
+            # the rule looks at planted or plantation forest wherever it is mapped, so a plot also mapped as
+            # primary is more info too (not high, and never low)
+            "primary_and_planted_agriculture_general_maps_only",
+            "more_info_needed",
+            "more-info: planted or plantation forest 2020, agriculture on general maps only",
+            **{_IND_5: "yes", _IND_14: "yes", _IND_10: "yes"},
+        ),
+        _timber_row(
+            # no planted or plantation forest mapped: the general maps count as before
+            "regen_agriculture_general_maps_only",
+            "high",
+            "high: deforestation",
+            **{_IND_6: "yes", _IND_10: "yes"},
+        ),
+        _timber_row(
             # no gain and no disturbance: still primary (a change to regrowth or planted forest is not mapped)
             "primary_no_change",
             "low",
@@ -353,6 +392,7 @@ def test_timber_decision_tree_terminals() -> None:
         ind_16_name=_IND_16,
         ind_17_name=_IND_17,
         ind_18_name=_IND_18,
+        ind_19_name=_IND_19,
         ind_10_name=_IND_10,
         ind_12_name=_IND_12,
         ind_13_name=_IND_13,
@@ -606,6 +646,7 @@ def test_recipe_rebuilds_every_outcome():
         ind_16_name="Ind_16_plantation_forest_2020",
         ind_17_name="Ind_17_plantation_forest_gain_after_2020",
         ind_18_name="Ind_18_non_forest_gain_after_2020",
+        ind_19_name="Ind_19_agri_after_2020_strict",
         ind_10_name="Ind_10_agri_after_2020",
         ind_12_name="Ind_12_other_land_2020",
         ind_13_name="Ind_13_other_land_gain_after_2020",

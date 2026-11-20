@@ -15,6 +15,7 @@ from openforis_whisp.risk import (
     get_cols_ind_16_plantation_forest_2020,
     get_cols_ind_17_plantation_forest_gain_after_2020,
     get_cols_ind_18_non_forest_gain_after_2020,
+    get_cols_ind_19_agri_after_2020_strict,
     get_cols_ind_10_agri_after_2020,
     get_cols_ind_12_other_land_2020,
     get_cols_ind_13_other_land_gain_after_2020,
@@ -115,6 +116,20 @@ def test_timber_flag_is_on_exactly_for_the_timber_indicator_datasets():
     assert (
         sorted(flagged - used) == []
     ), "use_for_risk_timber is 1 but no timber indicator uses it"
+
+
+def test_ind_19_is_ind_10_without_the_general_land_cover_maps():
+    # Ind_19_agri_after_2020_strict reads the agriculture gains of Ind_10_agri_after_2020 without the general
+    # land cover maps (theme_timber=agri_after_2020_general), which read harvested planted forest as farming
+    lut = lookup_gee_datasets_df
+    ind_10 = set(get_cols_ind_10_agri_after_2020(lut))
+    ind_19 = set(get_cols_ind_19_agri_after_2020_strict(lut))
+    general = set(lut["name"][lut["theme_timber"] == "agri_after_2020_general"])
+    assert general == {
+        "GPW_cultiv_pasture_gain_after_2020",
+        "ESRI_crop_gain_after_2020",
+    }
+    assert ind_19 and ind_19 == ind_10 - general
 
 
 def test_timber_forest_type_indicators_read_only_their_type_layers():
