@@ -73,7 +73,7 @@ Whisp supports both **hectares** and **percent** units:
 - **Perennial crops** (coffee, cocoa, rubber, palm): Uses `risk_pcrop` output
 - **Annual crops** (soy): Uses `risk_acrop`
 - **Cattle**: `risk_cattle`, coming soon (placeholder on branch `feat/cattle-risk`, not on main)
-- **Timber**: Uses `risk_timber`, from its own decision tree (`TIMBER_ROOT_TREE` in risk.py): forest types in 2020, then only changes after 2020 (agriculture, conversion into plantation forest, other land gain, disturbance on primary forest); `risk_timber_pathway` names the end point
+- **Timber**: Uses `risk_timber`, from its own decision tree (`TIMBER_ROOT_TREE` in risk.py): forest types in 2020, then only changes after 2020 (agriculture, conversion into plantation forest, other land gain, disturbance on primary forest)
 
 Crop decision tree checks in order (the annual crop decision tree skips 3):
 1. Treecover in 2020? (Indicator 1)

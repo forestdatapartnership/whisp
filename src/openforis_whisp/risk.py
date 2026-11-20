@@ -558,6 +558,8 @@ def whisp_risk(
         low_name=low_name,
         high_name=high_name,
     )
+    # the end point label stays out of the output (decision_tree_recipe() names the end points, see #343)
+    df_w_indicators = df_w_indicators.drop(columns=["risk_timber_pathway"])
 
     # Filter to risk-relevant columns if requested (after all columns added)
     if drop_unused_columns:
@@ -847,7 +849,7 @@ DECISION_TREES = {
     },
     "timber": {
         "risk_column": "risk_timber",
-        "pathway_column": "risk_timber_pathway",
+        "pathway_column": None,
         "tree": TIMBER_ROOT_TREE,
         "labels": {
             "forest_2020": "Forest in 2020?",
@@ -962,7 +964,7 @@ def add_risk_timber_col(
     the latest year.
 
     Also writes risk_timber_pathway: the label of the end point reached (its code is in
-    DECISION_TREES["timber"]["codes"]).
+    DECISION_TREES["timber"]["codes"]). whisp_risk leaves it out of its output.
 
     low_name / high_name: the indicator values for at or below / above the threshold (default "no" / "yes").
 
@@ -1451,7 +1453,7 @@ def decision_tree_recipe(lookup_df=None) -> dict:
     For each decision tree: its output columns, then the questions from the first one down. Each question
     lists the indicator columns it reads (it is "yes" when any of them is "yes", the "combine" rule) and what
     its yes and no lead to: the next question or an end point. An end point gives the risk value, the pathway
-    label (as in risk_timber_pathway) and a code that is never reused (retired codes are listed). In the
+    label and a code that is never reused (retired codes are listed). In the
     timber decision tree, "Still other land?" asks Ind_12_other_land_2020 again, so it is always yes and
     its no end point (code 13) is not reached for now.
 
@@ -1616,7 +1618,7 @@ def filter_to_risk_columns(
         dataset_cols.extend(col_list)
 
     # Risk output columns (present in df if function called at end)
-    risk_cols = ["risk_pcrop", "risk_acrop", "risk_timber", "risk_timber_pathway"]
+    risk_cols = ["risk_pcrop", "risk_acrop", "risk_timber"]
 
     # Post-processing metadata columns (added after validation, not in schema CSV)
     metadata_cols = ["whisp_processing_metadata", "geo_original"]
