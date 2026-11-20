@@ -31,7 +31,7 @@ A new timber decision tree, and local mode fixes.
 - `Ind_10_agri_after_2020`: reads five gain layers (six in Brazil) instead of the ESRI crop gain to 2024 only
 - `GFT_primary`, `GFT_naturally_regenerating` and `GFT_planted_plantation` (dataset columns from JRC Global Forest Types): now from version 2 of that map
 - Brazil (`national_codes` "br"): MapBiomas collection 10 replaces collection 9, and savanna is left out of the forest layer (#247), so `risk_pcrop` and `risk_acrop` change for some Cerrado plots
-- `geo` (each plot's shape as text): now JSON with double quotes in every mode. This changes the concurrent and sequential modes and the `whisp_formatted_stats_ee_to_df` function, which wrote it with single quotes; local mode already wrote JSON
+- `geo` (each plot's shape as text): now valid JSON with double quotes in every mode, so any tool can read it (in Python, `json.loads`). This changes the concurrent and sequential modes and the `whisp_formatted_stats_ee_to_df` function, which wrote it with single quotes; local mode already wrote JSON. Code that reads it with `ast.literal_eval` keeps working
 - `whisp_processing_metadata` (column with details of the run): local mode now lists `unavailable_datasets`, as the other modes do
 
 **Breaking changes:**
