@@ -288,9 +288,10 @@ def test_timber_decision_tree_terminals() -> None:
             **{_IND_6: "yes"},
         ),
         _timber_row(
+            # other land is not asked on the regenerating branch: low either way
             "regen_to_other_land",
             "low",
-            "low: regen 2020 -> other land",
+            "low: regen or planted forest 2020",
             **{_IND_6: "yes", _IND_13: "yes"},
         ),
         _timber_row(

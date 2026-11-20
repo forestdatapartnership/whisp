@@ -726,16 +726,13 @@ TIMBER_ROOT_TREE = {
                     "yes": _timber_leaf(
                         "high", "high: regenerating -> plantation forest (degradation)"
                     ),
-                    # Then became other land after 2020 (Ind_13) -> low with its own label. Otherwise low:
-                    # harvest and regrowth, or replanting, are neither deforestation nor degradation from
+                    # Otherwise low: agriculture after 2020 was asked first, and harvest and regrowth,
+                    # replanting or becoming other land are neither deforestation nor degradation from
                     # naturally regenerating or planted forest (EUDR transition table, as one example), so
-                    # disturbance is not asked. (Other wooded land would join here once mapped: degradation
-                    # from naturally regenerating forest, not from planted forest.)
-                    "no": {
-                        "q": "other_land_2025",
-                        "yes": _timber_leaf("low", "low: regen 2020 -> other land"),
-                        "no": _timber_leaf("low", "low: regen or planted forest 2020"),
-                    },
+                    # disturbance and other land are not asked; Ind_13_other_land_gain_after_2020 still
+                    # shows other land. (Other wooded land would join here once mapped: degradation from
+                    # naturally regenerating forest, not from planted forest.)
+                    "no": _timber_leaf("low", "low: regen or planted forest 2020"),
                 },
                 # plantation forest last: only a plot that is neither primary nor naturally regenerating
                 # or planted reaches here
@@ -900,11 +897,10 @@ DECISION_TREES = {
             "high: primary -> plantation forest (degradation)": 12,
             "more-info: other land 2020 changed": 13,
             "low: primary 2020 -> other land": 16,
-            "low: regen 2020 -> other land": 17,
             "more-info: forest 2020, unclassified": 19,
             "more-info: primary 2020, disturbed after 2020": 21,
         },
-        "retired_codes": [8, 9, 10, 14, 15, 18, 20, 22],
+        "retired_codes": [8, 9, 10, 14, 15, 17, 18, 20, 22],
     },
 }
 
@@ -956,13 +952,12 @@ def add_risk_timber_col(
       - primary: plantation forest gain (Ind_17_plantation_forest_gain_after_2020) high; became other land
         (Ind_13_other_land_gain_after_2020) low; disturbed after 2020 (Ind_04_disturbance_after_2020) more
         info; else low (still primary);
-      - regenerating or planted: plantation forest gain high; became other land low; else low (harvest is
-        not a conversion);
+      - regenerating or planted: plantation forest gain high; else low (harvest is not a conversion);
       - plantation forest: low;
       - none of the three (tree cover only): more info.
 
     After 2020 the decision tree asks only for changes: gains into agriculture, plantation forest and
-    other land (Ind_10, Ind_17, Ind_13; other land on the primary and regenerating branches) and, on the primary branch
+    other land (Ind_10, Ind_17, Ind_13; other land only on the primary branch) and, on the primary branch
     only, disturbance (Ind_04). "Still primary" is what is left when none of them happened, not a map of
     the latest year.
 
