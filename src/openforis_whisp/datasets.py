@@ -288,8 +288,8 @@ def g_forty_forest_2020_prep():
 # The 2020 classes feed Ind_05_primary_2020, Ind_06_nat_reg_forest_2020, Ind_14_planted_forest_2020 and
 # Ind_16_plantation_forest_2020 (in place of the ForTy V1 2020 rows above); the two gains from 2020 to 2025
 # below feed Ind_17_plantation_forest_gain_after_2020 and Ind_10_agri_after_2020. ForTy "other land" is
-# not used: it is all non-forest, wider than the built-up, water and mining sense of Ind_12_other_land_2020
-# and Ind_13_other_land_gain_after_2020.
+# all non-forest, wider than the built-up, water and mining sense of Ind_12_other_land_2020 and
+# Ind_13_other_land_gain_after_2020, so it feeds only Ind_18_non_forest_gain_after_2020 (non-forest gain below).
 _FORTY_V2_ROOT = "projects/nature-trace/assets/forest_typology/v2_beta/"
 
 
@@ -338,6 +338,18 @@ def g_forty_v2_plantation_forest_gain_after_2020_prep():
 def g_forty_v2_tree_crop_gain_after_2020_prep():
     gain = _forty_v2_class(2025).eq(5).And(_forty_v2_class(2020).neq(5))
     return gain.selfMask().rename("ForTy_v2_tree_crop_gain_after_2020")
+
+
+def g_forty_v2_non_forest_gain_after_2020_prep():
+    # naturally regenerating (2) or planted (3) forest in 2020 that is other land (6, non-forest) in 2025:
+    # forest that was not regrowing by 2025, after harvest, clearing or a change of use. Primary forest is left
+    # out (its leg asks about disturbance), as is plantation gain (Ind_17, asked first). A move into tree crops
+    # is in ForTy_v2_tree_crop_gain_after_2020, and a move into primary is rare, so this is close to "no longer
+    # naturally regenerating or planted forest in 2025".
+    c2020 = _forty_v2_class(2020)
+    regen_2020 = c2020.eq(2).Or(c2020.eq(3))
+    gain = _forty_v2_class(2025).eq(6).And(regen_2020)
+    return gain.selfMask().rename("ForTy_v2_non_forest_gain_after_2020")
 
 
 # SBTN_natural_2020

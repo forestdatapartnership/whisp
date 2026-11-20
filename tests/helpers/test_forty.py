@@ -25,6 +25,7 @@ FORTY_EXPECTED = {
     "ForTy_v2_plantation_2020": "g_forty_v2_plantation_2020_prep",
     "ForTy_v2_plantation_forest_gain_after_2020": "g_forty_v2_plantation_forest_gain_after_2020_prep",
     "ForTy_v2_tree_crop_gain_after_2020": "g_forty_v2_tree_crop_gain_after_2020_prep",
+    "ForTy_v2_non_forest_gain_after_2020": "g_forty_v2_non_forest_gain_after_2020_prep",
 }
 
 

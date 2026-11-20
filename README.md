@@ -67,6 +67,7 @@
   11) Did agriculture expand after 2020? (`Ind_10_agri_after_2020`)
   12) Was primary or naturally regenerating forest converted into plantation forest after 2020? (`Ind_17_plantation_forest_gain_after_2020`)
   13) Did the plot become other land (e.g. built-up or water; in Brazil also mining) after 2020? (`Ind_13_other_land_gain_after_2020`)
+  14) Did naturally regenerating or planted forest become non-forest after 2020? (`Ind_18_non_forest_gain_after_2020`)
 
   The output also keeps four older columns, `Ind_07_planted_plantations_2020`, `Ind_08_planted_plantations_after_2020`, `Ind_09_treecover_after_2020` and `Ind_11_logging_concession_before_2020` for existing users; no decision tree reads them.
 
@@ -150,7 +151,7 @@ Each risk column holds one of the values `low`, `high` or `more_info_needed` (sh
   - Not forest in 2020: other land or agriculture in 2020 gives **low**; otherwise **more info needed**.
   - Forest in 2020 and agriculture after 2020: **high** (deforestation).
   - Primary forest: converted into plantation forest gives **high** (degradation); became other land gives **low**; disturbance after 2020 gives **more info needed**; otherwise **low**.
-  - Naturally regenerating or planted forest: converted into plantation forest gives **high**; otherwise **low**.
+  - Naturally regenerating or planted forest: converted into plantation forest gives **high**; became non-forest gives **more info needed** (not regrowing, so what it became is unknown); otherwise **low**.
   - Plantation forest: **low**.
   - Forest with no forest type mapped: **more info needed**.
 

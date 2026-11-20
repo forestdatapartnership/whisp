@@ -230,6 +230,7 @@ ForTy_v2_planted_2020,1864,,,planted_2020,0,0,1,0,float32,1,0,g_forty_v2_planted
 ForTy_v2_plantation_2020,1865,,,plantation_2020,0,0,1,0,float32,1,0,g_forty_v2_plantation_2020_prep
 ForTy_v2_plantation_forest_gain_after_2020,1871,,,plantation_forest_gain_after_2020,0,0,1,0,float32,1,0,g_forty_v2_plantation_forest_gain_after_2020_prep
 ForTy_v2_tree_crop_gain_after_2020,1872,,,agri_after_2020,0,0,1,0,float32,1,0,g_forty_v2_tree_crop_gain_after_2020_prep
+ForTy_v2_non_forest_gain_after_2020,1873,,,non_forest_gain_after_2020,0,0,1,0,float32,1,0,g_forty_v2_non_forest_gain_after_2020_prep
 nBR_BFS_primary_and_secondary_forest_Cerrado_2020,2020,BR,treecover,,1,1,1,0,float32,1,0,nbr_bfs_cer_f20_prep
 nBR_MapBiomas_col10_forest_Brazil_2020,2030,BR,treecover,,1,1,1,0,float32,1,0,nbr_mapbiomasc10_f20_prep
 nBR_INPE_TCsilviculture_Amazon_2020,2040,BR,treecover,plantation_2020,1,1,1,0,float32,1,0,nbr_terraclass_amz20_silv_prep

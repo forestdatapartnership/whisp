@@ -42,6 +42,7 @@ EXPECTED_INDICATOR_COLS = [
     "Ind_14_planted_forest_2020",
     "Ind_16_plantation_forest_2020",
     "Ind_17_plantation_forest_gain_after_2020",
+    "Ind_18_non_forest_gain_after_2020",
 ]
 
 
@@ -106,6 +107,7 @@ _IND_6 = "Ind_06_nat_reg_forest_2020"
 _IND_14 = "Ind_14_planted_forest_2020"
 _IND_16 = "Ind_16_plantation_forest_2020"
 _IND_17 = "Ind_17_plantation_forest_gain_after_2020"
+_IND_18 = "Ind_18_non_forest_gain_after_2020"
 _IND_9 = "Ind_09_treecover_after_2020"
 _IND_10 = "Ind_10_agri_after_2020"
 _IND_12 = "Ind_12_other_land_2020"
@@ -121,6 +123,7 @@ _TIMBER_INPUT_COLS = [
     _IND_14,
     _IND_16,
     _IND_17,
+    _IND_18,
     _IND_9,
     _IND_10,
     _IND_12,
@@ -288,6 +291,13 @@ def test_timber_decision_tree_terminals() -> None:
             **{_IND_6: "yes"},
         ),
         _timber_row(
+            # became non-forest (ForTy V2) after 2020: not regrowing, so what it became is unknown -> more info
+            "regen_became_non_forest",
+            "more_info_needed",
+            "more-info: regen or planted forest 2020, became non-forest",
+            **{_IND_14: "yes", _IND_18: "yes"},
+        ),
+        _timber_row(
             # other land is not asked on the regenerating branch: low either way
             "regen_to_other_land",
             "low",
@@ -342,6 +352,7 @@ def test_timber_decision_tree_terminals() -> None:
         ind_14_name=_IND_14,
         ind_16_name=_IND_16,
         ind_17_name=_IND_17,
+        ind_18_name=_IND_18,
         ind_10_name=_IND_10,
         ind_12_name=_IND_12,
         ind_13_name=_IND_13,
@@ -594,6 +605,7 @@ def test_recipe_rebuilds_every_outcome():
         ind_14_name="Ind_14_planted_forest_2020",
         ind_16_name="Ind_16_plantation_forest_2020",
         ind_17_name="Ind_17_plantation_forest_gain_after_2020",
+        ind_18_name="Ind_18_non_forest_gain_after_2020",
         ind_10_name="Ind_10_agri_after_2020",
         ind_12_name="Ind_12_other_land_2020",
         ind_13_name="Ind_13_other_land_gain_after_2020",
