@@ -8,6 +8,15 @@ New entries are added by the release workflow, from the "Changes to results" and
 
 <!-- releases below -->
 
+## v3.0.0a25 (2026-11-20)
+
+Removes the risk_timber_pathway column added in 3.0.0a24.
+
+**Breaking changes:**
+- risk_timber_pathway (added in 3.0.0a24) is no longer in the output; risk_timber is unchanged
+
+Pull requests: #345
+
 ## v3.0.0a24 (2026-11-20)
 
 A new timber decision tree, and local mode fixes.
