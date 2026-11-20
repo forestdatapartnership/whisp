@@ -117,35 +117,32 @@ Each risk column holds one of the values `low`, `high` or `more_info_needed` (sh
   *The Whisp algorithm for **Perennial Crops** visualized:*
   ![CoE_Graphic 5](https://github.com/user-attachments/assets/007b5f50-3939-4707-95fa-98be4d56745f)
 
-  For perennial crops, Whisp assesses a deforestation risk for a plot of land based on questions 1–4 on the presence of tree cover, agricultural use, and disturbances before and after 2020. The end-of-2020 date is used as the cutoff for regulatory frameworks such as the EU Deforestation Regulation (EUDR).
+  For perennial crops, Whisp assesses deforestation risk from questions 1–4. The end of 2020 is the cutoff used by regulations such as the EU Deforestation Regulation (EUDR), as one example.
 
-  If no treecover dataset indicates any tree cover for a plot by the end of 2020, **Whisp will categorize the deforestation risk as low.**
-
-  If one or more treecover datasets indicate tree cover on a plot by the end of 2020, but a commodity dataset indicates agricultural use by the end of 2020, **Whisp will categorize the deforestation risk as low.**
-
-  If one or more treecover datasets indicate tree cover on a plot by the end of 2020, no commodity datasets indicate agricultural use, but a disturbance dataset indicates disturbances before the end of 2020, **Whisp will categorize the deforestation risk as <u>low</u>.** This approach accounts for the characteristics of some perennial crops, which can be established under significant canopy cover (e.g. coffee, cocoa); disturbances prior to 2020 are interpreted as potential evidence of crop establishment before the end of 2020, and thus not considered high risk. Because this step lowers the risk category, it uses a higher default threshold (50% of the plot area) than most other indicators (10%).
-
-  Now, if questions 1–3 indicate that there was tree cover, but no agriculture and no disturbances before or by the end of 2020, the Whisp algorithm checks whether degradation or deforestation have been reported in a disturbance dataset after 2020-12-31. If they have, **Whisp will categorize the deforestation risk as <u>high</u>.** <br>
-  However, under the same circumstances but with <u>no</u> disturbances reported after 2020-12-31 there is insufficient evidence and the **Whisp output will be "More info needed".** Such can be the case for, e.g., cocoa or coffee grown under the shade of treecover or agroforestry.
-
+  - No tree cover in 2020: **low**.
+  - Tree cover, but agriculture in 2020: **low**.
+  - Tree cover, no agriculture, but disturbance before 2021: **low**. Crops such as coffee and cocoa can be planted under forest canopy, so earlier disturbance can mean the crop was there before the cutoff. As this lowers the risk, it needs 50% of the plot rather than 10%.
+  - Otherwise, disturbance after 2020: **high**; no disturbance: **more info needed** (for example cocoa or coffee grown under shade trees).
 
   *The Whisp algorithm for **Annual Crops** visualized:*
   ![annual_decision_tree](https://github.com/user-attachments/assets/0148736f-d9a1-4511-a8f8-8b32287483cb)
 
-  For annual crops, Whisp applies the same general framework based on tree cover, commodity, and disturbance datasets. However, disturbances before 2020-12-31 are not considered relevant, since annual crops are not typically established under significant canopy cover.
+  For annual crops, the same, except that disturbance before 2021 is not asked, as annual crops are rarely grown under forest canopy:
 
-  If no tree cover is indicated for a plot by the end of 2020, **Whisp will categorize the deforestation risk as low.**
-
-  If one or more tree cover datasets indicate tree cover on a plot by the end of 2020, and commodity datasets indicate agricultural use by the same date, **Whisp will categorize the deforestation risk as low.**
-
-  If tree cover is present and no agricultural use is recorded by the end of 2020, Whisp evaluates disturbance datasets after 2020-12-31:
-  - If deforestation or degradation is detected, **Whisp will categorize the deforestation risk as high.**
-  - If no such disturbances are detected, the **Whisp output will be "More info needed"**, as the available evidence is insufficient for a definitive classification.
+  - No tree cover in 2020, or agriculture in 2020: **low**.
+  - Otherwise, disturbance after 2020: **high**; no disturbance: **more info needed**.
 
   *The Whisp algorithm for **Timber** visualized:*
   ![timber_graphic](https://github.com/user-attachments/assets/497d4137-d4c3-4e35-a87b-3abc2977f1ce)
 
-  For timber, Whisp applies a different decision logic compared to perennial and annual crops. In addition to the **deforestation risk**, Whisp also evaluates **degradation risk**, here primary or naturally regenerating forest converted into plantation forest. Tree crops such as oil palm and rubber are agricultural plantations, not plantation forest. It first asks whether the plot was forest in 2020: tree cover, primary, naturally regenerating, planted or plantation forest. This is wider than the tree cover question for crops, because much timber comes from planted and plantation forests, which some general forest maps leave out by design. For forest in 2020 it then asks only about changes after 2020, each measured within one dataset.
+  For timber, Whisp also assesses **degradation risk**: primary or naturally regenerating forest converted into plantation forest (tree crops such as oil palm and rubber count as agriculture, not plantation forest). "Forest in 2020" is wider than tree cover for crops (tree cover or any forest type), because much timber comes from planted and plantation forests that some forest maps leave out. Each change after 2020 is measured within one dataset.
+
+  - Not forest in 2020: other land or agriculture in 2020 gives **low**; otherwise **more info needed**.
+  - Forest in 2020 and agriculture after 2020: **high** (deforestation).
+  - Primary forest: converted into plantation forest gives **high** (degradation); became other land gives **low**; disturbance after 2020 gives **more info needed**; otherwise **low**.
+  - Naturally regenerating or planted forest: converted into plantation forest gives **high**; otherwise **low**.
+  - Plantation forest: **low**.
+  - Forest with no forest type mapped: **more info needed**.
 
   The decision trees are defined in [risk.py](https://github.com/forestdatapartnership/whisp/blob/main/src/openforis_whisp/risk.py) (`DECISION_TREES`; the timber one is `TIMBER_ROOT_TREE`). `openforis_whisp.decision_tree_recipe()` returns each one as data (the questions, the columns each reads, the end points, and each indicator's default threshold and datasets), for anyone rebuilding or displaying a decision tree.
 
@@ -168,11 +165,7 @@ Each risk column holds one of the values `low`, `high` or `more_info_needed` (sh
 
   ### Python package installation
 
-  The Whisp package is available on pip
-  https://pypi.org/project/openforis-whisp/ and changelog [here](https://github.com/forestdatapartnership/whisp/releases)
-
-
-  It can be installed with one line of code:
+  The Whisp package is on [PyPI](https://pypi.org/project/openforis-whisp/) (changes in the [release notes](https://github.com/forestdatapartnership/whisp/releases)). Install it with:
 
   ```
   pip install --pre openforis-whisp
@@ -187,42 +180,23 @@ Each risk column holds one of the values `low`, `high` or `more_info_needed` (sh
 
 ## How to add data layers to Whisp <a name="whisp_add_data"></a>
 
-
-
 There are two main approaches:
 
 1) Request that a layer be incorporated into the core Whisp inputs, or
 
 2) Add your own data directly to complement the core datasets.
 
-
-
----
-
-
-
 ### Requesting a layer addition
-
-
 
 If you think a particular dataset has wide applicability for Whisp users, you can request it be added to the main Whisp repository by logging it as an issue in GitHub [here](https://github.com/forestdatapartnership/whisp/issues/).
 
-
-
 Before submitting a request, consider the following:
-
-
 
 - Is the resolution high enough for plot-level analysis? (e.g., 30m or 10m resolution)
 
 - Is there an indication of data quality? (e.g., accuracy assessment detailed in a scientific publication)
 
 - Is there relevant metadata available?
-
-
-
----
-
 
 ### Adding your own data directly
 
