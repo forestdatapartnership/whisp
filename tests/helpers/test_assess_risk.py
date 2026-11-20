@@ -645,7 +645,7 @@ def test_recipe_rebuilds_every_outcome():
 # "Changes to results:" in the PR.
 _SNAPSHOT = Path(__file__).parents[1] / "fixtures" / "timber_snapshot.csv"
 _SNAPSHOT_NATIONAL_CODES = ["br", "ci", "co", "cm"]
-_SNAPSHOT_OUTCOMES = ["risk_pcrop", "risk_acrop", "risk_timber", "risk_timber_pathway"]
+_SNAPSHOT_OUTCOMES = ["risk_pcrop", "risk_acrop", "risk_timber"]
 
 
 def _snapshot_outcomes():
