@@ -313,6 +313,10 @@ def whisp_risk(
 
     Returns:
         pd.DataFrame: DataFrame with added risk columns.
+
+    Area and dataset values should not be rounded before calling this function: rounding can
+    change indicator and risk outcomes near a threshold. Earlier releases rounded hectares to
+    three decimals; precision already lost in an exported file cannot be recovered here.
     """
     # Determine the unit type
     unit_type = detect_unit_type(df, explicit_unit_type)

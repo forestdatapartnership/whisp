@@ -20,7 +20,6 @@ from openforis_whisp.parameters.config_runtime import (
     external_id_column,
     geometry_type_column,
     geometry_area_column,
-    geometry_area_column_formatting,
     centroid_x_coord_column,
     centroid_y_coord_column,
     iso3_country_column,
@@ -124,6 +123,9 @@ def whisp_formatted_stats_geojson_to_df(
     Converts a GeoJSON file to a pandas DataFrame containing Whisp stats for the input ROI.
     Output DataFrame is validated against a Panderas schema (created from lookup CSVs).
     Results are automatically formatted and unit-converted (ha or percent).
+    Numeric statistics are not decimal-rounded before whisp_risk compares them against
+    thresholds. Schema validation may cast values to float32, which can affect values very
+    close to a threshold. Round for display only after calculating risk.
 
     If `external_id_column` is provided, it will be used to link external identifiers
     from the input GeoJSON to the output DataFrame.
@@ -1171,27 +1173,21 @@ def get_stats_feature(
     stats_unit_type = ee.Dictionary({stats_unit_type_column: unit_type})
 
     # Now, modified_dict contains all keys with the prefix added
-    reduce_ha = reduce.map(
-        lambda key, val: divide_and_format(ee.Number(val), ee.Number(10000))
-    )
+    reduce_ha = reduce.map(lambda key, val: ee.Number(val).divide(10000))
 
     # Get value for hectares
     area_ha = ee.Number(ee.Dictionary(reduce_ha).get(geometry_area_column))
 
     # Apply the function to each value in the dictionary using map()
     reduce_percent = reduce_ha.map(
-        lambda key, val: percent_and_format(ee.Number(val), area_ha)
+        lambda key, val: ee.Number(val).divide(area_ha).multiply(100)
     )
 
     # Reformat the hectare statistics
-    reducer_stats_ha = reduce_ha.set(
-        geometry_area_column, area_ha.format(geometry_area_column_formatting)
-    )  # area ha (formatted)
+    reducer_stats_ha = reduce_ha.set(geometry_area_column, area_ha)
 
     # Reformat the percentage statistics
-    reducer_stats_percent = reduce_percent.set(
-        geometry_area_column, area_ha.format(geometry_area_column_formatting)
-    )  # area ha (formatted)
+    reducer_stats_percent = reduce_percent.set(geometry_area_column, area_ha)
 
     # Add country info onto hectare analysis results
     properties_ha = feature_info.combine(ee.Dictionary(reducer_stats_ha)).combine(

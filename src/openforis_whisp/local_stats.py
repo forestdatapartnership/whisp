@@ -1552,7 +1552,7 @@ def whisp_stats_local(
     include_context_bands=True,
     national_codes=None,
     unit_type="ha",
-    decimal_places=3,
+    decimal_places=None,
     external_id_column=None,
     custom_bands=None,
     # Format parameters (matching concurrent mode)
@@ -1602,7 +1602,7 @@ def whisp_stats_local(
             in the image (default: True)
         national_codes: List of ISO2 country codes to include national datasets
         unit_type: Output unit type - 'ha' (hectares) or 'percent' (default: 'ha')
-        decimal_places: Decimal places for rounding (default: 3)
+        decimal_places: Decimal places for rounding; None retains the calculated precision.
         external_id_column: Column name in input GeoJSON to preserve as external_id
         custom_bands: Custom band handling for validation (None=strict, list=preserve specified)
         remove_median_columns: Whether to remove the intermediate '_majority' columns after

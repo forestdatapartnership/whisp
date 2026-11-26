@@ -481,7 +481,7 @@ def _process_custom_bands(df_extra: pd.DataFrame, custom_bands) -> pd.DataFrame:
 def format_stats_dataframe(
     df,
     area_col="Area_sum",
-    decimal_places=2,
+    decimal_places=None,
     unit_type="ha",
     stats_unit_type_column="Unit",
     strip_suffix="_sum",
@@ -510,8 +510,8 @@ def format_stats_dataframe(
         Input DataFrame with stats columns
     area_col : str
         Name of area column (default 'Area_sum')
-    decimal_places : int
-        Decimal places for rounding (default 2)
+    decimal_places : int or None
+        Decimal places for rounding; None (the default) skips decimal rounding.
     unit_type : str
         'ha' or 'percent' (default 'ha')
     stats_unit_type_column : str
@@ -568,12 +568,14 @@ def format_stats_dataframe(
             if unit_type == "ha":
                 # value is in whatever units the sum uses (ee outputs square meters) -> convert to hectares
                 # (user earlier used divide by 10000 pattern)
-                new[base] = (df[col] / 10000).round(decimal_places)
+                new[base] = df[col] / 10000
             elif unit_type == "percent":
-                new[base] = ((df[col] / area) * 100).round(decimal_places)
+                new[base] = (df[col] / area) * 100
             else:
                 # unknown unit type: just copy the raw sums
-                new[base] = df[col].round(decimal_places)
+                new[base] = df[col]
+            if decimal_places is not None:
+                new[base] = new[base].round(decimal_places)
         return pd.DataFrame(new, index=df.index)
 
     # Helper: the water flag, from the raw water and plot areas (both square metres, before any unit
@@ -638,7 +640,9 @@ def format_stats_dataframe(
 
     # Area column from square meters to hectares (also when there are no stat columns)
     if area_col in df.columns:
-        df[area_col] = (df[area_col] / 10000).round(decimal_places)
+        df[area_col] = df[area_col] / 10000
+        if decimal_places is not None:
+            df[area_col] = df[area_col].round(decimal_places)
 
     # 5) Remove original stat columns (the ones with strip_suffix) from df (but keep area_col)
     df = df.loc[
