@@ -11,7 +11,7 @@ import json
 import logging
 from pathlib import Path  # Add this import
 
-from openforis_whisp.logger import StdoutLogger, FileLogger
+from openforis_whisp.logger import StdoutLogger, FileLogger, get_whisp_logger
 
 from openforis_whisp.pd_schemas import data_lookup_type
 
@@ -147,6 +147,7 @@ def validate_dataframe(
 
     # Reorder the validated DataFrame to match the schema's column order
     validated_df = validated_df.reindex(schema.columns.keys(), axis=1)
+    _warn_dropped_columns(df_stats.columns, validated_df.columns)
 
     return validated_df
 
@@ -314,6 +315,14 @@ def filter_lookup_by_country_codes(
     return lookup_df[mask]
 
 
+def _warn_dropped_columns(original_columns, result_columns):
+    dropped = [column for column in original_columns if column not in result_columns]
+    if dropped:
+        get_whisp_logger().warning(
+            f"Columns not present in the output schema were discarded: {dropped}"
+        )
+
+
 def validate_dataframe_using_lookups_flexible(
     df_stats: pd.DataFrame,
     file_paths: list = None,
@@ -373,11 +382,13 @@ def validate_dataframe_using_lookups_flexible(
             # STRICT MODE: Exclude all custom bands when None
             logger.info("custom_bands=None: Excluding all custom bands (strict mode)")
             # Return only the schema columns, no extra columns
-            return (
+            result = (
                 validated_schema_part
                 if not validated_schema_part.empty
                 else pd.DataFrame()
             )
+            _warn_dropped_columns(df_stats.columns, result.columns)
+            return result
 
         elif custom_bands is not None:
             # Process custom bands as specified
@@ -398,6 +409,7 @@ def validate_dataframe_using_lookups_flexible(
                 ] + [col for col in df_extra_part.columns]
                 result = result[ordered_columns]
 
+            _warn_dropped_columns(df_stats.columns, result.columns)
             return result
 
     else:
