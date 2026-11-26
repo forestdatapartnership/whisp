@@ -64,9 +64,6 @@ from openforis_whisp.parameters.config_runtime import (
     iso2_country_column,
     admin_1_column,
     water_flag,
-    geometry_area_column_formatting,
-    stats_area_columns_formatting,
-    stats_percent_columns_formatting,
 )
 from openforis_whisp.data_conversion import (
     convert_geojson_to_ee,
@@ -197,28 +194,6 @@ def _load_and_prepare_geojson(
     finally:
         fiona_logger.setLevel(old_fiona_level)
         pyogrio_logger.setLevel(old_pyogrio_level)
-
-
-def _extract_decimal_places(format_string: str) -> int:
-    """
-    Extract decimal places from a format string like '%.3f'.
-
-    Parameters
-    ----------
-    format_string : str
-        Format string (e.g., '%.3f' → 3)
-
-    Returns
-    -------
-    int
-        Number of decimal places
-    """
-    import re
-
-    match = re.search(r"\.(\d+)f", format_string)
-    if match:
-        return int(match.group(1))
-    return 2  # Default to 2 decimal places
 
 
 def _normalize_keep_external_columns(
@@ -1087,7 +1062,7 @@ def whisp_stats_geojson_to_df_concurrent(
     max_retries: int = 3,
     add_metadata_server: bool = False,
     logger: logging.Logger = None,
-    # Format parameters (auto-detect from config if not provided)
+    # Format parameters
     decimal_places: int = None,
 ) -> pd.DataFrame:
     """
@@ -1126,7 +1101,7 @@ def whisp_stats_geojson_to_df_concurrent(
     logger : logging.Logger, optional
         Logger for output
     decimal_places : int, optional
-        Decimal places for formatting. If None, auto-detects from config.
+        Decimal places for formatting. If None, retain the calculated precision.
 
     Returns
     -------
@@ -1143,11 +1118,6 @@ def whisp_stats_geojson_to_df_concurrent(
 
     # Suppress verbose output from dependencies (dynamically adjust based on max_concurrent)
     _suppress_verbose_output(max_concurrent=max_concurrent)
-
-    # Auto-detect decimal places from config if not provided
-    if decimal_places is None:
-        decimal_places = _extract_decimal_places(stats_area_columns_formatting)
-        logger.debug(f"Using decimal_places={decimal_places} from config")
 
     # Validate endpoint
     # A warning, not an error: both endpoints work, and a worker (e.g. the Whisp API) runs
@@ -1550,7 +1520,7 @@ def whisp_stats_geojson_to_df_sequential(
     custom_bands: Dict[str, Any] = None,
     add_metadata_client_side: bool = True,
     logger: logging.Logger = None,
-    # Format parameters (auto-detect from config if not provided)
+    # Format parameters
     decimal_places: int = None,
 ) -> pd.DataFrame:
     """
@@ -1583,7 +1553,7 @@ def whisp_stats_geojson_to_df_sequential(
     logger : logging.Logger, optional
         Logger for output
     decimal_places : int, optional
-        Decimal places for formatting. If None, auto-detects from config.
+        Decimal places for formatting. If None, retain the calculated precision.
 
     Returns
     -------
@@ -1596,11 +1566,6 @@ def whisp_stats_geojson_to_df_sequential(
 
     # Suppress verbose output from dependencies (sequential has lower concurrency, use default)
     _suppress_verbose_output(max_concurrent=1)
-
-    # Auto-detect decimal places from config if not provided
-    if decimal_places is None:
-        decimal_places = _extract_decimal_places(stats_area_columns_formatting)
-        logger.debug(f"Using decimal_places={decimal_places} from config")
 
     # Validate endpoint
     validate_ee_endpoint("standard", raise_error=False)
@@ -1791,7 +1756,7 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
     max_retries: int = 3,
     add_metadata_server: bool = False,
     logger: logging.Logger = None,
-    # Format parameters (auto-detect from config if not provided)
+    # Format parameters
     decimal_places: int = None,
     remove_median_columns: bool = True,
     convert_water_flag: bool = True,
@@ -1836,10 +1801,7 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
     logger : logging.Logger, optional
         Logger for output
     decimal_places : int, optional
-        Decimal places for rounding. If None, auto-detects from config:
-        - Area columns: geometry_area_column_formatting
-        - Percent columns: stats_percent_columns_formatting
-        - Other columns: stats_area_columns_formatting
+        Decimal places for rounding. If None, retain the calculated precision.
     remove_median_columns : bool
         Remove the intermediate '_mode' columns (they were '_median' columns before the
         admin code switched to the mode; the parameter keeps its name for compatibility) (default True).
@@ -1866,12 +1828,6 @@ def whisp_formatted_stats_geojson_to_df_concurrent(
     from datetime import datetime, timezone
 
     logger = logger or logging.getLogger("whisp")
-
-    # Auto-detect decimal places from config if not provided
-    if decimal_places is None:
-        # Use stats_area_columns_formatting as default for most columns
-        decimal_places = _extract_decimal_places(stats_area_columns_formatting)
-        logger.debug(f"Using decimal_places={decimal_places} from config")
 
     # Load original geometries once here if needed for audit trail (avoid reloading later)
     gdf_original_geoms = None
@@ -1988,7 +1944,7 @@ def whisp_formatted_stats_geojson_to_df_sequential(
     custom_bands: Dict[str, Any] = None,
     add_metadata_client_side: bool = True,
     logger: logging.Logger = None,
-    # Format parameters (auto-detect from config if not provided)
+    # Format parameters
     decimal_places: int = None,
     remove_median_columns: bool = True,
     convert_water_flag: bool = True,
@@ -2025,10 +1981,7 @@ def whisp_formatted_stats_geojson_to_df_sequential(
     logger : logging.Logger, optional
         Logger for output
     decimal_places : int, optional
-        Decimal places for rounding. If None, auto-detects from config:
-        - Area columns: geometry_area_column_formatting
-        - Percent columns: stats_percent_columns_formatting
-        - Other columns: stats_area_columns_formatting
+        Decimal places for rounding. If None, retain the calculated precision.
     remove_median_columns : bool
         Remove the intermediate '_mode' columns (they were '_median' columns before the
         admin code switched to the mode; the parameter keeps its name for compatibility) (default True).
@@ -2055,12 +2008,6 @@ def whisp_formatted_stats_geojson_to_df_sequential(
     from datetime import datetime, timezone
 
     logger = logger or logging.getLogger("whisp")
-
-    # Auto-detect decimal places from config if not provided
-    if decimal_places is None:
-        # Use stats_area_columns_formatting as default for most columns
-        decimal_places = _extract_decimal_places(stats_area_columns_formatting)
-        logger.debug(f"Using decimal_places={decimal_places} from config")
 
     # Load original geometries once here if needed for audit trail (avoid reloading later)
     gdf_original_geoms = None
@@ -2183,7 +2130,7 @@ def whisp_formatted_stats_geojson_to_df_fast(
     validate_geometries: bool = True,
     max_retries: int = 3,
     add_metadata_server: bool = False,
-    # Format parameters (auto-detect from config if not provided)
+    # Format parameters
     decimal_places: int = None,
     remove_median_columns: bool = True,
     convert_water_flag: bool = True,
@@ -2230,7 +2177,7 @@ def whisp_formatted_stats_geojson_to_df_fast(
     add_metadata_server : bool
         Add metadata server-side (only for concurrent mode)
     decimal_places : int, optional
-        Decimal places for rounding. If None, auto-detects from config.
+        Decimal places for rounding. If None, retain the calculated precision.
     remove_median_columns : bool
         Remove the intermediate '_mode' columns (they were '_median' columns before the
         admin code switched to the mode; the parameter keeps its name for compatibility)

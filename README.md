@@ -112,6 +112,8 @@ The **relevant risk assessment column depends on the commodity** in question:
 
 Each risk column holds one of the values `low`, `high` or `more_info_needed` (shown as "Low", "High" and "More info needed" in the Whisp App).
 
+Statistics are no longer decimal-rounded by default before risk is calculated; indicators and risk can therefore change near thresholds, particularly for small plots. `format_stats_dataframe` also defaults to no decimal rounding; pass `decimal_places` explicitly when rounding is needed. Apply presentation rounding after calculating risk. The output schema still uses `float32` for many values, so values extremely close to a threshold remain subject to floating-point precision limits. Previously rounded exports cannot recover their original precision.
+
   **Note:** the specific datasets named in the diagrams below are examples only and may not all be reflected in the current codebase. For the datasets currently used, see the [layers description](https://github.com/forestdatapartnership/whisp/blob/main/layers_description.md).
 
   *The Whisp algorithm for **Perennial Crops** visualized:*
